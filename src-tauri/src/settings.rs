@@ -191,20 +191,26 @@ fn seed_personality_notes(personalities: &mut [Personality]) {
 
         let defaults = match personality.id.as_str() {
             "messaging" => vec![
-                "- Clean up into natural, conversational text—casual and concise like you'd type.".to_string(),
-                "- Remove filler words but keep the friendly, informal tone.".to_string(),
+                "- Write semi-casual, friendly, as if your messaging someone".to_string(),
+                "- Transcribe spoken emoji descriptions directly into icons (e.g., 'laughing face' becomes 😂).".to_string(),
+                "- Retain all internet slang, acronyms, and text-speak (e.g., 'tmrw', 'rn', 'omg') exactly as said.".to_string(),
             ],
             "email" => vec![
-                "- Format as a proper email with greeting and sign-off.".to_string(),
-                "- Polish into professional, clear language with short paragraphs.".to_string(),
+                "- Write in correct email semi-formal, friendly, formatting with new lines and paragraphs.".to_string(),
+                "- Fix run-on sentences by breaking them into distinct, logical statements.".to_string(),
+                "- Ensure standard capitalization and punctuation rules are applied strictly.".to_string(),
+                "- Sign off with my name".to_string(),
             ],
             "notes" => vec![
-                "- Organize into structured notes with Markdown headings and bullet points.".to_string(),
-                "- Remove filler but keep all content scannable and easy to reference.".to_string(),
+                "- Distill into a concise, scannable format based on the user's speech.".to_string(),
+                "- Remove conversational filler (ums, ahs), repetitive thoughts, and fluff.".to_string(),
+                "- Utilize Markdown syntax: Use bullet points for lists and bold text for key concepts.".to_string(),
+                "- Rephrase rambling narrative into direct, active-voice statements based on the user's speech.".to_string(),
             ],
             "coding" => vec![
-                "- Format code into proper blocks with clear syntax.".to_string(),
-                "- Structure technical explanations logically, keeping all details precise.".to_string(),
+                "- Treat technical keywords, library names, and logic as immutable constants based on the user's speech; do not rephrase them.".to_string(),
+                "- Apply proper casing conventions to variables and functions based on context (e.g., camelCase for JS, snake_case for Python) based on the user's speech.".to_string(),
+                "- Prioritize syntax accuracy over conversational flow based on the user's speech.".to_string(),
             ],
             _ => Vec::new(),
         };

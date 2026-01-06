@@ -38,11 +38,16 @@ fn token_match(haystack: &str, needle: &str) -> bool {
         return false;
     }
 
-    let pattern = format!(r"(^|[^a-z0-9]){}([^a-z0-9]|$)", regex::escape(&needle));
-    match regex::Regex::new(&pattern) {
-        Ok(regex) => regex.is_match(&haystack),
-        Err(_) => false,
+    let haystack_bytes = haystack.as_bytes();
+    for (i, _) in haystack.match_indices(&needle) {
+        let before_ok = i == 0 || !haystack_bytes[i - 1].is_ascii_alphanumeric();
+        let after_ok = i + needle.len() >= haystack.len()
+            || !haystack_bytes[i + needle.len()].is_ascii_alphanumeric();
+        if before_ok && after_ok {
+            return true;
+        }
     }
+    false
 }
 
 fn site_matches(haystack: &str, site: &str) -> bool {
@@ -144,7 +149,7 @@ pub fn build_mode_prompt(settings: &UserSettings) -> Option<String> {
 
     let mut prompt = MODE_PROMPT_PREAMBLE.to_string();
     if !settings.user_name.trim().is_empty() {
-        prompt.push_str(&format!("\n- User name: {}", settings.user_name.trim()));
+        prompt.push_str(&format!("\n- My name is: {}", settings.user_name.trim()));
     }
     prompt.push_str("\n\n");
     prompt.push_str(&instructions);
