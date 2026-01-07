@@ -322,12 +322,12 @@ const AccountView = ({
             <div className="space-y-3">
                 <h3 className="text-[11px] uppercase tracking-wider font-semibold text-content-muted">Account Settings</h3>
                 <div className="bg-surface-surface border border-border-primary rounded-xl overflow-hidden divide-y divide-surface-elevated">
-                    <div className="flex items-center justify-between p-4 hover:bg-surface-elevated transition-colors group">
+                    <div className="flex items-center justify-between p-4 transition-colors group">
                         <div className="flex items-center gap-3">
                             <div>
                                 <div className="text-[13px] text-content-primary font-medium">Subscription</div>
                                 <div className="text-[11px] text-content-muted">
-                                    {isSubscriber ? "Active Pro Plan" : "Free Plan"}
+                                    {isSubscriber ? "Active Cloud Plan" : "Free Plan"}
                                 </div>
                             </div>
                         </div>
@@ -348,7 +348,7 @@ const AccountView = ({
                         )}
                     </div>
 
-                    <div className="flex items-center justify-between p-4 hover:bg-surface-elevated transition-colors">
+                    <div className="flex items-center justify-between p-4 transition-colors">
                         <div className="flex items-center gap-3">
                             <div>
                                 <div className={`text-[13px] font-medium ${isSubscriber ? "text-content-primary" : "text-content-muted"}`}>History Sync</div>
@@ -366,14 +366,7 @@ const AccountView = ({
                                     className={`absolute top-[2px] h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${cloudSyncEnabled ? "translate-x-[14px]" : "translate-x-[2px]"}`}
                                 />
                             </button>
-                        ) : (
-                            <button
-                                onClick={() => openUrl("https://glimpse-app.lemonsqueezy.com/buy/16bdbd7d-2aa4-4c4e-a101-482386083ea7")}
-                                className="px-3 py-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20 text-[11px] font-medium text-amber-400 hover:bg-amber-400/20 transition-colors"
-                            >
-                                Upgrade
-                            </button>
-                        )}
+                        ) : null}
                     </div>
                 </div>
             </div>

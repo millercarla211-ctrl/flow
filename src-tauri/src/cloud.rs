@@ -216,9 +216,8 @@ pub fn open_sign_in(app: AppHandle<AppRuntime>) -> Result<(), String> {
 #[tauri::command]
 pub fn open_checkout(app: AppHandle<AppRuntime>) -> Result<(), String> {
     dotenvy::dotenv().ok();
-    let checkout_url = std::env::var("VITE_CHECKOUT_URL").unwrap_or_else(|_| {
-        "https://glimpse-app.lemonsqueezy.com/buy/16bdbd7d-2aa4-4c4e-a101-482386083ea7".to_string()
-    });
+    let checkout_url =
+        std::env::var("VITE_CHECKOUT_URL").map_err(|_| "VITE_CHECKOUT_URL not set".to_string())?;
 
     app.opener()
         .open_url(&checkout_url, None::<&str>)
