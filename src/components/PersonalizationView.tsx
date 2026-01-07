@@ -523,7 +523,7 @@ const PersonalizationView = () => {
                 <DotMatrix
                     rows={2}
                     cols={3}
-                    activeDots={[0, 1, 3, 4]}
+                    activeDots={[0, 1, 4, 5]}
                     dotSize={3}
                     gap={3}
                     color="var(--color-accent)"

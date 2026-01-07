@@ -1,8 +1,8 @@
 
-## New Features & improvements
 
 ## Cloud Mode
-
+ Introducing cloud mode, a subscription that brings advanced transcription capabilities with cross-device sync. Cloud mode offers bigger and better AI models, faster processing, and seamless synchronization of your transcription history across all your devices. It's currently available in beta with more features on the way soon!
+## New Features & improvements
 
 **Edit Mode:** 
 You can now use voice commands to edit highlighted text ("Make this more professional"). This can be enabled in settings under 'edit mode'.
@@ -12,6 +12,7 @@ Added an idle unloading feature for local models to save your system memory when
 - Redesigned Settings and Account views for a cleaner look.
 - Updated "What's New" to show history of past releases.
 - Onboarding now displays model sizes and includes account confirmation steps.
+- Transcription list now has MarkDown support.
 
 ### Fixes
 - Fixed a bug where toast notifications could cause the app to soft-lock.
