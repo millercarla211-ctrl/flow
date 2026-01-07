@@ -128,6 +128,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({ record, onDelete,
         : "Unknown model";
     const isCloudModel = record.speech_model?.startsWith("cloud-") ?? false;
     const llmModelLabel = record.llm_model?.trim() || null;
+    const modeLabel = record.mode_name?.trim() || null;
     const wordCountLabel = `${record.word_count || 0} ${record.word_count === 1 ? "word" : "words"}`;
     const formatDuration = (seconds: number) => {
         if (!Number.isFinite(seconds) || seconds <= 0) return "0s audio";
@@ -250,6 +251,12 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({ record, onDelete,
                                     <>
                                         <DotMatrix rows={1} cols={1} activeDots={[0]} dotSize={2} gap={1} color="var(--color-border-hover)" />
                                         <span>LLM: {llmModelLabel}</span>
+                                    </>
+                                )}
+                                {modeLabel && (
+                                    <>
+                                        <DotMatrix rows={1} cols={1} activeDots={[0]} dotSize={2} gap={1} color="var(--color-border-hover)" />
+                                        <span>Mode: {modeLabel}</span>
                                     </>
                                 )}
                             </>

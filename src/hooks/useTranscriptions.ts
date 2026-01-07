@@ -24,6 +24,8 @@ export type TranscriptionRecord = {
     word_count: number;
     audio_duration_seconds: number;
     synced: boolean;
+    mode_id?: string | null;
+    mode_name?: string | null;
 };
 
 interface UseTranscriptionsOptions {
@@ -250,6 +252,8 @@ export function useTranscriptions(options: UseTranscriptionsOptions = {}) {
                     word_count: doc.word_count,
                     audio_duration_seconds: doc.audio_duration_seconds,
                     synced: true,
+                    mode_id: doc.mode_id,
+                    mode_name: doc.mode_name,
                 };
 
                 const wasImported = await invoke<boolean>("import_transcription_from_cloud", { record: localRecord });

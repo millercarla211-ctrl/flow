@@ -3,7 +3,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{accessibility_context, mode_context};
-use crate::settings::{LlmProvider, UserSettings};
+use crate::settings::{LlmProvider, Personality, UserSettings};
 
 const SYSTEM_PROMPT: &str = r#"
 You clean up speech-to-text transcriptions. Your ONLY job is to:
@@ -186,9 +186,16 @@ fn parse_output(response: &str) -> Option<String> {
     }
 }
 
-fn build_system_prompt(settings: &UserSettings) -> String {
+fn build_system_prompt(settings: &UserSettings, mode: Option<&Personality>) -> String {
     accessibility_context::log_active_context();
 
+    if let Some(personality) = mode {
+        if let Some(prompt) = mode_context::build_mode_prompt_for_personality(settings, personality) {
+            return prompt;
+        }
+    }
+
+    // No mode provided - auto-resolve from current context
     if let Some(prompt) = mode_context::build_mode_prompt(settings) {
         return prompt;
     }
@@ -254,6 +261,7 @@ pub async fn cleanup_transcription(
     client: &Client,
     text: &str,
     settings: &UserSettings,
+    mode: Option<&Personality>,
 ) -> Result<String> {
     if !settings.llm_cleanup_enabled || matches!(settings.llm_provider, LlmProvider::None) {
         return Err(anyhow!("LLM cleanup not configured"));
@@ -266,7 +274,7 @@ pub async fn cleanup_transcription(
         messages: vec![
             Message {
                 role: "system".into(),
-                content: build_system_prompt(settings),
+                content: build_system_prompt(settings, mode),
             },
             Message {
                 role: "user".into(),

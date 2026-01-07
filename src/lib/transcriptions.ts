@@ -26,6 +26,8 @@ export interface CloudTranscription extends Document {
     is_deleted: boolean;
     timestamp: string;
     user_id: string;
+    mode_id: string | null;
+    mode_name: string | null;
 }
 
 export type TranscriptionInput = Omit<CloudTranscription, "$id" | "$createdAt" | "$updatedAt" | "$permissions" | "$collectionId" | "$databaseId" | "$sequence">;
@@ -126,6 +128,8 @@ export async function syncLocalTranscription(
         llm_model?: string | null;
         word_count: number;
         audio_duration_seconds: number;
+        mode_id?: string | null;
+        mode_name?: string | null;
     }
 ): Promise<CloudTranscription> {
     const existing = await findByLocalId(userId, localRecord.id);
@@ -145,6 +149,8 @@ export async function syncLocalTranscription(
         is_deleted: false,
         timestamp: localRecord.timestamp,
         user_id: userId,
+        mode_id: localRecord.mode_id || null,
+        mode_name: localRecord.mode_name || null,
     };
 
     if (existing) {
@@ -165,6 +171,8 @@ type LocalRecordInput = {
     llm_model?: string | null;
     word_count: number;
     audio_duration_seconds: number;
+    mode_id?: string | null;
+    mode_name?: string | null;
 };
 
 export async function batchSyncTranscriptions(
@@ -219,6 +227,8 @@ export async function batchSyncTranscriptions(
                     is_deleted: false,
                     timestamp: localRecord.timestamp,
                     user_id: userId,
+                    mode_id: localRecord.mode_id || null,
+                    mode_name: localRecord.mode_name || null,
                 };
 
                 if (existing) {

@@ -35,6 +35,10 @@ pub struct TranscriptionRecord {
     pub audio_duration_seconds: f32,
     #[serde(default)]
     pub synced: bool,
+    #[serde(default)]
+    pub mode_id: Option<String>,
+    #[serde(default)]
+    pub mode_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -72,6 +76,8 @@ pub struct TranscriptionMetadata {
     pub word_count: u32,
     pub audio_duration_seconds: f32,
     pub synced: bool,
+    pub mode_id: Option<String>,
+    pub mode_name: Option<String>,
 }
 
 impl Default for TranscriptionMetadata {
@@ -82,6 +88,8 @@ impl Default for TranscriptionMetadata {
             word_count: 0,
             audio_duration_seconds: 0.0,
             synced: false,
+            mode_id: None,
+            mode_name: None,
         }
     }
 }
@@ -132,6 +140,8 @@ impl StorageManager {
             word_count: metadata.word_count,
             audio_duration_seconds: metadata.audio_duration_seconds,
             synced: metadata.synced,
+            mode_id: metadata.mode_id,
+            mode_name: metadata.mode_name,
         };
 
         let conn = self.connection.lock();
@@ -172,6 +182,8 @@ impl StorageManager {
             word_count: metadata.word_count,
             audio_duration_seconds: metadata.audio_duration_seconds,
             synced: metadata.synced,
+            mode_id: metadata.mode_id,
+            mode_name: metadata.mode_name,
         };
 
         let conn = self.connection.lock();
@@ -229,8 +241,10 @@ impl StorageManager {
                 llm_model = ?7,
                 word_count = ?8,
                 audio_duration_seconds = ?9,
-                synced = ?10
-             WHERE id = ?11",
+                synced = ?10,
+                mode_id = ?11,
+                mode_name = ?12
+             WHERE id = ?13",
             params![
                 text,
                 raw_text,
@@ -242,21 +256,13 @@ impl StorageManager {
                 metadata.word_count,
                 metadata.audio_duration_seconds,
                 metadata.synced,
+                metadata.mode_id,
+                metadata.mode_name,
                 id,
             ],
         )?;
 
         Self::get_record(&conn, id)
-    }
-
-    pub fn get_all(&self) -> Vec<TranscriptionRecord> {
-        match self.load_all_from_db() {
-            Ok(records) => records,
-            Err(err) => {
-                eprintln!("Failed to load transcriptions: {err}");
-                Vec::new()
-            }
-        }
     }
 
     pub fn get_all_filtered(&self, search_query: Option<&str>) -> Result<Vec<TranscriptionRecord>> {
@@ -265,7 +271,7 @@ impl StorageManager {
 
         let sql = format!(
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
-                    speech_model, llm_model, word_count, audio_duration_seconds, synced
+                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name
              FROM transcriptions
              {}
              ORDER BY timestamp DESC",
@@ -324,7 +330,7 @@ impl StorageManager {
 
         let sql = format!(
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
-                    speech_model, llm_model, word_count, audio_duration_seconds, synced
+                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name
              FROM transcriptions
              {}
              ORDER BY timestamp DESC
@@ -390,8 +396,10 @@ impl StorageManager {
                 llm_model,
                 word_count,
                 audio_duration_seconds,
-                synced
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                synced,
+                mode_id,
+                mode_name
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 record.id,
                 timestamp,
@@ -406,6 +414,8 @@ impl StorageManager {
                 record.word_count as i64,
                 record.audio_duration_seconds as f64,
                 if record.synced { 1 } else { 0 },
+                record.mode_id,
+                record.mode_name,
             ],
         )?;
         Ok(())
@@ -469,27 +479,13 @@ impl StorageManager {
     fn get_record(conn: &Connection, id: &str) -> Result<Option<TranscriptionRecord>> {
         conn.query_row(
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
-                    speech_model, llm_model, word_count, audio_duration_seconds, synced
+                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name
              FROM transcriptions WHERE id = ?1",
             params![id],
             Self::record_from_row,
         )
         .optional()
         .map_err(Into::into)
-    }
-
-    fn load_all_from_db(&self) -> Result<Vec<TranscriptionRecord>> {
-        let conn = self.connection.lock();
-        let mut stmt = conn.prepare(
-            "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
-                    speech_model, llm_model, word_count, audio_duration_seconds, synced
-             FROM transcriptions ORDER BY timestamp DESC",
-        )?;
-
-        let records = stmt
-            .query_map([], Self::record_from_row)?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-        Ok(records)
     }
 
     fn record_from_row(row: &Row<'_>) -> rusqlite::Result<TranscriptionRecord> {
@@ -532,6 +528,8 @@ impl StorageManager {
             word_count: row.get::<_, i64>("word_count")? as u32,
             audio_duration_seconds: row.get::<_, f64>("audio_duration_seconds")? as f32,
             synced: row.get::<_, i64>("synced").unwrap_or(0) == 1,
+            mode_id: row.get("mode_id").unwrap_or(None),
+            mode_name: row.get("mode_name").unwrap_or(None),
         })
     }
 
@@ -557,7 +555,9 @@ impl StorageManager {
                 llm_model TEXT NULL,
                 word_count INTEGER NOT NULL DEFAULT 0,
                 audio_duration_seconds REAL NOT NULL DEFAULT 0,
-                synced INTEGER NOT NULL DEFAULT 0
+                synced INTEGER NOT NULL DEFAULT 0,
+                mode_id TEXT NULL,
+                mode_name TEXT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_transcriptions_timestamp ON transcriptions(timestamp);
             CREATE INDEX IF NOT EXISTS idx_transcriptions_status ON transcriptions(status);

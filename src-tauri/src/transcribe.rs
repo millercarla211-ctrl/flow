@@ -8,7 +8,7 @@ use crate::{
     accessibility_context, analytics, assistive, cloud, dictionary, llm_cleanup, mode_context,
     model_manager,
     recorder::{CompletedRecording, RecordingSaved},
-    settings::{TranscriptionMode, UserSettings},
+    settings::{Personality, TranscriptionMode, UserSettings},
     storage, toast, transcription_api, AppRuntime, AppState, EVENT_TRANSCRIPTION_COMPLETE,
     EVENT_TRANSCRIPTION_ERROR,
 };
@@ -63,6 +63,8 @@ pub(crate) fn queue_transcription(
         );
         accessibility_context::log_active_context();
 
+        let active_mode = mode_context::resolve_active_personality(&settings);
+
         // Cloud transcription path - handles everything server-side
         if use_cloud_auth {
             let creds = cloud_creds.unwrap();
@@ -77,6 +79,7 @@ pub(crate) fn queue_transcription(
                 pending_selected_text.clone(),
                 None,
                 creds.history_sync_enabled,
+                active_mode.as_ref(),
             );
             let cloud_config = transcription_api::CloudTranscriptionConfig::new(
                 creds.function_url,
@@ -158,6 +161,8 @@ pub(crate) fn queue_transcription(
                         word_count: count_words(&final_transcript),
                         audio_duration_seconds: compute_audio_duration_seconds(&saved_for_task),
                         synced: cloud_saved,
+                        mode_id: active_mode.as_ref().map(|m| m.id.clone()),
+                        mode_name: active_mode.as_ref().map(|m| m.name.clone()),
                     };
 
                     analytics::track_transcription_completed(
@@ -328,6 +333,7 @@ pub(crate) fn queue_transcription(
                                 &http,
                                 &raw_transcript,
                                 &settings,
+                                active_mode.as_ref(),
                             )
                             .await
                             {
@@ -385,6 +391,7 @@ pub(crate) fn queue_transcription(
                     &final_transcript,
                     llm_cleaned,
                     false, // Not synced - local transcriptions need to be synced later
+                    active_mode.as_ref(),
                 );
 
                 emit_transcription_complete_with_cleanup(
@@ -428,12 +435,23 @@ pub(crate) fn retry_transcription_async(
     saved: RecordingSaved,
     settings: UserSettings,
     original_id: String,
+    saved_mode: (Option<String>, Option<String>),
 ) {
     let http = app.state::<AppState>().http();
     let cloud_creds = app.state::<AppState>().cloud_manager().get_credentials();
     let app_handle = app.clone();
     let saved_for_task = saved.clone();
     let retry_id = original_id.clone();
+    let (saved_mode_id, saved_mode_name) = saved_mode;
+
+    // Look up the saved personality (if it still exists and is enabled)
+    let saved_personality = saved_mode_id.as_ref().and_then(|id| {
+        settings
+            .personalities
+            .iter()
+            .find(|p| &p.id == id && p.enabled)
+            .cloned()
+    });
 
     async_runtime::spawn(async move {
         let use_local = matches!(settings.transcription_mode, TranscriptionMode::Local);
@@ -460,6 +478,7 @@ pub(crate) fn retry_transcription_async(
                 None,
                 Some(retry_id.clone()),
                 creds.history_sync_enabled,
+                saved_personality.as_ref(),
             );
             let cloud_config = transcription_api::CloudTranscriptionConfig::new(
                 creds.function_url,
@@ -507,6 +526,8 @@ pub(crate) fn retry_transcription_async(
                         word_count: count_words(&final_transcript),
                         audio_duration_seconds: compute_audio_duration_seconds(&saved_for_task),
                         synced: cloud_saved,
+                        mode_id: saved_mode_id.clone(),
+                        mode_name: saved_mode_name.clone(),
                     };
 
                     analytics::track_transcription_completed(
@@ -638,8 +659,13 @@ pub(crate) fn retry_transcription_async(
 
                 let (final_transcript, llm_cleaned) =
                     if llm_cleanup::is_cleanup_available(&settings) {
-                        match llm_cleanup::cleanup_transcription(&http, &raw_transcript, &settings)
-                            .await
+                        match llm_cleanup::cleanup_transcription(
+                            &http,
+                            &raw_transcript,
+                            &settings,
+                            saved_personality.as_ref(),
+                        )
+                        .await
                         {
                             Ok(cleaned) => (cleaned, true),
                             Err(err) => {
@@ -661,15 +687,19 @@ pub(crate) fn retry_transcription_async(
                     return;
                 }
 
-                let metadata = build_transcription_metadata(
-                    &saved_for_task,
-                    &settings,
-                    use_local,
-                    reported_model.as_deref(),
-                    &final_transcript,
-                    llm_cleaned,
-                    false, // Local retries are not synced
-                );
+                let metadata = storage::TranscriptionMetadata {
+                    speech_model: resolve_speech_model_label(&settings, use_local, reported_model.as_deref()),
+                    llm_model: if llm_cleaned {
+                        llm_cleanup::resolved_model_name(&settings)
+                    } else {
+                        None
+                    },
+                    word_count: count_words(&final_transcript),
+                    audio_duration_seconds: compute_audio_duration_seconds(&saved_for_task),
+                    synced: false, // Local retries are not synced
+                    mode_id: saved_mode_id.clone(),
+                    mode_name: saved_mode_name.clone(),
+                };
 
                 let raw_text = if llm_cleaned {
                     Some(raw_transcript.clone())
@@ -1045,6 +1075,7 @@ fn build_transcription_metadata(
     final_text: &str,
     llm_cleaned: bool,
     synced: bool,
+    mode: Option<&Personality>,
 ) -> storage::TranscriptionMetadata {
     storage::TranscriptionMetadata {
         speech_model: resolve_speech_model_label(settings, use_local, reported_model),
@@ -1056,6 +1087,8 @@ fn build_transcription_metadata(
         word_count: count_words(final_text),
         audio_duration_seconds: compute_audio_duration_seconds(saved),
         synced,
+        mode_id: mode.map(|m| m.id.clone()),
+        mode_name: mode.map(|m| m.name.clone()),
     }
 }
 
@@ -1094,9 +1127,9 @@ fn build_transcription_payload(
     selected_text: Option<String>,
     local_id: Option<String>,
     history_sync: bool,
+    mode: Option<&Personality>,
 ) -> transcription_api::TranscriptionPayload {
-    let personality = mode_context::resolve_active_personality(settings)
-        .map(|p| transcription_api::PersonalityPayload::from_personality(&p));
+    let personality = mode.map(|p| transcription_api::PersonalityPayload::from_personality(p));
 
     let user_name = if settings.user_name.trim().is_empty() {
         None

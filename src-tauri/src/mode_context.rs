@@ -170,3 +170,26 @@ pub fn resolve_active_personality(settings: &UserSettings) -> Option<Personality
         .find(|mode| mode_matches(mode, &context))
         .cloned()
 }
+
+pub fn build_mode_prompt_for_personality(settings: &UserSettings, personality: &Personality) -> Option<String> {
+    if personality.instructions.is_empty() {
+        return None;
+    }
+
+    let mode = ModeContextMode {
+        name: personality.name.clone(),
+        instructions: personality.instructions.clone(),
+    };
+    let instructions = format_mode_context(&[mode]);
+    if instructions.is_empty() {
+        return None;
+    }
+
+    let mut prompt = MODE_PROMPT_PREAMBLE.to_string();
+    if !settings.user_name.trim().is_empty() {
+        prompt.push_str(&format!("\n- My name is: {}", settings.user_name.trim()));
+    }
+    prompt.push_str("\n\n");
+    prompt.push_str(&instructions);
+    Some(prompt)
+}

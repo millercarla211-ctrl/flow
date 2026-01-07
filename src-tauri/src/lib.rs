@@ -820,7 +820,8 @@ async fn retry_transcription(
     };
 
     let settings = state.current_settings();
-    transcribe::retry_transcription_async(&app, saved, settings, id);
+    let saved_mode = (record.mode_id, record.mode_name);
+    transcribe::retry_transcription_async(&app, saved, settings, id, saved_mode);
 
     Ok(())
 }
@@ -847,13 +848,29 @@ async fn retry_llm_cleanup(
     let llm_model = llm_cleanup::resolved_model_name(&settings);
 
     let text_to_clean = record.raw_text.unwrap_or(record.text);
+    
+    // Look up the saved personality (if it still exists and is enabled)
+    let saved_personality = record.mode_id.as_ref().and_then(|id| {
+        settings
+            .personalities
+            .iter()
+            .find(|p| &p.id == id && p.enabled)
+            .cloned()
+    });
 
     let http = state.http();
     let storage = state.storage();
     let record_id = id.clone();
 
     async_runtime::spawn(async move {
-        match llm_cleanup::cleanup_transcription(&http, &text_to_clean, &settings).await {
+        match llm_cleanup::cleanup_transcription(
+            &http,
+            &text_to_clean,
+            &settings,
+            saved_personality.as_ref(),
+        )
+        .await
+        {
             Ok(cleaned) => {
                 if let Err(err) =
                     storage.update_with_llm_cleanup(&record_id, cleaned, llm_model.clone())
