@@ -14,7 +14,7 @@
 
 
 > [!NOTE]
-> **macOS only** — Glimpse currently supports macOS 11+ exclusively. Windows and Linux support may be added in the future.
+> **macOS only** — Glimpse currently supports macOS 13+ exclusively. Windows and Linux support may be added in the future.
 
 ## Download
 
@@ -27,6 +27,8 @@ Pre-built releases are available on the [Releases page](https://github.com/Legen
 - **Replacements** - Directly replace words in sentences for other defined words
 - **Custom dictionary** — Define custom words and phrases for accurate transcription
 - **Assistive text insertion** — Automatically inserts transcribed text where you're typing
+- **Edit mode** — Highlight any text and speak the changes to it
+- **Personalization** — Teach Glimpse how to respond in each app or website
 - **More coming soon** — See the [Roadmap](#roadmap) below
 
 ## Building Locally
@@ -76,9 +78,9 @@ bun tauri build
 - [x] Custom dictionary for words and phrases
 - [ ] Temporary mode: transcribe without saving
 - [x] Built-in updater
-- [ ] App localization
-- [ ] Personalization & per app context: per-app writing styles (email, messaging, etc.)
-- [ ] Edit mode: rewrite selected text with full context
+- [ ] App localization via lingui
+- [x] Personalization & per app context: per-app writing styles (email, messaging, etc.)
+- [x] Edit mode: rewrite whats selected text with full context
 - [ ] Ask mode: query what's on your screen
 
 ## Privacy
