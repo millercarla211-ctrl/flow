@@ -73,12 +73,9 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const audioReferenceLevelRef = useRef<number>(0);
   const audioFrameCountRef = useRef<number>(0);
 
-  // Single source of truth for frontend rendering (backend is the real truth)
   const [status, setStatus] = useState<PillStatus>("idle");
   const statusRef = useRef<PillStatus>("idle");
   const [isErrorFlashing, setIsErrorFlashing] = useState(false);
-
-  // --- Visual Logic (Dumb) ---
 
   const getMaskOpacity = useCallback((x: number, y: number, width: number, height: number): number => {
     const radius = height / 2;
@@ -439,11 +436,9 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     }
   }, [drawAudioFrame, drawBaseDots]);
 
-  // --- Core Reactive Logic ---
-
   const hideWindow = useCallback(async () => {
     try {
-        invoke("cancel_recording"); // Tell backend to stop recording too
+        invoke("cancel_recording");
         const window = getCurrentWindow();
         await window.hide();
     } catch (err) {
@@ -468,7 +463,6 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [status, dismissOverlay]);
 
-  // Store callbacks in refs to avoid effect re-running
   const runAnimationRef = useRef(runAnimation);
   const stopAllAnimationsRef = useRef(stopAllAnimations);
   const drawBaseDotsRef = useRef(drawBaseDots);
@@ -499,13 +493,11 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     };
   }, []);
 
-  // Main Event Listener - Persistent, never recreated
   useEffect(() => {
     const unlistenPromise = listen<PillStatePayload>("pill:state", (e) => {
       const prev = statusRef.current;
       const next = e.payload.status;
 
-      // Logic: Backend says X, we do Y
       if (next === "listening" && prev !== "listening") {
         audioDataRef.current = emptyAudioDataRef.current;
         lastAudioDataAtRef.current = 0;
@@ -518,7 +510,6 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
       statusRef.current = next;
       setStatus(next);
 
-      // Visuals
       if (next === "processing") {
         runAnimationRef.current("processing");
       } else if (next === "error") {
@@ -535,7 +526,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
       unlistenPromise.then(unlisten => unlisten());
       stopAllAnimationsRef.current();
     };
-  }, []); // Empty deps - never re-runs
+  }, []);
 
   useEffect(() => {
     if (status === "error" && !isErrorFlashing) {
@@ -544,7 +535,6 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     }
   }, [status, isErrorFlashing, drawStaticIcon, stopAllAnimations]);
 
-  // Initial canvas setup
   const setupCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -575,7 +565,6 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
       heightsRef.current = new Array(cols).fill(0);
     }
     
-    // Initial draw
     if (statusRef.current === "idle") {
         drawBaseDots();
     }

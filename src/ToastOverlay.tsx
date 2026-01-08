@@ -4,7 +4,6 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import DotMatrix from "./components/DotMatrix";
 
-// Types
 export type ToastType = "error" | "info" | "success" | "warning" | "update" | "celebration";
 
 export interface ToastPayload {
@@ -125,7 +124,6 @@ const ToastOverlay: React.FC = () => {
     dismissWithCleanup();
   };
 
-  // Handle retry
   const handleRetry = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -157,7 +155,6 @@ const ToastOverlay: React.FC = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [toast]);
 
-  // Listen for toast events
   useEffect(() => {
     const unsub1 = listen<ToastPayload>("toast:show", async (ev) => {
       try {
@@ -175,7 +172,6 @@ const ToastOverlay: React.FC = () => {
       setToast({ ...ev.payload, isLeaving: false });
       setIsRetrying(false);
 
-      // Auto-dismiss for non-error toasts
       const durations: Record<ToastType, number> = {
         error: 0,
         info: 3000,
@@ -242,7 +238,6 @@ const ToastOverlay: React.FC = () => {
         onClick={(e) => e.stopPropagation()}
       >
         {toast.type === "celebration" && <TwinklingGrid />}
-        {/* X button */}
         <button
           type="button"
           onClick={handleClose}
@@ -252,7 +247,6 @@ const ToastOverlay: React.FC = () => {
           ✕
         </button>
 
-        {/* Content */}
         <div className="flex items-start gap-3 pr-5">
           {toast.type === "update" ? (
             <div className="mt-0.5 shrink-0">

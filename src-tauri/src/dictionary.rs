@@ -129,8 +129,6 @@ fn apply_case_pattern(matched: &str, replacement: &str) -> String {
     }
 }
 
-// Tauri commands
-
 #[tauri::command]
 pub fn set_dictionary(
     entries: Vec<String>,

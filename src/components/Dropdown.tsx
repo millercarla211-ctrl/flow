@@ -16,11 +16,11 @@ interface DropdownProps<T extends string | number> {
     onChange: (value: T) => void;
     options: DropdownOption<T>[];
     placeholder?: string;
-    label?: string; // Optional label inside the trigger
-    icon?: React.ReactNode; // Optional icon for the trigger
+    label?: string;
+    icon?: React.ReactNode;
     searchable?: boolean;
     searchPlaceholder?: string;
-    className?: string; // For the container
+    className?: string;
     menuClassName?: string;
     onOpen?: () => void;
 }

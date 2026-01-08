@@ -399,7 +399,6 @@ fn calculate_speech_percentage(samples: &[f32], sample_rate: u32) -> f32 {
         return 0.0;
     }
 
-    // Resample to VAD-compatible rate if needed
     let vad_rate = match sample_rate {
         8000 | 16000 | 32000 | 48000 => sample_rate,
         _ => 16000,

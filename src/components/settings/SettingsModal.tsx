@@ -199,8 +199,6 @@ const SettingsModal = ({
     });
 
     useEffect(() => {
-        // Only disable cloud sync if we have a user but they're not a subscriber
-        // Don't disable if currentUser is null (still loading)
         if (currentUser && !isSubscriber && cloudSyncEnabled) {
             setCloudSyncEnabled(false);
         }
@@ -678,7 +676,6 @@ const SettingsModal = ({
         try {
             await invoke("cancel_download", { model: modelKey });
             setDownloadState((prev) => ({ ...prev, [modelKey]: { status: "cancelled", percent: 0, downloaded: 0, total: 0 } }));
-            // Auto-clear after brief display
             setTimeout(() => {
                 setDownloadState((prev) => {
                     if (prev[modelKey]?.status === "cancelled") {
@@ -1077,7 +1074,7 @@ const SettingsModal = ({
                                             exit="exit"
                                             className="space-y-6"
                                         >
-                                            {/* Mode Selector - Primary at top */}
+
                                             <div className="space-y-2">
                                                 <h2 className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Processing</h2>
                                                 <div className="grid grid-cols-2 gap-3">
@@ -1128,9 +1125,9 @@ const SettingsModal = ({
                                                 </AnimatePresence>
                                             </div>
 
-                                            {/* Bento Grid Layout */}
+
                                             <div className="grid grid-cols-2 gap-3">
-                                                {/* Microphone */}
+
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-medium text-content-muted">Microphone</label>
                                                     <div className="relative z-20">
@@ -1149,7 +1146,7 @@ const SettingsModal = ({
                                                     </div>
                                                 </div>
 
-                                                {/* Language */}
+
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-medium text-content-muted"> Transcription Language</label>
                                                     <div className="relative z-10">
@@ -1167,7 +1164,7 @@ const SettingsModal = ({
                                                 </div>
                                             </div>
 
-                                            {/* Shortcuts Section */}
+
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div className="space-y-2">
                                                     <h2 className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Shortcuts</h2>
@@ -1239,7 +1236,7 @@ const SettingsModal = ({
                                                 <div className="space-y-2">
                                                     <h2 className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Features</h2>
 
-                                                    {/* Edit Mode */}
+
                                                     <div className={`rounded-lg border transition-all ${editModeEnabled ? "border-border-secondary bg-surface-surface" : "border-border-primary bg-transparent"
                                                         }`}>
                                                         <div className="py-2 px-2.5">
@@ -1278,7 +1275,7 @@ const SettingsModal = ({
                                                 </div>
                                             </div>
 
-                                            {/* Error display */}
+
                                             <AnimatePresence>
                                                 {error && (
                                                     <motion.div
@@ -1575,12 +1572,12 @@ const SettingsModal = ({
                                             exit="exit"
                                             className="space-y-6"
                                         >
-                                            {/* Permissions Section */}
+
                                             <div className="space-y-2">
                                                 <h2 className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Permissions</h2>
 
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    {/* Microphone Permission */}
+
                                                     <div className="rounded-lg border border-border-primary bg-surface-surface">
                                                         <div className="py-2.5 px-3">
                                                             <div className="flex items-center justify-between">
@@ -1605,7 +1602,7 @@ const SettingsModal = ({
                                                         </div>
                                                     </div>
 
-                                                    {/* Accessibility Permission */}
+
                                                     <div className="rounded-lg border border-border-primary bg-surface-surface">
                                                         <div className="py-2.5 px-3">
                                                             <div className="flex items-center justify-between">
@@ -1654,7 +1651,7 @@ const SettingsModal = ({
                                             exit="exit"
                                             className="space-y-6"
                                         >
-                                            {/* App Info Section */}
+
                                             <div className="space-y-2">
                                                 <h2 className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">App Info</h2>
 
@@ -1680,13 +1677,13 @@ const SettingsModal = ({
                                                 </button>
                                             </div>
 
-                                            {/* Updates Section */}
+
                                             <div className="space-y-2">
                                                 <h2 className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Updates</h2>
                                                 <UpdateChecker />
                                             </div>
 
-                                            {/* Setup Section */}
+
                                             <div className="space-y-2">
                                                 <h2 className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Setup</h2>
 
@@ -1854,7 +1851,7 @@ const ShortcutRow = ({ label, description, shortcut, enabled, isCapturing, captu
     <div className={`rounded-lg border transition-all ${enabled ? "border-border-secondary bg-surface-surface" : "border-border-primary bg-transparent"
         }`}>
         <div className="py-2 px-2.5">
-            {/* Top row: label + toggle */}
+
             <div className="flex items-center justify-between">
                 <span className="text-[11px] font-medium text-content-primary">{label}</span>
                 <button
@@ -1870,7 +1867,7 @@ const ShortcutRow = ({ label, description, shortcut, enabled, isCapturing, captu
                     />
                 </button>
             </div>
-            {/* Bottom row: description + shortcut */}
+
             <div className="flex items-center justify-between mt-0.5">
                 <span className="text-[9px] text-content-disabled">{description}</span>
                 <motion.button

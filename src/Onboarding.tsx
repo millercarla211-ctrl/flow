@@ -231,7 +231,6 @@ const formatShortcutForDisplay = (shortcut: string): string => {
 
 const Onboarding = ({ onComplete }: OnboardingProps) => {
     const [step, setStep] = useState<OnboardingStep>("welcome");
-    // Track where we skipped from for proper back navigation
     const skippedFrom = useRef<OnboardingStep | null>(null);
     const [micPermission, setMicPermission] = useState(false);
     const [accessibilityPermission, setAccessibilityPermission] = useState(false);
@@ -282,7 +281,6 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
 
     const checkMicPermission = useCallback(async () => {
         try {
-            // First try the native plugin
             const nativeGranted = await checkMicrophonePermission();
             if (nativeGranted) {
                 setMicPermission(true);
@@ -340,10 +338,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
 
     const handleRequestMicrophoneAccess = async () => {
         try {
-            // Use getUserMedia to trigger the native permission dialog
-            // This works cross-platform and is more reliable than the plugin
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            // Immediately stop the stream - we just needed to trigger the permission
             stream.getTracks().forEach(track => track.stop());
             await checkMicPermission();
         } catch (err) {
@@ -408,7 +403,6 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     };
 
     const goToPrevStep = () => {
-        // If we skipped steps to get here, go back to where we skipped from
         if (skippedFrom.current) {
             setStep(skippedFrom.current);
             skippedFrom.current = null;
@@ -631,7 +625,6 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                 ...prev,
                 [modelKey]: { status: "cancelled", percent: 0 },
             }));
-            // Auto-clear after brief display
             setTimeout(() => {
                 setLocalDownload((prev) => {
                     if (prev[modelKey]?.status === "cancelled") {

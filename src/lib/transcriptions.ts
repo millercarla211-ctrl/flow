@@ -7,7 +7,7 @@ const USAGE_COLLECTION_ID = import.meta.env.VITE_APPWRITE_USAGE_COLLECTION_ID;
 
 export interface UsageRecord extends Document {
     user_id: string;
-    period: string; // YYYY-MM format
+    period: string;
     audio_seconds_used: number;
 }
 
@@ -267,7 +267,7 @@ type UsageCache = {
     stats: CloudUsageStats;
     timestamp: number;
     userId: string;
-    monthKey: string; // YYYY-MM format to detect month changes
+    monthKey: string;
 };
 
 function getMonthKey(): string {
@@ -282,7 +282,6 @@ export function getCachedUsageStats(userId: string): CloudUsageStats | null {
 
         const data: UsageCache = JSON.parse(cached);
 
-        // Invalidate if different user or month changed
         if (data.userId !== userId || data.monthKey !== getMonthKey()) {
             localStorage.removeItem(USAGE_CACHE_KEY);
             return null;
@@ -309,7 +308,7 @@ export async function getCloudUsageStats(userId: string): Promise<CloudUsageStat
 
     const usageRecords = await listDocuments<UsageRecord>(DATABASE_ID, USAGE_COLLECTION_ID, [
         Query.equal("user_id", userId),
-        Query.limit(1000), // Enough for a few years
+        Query.limit(1000),
     ]);
 
     let lifetimeSeconds = 0;
@@ -322,8 +321,6 @@ export async function getCloudUsageStats(userId: string): Promise<CloudUsageStat
         }
     }
 
-    // For transcription counts, we still need to query transcriptions
-    // but this is optional metadata, not critical for quota enforcement
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
@@ -334,7 +331,7 @@ export async function getCloudUsageStats(userId: string): Promise<CloudUsageStat
             Query.equal("status", "success"),
             Query.equal("is_deleted", false),
             Query.greaterThanEqual("timestamp", monthStart.toISOString()),
-            Query.limit(1), // We only need the total count
+            Query.limit(1),
         ]),
         listDocuments<CloudTranscription>(DATABASE_ID, COLLECTION_ID, [
             Query.equal("user_id", userId),
@@ -351,7 +348,6 @@ export async function getCloudUsageStats(userId: string): Promise<CloudUsageStat
         cloud_transcriptions_this_month: monthlyTranscriptions.total,
     };
 
-    // Cache the fetched stats
     setCachedUsageStats(userId, stats);
 
     return stats;

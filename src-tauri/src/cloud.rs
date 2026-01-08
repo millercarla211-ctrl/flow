@@ -179,8 +179,6 @@ pub fn show_upgrade_required(app: &AppHandle<AppRuntime>, error: &CloudError) {
     );
 }
 
-// Tauri commands
-
 #[tauri::command]
 pub fn set_cloud_credentials(
     jwt: String,

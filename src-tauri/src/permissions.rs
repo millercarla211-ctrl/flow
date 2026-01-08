@@ -7,18 +7,15 @@ mod macos {
     /// Check if accessibility (AX) permission is granted.
     /// Uses AXIsProcessTrusted() from ApplicationServices framework.
     pub fn check_accessibility_permission() -> bool {
-        // Try the native API first
         if let Some(result) = check_accessibility_native() {
             return result;
         }
 
-        // Fallback: check via osascript (less reliable but works as backup)
         check_accessibility_osascript()
     }
 
     /// Native check using AXIsProcessTrusted
     fn check_accessibility_native() -> Option<bool> {
-        // Link to the ApplicationServices framework
         #[link(name = "ApplicationServices", kind = "framework")]
         extern "C" {
             fn AXIsProcessTrusted() -> u8;
@@ -30,7 +27,6 @@ mod macos {
 
     /// Fallback check using osascript to test if we can send keystrokes
     fn check_accessibility_osascript() -> bool {
-        // Try a simple AppleScript that requires accessibility
         let output = Command::new("osascript")
             .args(["-e", "tell application \"System Events\" to return 1"])
             .output();
@@ -48,7 +44,6 @@ mod macos {
 
     /// Open System Settings to the Accessibility privacy pane.
     pub fn open_accessibility_settings() -> Result<(), String> {
-        // macOS 13+ uses the new System Settings app
         let result = Command::new("open")
             .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
             .spawn();
@@ -75,7 +70,6 @@ mod macos {
 #[cfg(not(target_os = "macos"))]
 mod other {
     pub fn check_accessibility_permission() -> bool {
-        // Accessibility features may not be available on other platforms
         true
     }
 
@@ -88,7 +82,6 @@ mod other {
     }
 }
 
-// Re-export platform-specific implementations
 #[cfg(target_os = "macos")]
 pub use macos::*;
 
