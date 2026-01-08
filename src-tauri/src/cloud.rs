@@ -107,7 +107,7 @@ fn validate_jwt_expiry(jwt: &str) -> Result<(), CloudError> {
             .map_err(|_| CloudError::JwtInvalid)?
             .as_secs();
 
-        if now + 60 >= exp {
+        if now + 60 > exp {
             return Err(CloudError::JwtExpired);
         }
     }
