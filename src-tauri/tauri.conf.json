@@ -5,7 +5,7 @@
   "identifier": "dev.glimpse.glimpse",
   "build": {
     "beforeDevCommand": "bun run dev",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:8735",
     "beforeBuildCommand": "bun run build",
     "frontendDist": "../dist"
   },
