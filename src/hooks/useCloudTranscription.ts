@@ -5,12 +5,17 @@ import { createJwt, getCurrentUser } from "../lib/auth";
 
 const CLOUD_FUNCTION_URL = import.meta.env.VITE_CLOUD_TRANSCRIPTION_URL;
 const JWT_REFRESH_INTERVAL = 13 * 60 * 1000; // 13 minutes (JWT expires in 15)
+const JWT_REFRESH_BACKOFF_BASE_MS = 5000;
+const JWT_REFRESH_BACKOFF_MAX_MS = 5 * 60 * 1000;
+const JWT_REFRESH_BACKOFF_JITTER = 0.2;
 
 export function useCloudTranscription() {
     const jwtRefreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
     const hadAuthError = useRef(false);
     const refreshInFlight = useRef<Promise<void> | null>(null);
     const lastRefreshTime = useRef<number>(0);
+    const refreshFailures = useRef(0);
+    const refreshBackoffTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const setupCloudCredentials = useCallback(async (force = false) => {
         if (refreshInFlight.current) {
@@ -24,11 +29,38 @@ export function useCloudTranscription() {
         }
         lastRefreshTime.current = now;
 
+        const clearRefreshBackoff = () => {
+            refreshFailures.current = 0;
+            if (refreshBackoffTimeout.current) {
+                clearTimeout(refreshBackoffTimeout.current);
+                refreshBackoffTimeout.current = null;
+            }
+        };
+
+        const scheduleRefreshRetry = () => {
+            refreshFailures.current += 1;
+            const exponentialDelay = Math.min(
+                JWT_REFRESH_BACKOFF_BASE_MS * 2 ** (refreshFailures.current - 1),
+                JWT_REFRESH_BACKOFF_MAX_MS
+            );
+            const jitterMultiplier = 1 + (Math.random() * 2 - 1) * JWT_REFRESH_BACKOFF_JITTER;
+            const delay = Math.max(0, Math.round(exponentialDelay * jitterMultiplier));
+
+            if (refreshBackoffTimeout.current) {
+                clearTimeout(refreshBackoffTimeout.current);
+            }
+            refreshBackoffTimeout.current = setTimeout(() => {
+                refreshBackoffTimeout.current = null;
+                setupCloudCredentials(true);
+            }, delay);
+        };
+
         const refreshPromise = (async () => {
             try {
                 const user = await getCurrentUser();
                 if (!user) {
                     await invoke("clear_cloud_credentials");
+                    clearRefreshBackoff();
                     return;
                 }
 
@@ -37,6 +69,7 @@ export function useCloudTranscription() {
 
                 if (!CLOUD_FUNCTION_URL) {
                     await invoke("clear_cloud_credentials");
+                    clearRefreshBackoff();
                     return;
                 }
 
@@ -50,13 +83,14 @@ export function useCloudTranscription() {
                     isTester,
                     historySyncEnabled,
                 });
+                clearRefreshBackoff();
 
                 if (hadAuthError.current) {
                     hadAuthError.current = false;
                     emit("auth:changed");
                 }
             } catch {
-                await invoke("clear_cloud_credentials").catch(() => { });
+                scheduleRefreshRetry();
             }
         })();
 
@@ -113,6 +147,9 @@ export function useCloudTranscription() {
         return () => {
             if (jwtRefreshInterval.current) {
                 clearInterval(jwtRefreshInterval.current);
+            }
+            if (refreshBackoffTimeout.current) {
+                clearTimeout(refreshBackoffTimeout.current);
             }
             window.removeEventListener("storage", handleStorageChange);
             window.removeEventListener("focus", handleWindowFocus);
