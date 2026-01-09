@@ -49,31 +49,6 @@ pub fn show(app: &AppHandle<AppRuntime>, toast_type: &str, title: Option<&str>, 
     );
 }
 
-#[allow(dead_code)]
-pub fn show_with_options(
-    app: &AppHandle<AppRuntime>,
-    toast_type: &str,
-    title: Option<&str>,
-    message: &str,
-    auto_dismiss: Option<bool>,
-    duration: Option<u64>,
-) {
-    emit_toast(
-        app,
-        Payload {
-            toast_type: toast_type.to_string(),
-            title: title.map(String::from),
-            message: message.to_string(),
-            auto_dismiss,
-            duration,
-            retry_id: None,
-            mode: None,
-            action: None,
-            action_label: None,
-        },
-    );
-}
-
 pub fn show_with_action(
     app: &AppHandle<AppRuntime>,
     toast_type: &str,
@@ -98,7 +73,6 @@ pub fn show_with_action(
     );
 }
 
-#[allow(dead_code)]
 pub fn hide(app: &AppHandle<AppRuntime>) {
     let _ = app.emit(EVENT_HIDE, ());
 

@@ -77,9 +77,6 @@ impl CloudManager {
         self.credentials.lock().clone()
     }
 
-    pub fn has_credentials(&self) -> bool {
-        self.credentials.lock().is_some()
-    }
 }
 
 #[derive(Deserialize)]

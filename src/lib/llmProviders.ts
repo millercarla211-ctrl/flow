@@ -51,7 +51,3 @@ export function getProviderPreset(id: LlmProvider): LlmProviderPreset | undefine
     return LLM_PROVIDER_PRESETS.find(p => p.id === id);
 }
 
-export function getProviderLabel(id: LlmProvider): string {
-    if (id === "custom") return "Custom";
-    return getProviderPreset(id)?.label ?? id;
-}

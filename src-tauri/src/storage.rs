@@ -319,54 +319,6 @@ impl StorageManager {
         }
     }
 
-    pub fn get_paginated(
-        &self,
-        limit: u32,
-        offset: u32,
-        search_query: Option<&str>,
-    ) -> Result<Vec<TranscriptionRecord>> {
-        let conn = self.connection.lock();
-        let (where_clause, params) = Self::build_search_query(search_query);
-
-        let sql = format!(
-            "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
-                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name
-             FROM transcriptions
-             {}
-             ORDER BY timestamp DESC
-             LIMIT ?{} OFFSET ?{}",
-            where_clause,
-            params.len() + 1,
-            params.len() + 2
-        );
-
-        let mut stmt = conn.prepare(&sql)?;
-        let mut query_params = params;
-        query_params.push(Box::new(limit));
-        query_params.push(Box::new(offset));
-
-        let records = stmt
-            .query_map(rusqlite::params_from_iter(query_params.iter()), |row| {
-                Self::record_from_row(row)
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>()?;
-
-        Ok(records)
-    }
-
-    pub fn get_count(&self, search_query: Option<&str>) -> Result<usize> {
-        let conn = self.connection.lock();
-        let (where_clause, params) = Self::build_search_query(search_query);
-
-        let sql = format!("SELECT COUNT(*) FROM transcriptions {}", where_clause);
-
-        let mut stmt = conn.prepare(&sql)?;
-        let count: usize =
-            stmt.query_row(rusqlite::params_from_iter(params.iter()), |row| row.get(0))?;
-
-        Ok(count)
-    }
-
     fn build_search_query(search_query: Option<&str>) -> (String, Vec<Box<dyn ToSql>>) {
         if let Some(query) = search_query {
             if !query.trim().is_empty() {

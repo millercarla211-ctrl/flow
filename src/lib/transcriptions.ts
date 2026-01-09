@@ -249,11 +249,6 @@ export async function batchSyncTranscriptions(
     return { synced, failed };
 }
 
-export async function validateConnection(): Promise<boolean> {
-    await listDocuments<CloudTranscription>(DATABASE_ID, COLLECTION_ID, [Query.limit(1)]);
-    return true;
-}
-
 export type CloudUsageStats = {
     cloud_minutes_this_month: number;
     cloud_hours_lifetime: number;

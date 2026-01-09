@@ -205,7 +205,13 @@ fn build_system_prompt(settings: &UserSettings, mode: Option<&Personality>) -> S
 
 
 fn get_endpoint(settings: &UserSettings) -> Result<String> {
-    let base = match settings.llm_provider {
+    if !settings.llm_endpoint.is_empty()
+        && settings.llm_endpoint.contains("/chat/completions")
+    {
+        return Ok(settings.llm_endpoint.clone());
+    }
+
+    let endpoint = match settings.llm_provider {
         LlmProvider::None => return Err(anyhow!("LLM cleanup is disabled")),
         LlmProvider::LmStudio => {
             if settings.llm_endpoint.is_empty() {
@@ -232,16 +238,16 @@ fn get_endpoint(settings: &UserSettings) -> Result<String> {
             if settings.llm_endpoint.is_empty() {
                 return Err(anyhow!("Endpoint not configured"));
             }
-            if settings.llm_endpoint.contains("/v1/chat/completions") {
-                return Ok(settings.llm_endpoint.clone());
-            }
             &settings.llm_endpoint
         }
     };
-    Ok(format!(
-        "{}/v1/chat/completions",
-        base.trim_end_matches('/')
-    ))
+
+    let base = get_base_url(endpoint, &settings.llm_provider);
+    if base.is_empty() {
+        return Err(anyhow!("Endpoint not configured"));
+    }
+
+    Ok(format!("{}/v1/chat/completions", base))
 }
 
 fn resolve_model(settings: &UserSettings) -> String {

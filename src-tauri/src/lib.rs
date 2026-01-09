@@ -140,8 +140,6 @@ pub fn run() {
             get_app_info,
             open_data_dir,
             get_transcriptions,
-            list_transcriptions_paginated,
-            get_transcription_count,
             delete_transcription,
             delete_all_transcriptions,
             retry_transcription,
@@ -673,30 +671,6 @@ fn get_transcriptions(
         .storage()
         .get_all_filtered(search_query.as_deref())
         .map_err(|err| format!("Failed to get transcriptions: {err}"))
-}
-
-#[tauri::command]
-fn list_transcriptions_paginated(
-    state: tauri::State<AppState>,
-    limit: u32,
-    offset: u32,
-    search_query: Option<String>,
-) -> Result<Vec<storage::TranscriptionRecord>, String> {
-    state
-        .storage()
-        .get_paginated(limit, offset, search_query.as_deref())
-        .map_err(|err| format!("Failed to list transcriptions: {err}"))
-}
-
-#[tauri::command]
-fn get_transcription_count(
-    state: tauri::State<AppState>,
-    search_query: Option<String>,
-) -> Result<usize, String> {
-    state
-        .storage()
-        .get_count(search_query.as_deref())
-        .map_err(|err| format!("Failed to get transcription count: {err}"))
 }
 
 #[tauri::command]

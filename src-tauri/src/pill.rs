@@ -124,7 +124,9 @@ impl AudioSpectrumEmitter {
     fn stop(mut self) {
         self.stop.store(true, Ordering::Relaxed);
         if let Some(handle) = self.handle.take() {
-            let _ = handle.join();
+            std::thread::spawn(move || {
+                let _ = handle.join();
+            });
         }
     }
 }
@@ -193,22 +195,21 @@ impl PillController {
         ) {
             eprintln!("Failed to emit pill state: {err}");
         }
-
-        match status {
-            PillStatus::Idle => hide_overlay(app),
-            _ => show_overlay(app),
-        }
     }
 
     pub fn transition_to(&self, app: &AppHandle<AppRuntime>, new_status: PillStatus) {
-        {
+        let previous = {
             let mut status = self.status.lock();
             if *status == new_status {
                 return;
             }
+            let previous = *status;
             *status = new_status;
-        }
+            previous
+        };
+
         self.emit_state(app);
+        self.update_overlay_visibility(app, previous, new_status);
     }
 
     pub fn transition_to_error(&self, app: &AppHandle<AppRuntime>, message: &str) {
@@ -217,6 +218,22 @@ impl PillController {
         self.transition_to(app, PillStatus::Error);
         let simple_msg = simplify_recording_error(message);
         toast::show(app, "error", None, &simple_msg);
+    }
+
+    fn update_overlay_visibility(
+        &self,
+        app: &AppHandle<AppRuntime>,
+        previous: PillStatus,
+        next: PillStatus,
+    ) {
+        if next == PillStatus::Idle {
+            hide_overlay(app);
+            return;
+        }
+
+        if previous == PillStatus::Idle {
+            show_overlay(app);
+        }
     }
 
     pub fn reset(&self, app: &AppHandle<AppRuntime>) {
@@ -479,28 +496,32 @@ impl PillController {
 
     fn stop_and_process(&self, app: &AppHandle<AppRuntime>) {
         self.stop_audio_spectrum_emitter();
-        match self.recorder.stop() {
+        *self.recording_mode.lock() = None;
+        self.transition_to(app, PillStatus::Processing);
+        self.capture_selected_text_if_enabled(app);
+
+        let recorder = Arc::clone(&self.recorder);
+        let app_handle = app.clone();
+        std::thread::spawn(move || match recorder.stop() {
             Ok(Some(recording)) => {
                 let duration_ms = (recording.ended_at - recording.started_at).num_milliseconds();
-
                 if duration_ms < MIN_RECORDING_DURATION_MS {
-                    self.reset(app);
+                    app_handle.state::<AppState>().pill().reset(&app_handle);
                     return;
                 }
 
-                *self.recording_mode.lock() = None;
-                self.transition_to(app, PillStatus::Processing);
-
-                self.capture_selected_text_if_enabled(app);
-                crate::persist_recording_async(app.clone(), recording);
+                crate::persist_recording_async(app_handle, recording);
             }
             Ok(None) => {
-                self.reset(app);
+                app_handle.state::<AppState>().pill().reset(&app_handle);
             }
             Err(err) => {
-                self.transition_to_error(app, &format!("Unable to stop recording: {err}"));
+                app_handle
+                    .state::<AppState>()
+                    .pill()
+                    .transition_to_error(&app_handle, &format!("Unable to stop recording: {err}"));
             }
-        }
+        });
     }
 
     pub fn cancel(&self, app: &AppHandle<AppRuntime>) {

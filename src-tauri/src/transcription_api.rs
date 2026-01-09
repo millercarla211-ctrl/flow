@@ -53,12 +53,10 @@ impl PersonalityPayload {
 }
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct CloudTranscriptionConfig {
     pub function_url: String,
     pub jwt: String,
     pub payload: TranscriptionPayload,
-    pub auto_paste: bool,
 }
 
 fn env_flag(key: &str, default: bool) -> bool {
@@ -73,7 +71,6 @@ impl CloudTranscriptionConfig {
             function_url,
             jwt,
             payload,
-            auto_paste: env_flag("GLIMPSE_AUTO_PASTE", true),
         }
     }
 }
@@ -120,20 +117,16 @@ pub struct CloudTranscriptionResponse {
     pub llm_cleaned: bool,
     pub llm_model: Option<String>,
     #[serde(default)]
-    pub audio_file_id: Option<String>,
-    #[serde(default)]
     pub transcription_id: Option<String>,
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct CloudTranscriptionSuccess {
     pub transcript: String,
     pub raw_text: Option<String>,
     pub speech_model: String,
     pub llm_cleaned: bool,
     pub llm_model: Option<String>,
-    pub audio_file_id: Option<String>,
     pub transcription_id: Option<String>,
 }
 
@@ -203,7 +196,6 @@ pub async fn request_cloud_transcription(
             speech_model: parsed.model,
             llm_cleaned: parsed.llm_cleaned,
             llm_model: parsed.llm_model,
-            audio_file_id: parsed.audio_file_id,
             transcription_id: parsed.transcription_id,
         });
     }
