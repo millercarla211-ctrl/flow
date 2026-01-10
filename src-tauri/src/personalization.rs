@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
+use uuid::Uuid;
 
 use crate::settings::Personality;
 use crate::{AppRuntime, AppState, EVENT_SETTINGS_CHANGED};
@@ -52,10 +53,10 @@ pub fn sanitize_personalities(entries: &[Personality]) -> Vec<Personality> {
         }
         let mut id = entry.id.trim().to_string();
         if id.is_empty() {
-            id = name.to_lowercase().replace(' ', "-");
+            id = Uuid::new_v4().to_string();
         }
-        if !seen.insert(id.to_lowercase()) {
-            continue;
+        while !seen.insert(id.to_lowercase()) {
+            id = Uuid::new_v4().to_string();
         }
 
         let capped_name: String = name.chars().take(60).collect();
