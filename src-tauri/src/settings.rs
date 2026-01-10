@@ -188,7 +188,7 @@ fn seed_personality_notes(personalities: &mut [Personality]) {
 
         let defaults = match personality.id.as_str() {
             "messaging" => vec![
-                "- Write semi-casual, friendly, as if your messaging someone".to_string(),
+                "- Write semi-casual, friendly, as if you're messaging someone".to_string(),
                 "- Transcribe spoken emoji descriptions directly into icons (e.g., 'laughing face' becomes 😂).".to_string(),
                 "- Retain all internet slang, acronyms, and text-speak (e.g., 'tmrw', 'rn', 'omg') exactly as said.".to_string(),
             ],
