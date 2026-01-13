@@ -81,6 +81,8 @@ bun tauri build
 - [x] Personalization & per app context: per-app writing styles (email, messaging, etc.)
 - [x] Edit mode: rewrite whats selected text with full context
 - [ ] Ask mode: query what's on your screen
+- [ ] Better more customizable keybinds
+
 
 ## Privacy
 
