@@ -1,14 +1,15 @@
 
 
-## Cloud Mode
- Introducing cloud mode, a subscription that brings advanced transcription capabilities with cross-device sync. Cloud mode offers bigger and better AI models, faster processing, and seamless synchronization of your transcription history across all your devices. It's currently available in beta with more features on the way soon!
 ## New Features & improvements
 
 **Edit Mode:** 
-You can now use voice commands to edit highlighted text ("Make this more professional"). This can be enabled in settings under 'edit mode'.
+You can now use voice commands to edit highlighted text ("Make this more professional"). This can be enabled in settings under 'edit mode' and requires LLM cleanup if on local mode
+
 **Auto unloading:** 
-Added an idle unloading feature for local models to save your system memory when not in use.
-### **UI/UX Changes:**
+Added an idle unloading feature for local models to save your system memory when not in use (5 min).
+
+### UI/UX Changes:
+
 - Redesigned Settings and Account views for a cleaner look.
 - Updated "What's New" to show history of past releases.
 - Onboarding now displays model sizes and includes account confirmation steps.
@@ -24,8 +25,5 @@ Added an idle unloading feature for local models to save your system memory when
 
 ### Technical changes
 - Switched from MP3 encoding to WAV.
-- Reduced API calls via batching, debouncing, and increased JWT refresh times.
-- Major cleanup of frontend-backend communication and separated Cloud Mode logic from the core library.
 - Switched to Accessibility API for grabbing selected text (with clipboard fallback).
-- Enforced 25MB limit for audio and 10KB limit for selected text context.
 - Pinned `tauri-plugin-aptabase` and `tauri-nspanel` versions.
