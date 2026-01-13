@@ -23,7 +23,6 @@ Pre-built releases are available on the [Releases page](https://github.com/Legen
 ## Features
 
 - **Local transcription** — Runs entirely on-device using Whisper or Parakeet models
-- **Cloud transcription** — Optional paid cloud mode for those who prefer it
 - **Replacements** - Directly replace words in sentences for other defined words
 - **Custom dictionary** — Define custom words and phrases for accurate transcription
 - **Assistive text insertion** — Automatically inserts transcribed text where you're typing
@@ -35,7 +34,7 @@ Pre-built releases are available on the [Releases page](https://github.com/Legen
 
 ### Prerequisites
 
-- macOS 11+
+- macOS 13+
 - [Rust](https://rustup.rs/) 1.74+
 - [Bun](https://bun.sh/) (or npm/pnpm)
 - Xcode Command Line Tools
