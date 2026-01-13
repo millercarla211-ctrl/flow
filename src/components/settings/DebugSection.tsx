@@ -91,7 +91,7 @@ export function DebugSection() {
                         <button
                             onClick={() => showToast(
                                 "update",
-                                "v0.4.4 → v0.5.0",
+                                "v0.5.0 → v0.9.0",
                                 "open_about_page",
                                 "Update"
                             )}
