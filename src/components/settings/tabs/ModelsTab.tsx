@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { AlertCircle, Download, Info, Key, Server, Square, Trash2 } from "lucide-react";
 import { Dropdown } from "../../Dropdown";
+import DotMatrix from "../../DotMatrix";
 import { CLOUD_PROVIDERS, getProviderPreset, LOCAL_PROVIDERS } from "../../../lib/llmProviders";
 import type { DownloadEvent, LlmProvider, ModelInfo, ModelStatus } from "../../../types";
 
@@ -317,13 +318,32 @@ type ModelProgressProps = {
     status: string;
 };
 
-const ModelProgress = ({ percent, status }: ModelProgressProps) => (
-    <div className={`h-1 w-full rounded-full ${status === "error" ? "bg-error/20" : "bg-border-secondary"}`}>
-        <div
-            className={`h-1 rounded-full transition-all ${status === "error" ? "bg-error" : "bg-cloud"}`}
-            style={{ width: `${percent}%` }}
+const ModelProgress = ({ percent, status }: ModelProgressProps) => {
+    const cols = 50;
+    const rows = 3;
+    const totalDots = cols * rows;
+    const activeCount = Math.round((percent / 100) * totalDots);
+
+    const activeDots = Array.from({ length: Math.min(activeCount, totalDots) }, (_, i) => i);
+
+    const color =
+        status === "error"
+            ? "var(--color-error)"
+            : status === "complete"
+                ? "var(--color-success)"
+                : "var(--color-cloud)";
+
+    return (
+        <DotMatrix
+            rows={rows}
+            cols={cols}
+            activeDots={activeDots}
+            dotSize={3}
+            gap={2}
+            color={color}
+            className="opacity-70"
         />
-    </div>
-);
+    );
+};
 
 export default ModelsTab;
