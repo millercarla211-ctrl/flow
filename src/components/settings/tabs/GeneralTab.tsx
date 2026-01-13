@@ -260,9 +260,9 @@ const GeneralTab = ({
                                 </button>
                                 <div className="absolute right-0 bottom-full mb-1 hidden group-hover:block z-10">
                                     <div className="bg-surface-overlay border border-border-secondary rounded-lg px-2.5 py-1.5 text-[9px] text-content-secondary w-44 shadow-lg leading-tight">
-                                        <p>Select text in any app, use your shortcut, speak a command like "make formal" or "fix grammar"</p>
+                                        <p>Select text in any app, and speak a command like "make this formal" or "fix my grammar".</p>
                                         {transcriptionMode === "local" && !llmCleanupEnabled && (
-                                            <p className="text-warning mt-1">Requires LLM in Models tab</p>
+                                            <p className="text-warning mt-1">Requires AI cleanup in Models tab</p>
                                         )}
                                     </div>
                                 </div>
