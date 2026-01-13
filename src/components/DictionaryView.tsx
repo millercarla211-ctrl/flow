@@ -23,7 +23,7 @@ const PageSwitcher = ({
     ];
 
     return (
-        <div className="flex items-center justify-center gap-2 mb-6">
+        <div className="flex items-center justify-center gap-2 mb-6 -mt-12">
             {pages.map((page) => (
                 <button
                     key={page.key}
@@ -35,18 +35,20 @@ const PageSwitcher = ({
                         animate={{
                             width: activePage === page.key ? 24 : 8,
                             opacity: activePage === page.key ? 1 : 0.35,
+                            boxShadow:
+                                activePage === page.key
+                                    ? "0 0 0.5rem rgba(251, 191, 36, 0.22)"
+                                    : "0 0 0 rgba(251, 191, 36, 0)",
                         }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
                     />
-                    <motion.span
-                        className="text-[12px] font-medium"
-                        animate={{
-                            color: activePage === page.key ? "var(--color-text-primary)" : "var(--color-content-muted)",
-                        }}
-                        transition={{ duration: 0.2 }}
+                    <span
+                        className={`text-[12px] font-medium transition-colors duration-200 ${
+                            activePage === page.key ? "text-content-primary" : "text-content-muted"
+                        }`}
                     >
                         {page.label}
-                    </motion.span>
+                    </span>
                 </button>
             ))}
         </div>
@@ -242,7 +244,7 @@ const DictionaryView = () => {
                         exit={{ opacity: 0, y: -16 }}
                         transition={{ duration: 0.2 }}
                     >
-                        <div className="flex items-start gap-3 mb-6">
+                        <div className="flex items-start gap-3 mb-4">
                             <DotMatrix
                                 rows={2}
                                 cols={3}
@@ -251,11 +253,9 @@ const DictionaryView = () => {
                                 gap={3}
                                 color="var(--color-cloud)"
                             />
-                            <div>
-                                <p className="text-3xl font-medium text-content-primary tracking-tight">
-                                    Word Dictionary
-                                </p>
-                                <p className="text-[14px] text-content-secondary mt-1">
+                            <div className="flex-1">
+                                <p className="text-2xl font-medium text-content-primary tracking-tight">Word Dictionary</p>
+                                <p className="mt-1 text-[12px] text-content-secondary">
                                     Add custom words or phrases that arent in the default dictionary.
                                 </p>
                             </div>
@@ -285,7 +285,7 @@ const DictionaryView = () => {
                                         }
                                     }}
                                     placeholder="Search or add a word..."
-                                    className="flex-1 bg-transparent text-[14px] text-content-primary placeholder-content-disabled outline-none"
+                                    className="flex-1 bg-transparent text-[14px] text-content-primary placeholder-content-disabled outline-none h-8 leading-8"
                                 />
                                 {isSearching && entries.length > 0 && (
                                     <span className="text-[12px] text-content-muted whitespace-nowrap">
@@ -336,18 +336,18 @@ const DictionaryView = () => {
                                     </div>
                                 ) : (
                                     <AnimatePresence mode="popLayout">
-                                        {filteredEntries.map((entry) => {
+                                        {filteredEntries.map((entry, filteredIndex) => {
                                             const originalIndex = entries.indexOf(entry);
                                             return (
-                                                <motion.div
-                                                    key={entry + originalIndex}
-                                                    layout="position"
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    exit={{ opacity: 0 }}
-                                                    transition={{ duration: 0.18, ease: "easeOut" }}
-                                                    className="group flex items-center gap-3 border-b border-border-primary px-4 py-3 last:border-none"
-                                                >
+                                                    <motion.div
+                                                        key={`${entry}-${originalIndex}-${filteredIndex}`}
+                                                        layout
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                        exit={{ opacity: 0 }}
+                                                        transition={{ duration: 0.18, ease: "easeOut" }}
+                                                        className="group flex items-center gap-3 border-b border-border-primary px-4 py-2 last:border-none min-h-[64px]"
+                                                    >
                                                     {editingIndex === originalIndex ? (
                                                         <input
                                                             value={editingValue}
@@ -364,33 +364,35 @@ const DictionaryView = () => {
                                                                 }
                                                             }}
                                                             onBlur={() => handleEditCommit()}
-                                                            className="flex-1 rounded-md border border-border-primary bg-surface-tertiary px-2.5 py-1.5 text-[14px] text-content-primary outline-none focus:border-border-secondary"
+                                                            className="flex-1 min-w-0 h-[44px] rounded-md border border-border-primary bg-surface-tertiary pl-1 pr-0 -ml-px text-[14px] text-content-primary outline-none focus:border-border-secondary leading-[44px]"
                                                         />
                                                     ) : (
                                                         <button
                                                             onClick={() => startEditing(originalIndex)}
-                                                            className="flex-1 text-left"
+                                                            className="flex-1 min-w-0 text-left"
                                                         >
-                                                            <p className="text-[14px] text-content-primary">{entry}</p>
-                                                            <p className="text-[11px] text-content-muted opacity-0 transition-opacity group-hover:opacity-100">
-                                                                Click to edit
-                                                            </p>
+                                                            <div className="flex flex-col justify-center h-[44px] pl-1">
+                                                                <p className="text-[14px] text-content-primary leading-tight">{entry}</p>
+                                                            </div>
                                                         </button>
                                                     )}
 
                                                     <div className="flex items-center gap-2">
                                                         {editingIndex === originalIndex ? (
-                                                            <div className="text-[11px] text-content-muted">
-                                                                Press Enter to save
-                                                            </div>
+                                                            <div className="text-[11px] text-content-muted">Press Enter to save</div>
                                                         ) : (
-                                                            <button
-                                                                onClick={() => startEditing(originalIndex)}
-                                                                className="rounded-md bg-surface-overlay p-1.5 text-content-secondary opacity-0 transition-all group-hover:opacity-100 hover:bg-surface-elevated"
-                                                                title="Edit"
-                                                            >
-                                                                <Edit3 size={14} />
-                                                            </button>
+                                                            <>
+                                                                <div className="text-[11px] text-content-muted opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                                                                    Click to edit
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => startEditing(originalIndex)}
+                                                                    className="rounded-md bg-surface-overlay p-1.5 text-content-secondary opacity-0 transition-all group-hover:opacity-100 hover:bg-surface-elevated"
+                                                                    title="Edit"
+                                                                >
+                                                                    <Edit3 size={14} />
+                                                                </button>
+                                                            </>
                                                         )}
                                                         <button
                                                             onClick={() => handleDelete(originalIndex)}
@@ -429,7 +431,7 @@ const DictionaryView = () => {
                         exit={{ opacity: 0, y: -16 }}
                         transition={{ duration: 0.2 }}
                     >
-                        <div className="flex items-start gap-3 mb-6">
+                        <div className="flex items-start gap-3 mb-4">
                             <DotMatrix
                                 rows={2}
                                 cols={3}
@@ -438,11 +440,9 @@ const DictionaryView = () => {
                                 gap={3}
                                 color="var(--color-accent)"
                             />
-                            <div>
-                                <p className="text-3xl font-medium text-content-primary tracking-tight">
-                                    Direct Replacements
-                                </p>
-                                <p className="text-[14px] text-content-secondary mt-1">
+                            <div className="flex-1">
+                                <p className="text-2xl font-medium text-content-primary tracking-tight">Direct Replacements</p>
+                                <p className="mt-1 text-[12px] text-content-secondary">
                                     Automatically replace words in your transcriptions.
                                 </p>
                             </div>
@@ -455,7 +455,7 @@ const DictionaryView = () => {
                                     value={newFrom}
                                     onChange={(e) => setNewFrom(e.target.value)}
                                     placeholder="Find word..."
-                                    className="flex-1 min-w-0 bg-transparent text-[14px] text-content-primary placeholder-content-disabled outline-none"
+                                    className="flex-1 min-w-0 bg-transparent text-[14px] text-content-primary placeholder-content-disabled outline-none h-8 leading-8"
                                 />
                                 <ArrowRight size={14} className="text-content-disabled shrink-0" />
                                 <input
@@ -468,7 +468,7 @@ const DictionaryView = () => {
                                         }
                                     }}
                                     placeholder="Replace with..."
-                                    className="flex-1 min-w-0 bg-transparent text-[14px] text-content-primary placeholder-content-disabled outline-none"
+                                    className="flex-1 min-w-0 bg-transparent text-[14px] text-content-primary placeholder-content-disabled outline-none h-8 leading-8"
                                 />
                                 <button
                                     onClick={handleAddReplacement}
