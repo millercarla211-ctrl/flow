@@ -427,7 +427,7 @@ const Home = () => {
                                     <h1 className="text-3xl font-medium text-content-primary tracking-tight">
                                         {getGreeting()}
                                     </h1>
-                                    <p className="mt-2 text-[15px] text-content-muted">
+                                    <p className="mt-2 text-[15px] text-content-muted pl-[2px]">
                                         Ready when you are
                                     </p>
                                 </div>
