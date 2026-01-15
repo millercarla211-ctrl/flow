@@ -30,9 +30,9 @@ const PageSwitcher = ({
                     onClick={() => onPageChange(page.key)}
                     className="flex items-center gap-2 group"
                 >
-                    <div
+                    <motion.div
                         className="h-2 rounded-full bg-amber-400"
-                        style={{
+                        animate={{
                             width: activePage === page.key ? 24 : 8,
                             opacity: activePage === page.key ? 1 : 0.35,
                             boxShadow:
@@ -40,9 +40,10 @@ const PageSwitcher = ({
                                     ? "0 0 0.5rem rgba(251, 191, 36, 0.22)"
                                     : "0 0 0 rgba(251, 191, 36, 0)",
                         }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
                     />
                     <span
-                        className={`text-[12px] font-medium ${
+                        className={`text-[12px] font-medium transition-colors duration-200 ${
                             activePage === page.key ? "text-content-primary" : "text-content-muted"
                         }`}
                     >
@@ -234,8 +235,15 @@ const DictionaryView = () => {
         <div className="w-full text-left">
             <PageSwitcher activePage={activePage} onPageChange={setActivePage} />
 
-                            {activePage === "dictionary" && (
-                    <div key="dictionary">
+            <AnimatePresence mode="wait" initial={false}>
+                {activePage === "dictionary" && (
+                    <motion.div
+                        key="dictionary"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                    >
                         <div className="flex items-start gap-3 mb-4">
                             <DotMatrix
                                 rows={2}
@@ -407,11 +415,17 @@ const DictionaryView = () => {
                             {entries.length} {entries.length === 1 ? "entry" : "entries"}
                             {saving ? " · Saving..." : ""}
                         </p>
-                    </div>
+                    </motion.div>
                 )}
 
                 {activePage === "replacements" && (
-                    <div key="replacements">
+                    <motion.div
+                        key="replacements"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                    >
                         <div className="flex items-start gap-3 mb-4">
                             <DotMatrix
                                 rows={2}
@@ -599,8 +613,9 @@ const DictionaryView = () => {
                             {replacements.length} {replacements.length === 1 ? "replacement" : "replacements"}
                             {saving ? " · Saving..." : ""}
                         </p>
-                    </div>
+                    </motion.div>
                 )}
+            </AnimatePresence>
 
             <style>{`
                 .custom-scrollbar::-webkit-scrollbar {
