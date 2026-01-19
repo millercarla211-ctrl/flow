@@ -169,12 +169,12 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({ showLlmButtons = 
                         data={transcriptions}
                         overscan={200}
                         components={{
-                            Header: () => <div className="h-1" />,
+                            Header: () => <div className="h-1.5" />,
                         }}
                         itemContent={(_index, record) => {
                             const isRetrying = retryingIds.includes(record.id);
                             return (
-                                <div className="pb-1 pl-1">
+                                <div className="pb-1 pl-1.5">
                                     <TranscriptionItem
                                         key={record.id}
                                         record={record}
