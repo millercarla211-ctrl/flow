@@ -179,11 +179,20 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|handler, event| {
-            if let tauri::RunEvent::Exit = event {
+        .run(|handler, event| match event {
+            tauri::RunEvent::Reopen {
+                has_visible_windows,
+                ..
+            } => {
+                if !has_visible_windows {
+                    let _ = tray::toggle_settings_window(handler);
+                }
+            }
+            tauri::RunEvent::Exit => {
                 let _ = handler.track_event("app_exited", None);
                 handler.flush_events_blocking();
             }
+            _ => {}
         });
 }
 
