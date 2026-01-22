@@ -58,6 +58,111 @@ pub(crate) const EVENT_TRANSCRIPTION_ERROR: &str = "transcription:error";
 pub(crate) const EVENT_SETTINGS_CHANGED: &str = "settings:changed";
 pub(crate) const FEEDBACK_URL: &str = "https://github.com/LegendarySpy/Glimpse/issues";
 
+#[cfg(target_os = "macos")]
+fn handle_app_menu_event(app: &AppHandle<AppRuntime>, id: &str) {
+    use platform::macos::menu::{
+        MENU_ID_CHECK_UPDATES, MENU_ID_MODE_LOCAL, MENU_ID_MODEL_PREFIX, MENU_ID_REPORT_ISSUE, MENU_ID_WEBSITE,
+    };
+    use tauri_plugin_opener::OpenerExt;
+
+    match id {
+        MENU_ID_CHECK_UPDATES => {
+            let _ = app.emit("navigate:about", ());
+        }
+        MENU_ID_WEBSITE => {
+            let _ = app
+                .opener()
+                .open_url("https://github.com/LegendarySpy/Glimpse", None::<&str>);
+        }
+        MENU_ID_REPORT_ISSUE => {
+            let _ = app.opener().open_url(FEEDBACK_URL, None::<&str>);
+        }
+        MENU_ID_MODE_LOCAL => {
+            set_transcription_mode(app, settings::TranscriptionMode::Local);
+        }
+        _ => {
+            if let Some(model_key) = id.strip_prefix(MENU_ID_MODEL_PREFIX) {
+                set_local_model(app, model_key);
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn set_transcription_mode(app: &AppHandle<AppRuntime>, mode: settings::TranscriptionMode) {
+    let state = app.state::<AppState>();
+    let mut current = state.current_settings();
+    if current.transcription_mode == mode {
+        return;
+    }
+    current.transcription_mode = mode;
+    match state.persist_settings(current.clone()) {
+        Ok(saved) => {
+            if let Err(err) = set_app_menu(app, &saved) {
+                eprintln!("Failed to refresh app menu: {err}");
+            }
+            if let Err(err) = tray::refresh_tray_menu(app, &saved) {
+                eprintln!("Failed to refresh tray menu: {err}");
+            }
+            if let Err(err) = app.emit(EVENT_SETTINGS_CHANGED, &saved) {
+                eprintln!("Failed to emit settings change: {err}");
+            }
+        }
+        Err(err) => eprintln!("Failed to update transcription mode: {err}"),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn set_local_model(app: &AppHandle<AppRuntime>, model_key: &str) {
+    if model_manager::definition(model_key).is_none() {
+        eprintln!("Ignoring unknown model selection: {model_key}");
+        return;
+    }
+
+    match model_manager::check_model_status(app.clone(), model_key.to_string()) {
+        Ok(status) if status.installed => {}
+        Ok(_) => {
+            eprintln!("Model not installed: {model_key}");
+            return;
+        }
+        Err(err) => {
+            eprintln!("Failed to check model status for {model_key}: {err}");
+            return;
+        }
+    }
+
+    let state = app.state::<AppState>();
+    let mut current = state.current_settings();
+    if current.local_model == model_key {
+        return;
+    }
+    current.local_model = model_key.to_string();
+    match state.persist_settings(current.clone()) {
+        Ok(saved) => {
+            if let Err(err) = set_app_menu(app, &saved) {
+                eprintln!("Failed to refresh app menu: {err}");
+            }
+            if let Err(err) = tray::refresh_tray_menu(app, &saved) {
+                eprintln!("Failed to refresh tray menu: {err}");
+            }
+            if let Err(err) = app.emit(EVENT_SETTINGS_CHANGED, &saved) {
+                eprintln!("Failed to emit settings change: {err}");
+            }
+        }
+        Err(err) => eprintln!("Failed to update model selection: {err}"),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn set_app_menu(
+    app: &AppHandle<AppRuntime>,
+    settings: &settings::UserSettings,
+) -> tauri::Result<()> {
+    let menu = platform::macos::menu::build_app_menu(app, settings)?;
+    app.set_menu(menu)?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
@@ -80,6 +185,12 @@ pub fn run() {
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_nspanel::init());
 
+    #[cfg(target_os = "macos")]
+    let builder = builder.on_menu_event(|app, event| {
+        let id = event.id().as_ref();
+        handle_app_menu_event(app, id);
+    });
+
     builder
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -94,6 +205,14 @@ pub fn run() {
                     eprintln!("Failed to persist default local model: {err}");
                 }
             }
+
+            #[cfg(target_os = "macos")]
+            {
+                if let Err(err) = set_app_menu(handle, &settings) {
+                    eprintln!("Failed to set app menu: {err}");
+                }
+            }
+
             app.manage(AppState::new(Arc::clone(&settings_store), settings, handle));
 
             if let Some(window) = handle.get_webview_window(MAIN_WINDOW_LABEL) {
