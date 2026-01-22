@@ -56,7 +56,7 @@ pub(crate) const EVENT_AUDIO_SPECTRUM: &str = "audio:spectrum";
 pub(crate) const EVENT_TRANSCRIPTION_COMPLETE: &str = "transcription:complete";
 pub(crate) const EVENT_TRANSCRIPTION_ERROR: &str = "transcription:error";
 pub(crate) const EVENT_SETTINGS_CHANGED: &str = "settings:changed";
-pub(crate) const FEEDBACK_URL: &str = "https://github.com/LegendarySpy/Glimpse/issues";
+pub(crate) const FEEDBACK_URL: &str = "https://github.com/LegendarySpy/Glimpse/issues/new/choose";
 
 #[cfg(target_os = "macos")]
 fn handle_app_menu_event(app: &AppHandle<AppRuntime>, id: &str) {
