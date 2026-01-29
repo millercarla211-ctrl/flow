@@ -1,8 +1,11 @@
 0.5.5
 
-### Fixes
-- Pasting API keys & Endpoints wouldn't work
+### Changes
+- Made the tray icon slightly smaller to match other apps better.
+- Add slight visual fixes across the app for better uniformity.
 
+### Fixes
+- Pasting API keys & Endpoints wouldn't work.
 ---
 
 0.5.4
