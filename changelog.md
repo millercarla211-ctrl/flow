@@ -1,3 +1,10 @@
+0.5.5
+
+### Fixes
+- Pasting API keys & Endpoints wouldn't work
+
+---
+
 0.5.4
 
 ### Changes
