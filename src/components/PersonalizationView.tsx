@@ -206,7 +206,7 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.96, y: 20 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
-                    className="relative w-[520px] h-[620px] max-w-[92vw] max-h-[92vh] bg-surface-overlay border border-border-secondary rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+                    className="relative w-[520px] h-[620px] max-w-[92vw] max-h-[92vh] bg-surface-overlay border border-border-secondary rounded-2xl shadow-2xl flex flex-col"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <div className="flex items-center justify-between px-5 py-3 border-b border-border-primary">
@@ -220,49 +220,53 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
                                 color="var(--color-cloud)"
                                 aria-hidden="true"
                             />
-                            <div className="group">
+                            <div>
                                 <p className="text-[12px] uppercase tracking-[0.18em] text-content-disabled">Personalization</p>
-                                {isEditingName ? (
-                                    <div className="flex items-center gap-2 h-[28px]">
-                                        <input
-                                            ref={nameInputRef}
-                                            value={nameDraft}
-                                            onChange={(event) => setNameDraft(event.target.value)}
-                                            autoFocus
-                                            aria-label="Edit mode name"
-                                            onKeyDown={(event) => {
-                                                if (event.key === "Enter") {
-                                                    event.preventDefault();
-                                                    handleSaveName();
-                                                }
-                                                if (event.key === "Escape") {
-                                                    setNameDraft(personality.name);
-                                                    setIsEditingName(false);
-                                                }
-                                            }}
-                                            onBlur={handleSaveName}
-                                            className="bg-surface-surface border border-border-primary rounded-lg px-2 py-0 text-[18px] font-semibold text-content-primary focus:border-border-hover outline-none h-full"
-                                        />
-                                        <button
-                                            onClick={handleSaveName}
-                                            className="h-[28px] w-[28px] flex items-center justify-center rounded hover:bg-border-secondary text-content-primary"
-                                            aria-label="Save name"
-                                        >
-                                            <Check size={14} aria-hidden="true" />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2 h-[28px]">
-                                        <h2 id="modal-title" className="text-[18px] font-semibold text-content-primary">{personality.name}</h2>
-                                        <button
+                                <div className="h-[28px] flex items-center">
+                                    {isEditingName ? (
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                ref={nameInputRef}
+                                                value={nameDraft}
+                                                onChange={(event) => setNameDraft(event.target.value)}
+                                                autoFocus
+                                                aria-label="Edit mode name"
+                                                onKeyDown={(event) => {
+                                                    if (event.key === "Enter") {
+                                                        event.preventDefault();
+                                                        handleSaveName();
+                                                    }
+                                                    if (event.key === "Escape") {
+                                                        setNameDraft(personality.name);
+                                                        setIsEditingName(false);
+                                                    }
+                                                }}
+                                                onBlur={handleSaveName}
+                                                className="bg-transparent text-[18px] font-semibold text-content-primary outline-none border-b border-border-hover"
+                                            />
+                                            <button
+                                                onClick={handleSaveName}
+                                                className="h-[28px] w-[28px] flex items-center justify-center rounded hover:bg-border-secondary text-content-primary"
+                                                aria-label="Save name"
+                                            >
+                                                <Check size={14} aria-hidden="true" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div
                                             onClick={() => setIsEditingName(true)}
-                                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-content-muted hover:text-content-secondary"
-                                            aria-label="Edit name"
+                                            className="group/title flex items-center gap-2 cursor-pointer"
                                         >
-                                            <Pencil size={12} aria-hidden="true" />
-                                        </button>
-                                    </div>
-                                )}
+                                            <h2
+                                                id="modal-title"
+                                                className="text-[18px] font-semibold text-content-primary group-hover/title:text-content-secondary transition-colors"
+                                            >
+                                                {personality.name}
+                                            </h2>
+                                            <Pencil size={12} className="opacity-0 group-hover/title:opacity-100 transition-opacity text-content-muted" aria-hidden="true" />
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -293,7 +297,7 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
                                     onChange={(event) => handleInstructionsChange(event.target.value)}
                                     placeholder="Add custom instructions"
                                     aria-label="Custom instructions"
-                                    className="w-full h-20 resize-none bg-transparent text-[11px] leading-[20px] font-mono text-content-primary placeholder-content-disabled outline-none custom-scrollbar"
+                                    className="w-full h-32 resize-none bg-transparent text-[11px] leading-[20px] font-mono text-content-primary placeholder-content-disabled outline-none custom-scrollbar"
                                 />
                             </div>
                         </section>
@@ -316,7 +320,8 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
                                     searchPlaceholder="Search applications..."
                                     menuClassName="max-h-[220px]"
                                 />
-                                <div className="space-y-2 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                                <div className="relative flex-1 min-h-0">
+                                    <div className="space-y-1 h-full overflow-y-auto custom-scrollbar custom-scrollbar-thin">
                                     {personality.apps.length === 0 ? (
                                         <div className="rounded-lg border border-border-primary bg-surface-surface px-3 py-3 text-[11px] text-content-muted">
                                             No applications selected
@@ -347,6 +352,8 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
                                             );
                                         })
                                     )}
+                                    </div>
+                                    <div className="scroll-fade-bottom" aria-hidden="true" />
                                 </div>
                             </section>
 
@@ -385,7 +392,8 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
                                 {websiteError && (
                                     <p className="text-[10px] text-error">{websiteError}</p>
                                 )}
-                                <div className="space-y-2 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                                <div className="relative flex-1 min-h-0">
+                                    <div className="space-y-1 h-full overflow-y-auto custom-scrollbar">
                                     {personality.websites.length === 0 ? (
                                         <div className="rounded-lg border border-border-primary bg-surface-surface px-3 py-3 text-[11px] text-content-muted">
                                             No websites added
@@ -410,6 +418,8 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
                                             </div>
                                         ))
                                     )}
+                                    </div>
+                                    <div className="scroll-fade-bottom" aria-hidden="true" />
                                 </div>
                             </section>
                         </div>
@@ -531,22 +541,22 @@ const PersonalizationView = () => {
                     gap={3}
                     color="var(--color-accent)"
                 />
-                <div className="flex-1">
-                    <p className="text-2xl font-medium text-content-primary tracking-tight">Personalization</p>
-                    <div className="mt-1 flex items-center justify-between gap-4">
-                        <p className="text-[12px] text-content-secondary">
+                <div className="flex-1 flex items-start justify-between gap-4">
+                    <div>
+                        <p className="text-2xl font-medium text-content-primary tracking-tight">Personalization</p>
+                        <p className="mt-1 text-[12px] text-content-secondary">
                             Tailor modes to apps, sites, and custom instructions.
                         </p>
-                        <button
-                            onClick={handleAddMode}
-                            aria-label="New mode"
-                            title="New mode"
-                            className="flex items-center gap-2 rounded-lg border border-border-primary bg-surface-surface px-2.5 py-1.5 text-[11px] font-medium text-content-primary hover:bg-surface-elevated transition-colors"
-                        >
-                            <Plus size={12} />
-                            New mode
-                        </button>
                     </div>
+                    <button
+                        onClick={handleAddMode}
+                        aria-label="New mode"
+                        title="New mode"
+                        className="flex items-center gap-2 rounded-lg border border-border-primary bg-surface-surface px-2.5 py-1.5 text-[11px] font-medium text-content-primary hover:bg-surface-elevated transition-colors"
+                    >
+                        <Plus size={12} />
+                        New mode
+                    </button>
                 </div>
             </div>
 
@@ -597,17 +607,6 @@ const PersonalizationView = () => {
                                             <p className="text-[14px] font-medium text-content-primary">{personality.name}</p>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    setActivePersonalityId(personality.id);
-                                                }}
-                                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-content-muted hover:text-content-secondary"
-                                                aria-label="Edit mode"
-                                                title="Edit mode"
-                                            >
-                                                <Pencil size={12} aria-hidden="true" />
-                                            </button>
                                             <button
                                                 onClick={(event) => {
                                                     event.stopPropagation();

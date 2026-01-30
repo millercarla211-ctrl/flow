@@ -143,6 +143,28 @@ body.settings-body {
 }
 
 body {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+button,
+a,
+[role="button"],
+.cursor-pointer {
+  cursor: pointer;
+}
+
+body {
   margin: 0;
   min-height: 100vh;
   background-color: transparent;
@@ -187,6 +209,55 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--color-scrollbar-thumb-hover);
+}
+
+.custom-scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.scroll-fade-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 18px;
+  background: linear-gradient(180deg, transparent, #161618);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.scroll-fade-top {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 18px;
+  background: linear-gradient(180deg, #161618, transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.scroll-fade-bottom-dark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 18px;
+  background: linear-gradient(180deg, transparent, #0A0A0C);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.scroll-fade-top-dark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 18px;
+  background: linear-gradient(180deg, #0A0A0C, transparent);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .settings-scroll {
