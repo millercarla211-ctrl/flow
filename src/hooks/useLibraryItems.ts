@@ -13,6 +13,7 @@ import type {
 
 type LibraryCompletePayload = { id: string };
 type LibraryErrorPayload = { id: string; message: string };
+type LibraryImportPayload = { id: string };
 
 export function useLibraryItems(initialFilter: LibraryFilter = {}) {
     const PAGE_SIZE = 30;
@@ -144,6 +145,7 @@ export function useLibraryItems(initialFilter: LibraryFilter = {}) {
         let unlistenProgress: UnlistenFn | null = null;
         let unlistenComplete: UnlistenFn | null = null;
         let unlistenError: UnlistenFn | null = null;
+        let unlistenImporting: UnlistenFn | null = null;
 
         listen<LibraryProgressPayload>("library:transcription_progress", (event) => {
             const { id, progress, chunk_text, chunk_segments, current_chunk, total_chunks } = event.payload;
@@ -224,10 +226,30 @@ export function useLibraryItems(initialFilter: LibraryFilter = {}) {
             unlistenError = fn;
         });
 
+        listen<LibraryImportPayload>("library:importing", (event) => {
+            const id = event.payload?.id;
+            if (!id) return;
+            setItems(prev =>
+                prev.map(item =>
+                    item.id === id
+                        ? (item.status.type === "transcribing"
+                            || item.status.type === "complete"
+                            || item.status.type === "cancelling"
+                            || item.status.type === "cancelled"
+                            ? item
+                            : { ...item, status: { type: "importing" } })
+                        : item
+                )
+            );
+        }).then(fn => {
+            unlistenImporting = fn;
+        });
+
         return () => {
             unlistenProgress?.();
             unlistenComplete?.();
             unlistenError?.();
+            unlistenImporting?.();
         };
     }, [refresh]);
 

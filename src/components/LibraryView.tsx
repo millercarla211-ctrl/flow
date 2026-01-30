@@ -11,7 +11,6 @@ import {
     CornerDownRight,
     Copy,
     FolderOpen,
-    Info,
     Loader2,
     MoreVertical,
     Pause,
@@ -195,7 +194,6 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
     const [modelCatalog, setModelCatalog] = useState<ModelInfo[]>([]);
     const [modelStatus, setModelStatus] = useState<Record<string, ModelStatus>>({});
     const [defaultModelKey, setDefaultModelKey] = useState<string>("");
-    const [defaultCleanupEnabled, setDefaultCleanupEnabled] = useState(false);
     const [availableTags, setAvailableTags] = useState<string[]>([]);
     const [shiftHeld, setShiftHeld] = useState(false);
     const [editingNameId, setEditingNameId] = useState<string | null>(null);
@@ -280,7 +278,6 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
         invoke<StoredSettings>("get_settings")
             .then((settings) => {
                 setDefaultModelKey(settings.local_model);
-                setDefaultCleanupEnabled(!!settings.llm_cleanup_enabled);
             })
             .catch((err) => console.error("Failed to load settings:", err));
     }, [refreshModelStatus]);
@@ -643,7 +640,6 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
                         paths={pendingImportPaths}
                         models={installedModels}
                         defaultModelKey={selectedModel?.key}
-                        defaultCleanupEnabled={defaultCleanupEnabled}
                         onCancel={() => onSetImportPaths(null)}
                         onConfirm={async (paths, options) => {
                             const supported = paths.filter((path) =>
@@ -660,29 +656,17 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
                                 }).catch(() => { });
                             }
 
-                            let ffmpegToastShown = false;
                             for (const path of supported) {
                                 try {
                                     await createItem(path, options);
                                 } catch (err) {
                                     console.error("Failed to import file:", err);
                                     const message = err instanceof Error ? err.message : String(err);
-                                    const isFfmpegError = message.toLowerCase().includes("ffmpeg");
-                                    if (isFfmpegError && !ffmpegToastShown) {
-                                        ffmpegToastShown = true;
-                                        invoke("debug_show_toast", {
-                                            toastType: "error",
-                                            message: "FFmpeg is required to import this file.",
-                                            action: "open_ffmpeg_install",
-                                            actionLabel: "FFmpeg Help",
-                                        }).catch(() => { });
-                                    } else if (!isFfmpegError) {
-                                        const toastMessage = formatImportErrorMessage(message);
-                                        invoke("debug_show_toast", {
-                                            toastType: "error",
-                                            message: toastMessage,
-                                        }).catch(() => { });
-                                    }
+                                    const toastMessage = formatImportErrorMessage(message);
+                                    invoke("debug_show_toast", {
+                                        toastType: "error",
+                                        message: toastMessage,
+                                    }).catch(() => { });
                                 }
                             }
 
@@ -1865,24 +1849,6 @@ const LibraryModal = ({
                                 />
                             </button>
                         </div>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <div className="text-[11px] text-content-primary">LLM cleanup</div>
-                                <div className="text-[9px] text-content-disabled">Auto-clean text</div>
-                            </div>
-                            <button
-                                onClick={() => onUpdate({ llm_cleanup_enabled: !item.llm_cleanup_enabled })}
-                                className={`relative w-8 h-4 rounded-full transition-colors ${item.llm_cleanup_enabled ? "bg-cloud" : "bg-border-secondary"}`}
-                                role="switch"
-                                aria-checked={item.llm_cleanup_enabled}
-                            >
-                                <motion.div
-                                    className="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm"
-                                    animate={{ left: item.llm_cleanup_enabled ? "calc(100% - 14px)" : "2px" }}
-                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                />
-                            </button>
-                        </div>
                     </div>
 
                     {/* Tags section */}
@@ -2210,7 +2176,7 @@ const LibraryModal = ({
                             try {
                                 await onUpdate({
                                     speech_model: options.model_key,
-                                    llm_cleanup_enabled: options.llm_cleanup_enabled,
+                                    llm_cleanup_enabled: false,
                                     show_timestamps: options.show_timestamps,
                                 });
                                 await onRetry();
@@ -2237,12 +2203,10 @@ const LibraryRetranscribeModal = ({
     onCancel: () => void;
     onConfirm: (options: {
         model_key: string;
-        llm_cleanup_enabled: boolean;
         show_timestamps: boolean;
     }) => Promise<void>;
 }) => {
     const [selectedModelKey, setSelectedModelKey] = useState<string>(item.speech_model);
-    const [llmCleanupEnabled, setLlmCleanupEnabled] = useState(item.llm_cleanup_enabled);
     const [showTimestamps, setShowTimestamps] = useState(item.show_timestamps);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -2259,9 +2223,8 @@ const LibraryRetranscribeModal = ({
         const fallback = modelOptions[0]?.value ?? "";
         const nextModel = installed.has(item.speech_model) ? item.speech_model : fallback;
         setSelectedModelKey(nextModel);
-        setLlmCleanupEnabled(item.llm_cleanup_enabled);
         setShowTimestamps(item.show_timestamps);
-    }, [item.id, item.speech_model, item.llm_cleanup_enabled, item.show_timestamps, modelOptions, models]);
+    }, [item.id, item.speech_model, item.show_timestamps, modelOptions, models]);
 
     const selectedModel = models.find((model) => model.key === selectedModelKey) ?? null;
     const timestampsSupported = isTimestampSupported(selectedModel);
@@ -2278,7 +2241,6 @@ const LibraryRetranscribeModal = ({
         try {
             await onConfirm({
                 model_key: selectedModelKey,
-                llm_cleanup_enabled: llmCleanupEnabled,
                 show_timestamps: timestampsSupported ? showTimestamps : false,
             });
         } finally {
@@ -2358,24 +2320,6 @@ const LibraryRetranscribeModal = ({
                         </button>
                     </div>
 
-                    <div className="flex items-center justify-between rounded-lg border border-border-primary bg-surface-surface px-4 py-3">
-                        <div>
-                            <div className="text-[12px] text-content-primary font-medium">LLM cleanup</div>
-                            <div className="text-[10px] text-content-disabled">Apply cleanup after transcription</div>
-                        </div>
-                        <button
-                            onClick={() => setLlmCleanupEnabled(!llmCleanupEnabled)}
-                            className={`relative w-10 h-5 rounded-full transition-colors ${llmCleanupEnabled ? "bg-cloud" : "bg-border-secondary"}`}
-                            role="switch"
-                            aria-checked={llmCleanupEnabled}
-                        >
-                            <motion.div
-                                className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
-                                animate={{ left: llmCleanupEnabled ? "calc(100% - 18px)" : "2px" }}
-                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                            />
-                        </button>
-                    </div>
                 </div>
 
                 <div className="px-5 py-3 border-t border-border-primary flex items-center justify-end gap-2">
@@ -2402,20 +2346,17 @@ const LibraryImportModal = ({
     paths,
     models,
     defaultModelKey,
-    defaultCleanupEnabled,
     onCancel,
     onConfirm,
 }: {
     paths: string[];
     models: ModelInfo[];
     defaultModelKey?: string;
-    defaultCleanupEnabled: boolean;
     onCancel: () => void;
     onConfirm: (paths: string[], options: LibraryImportOptions) => void;
 }) => {
     const [storeOriginal, setStoreOriginal] = useState(true);
     const [selectedModelKey, setSelectedModelKey] = useState<string>(defaultModelKey || "");
-    const [llmCleanupEnabled, setLlmCleanupEnabled] = useState(defaultCleanupEnabled);
     const [showTimestamps, setShowTimestamps] = useState(true);
     const [isImporting, setIsImporting] = useState(false);
 
@@ -2449,7 +2390,7 @@ const LibraryImportModal = ({
         const options: LibraryImportOptions = {
             store_original: storeOriginal,
             model_key: selectedModelKey,
-            llm_cleanup_enabled: llmCleanupEnabled,
+            llm_cleanup_enabled: false,
             show_timestamps: showTimestamps,
         };
         await onConfirm(importPaths, options);
@@ -2558,24 +2499,6 @@ const LibraryImportModal = ({
                         </button>
                     </div>
 
-                    <div className="flex items-center justify-between rounded-lg border border-border-primary bg-surface-surface px-4 py-3">
-                        <div>
-                            <div className="text-[12px] text-content-primary font-medium">LLM cleanup</div>
-                            <div className="text-[10px] text-content-disabled">Apply cleanup after transcription</div>
-                        </div>
-                        <button
-                            onClick={() => setLlmCleanupEnabled(!llmCleanupEnabled)}
-                            className={`relative w-10 h-5 rounded-full transition-colors ${llmCleanupEnabled ? "bg-cloud" : "bg-border-secondary"}`}
-                            role="switch"
-                            aria-checked={llmCleanupEnabled}
-                        >
-                            <motion.div
-                                className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
-                                animate={{ left: llmCleanupEnabled ? "calc(100% - 18px)" : "2px" }}
-                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                            />
-                        </button>
-                    </div>
                 </div>
 
                 <div className="px-5 py-3 border-t border-border-primary flex items-center justify-end gap-2">

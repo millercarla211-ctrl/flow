@@ -17,6 +17,8 @@ export type LibraryItem = {
     id: string;
     name: string;
     audio_path: string;
+    source_path: string;
+    store_original: boolean;
     status: LibraryItemStatus;
     transcript?: string | null;
     segments?: TranscriptSegment[] | null;
