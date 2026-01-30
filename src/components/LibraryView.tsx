@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
@@ -426,79 +426,77 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
 
     return (
         <div className="relative flex flex-1 flex-col min-h-0 h-full">
-            <div className="w-full max-w-6xl mx-auto flex flex-col gap-4 pb-4">
-                <header className="flex flex-col items-center gap-4 text-center">
-                    <div className="flex items-center gap-3">
-                        <DotMatrix
-                            rows={2}
-                            cols={3}
-                            activeDots={[0, 1, 2, 4]}
-                            dotSize={3}
-                            gap={3}
-                            color="var(--color-accent)"
-                        />
-                        <div className="text-left">
-                            <p className="text-2xl font-medium text-content-primary tracking-tight">Library</p>
-                            <p className="mt-1 text-[12px] text-content-secondary">
-                                Import audio and video files for transcription.
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-center gap-2 gap-y-2 w-full max-w-5xl">
-                        <button
-                            onClick={handleImportClick}
-                            className="flex items-center gap-2 rounded-lg border border-border-primary bg-surface-surface px-3 py-2 text-[12px] text-content-primary hover:border-border-secondary hover:bg-surface-overlay transition-colors shrink-0"
-                        >
-                            <Plus size={14} />
-                            Import
-                        </button>
-                        <div className="relative">
-                            <div className="relative flex items-center gap-2 bg-surface-secondary border border-border-primary rounded-lg px-2.5 py-2 focus-within:border-border-secondary transition-colors">
-                                <Search size={12} className="text-content-disabled shrink-0" aria-hidden="true" />
-                                <input
-                                    type="text"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Search library..."
-                                    aria-label="Search library"
-                                    className="bg-transparent text-[11px] text-content-secondary placeholder-content-disabled outline-none w-32 sm:w-40 md:w-44"
-                                />
-                            </div>
-                        </div>
-                        <Dropdown
-                            value={statusFilter}
-                            onChange={(value) => setStatusFilter(value)}
-                            options={[
-                                { value: "all", label: "All" },
-                                { value: "importing", label: "Converting" },
-                                { value: "pending", label: "Queued" },
-                                { value: "transcribing", label: "Transcribing" },
-                                { value: "complete", label: "Done" },
-                                { value: "error", label: "Failed" },
-                            ]}
-                            className="w-[120px]"
-                        />
-                        <Dropdown
-                            value={dateFilter}
-                            onChange={(value) => setDateFilter(value)}
-                            options={[
-                                { value: "all", label: "All time" },
-                                { value: "last7", label: "Last 7 days" },
-                                { value: "last30", label: "Last 30 days" },
-                            ]}
-                            className="w-[120px]"
-                        />
-                        <Dropdown
-                            value={tagFilter}
-                            onChange={(value) => setTagFilter(value)}
-                            options={[
-                                { value: "all", label: "All tags" },
-                                ...availableTags.map((tag) => ({ value: tag, label: tag })),
-                            ]}
-                            className="w-[120px]"
-                        />
+            <div className="w-full max-w-5xl mx-auto flex flex-col gap-4 pb-4 text-left">
+                <header className="flex items-start gap-3 mb-4">
+                    <DotMatrix
+                        rows={2}
+                        cols={3}
+                        activeDots={[0, 1, 2, 4]}
+                        dotSize={3}
+                        gap={3}
+                        color="var(--color-accent)"
+                    />
+                    <div className="flex-1">
+                        <p className="text-2xl font-medium text-content-primary tracking-tight">Library</p>
+                        <p className="mt-1 text-[12px] text-content-secondary">
+                            Import audio and video files for transcription.
+                        </p>
                     </div>
                 </header>
+                <div className="flex flex-wrap items-center justify-center gap-2 gap-y-2 w-full max-w-5xl">
+                    <button
+                        onClick={handleImportClick}
+                        className="flex items-center gap-2 rounded-lg border border-border-primary bg-surface-surface px-3 py-2 text-[12px] text-content-primary hover:border-border-secondary hover:bg-surface-overlay transition-colors shrink-0"
+                    >
+                        <Plus size={14} />
+                        Import
+                    </button>
+                    <div className="relative">
+                        <div className="relative flex items-center gap-2 bg-surface-secondary border border-border-primary rounded-lg px-2.5 py-2 focus-within:border-border-secondary transition-colors">
+                            <Search size={12} className="text-content-disabled shrink-0" aria-hidden="true" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search library..."
+                                aria-label="Search library"
+                                className="bg-transparent text-[11px] text-content-secondary placeholder-content-disabled outline-none w-32 sm:w-40 md:w-44"
+                            />
+                        </div>
+                    </div>
+                    <Dropdown
+                        value={statusFilter}
+                        onChange={(value) => setStatusFilter(value)}
+                        options={[
+                            { value: "all", label: "All" },
+                            { value: "importing", label: "Converting" },
+                            { value: "pending", label: "Queued" },
+                            { value: "transcribing", label: "Transcribing" },
+                            { value: "complete", label: "Done" },
+                            { value: "error", label: "Failed" },
+                        ]}
+                        className="w-[120px]"
+                    />
+                    <Dropdown
+                        value={dateFilter}
+                        onChange={(value) => setDateFilter(value)}
+                        options={[
+                            { value: "all", label: "All time" },
+                            { value: "last7", label: "Last 7 days" },
+                            { value: "last30", label: "Last 30 days" },
+                        ]}
+                        className="w-[120px]"
+                    />
+                    <Dropdown
+                        value={tagFilter}
+                        onChange={(value) => setTagFilter(value)}
+                        options={[
+                            { value: "all", label: "All tags" },
+                            ...availableTags.map((tag) => ({ value: tag, label: tag })),
+                        ]}
+                        className="w-[120px]"
+                    />
+                </div>
 
                 {error && (
                     <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-[12px] text-red-200">
@@ -516,7 +514,7 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
                     className="flex flex-col gap-6 w-full"
                 >
                     <div className="w-full max-w-6xl mx-auto flex flex-col gap-6">
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
                         {isLoading && items.length === 0 && (
                             <div className="col-span-full py-12 flex items-center justify-center">
                                 <DotMatrix
@@ -580,25 +578,25 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
                             </button>
                         )}
 
-                        {items.length > 0 && hasMore && (
-                            <div className="col-span-full flex items-center justify-center pt-2">
-                                <button
-                                    onClick={loadMore}
-                                    disabled={isLoadingMore}
-                                    className="flex items-center gap-2 rounded-lg border border-border-primary bg-surface-surface px-4 py-2 text-[12px] text-content-secondary hover:text-content-primary hover:border-border-secondary hover:bg-surface-overlay transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                                >
-                                    {isLoadingMore ? (
-                                        <>
-                                            <Loader2 size={14} className="animate-spin" />
-                                            <span>Loading...</span>
-                                        </>
-                                    ) : (
-                                        <span>Load more</span>
-                                    )}
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                            {items.length > 0 && hasMore && (
+                                <div className="col-span-full flex items-center justify-center pt-2">
+                                    <button
+                                        onClick={loadMore}
+                                        disabled={isLoadingMore}
+                                        className="flex items-center gap-2 rounded-lg border border-border-primary bg-surface-surface px-4 py-2 text-[12px] text-content-secondary hover:text-content-primary hover:border-border-secondary hover:bg-surface-overlay transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                    >
+                                        {isLoadingMore ? (
+                                            <>
+                                                <Loader2 size={14} className="animate-spin" />
+                                                <span>Loading...</span>
+                                            </>
+                                        ) : (
+                                            <span>Load more</span>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </motion.div>
             </div>
@@ -1357,10 +1355,20 @@ const LibraryModal = ({
                 : `${outputPath}.${ext}`;
             await onExport(format, finalPath);
         } catch (err) {
-            console.error("Export failed:", err);
+            const message = err instanceof Error ? err.message : String(err);
+            console.error("Export failed:", message);
+            const lower = message.toLowerCase();
+            let toastMessage = message || "Export failed. Try again.";
+            if (lower.includes("no timestamp segments")) {
+                toastMessage = "This item doesn’t have timestamps. Retranscribe with timestamps to export subtitles.";
+            } else if (lower.includes("failed to write export file")) {
+                toastMessage = "Couldn't write the export file. Try a different location.";
+            } else if (lower.includes("library item not found")) {
+                toastMessage = "Couldn't find this library item. Try reopening it.";
+            }
             invoke("debug_show_toast", {
                 toastType: "error",
-                message: "Export failed. Try again.",
+                message: toastMessage,
             }).catch(() => { });
         } finally {
             setIsExporting(false);
@@ -1534,7 +1542,7 @@ const LibraryModal = ({
             if (!normalizedSearchQuery) return text;
             const query = normalizedSearchQuery.toLowerCase();
             const lower = text.toLowerCase();
-            const nodes: Array<string | JSX.Element> = [];
+            const nodes: Array<string | ReactNode> = [];
             let startIndex = 0;
             let matchIndex = lower.indexOf(query);
             let matchCount = 0;
