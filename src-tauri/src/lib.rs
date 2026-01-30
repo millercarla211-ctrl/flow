@@ -39,7 +39,9 @@ use recorder::{
 };
 use reqwest::Client;
 use serde::Serialize;
-use settings::{default_local_model, LlmProvider, SettingsStore, TranscriptionMode, UserSettings};
+use settings::{
+    default_local_model, LlmProvider, SettingsStore, TranscriptionMode, UserSettings,
+};
 use tauri::async_runtime;
 use tauri::tray::TrayIcon;
 use tauri::Emitter;
@@ -398,6 +400,7 @@ pub struct AppState {
     pub(crate) tray: parking_lot::Mutex<Option<TrayIcon<AppRuntime>>>,
     pub(crate) settings_close_handler_registered: AtomicBool,
     transcription_cancelled: AtomicBool,
+    ffmpeg_toast_shown: AtomicBool,
     pending_recording_path: parking_lot::Mutex<Option<PathBuf>>,
     cloud_manager: cloud::CloudManager,
     pending_selected_text: parking_lot::Mutex<Option<String>>,
@@ -444,6 +447,7 @@ impl AppState {
             tray: parking_lot::Mutex::new(None),
             settings_close_handler_registered: AtomicBool::new(false),
             transcription_cancelled: AtomicBool::new(false),
+            ffmpeg_toast_shown: AtomicBool::new(false),
             pending_recording_path: parking_lot::Mutex::new(None),
             cloud_manager: cloud::CloudManager::new(),
             pending_selected_text: parking_lot::Mutex::new(None),
@@ -505,6 +509,12 @@ impl AppState {
 
     pub fn clear_cancellation(&self) {
         self.transcription_cancelled.store(false, Ordering::SeqCst);
+    }
+
+    pub fn should_show_ffmpeg_toast(&self) -> bool {
+        self.ffmpeg_toast_shown
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
     }
 
     pub fn set_pending_path(&self, path: Option<PathBuf>) {

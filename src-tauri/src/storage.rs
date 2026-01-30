@@ -527,6 +527,8 @@ impl StorageManager {
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 audio_path TEXT NOT NULL,
+                source_path TEXT NOT NULL DEFAULT '',
+                store_original INTEGER NOT NULL DEFAULT 0,
                 status TEXT NOT NULL DEFAULT 'pending',
                 progress REAL DEFAULT 0,
                 error_message TEXT,
@@ -594,6 +596,18 @@ impl StorageManager {
             "show_timestamps",
             "ALTER TABLE library_items ADD COLUMN show_timestamps INTEGER NOT NULL DEFAULT 0",
         )?;
+        Self::ensure_column(
+            conn,
+            "library_items",
+            "source_path",
+            "ALTER TABLE library_items ADD COLUMN source_path TEXT NOT NULL DEFAULT ''",
+        )?;
+        Self::ensure_column(
+            conn,
+            "library_items",
+            "store_original",
+            "ALTER TABLE library_items ADD COLUMN store_original INTEGER NOT NULL DEFAULT 0",
+        )?;
         Ok(())
     }
 
@@ -630,6 +644,8 @@ impl StorageManager {
                 id,
                 name,
                 audio_path,
+                source_path,
+                store_original,
                 status,
                 progress,
                 error_message,
@@ -644,11 +660,13 @@ impl StorageManager {
                 llm_cleanup_enabled,
                 speech_model,
                 show_timestamps
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             params![
                 item.id,
                 item.name,
                 item.audio_path,
+                item.source_path,
+                if item.store_original { 1 } else { 0 },
                 status,
                 progress,
                 error_message,
@@ -683,7 +701,7 @@ impl StorageManager {
         let conn = self.connection.lock();
         let (where_clause, mut params) = build_library_filter(&filter);
         let sql = format!(
-            "SELECT id, name, audio_path, status, progress, error_message, transcript, segments,
+            "SELECT id, name, audio_path, source_path, store_original, status, progress, error_message, transcript, segments,
                     duration_seconds, file_size_bytes, original_format, created_at, transcribed_at,
                     tags, llm_cleanup_enabled, speech_model, show_timestamps
              FROM library_items
@@ -788,7 +806,7 @@ impl StorageManager {
 
 fn get_library_item_by_id(conn: &Connection, id: &str) -> Result<Option<LibraryItem>> {
     conn.query_row(
-        "SELECT id, name, audio_path, status, progress, error_message, transcript, segments,
+        "SELECT id, name, audio_path, source_path, store_original, status, progress, error_message, transcript, segments,
                 duration_seconds, file_size_bytes, original_format, created_at, transcribed_at,
                 tags, llm_cleanup_enabled, speech_model, show_timestamps
          FROM library_items WHERE id = ?1",
@@ -808,24 +826,28 @@ fn update_library_item_full(conn: &Connection, item: &LibraryItem) -> Result<()>
         "UPDATE library_items SET
             name = ?1,
             audio_path = ?2,
-            status = ?3,
-            progress = ?4,
-            error_message = ?5,
-            transcript = ?6,
-            segments = ?7,
-            duration_seconds = ?8,
-            file_size_bytes = ?9,
-            original_format = ?10,
-            created_at = ?11,
-            transcribed_at = ?12,
-            tags = ?13,
-            llm_cleanup_enabled = ?14,
-            speech_model = ?15,
-            show_timestamps = ?16
-         WHERE id = ?17",
+            source_path = ?3,
+            store_original = ?4,
+            status = ?5,
+            progress = ?6,
+            error_message = ?7,
+            transcript = ?8,
+            segments = ?9,
+            duration_seconds = ?10,
+            file_size_bytes = ?11,
+            original_format = ?12,
+            created_at = ?13,
+            transcribed_at = ?14,
+            tags = ?15,
+            llm_cleanup_enabled = ?16,
+            speech_model = ?17,
+            show_timestamps = ?18
+         WHERE id = ?19",
         params![
             item.name,
             item.audio_path,
+            item.source_path,
+            if item.store_original { 1 } else { 0 },
             status,
             progress,
             error_message,
@@ -865,6 +887,8 @@ fn library_item_from_row(row: &Row<'_>) -> rusqlite::Result<LibraryItem> {
         id: row.get("id")?,
         name: row.get("name")?,
         audio_path: row.get("audio_path")?,
+        source_path: row.get("source_path")?,
+        store_original: row.get::<_, i64>("store_original")? == 1,
         status: LibraryItemStatus::from_fields(&status_value, progress, error_message),
         transcript: row.get("transcript")?,
         segments,

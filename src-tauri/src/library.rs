@@ -23,7 +23,7 @@ use uuid::Uuid;
 
 use crate::transcribe::count_words;
 use crate::{
-    dictionary, llm_cleanup, model_manager,
+    dictionary, model_manager,
     recorder::speech_percentage_i16_with_mode,
     storage::StorageManager,
     toast, transcribe, AppRuntime, AppState,
@@ -49,10 +49,18 @@ fn is_cancelled_message(message: &str) -> bool {
     lower.contains("cancelled") || lower.contains("canceled")
 }
 
+fn is_ffmpeg_error_message(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    lower.contains("ffmpeg not found")
+        || lower.contains("install ffmpeg")
+        || lower.contains("ffmpeg is required")
+}
+
 pub const EVENT_LIBRARY_PROGRESS: &str = "library:transcription_progress";
 pub const EVENT_LIBRARY_COMPLETE: &str = "library:transcription_complete";
 pub const EVENT_LIBRARY_ERROR: &str = "library:transcription_error";
 pub const EVENT_LIBRARY_OPEN_IMPORT: &str = "library:open_import";
+pub const EVENT_LIBRARY_IMPORTING: &str = "library:importing";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranscriptSegment {
@@ -118,6 +126,8 @@ pub struct LibraryItem {
     pub id: String,
     pub name: String,
     pub audio_path: String,
+    pub source_path: String,
+    pub store_original: bool,
     pub status: LibraryItemStatus,
     pub transcript: Option<String>,
     pub segments: Option<Vec<TranscriptSegment>>,
@@ -235,27 +245,13 @@ pub fn get_library_items_page(
 pub fn update_library_item(
     id: String,
     patch: LibraryItemPatch,
-    app: AppHandle<AppRuntime>,
     state: tauri::State<'_, AppState>,
 ) -> Result<LibraryItem, String> {
     let storage = state.storage();
-    let previous = storage
-        .get_library_item(&id)
-        .map_err(|err| format!("Failed to load library item: {err}"))?;
-    let previous = previous.ok_or_else(|| "Library item not found".to_string())?;
     let updated = storage
         .update_library_item(&id, patch.clone())
         .map_err(|err| format!("Failed to update library item: {err}"))?
         .ok_or_else(|| "Library item not found".to_string())?;
-
-    if patch.llm_cleanup_enabled == Some(true)
-        && !previous.llm_cleanup_enabled
-        && matches!(updated.status, LibraryItemStatus::Complete)
-        && updated.transcript.as_deref().unwrap_or("").trim().len() > 0
-    {
-        let item_id = updated.id.clone();
-        apply_llm_cleanup_async(&app, item_id);
-    }
 
     Ok(updated)
 }
@@ -360,21 +356,61 @@ pub fn retry_library_transcription(
     app: AppHandle<AppRuntime>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let _ = state.storage().update_library_item(
+    let storage = state.storage();
+    let item = storage
+        .get_library_item(&id)
+        .map_err(|err| format!("Failed to load library item: {err}"))?
+        .ok_or_else(|| "Library item not found".to_string())?;
+
+    let audio_exists = PathBuf::from(&item.audio_path).exists();
+    let mut job = LibraryJobKind::TranscribeExisting;
+
+    if !audio_exists {
+        let mut candidates: Vec<PathBuf> = Vec::new();
+        if let Some(path) = stored_original_path(&item) {
+            candidates.push(path);
+        }
+        let source = item.source_path.trim();
+        if !source.is_empty() {
+            candidates.push(PathBuf::from(source));
+        }
+
+        if let Some(source_path) = candidates.into_iter().find(|path| path.exists()) {
+            job = LibraryJobKind::Import {
+                source_path,
+                store_original: item.store_original,
+            };
+        } else {
+            let message =
+                "Original file not found. Re-import the file to try again.".to_string();
+            let _ = storage.update_library_item(
+                &id,
+                LibraryItemPatch {
+                    status: Some(LibraryItemStatus::Error {
+                        message: message.clone(),
+                    }),
+                    ..Default::default()
+                },
+            );
+            let _ = app.emit(
+                EVENT_LIBRARY_ERROR,
+                LibraryErrorPayload {
+                    id,
+                    message: message.clone(),
+                },
+            );
+            return Err(message);
+        }
+    }
+
+    let _ = storage.update_library_item(
         &id,
         LibraryItemPatch {
             status: Some(LibraryItemStatus::Pending),
             ..Default::default()
         },
     );
-    schedule_library_job(
-        &app,
-        &state,
-        LibraryJob {
-            id,
-            kind: LibraryJobKind::TranscribeExisting,
-        },
-    );
+    schedule_library_job(&app, &state, LibraryJob { id, kind: job });
     Ok(())
 }
 
@@ -476,7 +512,9 @@ fn create_item_from_path(
         id,
         name: file_name.to_string(),
         audio_path: audio_path.display().to_string(),
-        status: LibraryItemStatus::Importing,
+        source_path: source_path.display().to_string(),
+        store_original: options.store_original,
+        status: LibraryItemStatus::Pending,
         transcript: None,
         segments: None,
         duration_seconds: 0.0,
@@ -485,7 +523,7 @@ fn create_item_from_path(
         created_at: Utc::now().to_rfc3339(),
         transcribed_at: None,
         tags: Vec::new(),
-        llm_cleanup_enabled: options.llm_cleanup_enabled,
+        llm_cleanup_enabled: false,
         speech_model: options.model_key.clone(),
         show_timestamps,
     };
@@ -494,11 +532,7 @@ fn create_item_from_path(
     Ok(item)
 }
 
-fn start_library_job_internal(
-    app: &AppHandle<AppRuntime>,
-    state: &tauri::State<'_, AppState>,
-    job: LibraryJob,
-) {
+fn start_library_job_internal(app: &AppHandle<AppRuntime>, job: LibraryJob) {
     let app_handle = app.clone();
     async_runtime::spawn(async move {
         let state_handle = app_handle.state::<AppState>();
@@ -605,34 +639,45 @@ fn convert_library_item(
     fs::create_dir_all(item_dir)
         .with_context(|| format!("Failed to create library folder at {}", item_dir.display()))?;
 
-    let _ = storage.update_library_item(
-        id,
-        LibraryItemPatch {
-            status: Some(LibraryItemStatus::Importing),
-            ..Default::default()
-        },
-    );
+    let result = (|| -> Result<f32> {
+        let _ = storage.update_library_item(
+            id,
+            LibraryItemPatch {
+                status: Some(LibraryItemStatus::Importing),
+                ..Default::default()
+            },
+        );
+        let _ = app.emit(
+            EVENT_LIBRARY_IMPORTING,
+            LibraryImportPayload { id: id.to_string() },
+        );
 
-    if token.is_cancelled() {
-        return Err(anyhow!("Transcription cancelled"));
-    }
+        if token.is_cancelled() {
+            return Err(anyhow!("Transcription cancelled"));
+        }
 
-    if store_original {
-        let original_target = item_dir.join(format!("source.{}", ext));
-        fs::copy(source_path, &original_target).with_context(|| {
-            format!(
-                "Failed to copy original file to {}",
-                original_target.display()
-            )
-        })?;
-    }
+        if store_original {
+            let original_target = item_dir.join(format!("source.{}", ext));
+            fs::copy(source_path, &original_target).with_context(|| {
+                format!(
+                    "Failed to copy original file to {}",
+                    original_target.display()
+                )
+            })?;
+        }
 
-    if let Err(err) = convert_to_wav(source_path, &audio_path, &ext) {
-        let _ = fs::remove_dir_all(item_dir);
-        return Err(err);
-    }
+        convert_to_wav(source_path, &audio_path, &ext)?;
+        let duration_seconds = wav_duration_seconds(&audio_path)?;
+        Ok(duration_seconds)
+    })();
 
-    let duration_seconds = wav_duration_seconds(&audio_path)?;
+    let duration_seconds = match result {
+        Ok(duration_seconds) => duration_seconds,
+        Err(err) => {
+            let _ = fs::remove_dir_all(item_dir);
+            return Err(err);
+        }
+    };
     let _ = storage.update_library_item(
         id,
         LibraryItemPatch {
@@ -664,6 +709,11 @@ fn start_library_transcription_internal(
         }
     };
 
+    if matches!(item.status, LibraryItemStatus::Cancelling | LibraryItemStatus::Cancelled) {
+        release_library_slot(app, state, &id);
+        return;
+    }
+
     if matches!(item.status, LibraryItemStatus::Transcribing { .. }) {
         release_library_slot(app, state, &id);
         return;
@@ -694,6 +744,7 @@ fn start_library_transcription_internal(
     let app_handle = app.clone();
     let item_for_task = item.clone();
     async_runtime::spawn(async move {
+        let id_for_release = id.clone();
         let token_handle = token.clone();
         let app_for_task = app_handle.clone();
         let result = async_runtime::spawn_blocking(move || {
@@ -702,33 +753,12 @@ fn start_library_transcription_internal(
         })
         .await;
 
-        app_handle
-            .state::<AppState>()
-            .clear_library_transcription(&id);
-        {
-            let state_handle = app_handle.state::<AppState>();
-            state_handle.clear_active_library_job(&id);
-            start_next_library_job(&app_handle, &state_handle);
-        }
+        let state_handle = app_handle.state::<AppState>();
 
         match result {
             Ok(Ok(mut result)) => {
                 let mut final_transcript = result.transcript.clone();
-                let settings = app_handle.state::<AppState>().current_settings();
-                if item.llm_cleanup_enabled && llm_cleanup::is_cleanup_available(&settings) {
-                    match llm_cleanup::cleanup_transcription(
-                        &app_handle.state::<AppState>().http(),
-                        &final_transcript,
-                        &settings,
-                        None,
-                    )
-                    .await
-                    {
-                        Ok(cleaned) => final_transcript = cleaned,
-                        Err(err) => eprintln!("LLM cleanup failed: {err}"),
-                    }
-                }
-
+                let settings = state_handle.current_settings();
                 final_transcript =
                     dictionary::apply_replacements(&final_transcript, &settings.replacements);
 
@@ -749,21 +779,23 @@ fn start_library_transcription_internal(
                             message: "No speech detected".to_string(),
                         },
                     );
-                    return;
+                } else {
+                    let _ = storage.update_library_item(
+                        &id,
+                        LibraryItemPatch {
+                            status: Some(LibraryItemStatus::Complete),
+                            transcript: Some(final_transcript),
+                            segments: result.segments.take(),
+                            transcribed_at: Some(Utc::now().to_rfc3339()),
+                            ..Default::default()
+                        },
+                    );
+
+                    let _ = app_handle.emit(
+                        EVENT_LIBRARY_COMPLETE,
+                        LibraryCompletePayload { id: id.clone() },
+                    );
                 }
-
-                let _ = storage.update_library_item(
-                    &id,
-                    LibraryItemPatch {
-                        status: Some(LibraryItemStatus::Complete),
-                        transcript: Some(final_transcript),
-                        segments: result.segments.take(),
-                        transcribed_at: Some(Utc::now().to_rfc3339()),
-                        ..Default::default()
-                    },
-                );
-
-                let _ = app_handle.emit(EVENT_LIBRARY_COMPLETE, LibraryCompletePayload { id });
             }
             Ok(Err(err)) => {
                 let message = err.to_string();
@@ -783,7 +815,10 @@ fn start_library_transcription_internal(
                 );
                 let _ = app_handle.emit(
                     EVENT_LIBRARY_ERROR,
-                    LibraryErrorPayload { id, message },
+                    LibraryErrorPayload {
+                        id: id.clone(),
+                        message,
+                    },
                 );
             }
             Err(err) => {
@@ -804,10 +839,15 @@ fn start_library_transcription_internal(
                 );
                 let _ = app_handle.emit(
                     EVENT_LIBRARY_ERROR,
-                    LibraryErrorPayload { id, message },
+                    LibraryErrorPayload {
+                        id: id.clone(),
+                        message,
+                    },
                 );
             }
         }
+
+        release_library_slot(&app_handle, &state_handle, &id_for_release);
     });
 }
 
@@ -825,6 +865,16 @@ fn handle_library_job_error(
             message: message.clone(),
         }
     };
+    if is_ffmpeg_error_message(&message) && state.should_show_ffmpeg_toast() {
+        toast::show_with_action(
+            app,
+            "error",
+            Some("FFmpeg Required"),
+            "FFmpeg is required to import this file.",
+            "open_ffmpeg_install",
+            "FFmpeg Help",
+        );
+    }
     let _ = state.storage().update_library_item(
         id,
         LibraryItemPatch {
@@ -860,7 +910,7 @@ fn start_next_library_job(
     let Some(job) = state.claim_next_library_job() else {
         return;
     };
-    start_library_job_internal(app, state, job);
+    start_library_job_internal(app, job);
 }
 
 fn release_library_slot(
@@ -879,6 +929,10 @@ fn transcribe_library_item(
     item: &LibraryItem,
     token: &CancellationToken,
 ) -> Result<LibraryTranscriptionResult> {
+    if token.is_cancelled() {
+        return Err(anyhow!("Transcription cancelled"));
+    }
+
     let audio_path = PathBuf::from(&item.audio_path);
     if !audio_path.exists() {
         return Err(anyhow!("Audio file not found"));
@@ -1259,63 +1313,6 @@ fn transcribe_library_item(
     })
 }
 
-fn apply_llm_cleanup_async(app: &AppHandle<AppRuntime>, id: String) {
-    let app_handle = app.clone();
-    async_runtime::spawn(async move {
-        let state_handle = app_handle.state::<AppState>();
-        let storage = state_handle.storage();
-        let item = match storage.get_library_item(&id) {
-            Ok(Some(item)) => item,
-            _ => return,
-        };
-
-        let transcript = match item.transcript.clone() {
-            Some(text) if !text.trim().is_empty() => text,
-            _ => return,
-        };
-
-        let settings = state_handle.current_settings();
-        if !llm_cleanup::is_cleanup_available(&settings) {
-            toast::show(
-                &app_handle,
-                "warning",
-                None,
-                "LLM cleanup is not configured.",
-            );
-            return;
-        }
-
-        match llm_cleanup::cleanup_transcription(
-            &state_handle.http(),
-            &transcript,
-            &settings,
-            None,
-        )
-        .await
-        {
-            Ok(cleaned) => {
-                let _ = storage.update_library_item(
-                    &id,
-                    LibraryItemPatch {
-                        transcript: Some(cleaned),
-                        ..Default::default()
-                    },
-                );
-                let _ = app_handle.emit(EVENT_LIBRARY_COMPLETE, LibraryCompletePayload { id });
-            }
-            Err(err) => {
-                eprintln!("LLM cleanup failed: {err}");
-                toast::show(
-                    &app_handle,
-                    "error",
-                    Some("Library Cleanup"),
-                    "LLM cleanup failed. Transcript left unchanged.",
-                );
-            }
-        }
-    });
-}
-
 fn report_progress(
     app: &AppHandle<AppRuntime>,
     storage: Arc<StorageManager>,
@@ -1367,6 +1364,11 @@ struct LibraryErrorPayload {
     message: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct LibraryImportPayload {
+    id: String,
+}
+
 fn is_supported_format(ext: &str) -> bool {
     SUPPORTED_AUDIO_FORMATS.contains(&ext) || SUPPORTED_VIDEO_FORMATS.contains(&ext)
 }
@@ -1411,6 +1413,19 @@ fn library_root(app: &AppHandle<AppRuntime>) -> Result<PathBuf> {
         .context("App data directory not found")?;
     dir.push("library");
     Ok(dir)
+}
+
+fn stored_original_path(item: &LibraryItem) -> Option<PathBuf> {
+    if !item.store_original {
+        return None;
+    }
+    let ext = item.original_format.trim();
+    if ext.is_empty() {
+        return None;
+    }
+    let audio_path = PathBuf::from(&item.audio_path);
+    let item_dir = audio_path.parent()?;
+    Some(item_dir.join(format!("source.{ext}")))
 }
 
 fn convert_to_wav(input: &Path, output: &Path, ext: &str) -> Result<()> {
