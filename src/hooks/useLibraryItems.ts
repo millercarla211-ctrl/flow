@@ -6,6 +6,7 @@ import type {
     LibraryImportOptions,
     LibraryItem,
     LibraryItemPatch,
+    LibraryItemStatus,
     LibraryProgressPayload,
     ExportFormat,
     LibraryItemsPage,
@@ -146,15 +147,17 @@ export function useLibraryItems(initialFilter: LibraryFilter = {}) {
         let unlistenComplete: UnlistenFn | null = null;
         let unlistenError: UnlistenFn | null = null;
         let unlistenImporting: UnlistenFn | null = null;
+        const isProgressable = (status: LibraryItemStatus) =>
+            status.type === "pending"
+            || status.type === "importing"
+            || status.type === "transcribing";
 
         listen<LibraryProgressPayload>("library:transcription_progress", (event) => {
             const { id, progress, chunk_text, chunk_segments, current_chunk, total_chunks } = event.payload;
             setItems(prev =>
                 prev.map(item => {
                     if (item.id !== id) return item;
-                    if (item.status.type === "cancelling" || item.status.type === "cancelled") {
-                        return item;
-                    }
+                    if (!isProgressable(item.status)) return item;
                     let nextTranscript = item.transcript;
                     let updateTranscript = false;
                     const isReset = current_chunk === 0 && total_chunks === 0;

@@ -286,8 +286,12 @@ pub fn delete_library_item(
             return Err("Failed to resolve library storage location.".to_string());
         }
     };
-    let root = root.canonicalize().unwrap_or(root);
-    let safe_path = path.canonicalize().unwrap_or(path);
+    let root = root
+        .canonicalize()
+        .map_err(|_| "Failed to resolve library storage location.".to_string())?;
+    let safe_path = path
+        .canonicalize()
+        .map_err(|_| "Library item path could not be resolved; delete aborted.".to_string())?;
     if !safe_path.starts_with(&root) {
         return Err("Library item is stored outside the library folder; delete aborted.".to_string());
     }
@@ -658,6 +662,22 @@ fn convert_library_item(
 
         if store_original {
             let original_target = item_dir.join(format!("source.{}", ext));
+            let source_size = fs::metadata(source_path)
+                .with_context(|| format!("Failed to read file size for {}", source_path.display()))?
+                .len();
+            let available = fs2::available_space(item_dir).with_context(|| {
+                format!(
+                    "Failed to read available disk space for {}",
+                    item_dir.display()
+                )
+            })?;
+            if available < source_size {
+                return Err(anyhow!(
+                    "Insufficient disk space to store original file (need {} bytes, have {} bytes)",
+                    source_size,
+                    available
+                ));
+            }
             fs::copy(source_path, &original_target).with_context(|| {
                 format!(
                     "Failed to copy original file to {}",
