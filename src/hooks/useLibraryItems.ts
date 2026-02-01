@@ -143,118 +143,125 @@ export function useLibraryItems(initialFilter: LibraryFilter = {}) {
     }, []);
 
     useEffect(() => {
-        let unlistenProgress: UnlistenFn | null = null;
-        let unlistenComplete: UnlistenFn | null = null;
-        let unlistenError: UnlistenFn | null = null;
-        let unlistenImporting: UnlistenFn | null = null;
+        let cancelled = false;
+        const unlisteners: UnlistenFn[] = [];
+
         const isProgressable = (status: LibraryItemStatus) =>
             status.type === "pending"
             || status.type === "importing"
             || status.type === "transcribing";
 
-        listen<LibraryProgressPayload>("library:transcription_progress", (event) => {
-            const { id, progress, chunk_text, chunk_segments, current_chunk, total_chunks } = event.payload;
-            setItems(prev =>
-                prev.map(item => {
-                    if (item.id !== id) return item;
-                    if (!isProgressable(item.status)) return item;
-                    let nextTranscript = item.transcript;
-                    let updateTranscript = false;
-                    const isReset = current_chunk === 0 && total_chunks === 0;
-                    if (isReset) {
-                        nextTranscript = "";
-                        updateTranscript = true;
+        const setupListeners = async () => {
+            const [
+                unlistenProgress,
+                unlistenComplete,
+                unlistenError,
+                unlistenImporting,
+            ] = await Promise.all([
+                listen<LibraryProgressPayload>("library:transcription_progress", (event) => {
+                    const { id, progress, chunk_text, chunk_segments, current_chunk, total_chunks } = event.payload;
+                    setItems(prev =>
+                        prev.map(item => {
+                            if (item.id !== id) return item;
+                            if (!isProgressable(item.status)) return item;
+                            let nextTranscript = item.transcript;
+                            let updateTranscript = false;
+                            const isReset = current_chunk === 0 && total_chunks === 0;
+                            if (isReset) {
+                                nextTranscript = "";
+                                updateTranscript = true;
+                            }
+                            if (chunk_text && chunk_text.trim().length > 0) {
+                                const base = isReset ? "" : item.transcript ?? "";
+                                const separator = base.trim().length > 0 ? "\n" : "";
+                                nextTranscript = `${base}${separator}${chunk_text}`;
+                                updateTranscript = true;
+                            }
+                            let nextSegments = item.segments;
+                            let updateSegments = false;
+                            if (isReset) {
+                                nextSegments = [];
+                                updateSegments = true;
+                            }
+                            if (chunk_segments && chunk_segments.length > 0) {
+                                const base = isReset ? [] : item.segments ?? [];
+                                nextSegments = [...base, ...chunk_segments];
+                                updateSegments = true;
+                            }
+                            return {
+                                ...item,
+                                status: { type: "transcribing", progress },
+                                ...(updateTranscript ? { transcript: nextTranscript } : {}),
+                                ...(updateSegments ? { segments: nextSegments } : {}),
+                            };
+                        })
+                    );
+                }),
+                listen<LibraryCompletePayload>("library:transcription_complete", (event) => {
+                    const id = event.payload?.id;
+                    if (!id) {
+                        loadItems();
+                        return;
                     }
-                    if (chunk_text && chunk_text.trim().length > 0) {
-                        const base = isReset ? "" : item.transcript ?? "";
-                        const separator = base.trim().length > 0 ? "\n" : "";
-                        nextTranscript = `${base}${separator}${chunk_text}`;
-                        updateTranscript = true;
-                    }
-                    let nextSegments = item.segments;
-                    let updateSegments = false;
-                    if (isReset) {
-                        nextSegments = [];
-                        updateSegments = true;
-                    }
-                    if (chunk_segments && chunk_segments.length > 0) {
-                        const base = isReset ? [] : item.segments ?? [];
-                        nextSegments = [...base, ...chunk_segments];
-                        updateSegments = true;
-                    }
-                    return {
-                        ...item,
-                        status: { type: "transcribing", progress },
-                        ...(updateTranscript ? { transcript: nextTranscript } : {}),
-                        ...(updateSegments ? { segments: nextSegments } : {}),
-                    };
-                })
-            );
-        }).then(fn => {
-            unlistenProgress = fn;
-        });
+                    setItems(prev =>
+                        prev.map(item =>
+                            item.id === id ? { ...item, status: { type: "complete" } } : item
+                        )
+                    );
+                    refresh();
+                }),
+                listen<LibraryErrorPayload>("library:transcription_error", (event) => {
+                    const { id, message } = event.payload;
+                    const isCancelled = message.toLowerCase().includes("cancelled")
+                        || message.toLowerCase().includes("canceled");
+                    setItems(prev =>
+                        prev.map(item =>
+                            item.id === id
+                                ? {
+                                    ...item,
+                                    status: isCancelled ? { type: "cancelled" } : { type: "error", message },
+                                }
+                                : item
+                        )
+                    );
+                    refresh();
+                }),
+                listen<LibraryImportPayload>("library:importing", (event) => {
+                    const id = event.payload?.id;
+                    if (!id) return;
+                    setItems(prev =>
+                        prev.map(item =>
+                            item.id === id
+                                ? (item.status.type === "transcribing"
+                                    || item.status.type === "complete"
+                                    || item.status.type === "cancelling"
+                                    || item.status.type === "cancelled"
+                                    ? item
+                                    : { ...item, status: { type: "importing" } })
+                                : item
+                        )
+                    );
+                }),
+            ]);
 
-        listen<LibraryCompletePayload>("library:transcription_complete", (event) => {
-            const id = event.payload?.id;
-            if (!id) {
-                loadItems();
+            if (cancelled) {
+                unlistenProgress();
+                unlistenComplete();
+                unlistenError();
+                unlistenImporting();
                 return;
             }
-            setItems(prev =>
-                prev.map(item =>
-                    item.id === id ? { ...item, status: { type: "complete" } } : item
-                )
-            );
-            refresh();
-        }).then(fn => {
-            unlistenComplete = fn;
-        });
 
-        listen<LibraryErrorPayload>("library:transcription_error", (event) => {
-            const { id, message } = event.payload;
-            const isCancelled = message.toLowerCase().includes("cancelled")
-                || message.toLowerCase().includes("canceled");
-            setItems(prev =>
-                prev.map(item =>
-                    item.id === id
-                        ? {
-                            ...item,
-                            status: isCancelled ? { type: "cancelled" } : { type: "error", message },
-                        }
-                        : item
-                )
-            );
-            refresh();
-        }).then(fn => {
-            unlistenError = fn;
-        });
+            unlisteners.push(unlistenProgress, unlistenComplete, unlistenError, unlistenImporting);
+        };
 
-        listen<LibraryImportPayload>("library:importing", (event) => {
-            const id = event.payload?.id;
-            if (!id) return;
-            setItems(prev =>
-                prev.map(item =>
-                    item.id === id
-                        ? (item.status.type === "transcribing"
-                            || item.status.type === "complete"
-                            || item.status.type === "cancelling"
-                            || item.status.type === "cancelled"
-                            ? item
-                            : { ...item, status: { type: "importing" } })
-                        : item
-                )
-            );
-        }).then(fn => {
-            unlistenImporting = fn;
-        });
+        setupListeners();
 
         return () => {
-            unlistenProgress?.();
-            unlistenComplete?.();
-            unlistenError?.();
-            unlistenImporting?.();
+            cancelled = true;
+            unlisteners.forEach(fn => fn());
         };
-    }, [refresh]);
+    }, [loadItems, refresh]);
 
     const loadMore = useCallback(async () => {
         if (isLoading || isLoadingMore || !hasMore) return;

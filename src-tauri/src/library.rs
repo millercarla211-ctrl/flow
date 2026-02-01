@@ -1758,18 +1758,13 @@ fn convert_video_to_wav(input: &Path, output: &Path) -> Result<()> {
 }
 
 fn convert_with_ffmpeg(ffmpeg: &Path, input: &Path, output: &Path) -> Result<()> {
-    let input_str = input.to_str()
-        .ok_or_else(|| anyhow!("Invalid input path"))?;
-    let output_str = output.to_str()
-        .ok_or_else(|| anyhow!("Invalid output path"))?;
-    
     let status = Command::new(ffmpeg)
         .arg("-y")
         .arg("-nostdin")
         .arg("-loglevel")
         .arg("error")
         .arg("-i")
-        .arg(input_str)
+        .arg(&input)
         .arg("-vn")
         .arg("-acodec")
         .arg("pcm_s16le")
@@ -1777,7 +1772,7 @@ fn convert_with_ffmpeg(ffmpeg: &Path, input: &Path, output: &Path) -> Result<()>
         .arg(TARGET_SAMPLE_RATE.to_string())
         .arg("-ac")
         .arg("1")
-        .arg(output_str)
+        .arg(&output)
         .status()
         .map_err(|err| match err.kind() {
             ErrorKind::NotFound => anyhow!("FFmpeg not found on PATH."),
