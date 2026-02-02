@@ -1149,7 +1149,7 @@ const LibraryModal = ({
     const [showRetranscribe, setShowRetranscribe] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [activeSearchIndex, setActiveSearchIndex] = useState(0);
-    const [hoveredTag, setHoveredTag] = useState<string | null>(null);
+    const [hoveredTagIndex, setHoveredTagIndex] = useState<number | null>(null);
     const transcriptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const howlRef = useRef<Howl | null>(null);
@@ -1960,7 +1960,7 @@ const LibraryModal = ({
                         <div className="flex flex-wrap gap-2 max-h-20 overflow-auto custom-scrollbar scrollbar-gutter pr-3">
                             {item.tags.length === 0 && <span className="text-[10px] text-content-disabled italic">None</span>}
                             {item.tags.map((tag, idx) => {
-                                const isHovered = hoveredTag === tag;
+                                const isHovered = hoveredTagIndex === idx;
                                 return (
                                     <span
                                         key={`${tag}-${idx}`}
@@ -1981,10 +1981,10 @@ const LibraryModal = ({
                                             event.stopPropagation();
                                             handleRemoveTag(tag);
                                         }}
-                                        onMouseEnter={() => setHoveredTag(tag)}
-                                        onMouseLeave={() => setHoveredTag(null)}
-                                        onFocus={() => setHoveredTag(tag)}
-                                        onBlur={() => setHoveredTag(null)}
+                                        onMouseEnter={() => setHoveredTagIndex(idx)}
+                                        onMouseLeave={() => setHoveredTagIndex(null)}
+                                        onFocus={() => setHoveredTagIndex(idx)}
+                                        onBlur={() => setHoveredTagIndex(null)}
                                         className="ml-1 text-content-disabled hover:text-red-300 transition-colors cursor-pointer shrink-0"
                                         aria-label={`Remove ${tag}`}
                                     >
