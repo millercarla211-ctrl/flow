@@ -5,6 +5,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Howl } from "howler";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import {
     AlertTriangle,
     Check,
@@ -48,16 +49,82 @@ type LibraryViewProps = {
     sidebarWidth: number;
 };
 
+const clampProgress = (value: number) => Math.min(Math.max(value, 0), 1);
+
+const shouldShowImportProgress = (value: number) => {
+    const clamped = clampProgress(value);
+    return clamped >= 0.02 && clamped < 0.98;
+};
+
+const buildProgressDots = (progress: number, cols: number, rows: number) => {
+    const totalDots = cols * rows;
+    const activeCount = Math.round(clampProgress(progress) * totalDots);
+    return Array.from({ length: Math.min(activeCount, totalDots) }, (_, i) => i);
+};
+
+type LibraryProgressDotsProps = {
+    progress: number;
+    status: "importing" | "transcribing";
+};
+
+const LibraryProgressDots = ({ progress, status }: LibraryProgressDotsProps) => {
+    const cols = 40;
+    const rows = 2;
+    const color = status === "importing" ? "var(--color-accent)" : "var(--color-cloud)";
+    const [displayProgress, setDisplayProgress] = useState(() => clampProgress(progress));
+    const displayProgressRef = useRef(displayProgress);
+    const targetProgress = clampProgress(progress);
+
+    useEffect(() => {
+        displayProgressRef.current = displayProgress;
+    }, [displayProgress]);
+
+    useEffect(() => {
+        if (targetProgress <= displayProgressRef.current) {
+            setDisplayProgress(targetProgress);
+            return;
+        }
+
+        let rafId = 0;
+        const tick = () => {
+            const current = displayProgressRef.current;
+            const delta = targetProgress - current;
+            if (delta <= 0.001) {
+                setDisplayProgress(targetProgress);
+                return;
+            }
+            const next = current + delta * 0.2;
+            setDisplayProgress(next);
+            rafId = requestAnimationFrame(tick);
+        };
+
+        rafId = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(rafId);
+    }, [targetProgress]);
+
+    return (
+        <DotMatrix
+            rows={rows}
+            cols={cols}
+            activeDots={buildProgressDots(displayProgress, cols, rows)}
+            dotSize={2}
+            gap={2}
+            color={color}
+            className="opacity-60"
+        />
+    );
+};
+
 const statusLabel = (status: LibraryItemStatus) => {
     switch (status.type) {
         case "pending":
             return "Queued";
         case "importing":
-            return "Converting";
+            if (!shouldShowImportProgress(status.progress)) return "Converting";
+            return `Converting ${Math.round(clampProgress(status.progress) * 100)}%`;
         case "transcribing":
-            return status.progress < 0.01
-                ? "Starting..."
-                : `${Math.round(status.progress * 100)}%`;
+            if (status.progress < 0.01) return "Starting...";
+            return `Transcribing ${Math.round(clampProgress(status.progress) * 100)}%`;
         case "complete":
             return "Done";
         case "cancelling":
@@ -295,6 +362,9 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
         const handleKeyChange = (event: KeyboardEvent) => {
             setShiftHeld(event.shiftKey);
         };
+        const handlePointerDown = (event: PointerEvent) => {
+            setShiftHeld(event.shiftKey);
+        };
         const resetShift = () => setShiftHeld(false);
         const handleVisibilityChange = () => {
             if (document.visibilityState !== "visible") {
@@ -317,6 +387,7 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
 
         document.addEventListener("keydown", handleKeyChange);
         document.addEventListener("keyup", handleKeyChange);
+        document.addEventListener("pointerdown", handlePointerDown);
         document.addEventListener("visibilitychange", handleVisibilityChange);
         window.addEventListener("blur", resetShift);
         window.addEventListener("focus", resetShift);
@@ -325,6 +396,7 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
             cancelled = true;
             document.removeEventListener("keydown", handleKeyChange);
             document.removeEventListener("keyup", handleKeyChange);
+            document.removeEventListener("pointerdown", handlePointerDown);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
             window.removeEventListener("blur", resetShift);
             window.removeEventListener("focus", resetShift);
@@ -552,14 +624,7 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
                 )}
             </div>
             <div className="flex-1 min-h-0 overflow-y-scroll overflow-x-hidden custom-scrollbar scrollbar-gutter pb-6 pr-3">
-                <motion.div
-                    key="library-list"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.12 }}
-                    className="flex flex-col gap-6 w-full"
-                >
+                <div key="library-list" className="flex flex-col gap-6 w-full">
                     <div className="w-full max-w-6xl mx-auto flex flex-col gap-6">
                         <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
                         {isLoading && items.length === 0 && (
@@ -591,6 +656,10 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
                                 key={item.id}
                                 item={item}
                                 onOpen={() => setSelectedItem(item)}
+                                onRemoveTag={async (tag) => {
+                                    const nextTags = item.tags.filter((entry) => entry !== tag);
+                                    await updateItemWithTags(item.id, { tags: nextTags });
+                                }}
                                 editingNameId={editingNameId}
                                 editingNameDraft={editingNameDraft}
                                 onStartNameEdit={() => startNameEdit(item)}
@@ -645,17 +714,13 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
                             )}
                         </div>
                     </div>
-                </motion.div>
+                </div>
             </div>
 
             <AnimatePresence>
                 {selectedItem && (
-                    <motion.div
+                    <div
                         key="library-detail"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.15 }}
                         className="fixed top-0 right-0 bottom-0 z-20 flex items-center justify-center p-6 transition-[left] duration-200 ease-out"
                         style={{ left: sidebarWidth, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
                         onClick={() => setSelectedItem(null)}
@@ -664,6 +729,7 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
                             <LibraryModal
                                 item={selectedItem}
                                 models={installedModels}
+                                shiftHeld={shiftHeld}
                                 onClose={() => setSelectedItem(null)}
                                 onDelete={async () => {
                                     await deleteItemAndRefreshTags(selectedItem.id);
@@ -675,7 +741,7 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
                                 onExport={(format, outputPath) => exportItem(selectedItem.id, format, outputPath)}
                             />
                         </div>
-                    </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
 
@@ -729,6 +795,7 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
 const LibraryCard = ({
     item,
     onOpen,
+    onRemoveTag,
     editingNameId,
     editingNameDraft,
     onStartNameEdit,
@@ -748,6 +815,7 @@ const LibraryCard = ({
 }: {
     item: LibraryItem;
     onOpen: () => void;
+    onRemoveTag: (tag: string) => Promise<void>;
     editingNameId: string | null;
     editingNameDraft: string;
     onStartNameEdit: () => void;
@@ -767,10 +835,9 @@ const LibraryCard = ({
 }) => {
     const status = item.status;
     const tagPreview = item.tags.slice(0, 2);
-    const progress =
-        status.type === "transcribing" ? Math.min(Math.max(status.progress, 0), 1) : 0;
-    const [displayProgress, setDisplayProgress] = useState(progress);
-    const displayProgressRef = useRef(progress);
+    const showImportProgress = status.type === "importing" && shouldShowImportProgress(status.progress);
+    const showProgressBar = status.type === "transcribing" || showImportProgress;
+    const progress = showProgressBar ? clampProgress(status.progress) : 0;
     const isEditingName = editingNameId === item.id;
     const isAddingTag = editingTagId === item.id;
     const [menuOpen, setMenuOpen] = useState(false);
@@ -829,39 +896,6 @@ const LibraryCard = ({
     );
 
     useEffect(() => {
-        if (status.type !== "transcribing") {
-            displayProgressRef.current = 0;
-            setDisplayProgress(0);
-            return;
-        }
-
-        const start = displayProgressRef.current;
-        const target = progress;
-        if (target <= start) {
-            displayProgressRef.current = target;
-            setDisplayProgress(target);
-            return;
-        }
-
-        const durationMs = 420;
-        let frame = 0;
-        const startTime = performance.now();
-        const tick = (now: number) => {
-            const t = Math.min((now - startTime) / durationMs, 1);
-            const eased = 1 - Math.pow(1 - t, 3);
-            const nextValue = start + (target - start) * eased;
-            setDisplayProgress(nextValue);
-            if (t < 1) {
-                frame = requestAnimationFrame(tick);
-            } else {
-                displayProgressRef.current = target;
-            }
-        };
-        frame = requestAnimationFrame(tick);
-        return () => cancelAnimationFrame(frame);
-    }, [progress, status.type]);
-
-    useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setMenuOpen(false);
@@ -903,7 +937,7 @@ const LibraryCard = ({
             className="group text-left rounded-xl border border-border-primary bg-surface-secondary p-4 hover:bg-surface-surface transition-colors outline-none focus-visible:ring-2 focus-visible:ring-border-hover"
         >
             <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                         {isEditingName ? (
                             <input
@@ -928,13 +962,21 @@ const LibraryCard = ({
                             <h3 className="text-[13px] font-medium text-content-primary truncate">{item.name}</h3>
                         )}
                     </div>
-                    <div className="mt-2 flex items-center gap-2 text-[11px] text-content-muted">
+                    <div className="mt-2 flex items-center gap-2 text-[11px] text-content-muted tabular-nums">
                         <span>{formatDuration(item.duration_seconds)}</span>
                         <span className="opacity-50">•</span>
                         {status.type === "complete" ? (
                             <Check size={12} className="text-emerald-400" aria-label="Done" />
                         ) : (
-                            <span>{statusText}</span>
+                            <span className="shrink-0 whitespace-nowrap">{statusText}</span>
+                        )}
+                    </div>
+                    <div className="mt-2 min-h-[6px]" aria-hidden="true">
+                        {showProgressBar && (
+                            <LibraryProgressDots
+                                progress={progress}
+                                status={status.type === "importing" ? "importing" : "transcribing"}
+                            />
                         )}
                     </div>
                 </div>
@@ -999,19 +1041,6 @@ const LibraryCard = ({
                 )}
             </AnimatePresence>
 
-            {(status.type === "transcribing"
-                || status.type === "cancelling"
-                || status.type === "pending"
-                || status.type === "importing") && (
-                <div className="mt-3 h-[8px]">
-                    {status.type === "transcribing" ? (
-                        <LibraryProgressDots progress={displayProgress} />
-                    ) : (
-                        <div className="h-full" aria-hidden="true" />
-                    )}
-                </div>
-            )}
-
             {status.type === "error" && (
                 <div className="mt-3 text-[11px] text-red-300 line-clamp-2">
                     {status.message}
@@ -1043,7 +1072,18 @@ const LibraryCard = ({
                 ) : (
                     <div className="flex items-center gap-1.5 flex-wrap gap-y-2">
                         {tagPreview.map((tag, idx) => (
-                            <span key={`${tag}-${idx}`} className="inline-flex items-center px-2 py-1 rounded text-[10px] text-content-muted bg-white/5 border border-white/10 leading-none">
+                            <span
+                                key={`${tag}-${idx}`}
+                                onClick={(event) => {
+                                    if (!shiftHeld) return;
+                                    event.stopPropagation();
+                                    void onRemoveTag(tag);
+                                }}
+                                className={`inline-flex items-center px-2 py-1 rounded text-[10px] text-content-muted bg-white/5 border border-white/10 leading-none ${
+                                    shiftHeld ? "cursor-pointer hover:border-red-500/60 hover:text-red-200" : ""
+                                }`}
+                                title={shiftHeld ? `Remove ${tag}` : undefined}
+                            >
                                 <span>{tag.length > 12 ? `${tag.slice(0, 12)}...` : tag}</span>
                             </span>
                         ))}
@@ -1067,29 +1107,10 @@ const LibraryCard = ({
     );
 };
 
-const LibraryProgressDots = ({ progress }: { progress: number }) => {
-    const cols = 36;
-    const rows = 2;
-    const totalDots = cols * rows;
-    const activeCount = Math.round(Math.min(Math.max(progress, 0), 1) * totalDots);
-    const activeDots = Array.from({ length: Math.min(activeCount, totalDots) }, (_, i) => i);
-
-    return (
-        <DotMatrix
-            rows={rows}
-            cols={cols}
-            activeDots={activeDots}
-            dotSize={2}
-            gap={2}
-            color="var(--color-cloud)"
-            className="opacity-60"
-        />
-    );
-};
-
 const LibraryModal = ({
     item,
     models,
+    shiftHeld,
     onClose,
     onDelete,
     onRetry,
@@ -1099,6 +1120,7 @@ const LibraryModal = ({
 }: {
     item: LibraryItem;
     models: ModelInfo[];
+    shiftHeld: boolean;
     onClose: () => void;
     onDelete: () => void;
     onRetry: () => Promise<void>;
@@ -1127,7 +1149,7 @@ const LibraryModal = ({
     const [showRetranscribe, setShowRetranscribe] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [activeSearchIndex, setActiveSearchIndex] = useState(0);
-    const [processingPulse, setProcessingPulse] = useState(false);
+    const [hoveredTag, setHoveredTag] = useState<string | null>(null);
     const transcriptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const howlRef = useRef<Howl | null>(null);
@@ -1139,17 +1161,21 @@ const LibraryModal = ({
     const isScrubbingRef = useRef(false);
     const isPlayingRef = useRef(false);
     const lastTimestampNavRef = useRef(0);
-    const segmentsRef = useRef<HTMLDivElement | null>(null);
-    const segmentRefs = useRef<Array<HTMLDivElement | null>>([]);
     const searchInputRef = useRef<HTMLInputElement | null>(null);
-    const streamChunkRefs = useRef<Array<HTMLParagraphElement | null>>([]);
     const transcriptAreaRef = useRef<HTMLTextAreaElement | null>(null);
-    const followScrollRef = useRef<number | null>(null);
+    const segmentsVirtuosoRef = useRef<VirtuosoHandle | null>(null);
+    const streamVirtuosoRef = useRef<VirtuosoHandle | null>(null);
 
     const modelLabel = models.find((model) => model.key === item.speech_model)?.label ?? item.speech_model;
     const transcriptAvailable = item.status.type === "complete" && (item.transcript ?? "").trim().length > 0;
     const canShowTimestamps = !!item.segments && item.segments.length > 0;
     const isTranscribed = item.status.type === "complete";
+    const importStatusText =
+        item.status.type === "importing"
+            ? (shouldShowImportProgress(item.status.progress)
+                ? `Converting audio... ${Math.round(clampProgress(item.status.progress) * 100)}%`
+                : "Converting audio...")
+            : "Queued for transcription...";
 
     const audioUrl = useMemo(() => convertFileSrc(item.audio_path), [item.audio_path]);
 
@@ -1317,17 +1343,6 @@ const LibraryModal = ({
             streamTranscriptRef.current = item.transcript ?? "";
         }
     }, [item.status.type, item.transcript]);
-
-    useEffect(() => {
-        if (item.status.type !== "transcribing") {
-            setProcessingPulse(false);
-            return;
-        }
-        const timer = window.setInterval(() => {
-            setProcessingPulse((prev) => !prev);
-        }, 1200);
-        return () => window.clearInterval(timer);
-    }, [item.id, item.status.type]);
 
     useEffect(() => {
         if (item.status.type !== "transcribing") return;
@@ -1554,10 +1569,6 @@ const LibraryModal = ({
     const showStreaming = item.status.type === "transcribing" && !showTimestamps;
     const showSegmentView = showTimestamps && canShowTimestamps;
     const normalizedSearchQuery = searchQuery.trim();
-    const processingTextClass =
-        item.status.type === "transcribing"
-            ? `transcript-processing-text${processingPulse ? " transcript-processing-dim" : ""}`
-            : "";
     const activeSegmentIndex = useMemo(() => {
         if (!showTimestamps || !canShowTimestamps) return -1;
         const targetMs = Math.max(0, Math.round(audioCurrentTime * 1000));
@@ -1710,61 +1721,28 @@ const LibraryModal = ({
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [handleTimestampStep, showSegmentView]);
 
-    const smoothScrollTo = useCallback((container: HTMLElement, targetTop: number) => {
-        if (followScrollRef.current !== null) {
-            cancelAnimationFrame(followScrollRef.current);
-            followScrollRef.current = null;
-        }
-        const startTop = container.scrollTop;
-        const maxTop = container.scrollHeight - container.clientHeight;
-        const clampedTarget = Math.max(0, Math.min(targetTop, maxTop));
-        if (Math.abs(clampedTarget - startTop) < 2) return;
-        const duration = 220;
-        const start = performance.now();
-        const step = (now: number) => {
-            const elapsed = Math.min(1, (now - start) / duration);
-            const ease = 1 - Math.pow(1 - elapsed, 3);
-            container.scrollTop = startTop + (clampedTarget - startTop) * ease;
-            if (elapsed < 1) {
-                followScrollRef.current = requestAnimationFrame(step);
-            } else {
-                followScrollRef.current = null;
-            }
-        };
-        followScrollRef.current = requestAnimationFrame(step);
-    }, []);
-
-    useEffect(() => {
-        return () => {
-            if (followScrollRef.current !== null) {
-                cancelAnimationFrame(followScrollRef.current);
-                followScrollRef.current = null;
-            }
-        };
-    }, []);
-
     useEffect(() => {
         if (!normalizedSearchQuery) return;
         if (showSegmentView) {
             if (segmentMatchIndexes.length === 0) return;
             const targetIndex =
                 segmentMatchIndexes[Math.min(activeSearchIndex, segmentMatchIndexes.length - 1)];
-            const container = segmentsRef.current;
-            const target = segmentRefs.current[targetIndex];
-            if (!container || !target) return;
-            const targetTop =
-                target.offsetTop - container.clientHeight / 2 + target.clientHeight / 2;
-            smoothScrollTo(container, targetTop);
+            segmentsVirtuosoRef.current?.scrollToIndex({
+                index: targetIndex,
+                align: "center",
+                behavior: "smooth",
+            });
             return;
         }
         if (showStreaming) {
             if (streamMatchIndexes.length === 0) return;
             const targetIndex =
                 streamMatchIndexes[Math.min(activeSearchIndex, streamMatchIndexes.length - 1)];
-            const target = streamChunkRefs.current[targetIndex];
-            if (target) {
-                target.scrollIntoView({ block: "center", behavior: "smooth" });
-            }
+            streamVirtuosoRef.current?.scrollToIndex({
+                index: targetIndex,
+                align: "center",
+                behavior: "smooth",
+            });
             return;
         }
         if (textMatchIndex >= 0 && transcriptAreaRef.current) {
@@ -1780,27 +1758,19 @@ const LibraryModal = ({
         streamMatchIndexes,
         activeSearchIndex,
         textMatchIndex,
-        smoothScrollTo,
     ]);
 
     useEffect(() => {
-        if (!followTimestamps || activeSegmentIndex < 0) return;
-        const container = segmentsRef.current;
-        const target = segmentRefs.current[activeSegmentIndex];
-        if (!container || !target) return;
-        const targetTop =
-            target.offsetTop - container.clientHeight / 2 + target.clientHeight / 2;
-        smoothScrollTo(container, targetTop);
-    }, [activeSegmentIndex, followTimestamps, smoothScrollTo]);
+        if (!followTimestamps || activeSegmentIndex < 0 || !showSegmentView) return;
+        segmentsVirtuosoRef.current?.scrollToIndex({
+            index: activeSegmentIndex,
+            align: "center",
+            behavior: "smooth",
+        });
+    }, [activeSegmentIndex, followTimestamps, showSegmentView]);
 
     return (
-        <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.12 }}
-            className="flex h-full w-full min-h-0 overflow-hidden rounded-2xl border border-border-secondary bg-surface-overlay shadow-2xl shadow-black/50"
-        >
+        <div className="flex h-full w-full min-h-0 overflow-hidden rounded-2xl border border-border-secondary bg-surface-overlay shadow-2xl shadow-black/50">
             {/* Sidebar */}
             <aside className="flex w-48 shrink-0 flex-col border-r border-border-primary bg-surface-surface">
                 <div className="px-4 pt-5 pb-3">
@@ -1859,7 +1829,7 @@ const LibraryModal = ({
                                     <span className="text-[9px] text-content-disabled tabular-nums leading-none">
                                         {formatDuration(audioCurrentTime)} / {formatDuration(audioDuration)}
                                     </span>
-                                    <div className="mt-[2px] flex items-center justify-center gap-0.25 text-[8px] leading-none">
+                                    <div className="mt-1.5 flex items-center justify-center gap-0.25 text-[8px] leading-none">
                                         <button
                                             type="button"
                                             onClick={() => handlePlaybackRateStep(-1)}
@@ -1989,14 +1959,40 @@ const LibraryModal = ({
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-content-disabled">Tags</p>
                         <div className="flex flex-wrap gap-2 max-h-20 overflow-auto custom-scrollbar scrollbar-gutter pr-3">
                             {item.tags.length === 0 && <span className="text-[10px] text-content-disabled italic">None</span>}
-                            {item.tags.map((tag, idx) => (
-                                <span key={`${tag}-${idx}`} className="group inline-flex items-center pl-3 pr-1.5 py-1.5 rounded text-[10px] text-content-secondary bg-white/5 border border-white/10 hover:border-white/20 transition-colors leading-none">
+                            {item.tags.map((tag, idx) => {
+                                const isHovered = hoveredTag === tag;
+                                return (
+                                    <span
+                                        key={`${tag}-${idx}`}
+                                        onClick={() => {
+                                            if (shiftHeld) {
+                                                handleRemoveTag(tag);
+                                            }
+                                        }}
+                                        className={`inline-flex items-center pl-3 pr-1.5 py-1.5 rounded text-[10px] bg-white/5 border transition-colors leading-none ${
+                                            isHovered
+                                                ? "text-red-200 border-red-500/60"
+                                                : "text-content-secondary border-white/10"
+                                        }`}
+                                    >
                                     <span>{tag.length > 12 ? `${tag.slice(0, 12)}...` : tag}</span>
-                                    <button onClick={() => handleRemoveTag(tag)} className="ml-1 text-content-disabled hover:text-content-muted transition-colors cursor-pointer shrink-0" aria-label={`Remove ${tag}`}>
+                                    <button
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            handleRemoveTag(tag);
+                                        }}
+                                        onMouseEnter={() => setHoveredTag(tag)}
+                                        onMouseLeave={() => setHoveredTag(null)}
+                                        onFocus={() => setHoveredTag(tag)}
+                                        onBlur={() => setHoveredTag(null)}
+                                        className="ml-1 text-content-disabled hover:text-red-300 transition-colors cursor-pointer shrink-0"
+                                        aria-label={`Remove ${tag}`}
+                                    >
                                         <X size={10} />
                                     </button>
                                 </span>
-                            ))}
+                                );
+                            })}
                         </div>
                         <div className="flex items-center gap-1">
                             <input
@@ -2153,98 +2149,106 @@ const LibraryModal = ({
                 </div>
 
                 {/* Transcript area */}
-                <div className="flex-1 min-h-0 overflow-hidden p-4">
+                <div className="flex-1 min-h-0 overflow-hidden px-4 pb-0 pt-0 flex flex-col gap-3">
+                    {(item.status.type === "importing" || item.status.type === "pending") && (
+                        <div className="text-[11px] text-content-muted tabular-nums">
+                            {importStatusText}
+                        </div>
+                    )}
                     {item.status.type === "error" && (
-                        <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] text-red-200">
+                        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] text-red-200">
                             {item.status.message}
                         </div>
                     )}
-                    {showSegmentView ? (
-                        <div
-                            ref={segmentsRef}
-                            className="h-full overflow-auto custom-scrollbar text-[13px] text-content-secondary leading-relaxed space-y-1.5 pr-2"
-                        >
-                            {(item.segments ?? []).map((segment, idx) => {
-                                const isActive = idx === activeSegmentIndex;
-                                return (
-                                    <motion.div
-                                        key={`${segment.start_ms}-${idx}`}
-                                        ref={(node) => {
-                                            segmentRefs.current[idx] = node;
-                                        }}
-                                        initial={{ opacity: 0, y: 6 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.2, ease: "easeOut" }}
-                                        className={`grid w-full grid-cols-[auto_1fr] gap-3 rounded-md border px-2 py-1 transition-colors select-none ${
-                                            isActive ? "border-cloud-30 bg-cloud-10" : "border-transparent"
-                                        }`}
-                                    >
-                                        <span
-                                            className={`text-content-disabled font-mono text-[11px] pt-0.5 select-none cursor-pointer hover:text-content-primary ${processingTextClass}`}
-                                            role="button"
-                                            tabIndex={0}
-                                            onClick={() => handleTimestampClick(segment.start_ms)}
-                                            onKeyDown={(event) => {
-                                                if (event.key === "Enter" || event.key === " ") {
-                                                    event.preventDefault();
-                                                    handleTimestampClick(segment.start_ms);
-                                                }
-                                            }}
-                                        >
-                                            {formatTimestamp(segment.start_ms)}
-                                        </span>
-                                        <div className="min-w-0 select-none w-fit">
-                                            <span className={`select-text ${processingTextClass}`}>
-                                                {renderHighlightedText(segment.text, idx === activeSegmentMatch)}
-                                            </span>
+                    <div className="relative flex-1 min-h-0">
+                        {showSegmentView ? (
+                            <Virtuoso
+                                ref={segmentsVirtuosoRef}
+                                style={{ height: "100%" }}
+                                data={item.segments ?? []}
+                                overscan={200}
+                                className="custom-scrollbar text-[13px] text-content-secondary leading-relaxed pr-2"
+                                itemKey={(index, segment) => `${segment.start_ms}-${index}`}
+                                itemContent={(idx, segment) => {
+                                    const isActive = idx === activeSegmentIndex;
+                                    return (
+                                        <div className="pb-1.5">
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 6 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.2, ease: "easeOut" }}
+                                                className={`grid w-full grid-cols-[auto_1fr] gap-3 rounded-md border px-2 py-1 transition-colors select-none ${
+                                                    isActive ? "border-cloud-30 bg-cloud-10" : "border-transparent"
+                                                }`}
+                                            >
+                                                <span
+                                                    className="text-content-disabled font-mono text-[11px] pt-0.5 select-none cursor-pointer hover:text-content-primary"
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => handleTimestampClick(segment.start_ms)}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === "Enter" || event.key === " ") {
+                                                            event.preventDefault();
+                                                            handleTimestampClick(segment.start_ms);
+                                                        }
+                                                    }}
+                                                >
+                                                    {formatTimestamp(segment.start_ms)}
+                                                </span>
+                                                <div className="min-w-0 select-none w-fit">
+                                                    <span className="select-text">
+                                                        {renderHighlightedText(segment.text, idx === activeSegmentMatch)}
+                                                    </span>
+                                                </div>
+                                            </motion.div>
                                         </div>
-                                    </motion.div>
-                                );
-                            })}
-                        </div>
-                    ) : showStreaming ? (
-                        <div className="h-full overflow-auto custom-scrollbar text-[13px] text-content-secondary leading-relaxed space-y-2 pr-2">
-                            {streamChunks.length === 0 ? (
-                                <div className="text-content-disabled text-[12px]">
-                                    {item.status.type === "importing"
-                                        ? "Converting audio..."
-                                        : item.status.type === "pending"
-                                            ? "Queued for transcription..."
-                                            : "Transcribing..."}
-                                </div>
+                                    );
+                                }}
+                            />
+                        ) : showStreaming ? (
+                            streamChunks.length === 0 ? (
+                                item.status.type === "transcribing" ? (
+                                    <div className="text-content-disabled text-[12px]">
+                                        Transcribing...
+                                    </div>
+                                ) : null
                             ) : (
-                                <AnimatePresence initial={false}>
-                                    {streamChunks.map((chunk, idx) => (
-                                        <motion.p
-                                            key={`${item.id}-chunk-${idx}`}
-                                            ref={(node) => {
-                                                streamChunkRefs.current[idx] = node;
-                                            }}
-                                            initial={{ opacity: 0, y: 6 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ duration: 0.2, ease: "easeOut" }}
-                                            className={`select-text ${processingTextClass}`}
-                                        >
-                                            {renderHighlightedText(chunk, idx === activeStreamMatch)}
-                                        </motion.p>
-                                    ))}
-                                </AnimatePresence>
-                            )}
-                        </div>
-                    ) : (
-                        <textarea
-                            ref={transcriptAreaRef}
-                            value={transcriptDraft}
-                            onChange={(event) => setTranscriptDraft(event.target.value)}
-                            disabled={!transcriptAvailable}
-                            placeholder={item.status.type === "importing"
-                                ? "Converting audio..."
-                                : item.status.type === "pending"
-                                    ? "Queued for transcription..."
+                                <Virtuoso
+                                    ref={streamVirtuosoRef}
+                                    style={{ height: "100%" }}
+                                    data={streamChunks}
+                                    overscan={200}
+                                    className="custom-scrollbar text-[13px] text-content-secondary leading-relaxed pr-2"
+                                    itemKey={(index) => `${item.id}-chunk-${index}`}
+                                    itemContent={(idx, chunk) => (
+                                        <div className="pb-2">
+                                            <motion.p
+                                                initial={{ opacity: 0, y: 6 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.2, ease: "easeOut" }}
+                                                className="select-text"
+                                            >
+                                                {renderHighlightedText(chunk, idx === activeStreamMatch)}
+                                            </motion.p>
+                                        </div>
+                                    )}
+                                />
+                            )
+                        ) : (
+                            <textarea
+                                ref={transcriptAreaRef}
+                                value={transcriptDraft}
+                                onChange={(event) => setTranscriptDraft(event.target.value)}
+                                disabled={!transcriptAvailable}
+                                placeholder={item.status.type === "importing" || item.status.type === "pending"
+                                    ? ""
                                     : "Transcript will appear here."}
-                            className="h-full w-full resize-none bg-transparent text-[13px] text-content-secondary leading-relaxed outline-none disabled:opacity-60 custom-scrollbar select-text"
-                        />
-                    )}
+                                className="h-full w-full resize-none bg-transparent text-[13px] text-content-secondary leading-relaxed outline-none disabled:opacity-60 custom-scrollbar select-text"
+                            />
+                        )}
+                        <div className="scroll-fade-top" style={{ zIndex: 5 }} aria-hidden="true" />
+                        <div className="scroll-fade-bottom" style={{ zIndex: 5 }} aria-hidden="true" />
+                    </div>
                 </div>
             </main>
 
@@ -2321,7 +2325,7 @@ const LibraryModal = ({
                     />
                 )}
             </AnimatePresence>
-        </motion.div>
+        </div>
     );
 };
 
