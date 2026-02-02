@@ -8,13 +8,13 @@ import type {
     LibraryItemPatch,
     LibraryItemStatus,
     LibraryProgressPayload,
+    LibraryImportProgressPayload,
     ExportFormat,
     LibraryItemsPage,
 } from "../types";
 
 type LibraryCompletePayload = { id: string };
 type LibraryErrorPayload = { id: string; message: string };
-type LibraryImportPayload = { id: string };
 
 export function useLibraryItems(initialFilter: LibraryFilter = {}) {
     const PAGE_SIZE = 30;
@@ -186,7 +186,7 @@ export function useLibraryItems(initialFilter: LibraryFilter = {}) {
                 unlistenProgress,
                 unlistenComplete,
                 unlistenError,
-                unlistenImporting,
+                unlistenImportProgress,
             ] = await Promise.all([
                 listen<LibraryProgressPayload>("library:transcription_progress", (event) => {
                     const { id, progress, chunk_text, chunk_segments, current_chunk, total_chunks } = event.payload;
@@ -256,9 +256,8 @@ export function useLibraryItems(initialFilter: LibraryFilter = {}) {
                     );
                     refresh();
                 }),
-                listen<LibraryImportPayload>("library:importing", (event) => {
-                    const id = event.payload?.id;
-                    if (!id) return;
+                listen<LibraryImportProgressPayload>("library:import_progress", (event) => {
+                    const { id, progress } = event.payload;
                     setItems(prev =>
                         prev.map(item =>
                             item.id === id
@@ -267,7 +266,7 @@ export function useLibraryItems(initialFilter: LibraryFilter = {}) {
                                     || item.status.type === "cancelling"
                                     || item.status.type === "cancelled"
                                     ? item
-                                    : { ...item, status: { type: "importing" } })
+                                    : { ...item, status: { type: "importing", progress } })
                                 : item
                         )
                     );
@@ -278,11 +277,16 @@ export function useLibraryItems(initialFilter: LibraryFilter = {}) {
                 unlistenProgress();
                 unlistenComplete();
                 unlistenError();
-                unlistenImporting();
+                unlistenImportProgress();
                 return;
             }
 
-            unlisteners.push(unlistenProgress, unlistenComplete, unlistenError, unlistenImporting);
+            unlisteners.push(
+                unlistenProgress,
+                unlistenComplete,
+                unlistenError,
+                unlistenImportProgress,
+            );
         };
 
         setupListeners();

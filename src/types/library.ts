@@ -6,7 +6,7 @@ export type TranscriptSegment = {
 
 export type LibraryItemStatus =
     | { type: "pending" }
-    | { type: "importing" }
+    | { type: "importing"; progress: number }
     | { type: "transcribing"; progress: number }
     | { type: "complete" }
     | { type: "cancelling" }
@@ -74,4 +74,9 @@ export type LibraryProgressPayload = {
     total_chunks: number;
     chunk_text?: string | null;
     chunk_segments?: TranscriptSegment[] | null;
+};
+
+export type LibraryImportProgressPayload = {
+    id: string;
+    progress: number;
 };

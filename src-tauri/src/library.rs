@@ -1,8 +1,10 @@
 use std::env;
 use std::fs;
-use std::io::{BufReader, BufWriter, ErrorKind};
+use std::io::{BufRead, BufReader, BufWriter, ErrorKind};
 use std::path::{Component, Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::Duration;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
@@ -60,7 +62,7 @@ pub const EVENT_LIBRARY_PROGRESS: &str = "library:transcription_progress";
 pub const EVENT_LIBRARY_COMPLETE: &str = "library:transcription_complete";
 pub const EVENT_LIBRARY_ERROR: &str = "library:transcription_error";
 pub const EVENT_LIBRARY_OPEN_IMPORT: &str = "library:open_import";
-pub const EVENT_LIBRARY_IMPORTING: &str = "library:importing";
+pub const EVENT_LIBRARY_IMPORT_PROGRESS: &str = "library:import_progress";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranscriptSegment {
@@ -73,7 +75,7 @@ pub struct TranscriptSegment {
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum LibraryItemStatus {
     Pending,
-    Importing,
+    Importing { progress: f32 },
     Transcribing { progress: f32 },
     Complete,
     Cancelling,
@@ -85,7 +87,7 @@ impl LibraryItemStatus {
     pub fn as_fields(&self) -> (String, f32, Option<String>) {
         match self {
             Self::Pending => ("pending".to_string(), 0.0, None),
-            Self::Importing => ("importing".to_string(), 0.0, None),
+            Self::Importing { progress } => ("importing".to_string(), *progress, None),
             Self::Transcribing { progress } => ("transcribing".to_string(), *progress, None),
             Self::Complete => ("complete".to_string(), 1.0, None),
             Self::Cancelling => ("cancelling".to_string(), 0.0, None),
@@ -101,7 +103,7 @@ impl LibraryItemStatus {
     ) -> LibraryItemStatus {
         match status {
             "pending" => Self::Pending,
-            "importing" => Self::Importing,
+            "importing" => Self::Importing { progress },
             "transcribing" => Self::Transcribing { progress },
             "complete" => Self::Complete,
             "cancelling" => Self::Cancelling,
@@ -262,6 +264,10 @@ pub fn delete_library_item(
     app: AppHandle<AppRuntime>,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    state.remove_library_job(&id);
+    state.cancel_library_transcription(&id);
+    release_library_slot(&app, &state, &id);
+
     let storage = state.storage();
     let item = storage
         .get_library_item(&id)
@@ -289,9 +295,21 @@ pub fn delete_library_item(
     let root = root
         .canonicalize()
         .map_err(|_| "Failed to resolve library storage location.".to_string())?;
-    let safe_path = path
-        .canonicalize()
-        .map_err(|_| "Library item path could not be resolved; delete aborted.".to_string())?;
+    let safe_path = if path.exists() {
+        path.canonicalize()
+            .map_err(|_| "Library item path could not be resolved; delete aborted.".to_string())?
+    } else if let Some(parent) = path.parent() {
+        if parent.exists() {
+            let parent = parent
+                .canonicalize()
+                .map_err(|_| "Library item folder could not be resolved; delete aborted.".to_string())?;
+            parent.join(path.file_name().unwrap_or_default())
+        } else {
+            path.clone()
+        }
+    } else {
+        path.clone()
+    };
     if !safe_path.starts_with(&root) {
         return Err("Library item is stored outside the library folder; delete aborted.".to_string());
     }
@@ -653,18 +671,7 @@ fn convert_library_item(
         .with_context(|| format!("Failed to create library folder at {}", item_dir.display()))?;
 
     let result = (|| -> Result<f32> {
-        let _ = storage.update_library_item(
-            id,
-            LibraryItemPatch {
-                status: Some(LibraryItemStatus::Importing),
-                ..Default::default()
-            },
-        );
-        let _ = app.emit(
-            EVENT_LIBRARY_IMPORTING,
-            LibraryImportPayload { id: id.to_string() },
-        );
-
+        report_import_progress(app, storage.clone(), id, 0.0);
         if token.is_cancelled() {
             return Err(anyhow!("Transcription cancelled"));
         }
@@ -695,7 +702,24 @@ fn convert_library_item(
             })?;
         }
 
-        convert_to_wav(source_path, &audio_path, &ext, Some(token))?;
+        let duration_ms = probe_media_duration_ms(source_path);
+        let mut last_progress = 0.0f32;
+        let mut progress_cb = |progress: f32| {
+            let clamped = progress.clamp(0.0, 1.0);
+            if clamped >= 1.0 || (clamped - last_progress) >= 0.01 {
+                report_import_progress(app, storage.clone(), id, clamped);
+                last_progress = clamped;
+            }
+        };
+
+        convert_to_wav(
+            source_path,
+            &audio_path,
+            &ext,
+            Some(token),
+            duration_ms,
+            Some(&mut progress_cb),
+        )?;
         if token.is_cancelled() {
             return Err(anyhow!("Transcription cancelled"));
         }
@@ -1369,6 +1393,29 @@ fn report_progress(
     );
 }
 
+fn report_import_progress(
+    app: &AppHandle<AppRuntime>,
+    storage: Arc<StorageManager>,
+    id: &str,
+    progress: f32,
+) {
+    let progress = progress.clamp(0.0, 1.0);
+    let _ = storage.update_library_item(
+        id,
+        LibraryItemPatch {
+            status: Some(LibraryItemStatus::Importing { progress }),
+            ..Default::default()
+        },
+    );
+    let _ = app.emit(
+        EVENT_LIBRARY_IMPORT_PROGRESS,
+        LibraryImportProgressPayload {
+            id: id.to_string(),
+            progress,
+        },
+    );
+}
+
 #[derive(Debug)]
 struct LibraryTranscriptionResult {
     transcript: String,
@@ -1386,9 +1433,11 @@ struct LibraryErrorPayload {
     message: String,
 }
 
+
 #[derive(Debug, Clone, Serialize)]
-struct LibraryImportPayload {
+struct LibraryImportProgressPayload {
     id: String,
+    progress: f32,
 }
 
 fn is_supported_format(ext: &str) -> bool {
@@ -1615,12 +1664,14 @@ fn convert_to_wav(
     output: &Path,
     ext: &str,
     token: Option<&CancellationToken>,
+    duration_ms: Option<u64>,
+    progress_cb: Option<&mut dyn FnMut(f32)>,
 ) -> Result<()> {
     if SUPPORTED_AUDIO_FORMATS.contains(&ext) {
-        return convert_audio_to_wav(input, output, token);
+        return convert_audio_to_wav(input, output, token, duration_ms, progress_cb);
     }
     if SUPPORTED_VIDEO_FORMATS.contains(&ext) {
-        return convert_video_to_wav(input, output, token);
+        return convert_video_to_wav(input, output, token, duration_ms, progress_cb);
     }
     Err(anyhow!("Unsupported file format: {ext}"))
 }
@@ -1629,6 +1680,8 @@ fn convert_audio_to_wav(
     input: &Path,
     output: &Path,
     token: Option<&CancellationToken>,
+    duration_ms: Option<u64>,
+    mut progress_cb: Option<&mut dyn FnMut(f32)>,
 ) -> Result<()> {
     let is_wav = input
         .extension()
@@ -1639,20 +1692,39 @@ fn convert_audio_to_wav(
         return Ok(());
     }
 
-    match decode_audio_to_wav(input, output, token) {
+    let progress_ptr = progress_cb
+        .as_mut()
+        .map(|cb| &mut **cb as *mut dyn FnMut(f32));
+
+    if let Some(ffmpeg) = find_ffmpeg_in_path() {
+        let callback = progress_ptr.map(|ptr| unsafe { &mut *ptr });
+        match convert_with_ffmpeg(&ffmpeg, input, output, token, duration_ms, callback) {
+            Ok(()) => return Ok(()),
+            Err(err) => {
+                let _ = fs::remove_file(output);
+                if is_cancelled_message(&err.to_string()) {
+                    return Err(err);
+                }
+            }
+        }
+    }
+
+    let decode_result = {
+        // SAFETY: progress_ptr (if present) points to the caller-provided callback,
+        // which lives for the duration of this function and is only used sequentially.
+        let callback = progress_ptr.map(|ptr| unsafe { &mut *ptr });
+        decode_audio_to_wav(input, output, token, duration_ms, callback)
+    };
+    match decode_result {
         Ok(()) => Ok(()),
         Err(err) => {
             let _ = fs::remove_file(output);
             if is_cancelled_message(&err.to_string()) {
                 return Err(err);
             }
-            if let Some(ffmpeg) = find_ffmpeg_in_path() {
-                convert_with_ffmpeg(&ffmpeg, input, output, token)
-            } else {
-                Err(anyhow!(
-                    "Audio decode failed: {err}. Install ffmpeg to import this file."
-                ))
-            }
+            Err(anyhow!(
+                "Audio decode failed: {err}. Install ffmpeg to import this file."
+            ))
         }
     }
 }
@@ -1687,6 +1759,8 @@ fn decode_audio_to_wav(
     input: &Path,
     output: &Path,
     token: Option<&CancellationToken>,
+    duration_ms: Option<u64>,
+    mut progress_cb: Option<&mut dyn FnMut(f32)>,
 ) -> Result<()> {
     let file = fs::File::open(input)
         .with_context(|| format!("Failed to open audio file at {}", input.display()))?;
@@ -1724,6 +1798,7 @@ fn decode_audio_to_wav(
     if channels == 0 {
         return Err(anyhow!("Unknown channel count"));
     }
+    let time_base = track.codec_params.time_base;
 
     let mut decoder = symphonia::default::get_codecs()
         .make(&track.codec_params, &DecoderOptions::default())
@@ -1750,6 +1825,9 @@ fn decode_audio_to_wav(
     let mut mono = Vec::new();
     let mut resampled = Vec::new();
     let mut wrote_any = false;
+    let total_frames = track.codec_params.n_frames;
+    let duration_ms_f64 = duration_ms.map(|ms| ms as f64);
+    let mut last_reported = 0.0f32;
 
     loop {
         if let Some(token) = token {
@@ -1772,6 +1850,27 @@ fn decode_audio_to_wav(
 
         if packet.track_id() != track_id {
             continue;
+        }
+
+        if let Some(cb) = progress_cb.as_mut() {
+            let progress = if let Some(total) = total_frames {
+                let packet_end = packet.ts.saturating_add(packet.dur);
+                Some((packet_end as f64 / total as f64).min(1.0) as f32)
+            } else if let (Some(total_ms), Some(time_base)) = (duration_ms_f64, time_base) {
+                let packet_end = packet.ts.saturating_add(packet.dur);
+                let time = time_base.calc_time(packet_end);
+                let packet_ms = (time.seconds as f64 + time.frac) * 1000.0;
+                Some((packet_ms / total_ms).min(1.0) as f32)
+            } else {
+                None
+            };
+
+            if let Some(progress) = progress {
+                if progress >= 1.0 || (progress - last_reported) >= 0.01 {
+                    cb(progress);
+                    last_reported = progress;
+                }
+            }
         }
 
         let decoded = match decoder.decode(&packet) {
@@ -1815,6 +1914,12 @@ fn decode_audio_to_wav(
     writer
         .finalize()
         .map_err(|err| anyhow!("WAV finalize error: {err}"))?;
+
+    if total_frames.is_some() || (duration_ms.is_some() && time_base.is_some()) {
+        if let Some(cb) = progress_cb.as_mut() {
+            cb(1.0);
+        }
+    }
 
     if !wrote_any {
         return Err(anyhow!("No audio samples decoded"));
@@ -1938,11 +2043,13 @@ fn convert_video_to_wav(
     input: &Path,
     output: &Path,
     token: Option<&CancellationToken>,
+    duration_ms: Option<u64>,
+    progress_cb: Option<&mut dyn FnMut(f32)>,
 ) -> Result<()> {
     let ffmpeg = find_ffmpeg_in_path().ok_or_else(|| {
         anyhow!("FFmpeg is required to import video files. Install ffmpeg and ensure it is on your PATH.")
     })?;
-    convert_with_ffmpeg(&ffmpeg, input, output, token)
+    convert_with_ffmpeg(&ffmpeg, input, output, token, duration_ms, progress_cb)
 }
 
 fn convert_with_ffmpeg(
@@ -1950,6 +2057,8 @@ fn convert_with_ffmpeg(
     input: &Path,
     output: &Path,
     token: Option<&CancellationToken>,
+    duration_ms: Option<u64>,
+    mut progress_cb: Option<&mut dyn FnMut(f32)>,
 ) -> Result<()> {
     if let Some(token) = token {
         if token.is_cancelled() {
@@ -1957,7 +2066,90 @@ fn convert_with_ffmpeg(
         }
     }
 
-    let status = Command::new(ffmpeg)
+    if duration_ms.is_some() && progress_cb.is_some() {
+        let mut child = Command::new(ffmpeg)
+            .arg("-y")
+            .arg("-nostdin")
+            .arg("-loglevel")
+            .arg("error")
+            .arg("-progress")
+            .arg("pipe:1")
+            .arg("-nostats")
+            .arg("-i")
+            .arg(&input)
+            .arg("-vn")
+            .arg("-acodec")
+            .arg("pcm_s16le")
+            .arg("-ar")
+            .arg(TARGET_SAMPLE_RATE.to_string())
+            .arg("-ac")
+            .arg("1")
+            .arg(&output)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|err| match err.kind() {
+                ErrorKind::NotFound => anyhow!("FFmpeg not found on PATH."),
+                _ => anyhow!("Failed to run ffmpeg: {err}"),
+            })?;
+
+        let mut reader = BufReader::new(
+            child
+                .stdout
+                .take()
+                .ok_or_else(|| anyhow!("Failed to read ffmpeg progress output"))?,
+        );
+        let total_ms = duration_ms.unwrap_or_default().max(1);
+        let mut last_reported = 0.0f32;
+        let mut line = String::new();
+
+        loop {
+            if let Some(token) = token {
+                if token.is_cancelled() {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    let _ = fs::remove_file(output);
+                    return Err(anyhow!("Transcription cancelled"));
+                }
+            }
+
+            line.clear();
+            let read = reader.read_line(&mut line).map_err(|err| {
+                anyhow!("Failed to read ffmpeg progress output: {err}")
+            })?;
+            if read == 0 {
+                break;
+            }
+
+            if let Some(out_time_ms) = parse_ffmpeg_progress_ms(line.trim()) {
+                if let Some(cb) = progress_cb.as_mut() {
+                    let progress = (out_time_ms as f64 / total_ms as f64).min(1.0) as f32;
+                    if progress >= 1.0 || (progress - last_reported) >= 0.01 {
+                        cb(progress);
+                        last_reported = progress;
+                    }
+                }
+            }
+        }
+
+        let status = child.wait().map_err(|err| anyhow!("Failed to run ffmpeg: {err}"))?;
+        if let Some(token) = token {
+            if token.is_cancelled() {
+                let _ = fs::remove_file(output);
+                return Err(anyhow!("Transcription cancelled"));
+            }
+        }
+        if !status.success() {
+            let _ = fs::remove_file(output);
+            return Err(anyhow!("ffmpeg conversion failed"));
+        }
+        if let Some(cb) = progress_cb.as_mut() {
+            cb(1.0);
+        }
+        return Ok(());
+    }
+
+    let mut child = Command::new(ffmpeg)
         .arg("-y")
         .arg("-nostdin")
         .arg("-loglevel")
@@ -1972,17 +2164,34 @@ fn convert_with_ffmpeg(
         .arg("-ac")
         .arg("1")
         .arg(&output)
-        .status()
+        .spawn()
         .map_err(|err| match err.kind() {
             ErrorKind::NotFound => anyhow!("FFmpeg not found on PATH."),
             _ => anyhow!("Failed to run ffmpeg: {err}"),
         })?;
-    if let Some(token) = token {
-        if token.is_cancelled() {
-            let _ = fs::remove_file(output);
-            return Err(anyhow!("Transcription cancelled"));
+    let status = loop {
+        if let Some(token) = token {
+            if token.is_cancelled() {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = fs::remove_file(output);
+                return Err(anyhow!("Transcription cancelled"));
+            }
         }
-    }
+
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => {
+                thread::sleep(Duration::from_millis(200));
+            }
+            Err(err) => {
+                let _ = child.kill();
+                let _ = fs::remove_file(output);
+                return Err(anyhow!("Failed to run ffmpeg: {err}"));
+            }
+        }
+    };
+
     if !status.success() {
         let _ = fs::remove_file(output);
         return Err(anyhow!("ffmpeg conversion failed"));
@@ -2004,6 +2213,104 @@ fn find_ffmpeg_in_path() -> Option<PathBuf> {
         }
     }
     None
+}
+
+fn find_ffprobe_in_path() -> Option<PathBuf> {
+    let path_var = env::var_os("PATH")?;
+    let file_name = if cfg!(target_os = "windows") {
+        "ffprobe.exe"
+    } else {
+        "ffprobe"
+    };
+    for dir in env::split_paths(&path_var) {
+        let candidate = dir.join(file_name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+fn probe_media_duration_ms(path: &Path) -> Option<u64> {
+    if let Some(ffprobe) = find_ffprobe_in_path() {
+        let output = Command::new(ffprobe)
+            .arg("-v")
+            .arg("error")
+            .arg("-show_entries")
+            .arg("format=duration")
+            .arg("-of")
+            .arg("default=nk=1:nw=1")
+            .arg(path)
+            .output()
+            .ok()?;
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let seconds = stdout.trim().parse::<f64>().ok()?;
+            if seconds.is_finite() && seconds > 0.0 {
+                return Some((seconds * 1000.0) as u64);
+            }
+        }
+    }
+
+    probe_media_duration_ms_symphonia(path)
+}
+
+fn probe_media_duration_ms_symphonia(path: &Path) -> Option<u64> {
+    let file = fs::File::open(path).ok()?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = Hint::new();
+    if let Some(ext) = path.extension().and_then(|value| value.to_str()) {
+        hint.with_extension(ext);
+    }
+
+    let probed = symphonia::default::get_probe()
+        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+        .ok()?;
+    let format = probed.format;
+    let track = format.default_track().or_else(|| {
+        format.tracks().iter().find(|track| {
+            track.codec_params.sample_rate.is_some()
+                && track.codec_params.channels.is_some()
+        })
+    })?;
+    let time_base = track.codec_params.time_base?;
+    let n_frames = track.codec_params.n_frames?;
+    let time = time_base.calc_time(n_frames);
+    let seconds = time.seconds as f64 + time.frac;
+    if seconds.is_finite() && seconds > 0.0 {
+        Some((seconds * 1000.0) as u64)
+    } else {
+        None
+    }
+}
+
+fn parse_ffmpeg_progress_ms(line: &str) -> Option<u64> {
+    if let Some(value) = line.strip_prefix("out_time_ms=") {
+        return value.trim().parse::<u64>().ok();
+    }
+    if let Some(value) = line.strip_prefix("out_time_us=") {
+        return value.trim().parse::<u64>().ok().map(|us| us / 1000);
+    }
+    if let Some(value) = line.strip_prefix("out_time=") {
+        return parse_ffmpeg_time_to_ms(value.trim());
+    }
+    None
+}
+
+fn parse_ffmpeg_time_to_ms(value: &str) -> Option<u64> {
+    let parts = value.splitn(3, ':').collect::<Vec<_>>();
+    if parts.len() != 3 {
+        return None;
+    }
+    let hours = parts[0].parse::<u64>().ok()?;
+    let minutes = parts[1].parse::<u64>().ok()?;
+    let seconds = parts[2].parse::<f64>().ok()?;
+    let total_seconds = (hours as f64 * 3600.0) + (minutes as f64 * 60.0) + seconds;
+    if total_seconds.is_finite() && total_seconds >= 0.0 {
+        Some((total_seconds * 1000.0) as u64)
+    } else {
+        None
+    }
 }
 
 fn wav_duration_seconds(path: &Path) -> Result<f32> {
