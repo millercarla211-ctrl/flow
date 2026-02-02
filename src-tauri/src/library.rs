@@ -1,6 +1,6 @@
 use std::env;
 use std::fs;
-use std::io::{BufWriter, ErrorKind};
+use std::io::{BufReader, BufWriter, ErrorKind};
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
@@ -695,7 +695,10 @@ fn convert_library_item(
             })?;
         }
 
-        convert_to_wav(source_path, &audio_path, &ext)?;
+        convert_to_wav(source_path, &audio_path, &ext, Some(token))?;
+        if token.is_cancelled() {
+            return Err(anyhow!("Transcription cancelled"));
+        }
         let duration_seconds = wav_duration_seconds(&audio_path)?;
         Ok(duration_seconds)
     })();
@@ -981,16 +984,11 @@ fn transcribe_library_item(
         return Err(anyhow!("Audio file not found"));
     }
 
-    let (samples, sample_rate) = transcribe::load_audio_for_transcription(&audio_path)?;
-    let duration_seconds = samples.len() as f32 / sample_rate as f32;
-
-    let speech_percent =
-        speech_percentage_i16_with_mode(&samples, sample_rate, VadMode::VeryAggressive);
-    if speech_percent < VAD_MIN_SPEECH_PERCENT_FILE {
-        return Ok(LibraryTranscriptionResult {
-            transcript: String::new(),
-            segments: None,
-        });
+    let wav_info = read_wav_info(&audio_path)?;
+    let sample_rate = wav_info.sample_rate;
+    let duration_seconds = wav_info.duration_seconds;
+    if wav_info.total_samples == 0 {
+        return Err(anyhow!("No audio data decoded from WAV file"));
     }
 
     let settings = state.current_settings();
@@ -1013,46 +1011,36 @@ fn transcribe_library_item(
             (WHISPER_CHUNK_OVERLAP_SECONDS as usize * sample_rate as usize).min(chunk_size.saturating_sub(1));
         let step = chunk_size.saturating_sub(overlap).max(1);
 
-        let mut chunks: Vec<(usize, usize)> = Vec::new();
-        let mut start = 0usize;
-        while start < samples.len() {
-            let end = (start + chunk_size).min(samples.len());
-            chunks.push((start, end));
-            if end == samples.len() {
-                break;
-            }
-            start += step;
-        }
-
-        let total_chunks = chunks.len().max(1) as u32;
+        let total_chunks = compute_total_chunks(wav_info.total_samples, chunk_size, step).max(1) as u32;
         let mut full_text = String::new();
         let mut merged_segments: Vec<TranscriptSegment> = Vec::new();
         let mut last_end_ms: u64 = 0;
         let mut used_prompt = false;
+        let mut chunk_index: u32 = 0;
 
-        for (index, (start_idx, end_idx)) in chunks.iter().enumerate() {
+        stream_wav_chunks(&audio_path, chunk_size, overlap, |start_idx, chunk| {
             if token.is_cancelled() {
                 return Err(anyhow!("Transcription cancelled"));
             }
 
-            let chunk = &samples[*start_idx..*end_idx];
+            chunk_index = chunk_index.saturating_add(1);
             let chunk_speech_percent =
                 speech_percentage_i16_with_mode(chunk, sample_rate, VadMode::VeryAggressive);
             if chunk_speech_percent < VAD_MIN_SPEECH_PERCENT_CHUNK {
-                let progress = (index as f32 + 1.0) / total_chunks as f32;
+                let progress = (chunk_index as f32) / total_chunks as f32;
                 report_progress(
                     app,
                     state.storage(),
                     &item.id,
                     progress,
-                    index as u32 + 1,
+                    chunk_index,
                     total_chunks,
                     None,
                     None,
                     None,
                     None,
                 );
-                continue;
+                return Ok(());
             }
             let prompt = if !used_prompt {
                 dictionary_prompt.as_deref()
@@ -1088,7 +1076,7 @@ fn transcribe_library_item(
 
             let mut new_segments: Vec<TranscriptSegment> = Vec::new();
             if let Some(segments) = result.segments {
-                let offset_ms = ((*start_idx as f64) / sample_rate as f64 * 1000.0) as u64;
+                let offset_ms = (start_idx as f64 / sample_rate as f64 * 1000.0) as u64;
                 for seg in convert_segments_to_ms(&segments) {
                     let start_ms = seg.start_ms + offset_ms;
                     let end_ms = seg.end_ms + offset_ms;
@@ -1106,7 +1094,7 @@ fn transcribe_library_item(
                 }
             }
 
-            let progress = (index as f32 + 1.0) / total_chunks as f32;
+            let progress = (chunk_index as f32) / total_chunks as f32;
             let transcript_patch = appended_text.as_ref().map(|_| full_text.clone());
             let segments_patch = if new_segments.is_empty() {
                 None
@@ -1124,14 +1112,15 @@ fn transcribe_library_item(
                 state.storage(),
                 &item.id,
                 progress,
-                index as u32 + 1,
+                chunk_index,
                 total_chunks,
                 transcript_patch,
                 segments_patch,
                 appended_text,
                 chunk_segments,
             );
-        }
+            Ok(())
+        })?;
 
         return Ok(LibraryTranscriptionResult {
             transcript: full_text.trim().to_string(),
@@ -1148,44 +1137,33 @@ fn transcribe_library_item(
         let overlap = (MOONSHINE_CHUNK_OVERLAP_SECONDS as usize * sample_rate as usize)
             .min(chunk_size.saturating_sub(1));
         let step = chunk_size.saturating_sub(overlap).max(1);
-
-        let mut chunks: Vec<(usize, usize)> = Vec::new();
-        let mut start = 0usize;
-        while start < samples.len() {
-            let end = (start + chunk_size).min(samples.len());
-            chunks.push((start, end));
-            if end == samples.len() {
-                break;
-            }
-            start += step;
-        }
-
-        let total_chunks = chunks.len().max(1) as u32;
+        let total_chunks = compute_total_chunks(wav_info.total_samples, chunk_size, step).max(1) as u32;
         let mut full_text = String::new();
+        let mut chunk_index: u32 = 0;
 
-        for (index, (start_idx, end_idx)) in chunks.iter().enumerate() {
+        stream_wav_chunks(&audio_path, chunk_size, overlap, |_, chunk| {
             if token.is_cancelled() {
                 return Err(anyhow!("Transcription cancelled"));
             }
 
-            let chunk = &samples[*start_idx..*end_idx];
+            chunk_index = chunk_index.saturating_add(1);
             let chunk_speech_percent =
                 speech_percentage_i16_with_mode(chunk, sample_rate, VadMode::VeryAggressive);
             if chunk_speech_percent < VAD_MIN_SPEECH_PERCENT_CHUNK {
-                let progress = (index as f32 + 1.0) / total_chunks as f32;
+                let progress = (chunk_index as f32) / total_chunks as f32;
                 report_progress(
                     app,
                     state.storage(),
                     &item.id,
                     progress,
-                    index as u32 + 1,
+                    chunk_index,
                     total_chunks,
                     None,
                     None,
                     None,
                     None,
                 );
-                continue;
+                return Ok(());
             }
             let result = transcriber.transcribe(
                 &ready_model,
@@ -1209,20 +1187,21 @@ fn transcribe_library_item(
                 }
             }
 
-            let progress = (index as f32 + 1.0) / total_chunks as f32;
+            let progress = (chunk_index as f32) / total_chunks as f32;
             report_progress(
                 app,
                 state.storage(),
                 &item.id,
                 progress,
-                index as u32 + 1,
+                chunk_index,
                 total_chunks,
                 None,
                 None,
                 None,
                 None,
             );
-        }
+            Ok(())
+        })?;
 
         return Ok(LibraryTranscriptionResult {
             transcript: full_text.trim().to_string(),
@@ -1231,6 +1210,16 @@ fn transcribe_library_item(
     }
 
     if duration_seconds <= (DIRECT_TRANSCRIBE_MINUTES as f32 * 60.0) {
+        let (samples, sample_rate) = transcribe::load_audio_for_transcription(&audio_path)?;
+        let speech_percent =
+            speech_percentage_i16_with_mode(&samples, sample_rate, VadMode::VeryAggressive);
+        if speech_percent < VAD_MIN_SPEECH_PERCENT_FILE {
+            return Ok(LibraryTranscriptionResult {
+                transcript: String::new(),
+                segments: None,
+            });
+        }
+
         let result = transcriber.transcribe_with_segments(
             &ready_model,
             &samples,
@@ -1251,46 +1240,35 @@ fn transcribe_library_item(
     let chunk_size = (MAX_CHUNK_MINUTES as usize * 60 * sample_rate as usize).max(1);
     let overlap = (CHUNK_OVERLAP_SECONDS as usize * sample_rate as usize).min(chunk_size);
     let step = chunk_size.saturating_sub(overlap).max(1);
-
-    let mut chunks: Vec<(usize, usize)> = Vec::new();
-    let mut start = 0usize;
-    while start < samples.len() {
-        let end = (start + chunk_size).min(samples.len());
-        chunks.push((start, end));
-        if end == samples.len() {
-            break;
-        }
-        start += step;
-    }
-
-    let total_chunks = chunks.len().max(1) as u32;
+    let total_chunks = compute_total_chunks(wav_info.total_samples, chunk_size, step).max(1) as u32;
     let mut full_text = String::new();
     let mut merged_segments: Vec<TranscriptSegment> = Vec::new();
     let mut last_end_ms: u64 = 0;
+    let mut chunk_index: u32 = 0;
 
-    for (index, (start_idx, end_idx)) in chunks.iter().enumerate() {
+    stream_wav_chunks(&audio_path, chunk_size, overlap, |start_idx, chunk| {
         if token.is_cancelled() {
             return Err(anyhow!("Transcription cancelled"));
         }
 
-        let chunk = &samples[*start_idx..*end_idx];
+        chunk_index = chunk_index.saturating_add(1);
         let chunk_speech_percent =
             speech_percentage_i16_with_mode(chunk, sample_rate, VadMode::VeryAggressive);
         if chunk_speech_percent < VAD_MIN_SPEECH_PERCENT_CHUNK {
-            let progress = (index as f32 + 1.0) / total_chunks as f32;
+            let progress = (chunk_index as f32) / total_chunks as f32;
             report_progress(
                 app,
                 state.storage(),
                 &item.id,
                 progress,
-                index as u32 + 1,
+                chunk_index,
                 total_chunks,
                 None,
                 None,
                 None,
                 None,
             );
-            continue;
+            return Ok(());
         }
         let result = transcriber.transcribe_with_segments(
             &ready_model,
@@ -1315,7 +1293,7 @@ fn transcribe_library_item(
         }
 
         if let Some(segments) = result.segments {
-            let offset_ms = ((*start_idx as f64) / sample_rate as f64 * 1000.0) as u64;
+            let offset_ms = (start_idx as f64 / sample_rate as f64 * 1000.0) as u64;
             for seg in convert_segments_to_ms(&segments) {
                 let start_ms = seg.start_ms + offset_ms;
                 let end_ms = seg.end_ms + offset_ms;
@@ -1331,20 +1309,21 @@ fn transcribe_library_item(
             }
         }
 
-        let progress = (index as f32 + 1.0) / total_chunks as f32;
+        let progress = (chunk_index as f32) / total_chunks as f32;
         report_progress(
             app,
             state.storage(),
             &item.id,
             progress,
-            index as u32 + 1,
+            chunk_index,
             total_chunks,
             None,
             None,
             None,
             None,
         );
-    }
+        Ok(())
+    })?;
 
     Ok(LibraryTranscriptionResult {
         transcript: full_text.trim().to_string(),
@@ -1471,17 +1450,186 @@ fn stored_original_path(item: &LibraryItem) -> Option<PathBuf> {
     Some(item_dir.join(format!("source.{ext}")))
 }
 
-fn convert_to_wav(input: &Path, output: &Path, ext: &str) -> Result<()> {
+struct WavInfo {
+    sample_rate: u32,
+    total_samples: usize,
+    duration_seconds: f32,
+}
+
+fn read_wav_info(path: &Path) -> Result<WavInfo> {
+    let file = fs::File::open(path)
+        .with_context(|| format!("Failed to open WAV file at {}", path.display()))?;
+    let reader = hound::WavReader::new(BufReader::new(file))
+        .map_err(|err| anyhow!("WAV read error: {err}"))?;
+    let spec = reader.spec();
+    if spec.sample_rate == 0 {
+        return Err(anyhow!("Invalid sample rate"));
+    }
+    let total_samples = reader.duration() as usize;
+    let duration_seconds = total_samples as f32 / spec.sample_rate as f32;
+    Ok(WavInfo {
+        sample_rate: spec.sample_rate,
+        total_samples,
+        duration_seconds,
+    })
+}
+
+fn compute_total_chunks(total_samples: usize, chunk_samples: usize, step: usize) -> u32 {
+    if total_samples == 0 {
+        return 0;
+    }
+    let mut count: u32 = 0;
+    let mut start = 0usize;
+    let step = step.max(1);
+    let chunk_samples = chunk_samples.max(1);
+    loop {
+        count = count.saturating_add(1);
+        if start.saturating_add(chunk_samples) >= total_samples {
+            break;
+        }
+        start = start.saturating_add(step);
+        if start >= total_samples {
+            break;
+        }
+    }
+    count
+}
+
+fn stream_wav_chunks<F>(
+    path: &Path,
+    chunk_samples: usize,
+    overlap_samples: usize,
+    mut on_chunk: F,
+) -> Result<()>
+where
+    F: FnMut(usize, &[i16]) -> Result<()>,
+{
+    let file = fs::File::open(path)
+        .with_context(|| format!("Failed to open WAV file at {}", path.display()))?;
+    let mut reader = hound::WavReader::new(BufReader::new(file))
+        .map_err(|err| anyhow!("WAV read error: {err}"))?;
+    let spec = reader.spec();
+    if spec.sample_format != hound::SampleFormat::Int {
+        return Err(anyhow!("Unsupported WAV sample format"));
+    }
+    if spec.bits_per_sample != 16 {
+        return Err(anyhow!(
+            "Unsupported WAV bits per sample: {}",
+            spec.bits_per_sample
+        ));
+    }
+    if spec.sample_rate == 0 {
+        return Err(anyhow!("Invalid sample rate"));
+    }
+
+    let channels = spec.channels.max(1) as usize;
+    let chunk_samples = chunk_samples.max(1);
+    let overlap_samples = overlap_samples.min(chunk_samples);
+    let step = chunk_samples.saturating_sub(overlap_samples).max(1);
+
+    let mut raw_samples: Vec<i16> = Vec::with_capacity(chunk_samples.saturating_mul(channels));
+    let mut mono_samples: Vec<i16> = Vec::with_capacity(chunk_samples);
+    let mut carry: Vec<i16> = Vec::with_capacity(overlap_samples);
+    let mut chunk: Vec<i16> = Vec::with_capacity(chunk_samples);
+    let mut start_idx: usize = 0;
+    let mut next_read = chunk_samples;
+    let mut samples_iter = reader.samples::<i16>();
+
+    loop {
+        raw_samples.clear();
+        let target = next_read.saturating_mul(channels);
+        for _ in 0..target {
+            match samples_iter.next() {
+                Some(Ok(sample)) => raw_samples.push(sample),
+                Some(Err(err)) => return Err(anyhow!("WAV read error: {err}")),
+                None => break,
+            }
+        }
+        let eof = raw_samples.len() < target;
+        let frame_count = raw_samples.len() / channels;
+        if frame_count == 0 {
+            break;
+        }
+
+        if channels > 1 {
+            downmix_interleaved_to_mono_i16(&raw_samples, channels, &mut mono_samples);
+        } else {
+            mono_samples.clear();
+            mono_samples.extend_from_slice(&raw_samples);
+        }
+
+        chunk.clear();
+        if !carry.is_empty() {
+            chunk.extend_from_slice(&carry);
+        }
+        chunk.extend_from_slice(&mono_samples);
+        if chunk.is_empty() {
+            break;
+        }
+        on_chunk(start_idx, &chunk)?;
+
+        if overlap_samples > 0 {
+            carry.clear();
+            if chunk.len() > overlap_samples {
+                carry.extend_from_slice(&chunk[chunk.len() - overlap_samples..]);
+            } else {
+                carry.extend_from_slice(&chunk);
+            }
+        } else {
+            carry.clear();
+        }
+
+        if eof {
+            break;
+        }
+        start_idx = start_idx.saturating_add(step);
+        next_read = step;
+    }
+
+    Ok(())
+}
+
+fn downmix_interleaved_to_mono_i16(samples: &[i16], channels: usize, output: &mut Vec<i16>) {
+    output.clear();
+    if samples.is_empty() {
+        return;
+    }
+    if channels <= 1 {
+        output.extend_from_slice(samples);
+        return;
+    }
+
+    let frames = samples.len() / channels;
+    output.reserve(frames);
+    for frame in 0..frames {
+        let mut acc = 0i32;
+        for ch in 0..channels {
+            acc += samples[frame * channels + ch] as i32;
+        }
+        output.push((acc / channels as i32) as i16);
+    }
+}
+
+fn convert_to_wav(
+    input: &Path,
+    output: &Path,
+    ext: &str,
+    token: Option<&CancellationToken>,
+) -> Result<()> {
     if SUPPORTED_AUDIO_FORMATS.contains(&ext) {
-        return convert_audio_to_wav(input, output);
+        return convert_audio_to_wav(input, output, token);
     }
     if SUPPORTED_VIDEO_FORMATS.contains(&ext) {
-        return convert_video_to_wav(input, output);
+        return convert_video_to_wav(input, output, token);
     }
     Err(anyhow!("Unsupported file format: {ext}"))
 }
 
-fn convert_audio_to_wav(input: &Path, output: &Path) -> Result<()> {
+fn convert_audio_to_wav(
+    input: &Path,
+    output: &Path,
+    token: Option<&CancellationToken>,
+) -> Result<()> {
     let is_wav = input
         .extension()
         .and_then(|value| value.to_str())
@@ -1491,12 +1639,15 @@ fn convert_audio_to_wav(input: &Path, output: &Path) -> Result<()> {
         return Ok(());
     }
 
-    match decode_audio_to_wav(input, output) {
+    match decode_audio_to_wav(input, output, token) {
         Ok(()) => Ok(()),
         Err(err) => {
             let _ = fs::remove_file(output);
+            if is_cancelled_message(&err.to_string()) {
+                return Err(err);
+            }
             if let Some(ffmpeg) = find_ffmpeg_in_path() {
-                convert_with_ffmpeg(&ffmpeg, input, output)
+                convert_with_ffmpeg(&ffmpeg, input, output, token)
             } else {
                 Err(anyhow!(
                     "Audio decode failed: {err}. Install ffmpeg to import this file."
@@ -1532,7 +1683,11 @@ fn try_copy_wav_if_compatible(input: &Path, output: &Path) -> Result<bool> {
     Ok(false)
 }
 
-fn decode_audio_to_wav(input: &Path, output: &Path) -> Result<()> {
+fn decode_audio_to_wav(
+    input: &Path,
+    output: &Path,
+    token: Option<&CancellationToken>,
+) -> Result<()> {
     let file = fs::File::open(input)
         .with_context(|| format!("Failed to open audio file at {}", input.display()))?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
@@ -1597,6 +1752,12 @@ fn decode_audio_to_wav(input: &Path, output: &Path) -> Result<()> {
     let mut wrote_any = false;
 
     loop {
+        if let Some(token) = token {
+            if token.is_cancelled() {
+                return Err(anyhow!("Transcription cancelled"));
+            }
+        }
+
         let packet = match format.next_packet() {
             Ok(packet) => packet,
             Err(SymphoniaError::IoError(err)) if err.kind() == ErrorKind::UnexpectedEof => {
@@ -1773,14 +1934,29 @@ impl LinearResampler {
     }
 }
 
-fn convert_video_to_wav(input: &Path, output: &Path) -> Result<()> {
+fn convert_video_to_wav(
+    input: &Path,
+    output: &Path,
+    token: Option<&CancellationToken>,
+) -> Result<()> {
     let ffmpeg = find_ffmpeg_in_path().ok_or_else(|| {
         anyhow!("FFmpeg is required to import video files. Install ffmpeg and ensure it is on your PATH.")
     })?;
-    convert_with_ffmpeg(&ffmpeg, input, output)
+    convert_with_ffmpeg(&ffmpeg, input, output, token)
 }
 
-fn convert_with_ffmpeg(ffmpeg: &Path, input: &Path, output: &Path) -> Result<()> {
+fn convert_with_ffmpeg(
+    ffmpeg: &Path,
+    input: &Path,
+    output: &Path,
+    token: Option<&CancellationToken>,
+) -> Result<()> {
+    if let Some(token) = token {
+        if token.is_cancelled() {
+            return Err(anyhow!("Transcription cancelled"));
+        }
+    }
+
     let status = Command::new(ffmpeg)
         .arg("-y")
         .arg("-nostdin")
@@ -1801,6 +1977,12 @@ fn convert_with_ffmpeg(ffmpeg: &Path, input: &Path, output: &Path) -> Result<()>
             ErrorKind::NotFound => anyhow!("FFmpeg not found on PATH."),
             _ => anyhow!("Failed to run ffmpeg: {err}"),
         })?;
+    if let Some(token) = token {
+        if token.is_cancelled() {
+            let _ = fs::remove_file(output);
+            return Err(anyhow!("Transcription cancelled"));
+        }
+    }
     if !status.success() {
         let _ = fs::remove_file(output);
         return Err(anyhow!("ffmpeg conversion failed"));
