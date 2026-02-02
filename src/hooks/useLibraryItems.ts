@@ -127,9 +127,39 @@ export function useLibraryItems(initialFilter: LibraryFilter = {}) {
     }, []);
 
     const refresh = useCallback(async () => {
-        const limit = Math.max(itemsLengthRef.current, PAGE_SIZE);
-        await loadItems(undefined, limit);
-    }, [loadItems]);
+        const target = Math.max(itemsLengthRef.current, PAGE_SIZE);
+        const pages = Math.ceil(target / PAGE_SIZE);
+        let merged: LibraryItem[] = [];
+        let hasMoreResult = true;
+        setIsLoading(true);
+        setError(null);
+        try {
+            for (let page = 0; page < pages; page += 1) {
+                const result = await invoke<LibraryItemsPage>("get_library_items_page", {
+                    filter,
+                    limit: PAGE_SIZE,
+                    offset: page * PAGE_SIZE,
+                });
+                merged = [...merged, ...result.items];
+                hasMoreResult = result.has_more;
+                if (!hasMoreResult) break;
+            }
+            if (isMountedRef.current) {
+                setItems(merged);
+                setHasMore(hasMoreResult);
+            }
+        } catch (err) {
+            console.error("Failed to refresh library items:", err);
+            if (isMountedRef.current) {
+                setError(err instanceof Error ? err.message : String(err));
+            }
+        } finally {
+            if (isMountedRef.current) {
+                setIsLoading(false);
+                setIsLoadingMore(false);
+            }
+        }
+    }, [filter]);
 
     useEffect(() => {
         loadItems();

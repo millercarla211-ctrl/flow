@@ -1460,7 +1460,7 @@ const LibraryModal = ({
         }
     };
 
-    const handleTogglePlayback = () => {
+    const handleTogglePlayback = useCallback(() => {
         const sound = howlRef.current;
         if (!sound || audioError || !audioReady) return;
         if (sound.playing()) {
@@ -1468,7 +1468,7 @@ const LibraryModal = ({
         } else {
             sound.play();
         }
-    };
+    }, [audioError, audioReady]);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -1732,6 +1732,15 @@ const LibraryModal = ({
             }
         };
         followScrollRef.current = requestAnimationFrame(step);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (followScrollRef.current !== null) {
+                cancelAnimationFrame(followScrollRef.current);
+                followScrollRef.current = null;
+            }
+        };
     }, []);
 
     useEffect(() => {
