@@ -491,7 +491,7 @@ fn preflight_state() -> &'static Mutex<PreflightState> {
 pub fn cached_preflight_available() -> Option<bool> {
     let state = preflight_state().lock();
     if let Some(last) = state.last_checked_at {
-        if last.elapsed() > PREFLIGHT_TTL {
+        if last.elapsed() >= PREFLIGHT_TTL {
             return None;
         }
     }
