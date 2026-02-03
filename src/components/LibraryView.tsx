@@ -677,7 +677,7 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
                     </div>
                 )}
             </div>
-            <div className="flex-1 min-h-0 overflow-y-scroll overflow-x-hidden custom-scrollbar scrollbar-gutter pb-6 pr-3">
+            <div className="flex-1 min-h-0 overflow-y-scroll overflow-x-hidden custom-scrollbar scrollbar-gutter pb-6 pr-3 pt-1">
                 <div key="library-list" className="flex flex-col gap-6 w-full">
                     <div className="w-full max-w-6xl mx-auto flex flex-col gap-6">
                         <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
@@ -1114,9 +1114,9 @@ const LibraryCard = ({
                 )}
             </AnimatePresence>
 
-            <div className="mt-3">
+            <div className="mt-3 min-h-[24px]">
                 {isAddingTag ? (
-                    <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
+                    <div className="flex items-center gap-1 h-5" onClick={(event) => event.stopPropagation()}>
                         <input
                             value={tagDraft}
                             onChange={(event) => onChangeTagDraft(event.target.value)}
@@ -1132,7 +1132,7 @@ const LibraryCard = ({
                             }}
                             onBlur={onCancelTagEdit}
                             placeholder="New tag..."
-                            className="flex-1 min-w-0 bg-transparent border-b border-border-primary px-0.5 py-0.5 text-[10px] text-content-secondary outline-none focus:border-border-hover placeholder:text-content-disabled"
+                            className="flex-1 min-w-0 h-5 box-border bg-transparent border-b border-border-primary px-0.5 py-0 text-[10px] leading-none text-content-secondary outline-none focus:border-border-hover placeholder:text-content-disabled"
                             autoFocus
                         />
                     </div>
@@ -1163,7 +1163,7 @@ const LibraryCard = ({
                                 event.stopPropagation();
                                 onStartTagEdit();
                             }}
-                            className="flex items-center justify-center w-5 h-5 text-[11px] text-content-disabled hover:text-content-muted transition-colors"
+                            className="flex items-center justify-center w-6 h-6 rounded-md bg-transparent text-[14px] text-content-disabled hover:text-content-muted hover:bg-surface-elevated transition-colors border-0 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-hover focus-visible:ring-offset-0"
                         >
                             +
                         </button>
