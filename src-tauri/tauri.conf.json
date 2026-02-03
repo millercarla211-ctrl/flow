@@ -81,7 +81,14 @@
     "macOS": {
       "hardenedRuntime": true,
       "minimumSystemVersion": "13.0",
-      "entitlements": "Entitlements.plist"
+      "entitlements": "Entitlements.plist",
+      "dmg": {
+        "background": "macos/background.png",
+        "windowSize": {
+          "width": 720,
+          "height": 450
+        }
+      }
     }
   },
   "plugins": {
