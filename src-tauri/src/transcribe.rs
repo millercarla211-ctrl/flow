@@ -30,6 +30,7 @@ pub(crate) fn queue_transcription(
     let state = app.state::<AppState>();
     state.clear_cancellation();
     state.set_pending_path(Some(saved.path.clone()));
+    state.record_recording_seconds(compute_audio_duration_seconds(&saved) as f64);
 
     let pending_selected_text = state.take_pending_selected_text();
     let cancel_token = state.create_transcription_token();
@@ -165,12 +166,22 @@ pub(crate) fn queue_transcription(
 
                     analytics::track_transcription_completed(
                         &app_handle,
-                        "cloud_auth",
-                        "cloud_auth",
+                        "cloud",
+                        saved_for_task
+                            .recording_mode
+                            .as_deref()
+                            .unwrap_or("unknown"),
+                        "cloud",
                         Some(&metadata.speech_model),
                         cloud_result.llm_cleaned,
                         metadata.audio_duration_seconds as f64,
                     );
+                    app_handle
+                        .state::<AppState>()
+                        .record_transcription_completed();
+                    app_handle
+                        .state::<AppState>()
+                        .record_transcription_completed();
 
                     crate::emit_event(
                         &app_handle,
@@ -448,7 +459,11 @@ pub(crate) fn queue_transcription(
                     saved_for_task.path.display().to_string(),
                     llm_cleaned,
                     metadata,
-                    "unknown",
+                    if use_local { "local" } else { "cloud" },
+                    saved_for_task
+                        .recording_mode
+                        .as_deref()
+                        .unwrap_or("unknown"),
                     if use_local { "local" } else { "cloud" },
                 );
 
@@ -603,8 +618,12 @@ pub(crate) fn retry_transcription_async(
 
                     analytics::track_transcription_completed(
                         &app_handle,
-                        "cloud_auth",
-                        "cloud_auth",
+                        "cloud",
+                        saved_for_task
+                            .recording_mode
+                            .as_deref()
+                            .unwrap_or("unknown"),
+                        "cloud",
                         Some(&metadata.speech_model),
                         cloud_result.llm_cleaned,
                         metadata.audio_duration_seconds as f64,
@@ -860,12 +879,19 @@ pub(crate) fn retry_transcription_async(
 
                 analytics::track_transcription_completed(
                     &app_handle,
-                    "unknown",
+                    if use_local { "local" } else { "cloud" },
+                    saved_for_task
+                        .recording_mode
+                        .as_deref()
+                        .unwrap_or("unknown"),
                     if use_local { "local" } else { "cloud" },
                     Some(&metadata.speech_model),
                     llm_cleaned,
                     metadata.audio_duration_seconds as f64,
                 );
+                app_handle
+                    .state::<AppState>()
+                    .record_transcription_completed();
 
                 crate::emit_event(
                     &app_handle,
@@ -902,16 +928,19 @@ fn emit_transcription_complete_with_cleanup(
     llm_cleaned: bool,
     metadata: storage::TranscriptionMetadata,
     mode: &str,
+    keybind: &str,
     engine: &str,
 ) {
     analytics::track_transcription_completed(
         app,
         mode,
+        keybind,
         engine,
         Some(&metadata.speech_model),
         llm_cleaned,
         metadata.audio_duration_seconds as f64,
     );
+    app.state::<AppState>().record_transcription_completed();
 
     crate::emit_event(
         app,

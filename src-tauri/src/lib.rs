@@ -28,7 +28,7 @@ use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
 
 use anyhow::{Context, Result};
@@ -364,7 +364,15 @@ pub fn run() {
                 }
             }
             tauri::RunEvent::Exit => {
-                let _ = handler.track_event("app_exited", None);
+                let state = handler.state::<AppState>();
+                let now = Instant::now();
+                let counters = state.session_counters.lock();
+                analytics::track_app_exited(
+                    handler,
+                    (now - state.session_started_at).as_secs_f64(),
+                    counters.recording_seconds,
+                    counters.transcription_count,
+                );
                 handler.flush_events_blocking();
             }
             _ => {}
@@ -411,7 +419,16 @@ pub struct AppState {
     library_active: parking_lot::Mutex<Option<String>>,
     retry_tokens: parking_lot::Mutex<HashMap<String, CancellationToken>>,
     update_state: update_checker::SharedUpdateState,
+    session_started_at: Instant,
+    session_counters: parking_lot::Mutex<SessionCounters>,
 }
+
+#[derive(Clone, Copy)]
+struct SessionCounters {
+    recording_seconds: f64,
+    transcription_count: u32,
+}
+
 
 impl AppState {
     pub fn new(
@@ -459,6 +476,11 @@ impl AppState {
             library_active: parking_lot::Mutex::new(None),
             retry_tokens: parking_lot::Mutex::new(HashMap::new()),
             update_state: update_checker::create_state(),
+            session_started_at: Instant::now(),
+            session_counters: parking_lot::Mutex::new(SessionCounters {
+                recording_seconds: 0.0,
+                transcription_count: 0,
+            }),
         }
     }
 
@@ -483,6 +505,16 @@ impl AppState {
 
     pub fn pill(&self) -> &PillController {
         &self.pill
+    }
+
+    pub fn record_recording_seconds(&self, duration_secs: f64) {
+        if duration_secs.is_finite() && duration_secs > 0.0 {
+            self.session_counters.lock().recording_seconds += duration_secs;
+        }
+    }
+
+    pub fn record_transcription_completed(&self) {
+        self.session_counters.lock().transcription_count += 1;
     }
 
     fn http(&self) -> Client {
@@ -1139,6 +1171,7 @@ async fn retry_transcription(
         started_at: record.timestamp,
         ended_at: record.timestamp,
         duration_override_seconds: Some(record.audio_duration_seconds),
+        recording_mode: None,
     };
 
     let settings = state.current_settings();

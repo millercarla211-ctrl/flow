@@ -543,10 +543,22 @@ impl PillController {
         self.transition_to(app, PillStatus::Processing);
         self.capture_selected_text_if_enabled(app);
 
+        let recording_origin = self
+            .shortcut_origin
+            .lock()
+            .as_ref()
+            .map(|origin| match origin {
+                ShortcutOrigin::Hold => "hold",
+                ShortcutOrigin::Toggle => "toggle",
+                ShortcutOrigin::Smart => "smart",
+            })
+            .map(str::to_string);
+
         let recorder = Arc::clone(&self.recorder);
         let app_handle = app.clone();
         std::thread::spawn(move || match recorder.stop() {
-            Ok(Some(recording)) => {
+            Ok(Some(mut recording)) => {
+                recording.recording_mode = recording_origin;
                 let duration_ms = (recording.ended_at - recording.started_at).num_milliseconds();
                 if duration_ms < MIN_RECORDING_DURATION_MS {
                     app_handle.state::<AppState>().pill().reset(&app_handle);
