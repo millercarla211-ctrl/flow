@@ -48,6 +48,36 @@ jobs:
       - name: build frontend
         run: bun run build
 
+      - name: extract release notes
+        id: release_notes
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          
+          version = json.load(open("src-tauri/tauri.conf.json", "r", encoding="utf-8"))["version"]
+          text = open("changelog.md", "r", encoding="utf-8").read()
+          
+          pattern = rf"(?ms)^{re.escape(version)}\\s*(.*?)^\\s*---\\s*$"
+          match = re.search(pattern, text)
+          if not match:
+            print(f"ERROR: version {version} not found in changelog.md", file=sys.stderr)
+            sys.exit(1)
+          
+          body = match.group(1).strip()
+          if not body:
+            print(f"ERROR: no release notes found for version {version} in changelog.md", file=sys.stderr)
+            sys.exit(1)
+          
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"version={version}\n")
+            f.write("body<<'EOF'\n")
+            f.write(body + "\n")
+            f.write("EOF\n")
+          PY
+
       - name: import Apple Developer Certificate
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -91,7 +121,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: 'Glimpse v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
+          releaseBody: ${{ steps.release_notes.outputs.body }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
