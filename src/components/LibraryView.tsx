@@ -2253,14 +2253,18 @@ const LibraryModal = ({
                                     style={{ height: "100%" }}
                                     data={item.segments ?? []}
                                     overscan={200}
-                                    className="custom-scrollbar text-[13px] text-content-secondary leading-relaxed pr-2"
+                                    className="custom-scrollbar text-[13px] text-content-secondary leading-relaxed"
                                     computeItemKey={(index: number, segment: TranscriptSegment) =>
                                         `${segment.start_ms}-${index}`
                                     }
+                                    components={{
+                                        Header: () => <div className="h-3" />,
+                                        Footer: () => <div className="h-3" />,
+                                    }}
                                     itemContent={(idx, segment) => {
                                         const isActive = idx === activeSegmentIndex;
                                         return (
-                                            <div className="pb-1.5">
+                                            <div className="pb-1.5 pr-4">
                                                 <motion.div
                                                     initial={{ opacity: 0, y: 6 }}
                                                     animate={{ opacity: 1, y: 0 }}
@@ -2302,18 +2306,22 @@ const LibraryModal = ({
                                     ) : null
                                 ) : (
                                     <Virtuoso
-                                        ref={streamVirtuosoRef}
-                                        style={{ height: "100%" }}
-                                        data={streamChunks}
-                                        overscan={200}
-                                        className="custom-scrollbar text-[13px] text-content-secondary leading-relaxed pr-2"
-                                        computeItemKey={(index: number) => `${item.id}-chunk-${index}`}
-                                        itemContent={(idx, chunk) => (
-                                            <div className="pb-2">
-                                                <motion.p
-                                                    initial={{ opacity: 0, y: 6 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    transition={{ duration: 0.2, ease: "easeOut" }}
+                                    ref={streamVirtuosoRef}
+                                    style={{ height: "100%" }}
+                                    data={streamChunks}
+                                    overscan={200}
+                                    className="custom-scrollbar text-[13px] text-content-secondary leading-relaxed"
+                                    computeItemKey={(index: number) => `${item.id}-chunk-${index}`}
+                                    components={{
+                                        Header: () => <div className="h-3" />,
+                                        Footer: () => <div className="h-3" />,
+                                    }}
+                                    itemContent={(idx, chunk) => (
+                                        <div className="pb-2 pr-4">
+                                            <motion.p
+                                                initial={{ opacity: 0, y: 6 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.2, ease: "easeOut" }}
                                                     className="select-text"
                                                 >
                                                     {renderHighlightedText(chunk, idx === activeStreamMatch)}
@@ -2331,7 +2339,7 @@ const LibraryModal = ({
                                     placeholder={item.status.type === "importing" || item.status.type === "pending"
                                         ? ""
                                         : "Transcript will appear here."}
-                                    className="h-full w-full resize-none bg-transparent text-[13px] text-content-secondary leading-relaxed outline-none disabled:opacity-60 custom-scrollbar select-text"
+                                    className="h-full w-full resize-none bg-transparent text-[13px] text-content-secondary leading-relaxed outline-none disabled:opacity-60 custom-scrollbar select-text pr-4 pt-3 pb-3"
                                 />
                             )}
                             <div className="scroll-fade-top" style={{ zIndex: 5 }} aria-hidden="true" />
