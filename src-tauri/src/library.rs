@@ -2199,15 +2199,17 @@ fn convert_with_ffmpeg(
     Ok(())
 }
 
-fn find_ffmpeg_in_path() -> Option<PathBuf> {
-    let path_var = env::var_os("PATH")?;
-    let file_name = if cfg!(target_os = "windows") {
-        "ffmpeg.exe"
-    } else {
-        "ffmpeg"
-    };
-    for dir in env::split_paths(&path_var) {
-        let candidate = dir.join(file_name);
+fn find_binary_in_path(file_name: &str, fallback_dirs: &[&str]) -> Option<PathBuf> {
+    if let Some(path_var) = env::var_os("PATH") {
+        for dir in env::split_paths(&path_var) {
+            let candidate = dir.join(file_name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    for dir in fallback_dirs {
+        let candidate = Path::new(dir).join(file_name);
         if candidate.is_file() {
             return Some(candidate);
         }
@@ -2215,20 +2217,32 @@ fn find_ffmpeg_in_path() -> Option<PathBuf> {
     None
 }
 
+fn find_ffmpeg_in_path() -> Option<PathBuf> {
+    let file_name = if cfg!(target_os = "windows") {
+        "ffmpeg.exe"
+    } else {
+        "ffmpeg"
+    };
+    let fallback_dirs: &[&str] = if cfg!(target_os = "macos") {
+        &["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin", "/usr/bin"]
+    } else {
+        &["/usr/local/bin", "/usr/bin"]
+    };
+    find_binary_in_path(file_name, fallback_dirs)
+}
+
 fn find_ffprobe_in_path() -> Option<PathBuf> {
-    let path_var = env::var_os("PATH")?;
     let file_name = if cfg!(target_os = "windows") {
         "ffprobe.exe"
     } else {
         "ffprobe"
     };
-    for dir in env::split_paths(&path_var) {
-        let candidate = dir.join(file_name);
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-    }
-    None
+    let fallback_dirs: &[&str] = if cfg!(target_os = "macos") {
+        &["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin", "/usr/bin"]
+    } else {
+        &["/usr/local/bin", "/usr/bin"]
+    };
+    find_binary_in_path(file_name, fallback_dirs)
 }
 
 fn probe_media_duration_ms(path: &Path) -> Option<u64> {

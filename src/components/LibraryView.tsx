@@ -242,6 +242,58 @@ const formatDeleteErrorMessage = (rawMessage: string) => {
     return "Failed to delete the library item.";
 };
 
+const getLibraryErrorDetails = (rawMessage: string) => {
+    const message = rawMessage.trim();
+    if (!message) {
+        return { message: "Import failed.", showFfmpegHelp: false };
+    }
+
+    const lower = message.toLowerCase();
+
+    if (lower.includes("selected model is not installed")) {
+        return { message: "Model not installed.", showFfmpegHelp: false };
+    }
+    if (lower.includes("file not found") || lower.includes("audio file not found")) {
+        return { message: "File not found.", showFfmpegHelp: false };
+    }
+    if (lower.includes("unsupported file format")) {
+        return { message: "Unsupported file format.", showFfmpegHelp: false };
+    }
+    if (lower.includes("no supported audio tracks")) {
+        return { message: "No audio track found.", showFfmpegHelp: false };
+    }
+    if (
+        lower.includes("invalid sample rate")
+        || lower.includes("unknown sample rate")
+        || lower.includes("unknown channel count")
+        || lower.includes("unsupported wav sample format")
+    ) {
+        return { message: "Unsupported audio settings.", showFfmpegHelp: false };
+    }
+    if (
+        lower.includes("audio decode failed")
+        || lower.includes("failed to read audio container")
+        || lower.includes("unsupported audio codec")
+        || lower.includes("no audio samples decoded")
+    ) {
+        return { message: "Not a valid audio file.", showFfmpegHelp: true };
+    }
+    if (lower.includes("ffmpeg")) {
+        return { message: "FFmpeg required for video imports.", showFfmpegHelp: true };
+    }
+    if (lower.includes("failed to create library folder")) {
+        return { message: "Couldn't create library storage.", showFfmpegHelp: false };
+    }
+    if (lower.includes("failed to copy original file")) {
+        return { message: "Couldn't copy original file.", showFfmpegHelp: false };
+    }
+    if (lower.includes("insufficient disk space")) {
+        return { message: "Not enough disk space.", showFfmpegHelp: false };
+    }
+
+    return { message, showFfmpegHelp: false };
+};
+
 const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: LibraryViewProps) => {
     const {
         items,
@@ -844,6 +896,7 @@ const LibraryCard = ({
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const statusText = statusLabel(status);
+    const errorDetails = status.type === "error" ? getLibraryErrorDetails(status.message) : null;
 
     const handleDelete = async () => {
         setMenuOpen(false);
@@ -972,13 +1025,29 @@ const LibraryCard = ({
                             <span className="shrink-0 whitespace-nowrap">{statusText}</span>
                         )}
                     </div>
-                    <div className="mt-2 min-h-[6px]" aria-hidden="true">
-                        {showProgressBar && (
+                    <div className="mt-2 min-h-[24px] w-full">
+                        {status.type === "error" ? (
+                            <span className="block w-full text-[9px] leading-[12px] text-red-300 line-clamp-2 break-words">
+                                {errorDetails?.message}{" "}
+                                {errorDetails?.showFfmpegHelp && (
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            invoke("open_ffmpeg_install").catch(() => {});
+                                        }}
+                                        className="underline decoration-red-400/60 hover:text-red-200"
+                                    >
+                                        FFmpeg Help
+                                    </button>
+                                )}
+                            </span>
+                        ) : showProgressBar ? (
                             <LibraryProgressDots
                                 progress={progress}
                                 status={status.type === "importing" ? "importing" : "transcribing"}
                             />
-                        )}
+                        ) : null}
                     </div>
                 </div>
                 <div ref={menuRef}>{renderStatusControl()}</div>
@@ -1041,12 +1110,6 @@ const LibraryCard = ({
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            {status.type === "error" && (
-                <div className="mt-3 text-[11px] text-red-300 line-clamp-2">
-                    {status.message}
-                </div>
-            )}
 
             <div className="mt-3">
                 {isAddingTag ? (
@@ -2156,102 +2219,125 @@ const LibraryModal = ({
                             {importStatusText}
                         </div>
                     )}
-                    {item.status.type === "error" && (
-                        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] text-red-200">
-                            {item.status.message}
-                        </div>
-                    )}
-                    <div className="relative flex-1 min-h-0">
-                        {showSegmentView ? (
-                            <Virtuoso
-                                ref={segmentsVirtuosoRef}
-                                style={{ height: "100%" }}
-                                data={item.segments ?? []}
-                                overscan={200}
-                                className="custom-scrollbar text-[13px] text-content-secondary leading-relaxed pr-2"
-                                computeItemKey={(index: number, segment: TranscriptSegment) =>
-                                    `${segment.start_ms}-${index}`
-                                }
-                                itemContent={(idx, segment) => {
-                                    const isActive = idx === activeSegmentIndex;
-                                    return (
-                                        <div className="pb-1.5">
-                                            <motion.div
-                                                initial={{ opacity: 0, y: 6 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                transition={{ duration: 0.2, ease: "easeOut" }}
-                                                className={`grid w-full grid-cols-[auto_1fr] gap-3 rounded-md border px-2 py-1 transition-colors select-none ${
-                                                    isActive ? "border-cloud-30 bg-cloud-10" : "border-transparent"
-                                                }`}
-                                            >
-                                                <span
-                                                    className="text-content-disabled font-mono text-[11px] pt-0.5 select-none cursor-pointer hover:text-content-primary"
-                                                    role="button"
-                                                    tabIndex={0}
-                                                    onClick={() => handleTimestampClick(segment.start_ms)}
-                                                    onKeyDown={(event) => {
-                                                        if (event.key === "Enter" || event.key === " ") {
-                                                            event.preventDefault();
-                                                            handleTimestampClick(segment.start_ms);
-                                                        }
-                                                    }}
-                                                >
-                                                    {formatTimestamp(segment.start_ms)}
-                                                </span>
-                                                <div className="min-w-0 select-none w-fit">
-                                                    <span className="select-text">
-                                                        {renderHighlightedText(segment.text, idx === activeSegmentMatch)}
-                                                    </span>
-                                                </div>
-                                            </motion.div>
+                    {item.status.type === "error" ? (
+                        <div className="flex-1 min-h-0 flex items-center justify-center">
+                            {(() => {
+                                const details = getLibraryErrorDetails(item.status.message);
+                                return (
+                                    <div className="max-w-[240px] rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-center">
+                                        <div className="flex items-center justify-center gap-2 text-red-200">
+                                            <AlertTriangle size={14} />
+                                            <span className="text-[11px] font-medium">Import failed</span>
                                         </div>
-                                    );
-                                }}
-                            />
-                        ) : showStreaming ? (
-                            streamChunks.length === 0 ? (
-                                item.status.type === "transcribing" ? (
-                                    <div className="text-content-disabled text-[12px]">
-                                        Transcribing...
+                                        <p className="mt-2 text-[10px] leading-[14px] text-red-200 select-text cursor-text">
+                                            {details.message}
+                                        </p>
+                                        {details.showFfmpegHelp && (
+                                            <button
+                                                type="button"
+                                                onClick={() => invoke("open_ffmpeg_install").catch(() => {})}
+                                                className="mt-2 text-[10px] text-red-100 underline decoration-red-400/60 hover:text-red-50"
+                                            >
+                                                FFmpeg Help
+                                            </button>
+                                        )}
                                     </div>
-                                ) : null
-                            ) : (
+                                );
+                            })()}
+                        </div>
+                    ) : (
+                        <div className="relative flex-1 min-h-0">
+                            {showSegmentView ? (
                                 <Virtuoso
-                                    ref={streamVirtuosoRef}
+                                    ref={segmentsVirtuosoRef}
                                     style={{ height: "100%" }}
-                                    data={streamChunks}
+                                    data={item.segments ?? []}
                                     overscan={200}
                                     className="custom-scrollbar text-[13px] text-content-secondary leading-relaxed pr-2"
-                                    computeItemKey={(index: number) => `${item.id}-chunk-${index}`}
-                                    itemContent={(idx, chunk) => (
-                                        <div className="pb-2">
-                                            <motion.p
-                                                initial={{ opacity: 0, y: 6 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                transition={{ duration: 0.2, ease: "easeOut" }}
-                                                className="select-text"
-                                            >
-                                                {renderHighlightedText(chunk, idx === activeStreamMatch)}
-                                            </motion.p>
-                                        </div>
-                                    )}
+                                    computeItemKey={(index: number, segment: TranscriptSegment) =>
+                                        `${segment.start_ms}-${index}`
+                                    }
+                                    itemContent={(idx, segment) => {
+                                        const isActive = idx === activeSegmentIndex;
+                                        return (
+                                            <div className="pb-1.5">
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 6 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    transition={{ duration: 0.2, ease: "easeOut" }}
+                                                    className={`grid w-full grid-cols-[auto_1fr] gap-3 rounded-md border px-2 py-1 transition-colors select-none ${
+                                                        isActive ? "border-cloud-30 bg-cloud-10" : "border-transparent"
+                                                    }`}
+                                                >
+                                                    <span
+                                                        className="text-content-disabled font-mono text-[11px] pt-0.5 select-none cursor-pointer hover:text-content-primary"
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onClick={() => handleTimestampClick(segment.start_ms)}
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === "Enter" || event.key === " ") {
+                                                                event.preventDefault();
+                                                                handleTimestampClick(segment.start_ms);
+                                                            }
+                                                        }}
+                                                    >
+                                                        {formatTimestamp(segment.start_ms)}
+                                                    </span>
+                                                    <div className="min-w-0 select-none w-fit">
+                                                        <span className="select-text">
+                                                            {renderHighlightedText(segment.text, idx === activeSegmentMatch)}
+                                                        </span>
+                                                    </div>
+                                                </motion.div>
+                                            </div>
+                                        );
+                                    }}
                                 />
-                            )
-                        ) : (
-                            <textarea
-                                ref={transcriptAreaRef}
-                                value={transcriptDraft}
-                                onChange={(event) => setTranscriptDraft(event.target.value)}
-                                disabled={!transcriptAvailable}
-                                placeholder={item.status.type === "importing" || item.status.type === "pending"
-                                    ? ""
-                                    : "Transcript will appear here."}
-                                className="h-full w-full resize-none bg-transparent text-[13px] text-content-secondary leading-relaxed outline-none disabled:opacity-60 custom-scrollbar select-text"
-                            />
-                        )}
-                        <div className="scroll-fade-top" style={{ zIndex: 5 }} aria-hidden="true" />
-                        <div className="scroll-fade-bottom" style={{ zIndex: 5 }} aria-hidden="true" />
-                    </div>
+                            ) : showStreaming ? (
+                                streamChunks.length === 0 ? (
+                                    item.status.type === "transcribing" ? (
+                                        <div className="text-content-disabled text-[12px]">
+                                            Transcribing...
+                                        </div>
+                                    ) : null
+                                ) : (
+                                    <Virtuoso
+                                        ref={streamVirtuosoRef}
+                                        style={{ height: "100%" }}
+                                        data={streamChunks}
+                                        overscan={200}
+                                        className="custom-scrollbar text-[13px] text-content-secondary leading-relaxed pr-2"
+                                        computeItemKey={(index: number) => `${item.id}-chunk-${index}`}
+                                        itemContent={(idx, chunk) => (
+                                            <div className="pb-2">
+                                                <motion.p
+                                                    initial={{ opacity: 0, y: 6 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    transition={{ duration: 0.2, ease: "easeOut" }}
+                                                    className="select-text"
+                                                >
+                                                    {renderHighlightedText(chunk, idx === activeStreamMatch)}
+                                                </motion.p>
+                                            </div>
+                                        )}
+                                    />
+                                )
+                            ) : (
+                                <textarea
+                                    ref={transcriptAreaRef}
+                                    value={transcriptDraft}
+                                    onChange={(event) => setTranscriptDraft(event.target.value)}
+                                    disabled={!transcriptAvailable}
+                                    placeholder={item.status.type === "importing" || item.status.type === "pending"
+                                        ? ""
+                                        : "Transcript will appear here."}
+                                    className="h-full w-full resize-none bg-transparent text-[13px] text-content-secondary leading-relaxed outline-none disabled:opacity-60 custom-scrollbar select-text"
+                                />
+                            )}
+                            <div className="scroll-fade-top" style={{ zIndex: 5 }} aria-hidden="true" />
+                            <div className="scroll-fade-bottom" style={{ zIndex: 5 }} aria-hidden="true" />
+                        </div>
+                    )}
                 </div>
             </main>
 
