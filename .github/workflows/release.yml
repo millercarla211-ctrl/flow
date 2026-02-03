@@ -1,13 +1,15 @@
 name: 'publish'
 
 on:
-  pull_request:
-    branches: '**'
   push:
     branches:
       - main
       - release
   workflow_dispatch:
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   publish-tauri:
@@ -37,46 +39,29 @@ jobs:
         with:
           bun-version: latest
 
+      - name: cache bun
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            ~/.cache/bun
+            ~/Library/Caches/bun
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
 
+      - name: cache rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
       - name: install frontend dependencies
-        run: bun install
-
-      - name: build frontend
-        run: bun run build
-
-      - name: extract release notes
-        id: release_notes
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import re
-          import sys
-          
-          version = json.load(open("src-tauri/tauri.conf.json", "r", encoding="utf-8"))["version"]
-          text = open("changelog.md", "r", encoding="utf-8").read()
-          
-          pattern = rf"(?ms)^{re.escape(version)}\\s*(.*?)^\\s*---\\s*$"
-          match = re.search(pattern, text)
-          if not match:
-            print(f"ERROR: version {version} not found in changelog.md", file=sys.stderr)
-            sys.exit(1)
-          
-          body = match.group(1).strip()
-          if not body:
-            print(f"ERROR: no release notes found for version {version} in changelog.md", file=sys.stderr)
-            sys.exit(1)
-          
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
-            f.write(f"version={version}\n")
-            f.write("body<<'EOF'\n")
-            f.write(body + "\n")
-            f.write("EOF\n")
-          PY
+        run: bun install --frozen-lockfile
 
       - name: import Apple Developer Certificate
         env:
@@ -121,7 +106,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: 'Glimpse v__VERSION__'
-          releaseBody: ${{ steps.release_notes.outputs.body }}
+          releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
