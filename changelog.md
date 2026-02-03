@@ -2,9 +2,14 @@
 
 ### Changes
 
-- LLM preflight checking is now done in the background, if you felt a delay when activating recording with LLM cleanup enabled, this is now gone.
+- LLM preflight now runs in the background. If recording with LLM cleanup used to feel delayed, that lag is gone.
+- Cleaned up analytics so session length is tracked more accurately. We now record which keybind was used (hold, toggle, smart) and separate active vs background time.
+- New background art for the DMG install screen (temporary, still iterating).
 
-- Cleaned up how analytics are calculated and what is, this update now records what keybind is used (hold, toggle, smart) and has more accurate session length capturing, now distinguishing between how long the app itself is active versus how long it's in the background.
+### Fixes
+
+- Fixed a visual bug where buttons would shift when opening the overlay.
+- Library view hitboxes feel better, tag add jitter is gone, and the `+` button is a touch larger.
 
 
 
