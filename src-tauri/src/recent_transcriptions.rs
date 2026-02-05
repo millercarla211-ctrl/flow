@@ -85,6 +85,7 @@ pub fn copy_transcription_to_clipboard(app: &AppHandle<AppRuntime>, transcriptio
     }
     if let Err(err) = assistive::copy_text_to_clipboard(text) {
         eprintln!("Failed to copy transcription to clipboard: {err}");
+        emit_copy_error_toast(app, "Unable to copy to clipboard");
         return;
     }
 
