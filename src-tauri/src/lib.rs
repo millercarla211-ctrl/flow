@@ -1174,35 +1174,28 @@ fn delete_transcription(
     app: AppHandle<AppRuntime>,
     state: tauri::State<AppState>,
 ) -> Result<bool, String> {
-    match state.storage().delete(&id) {
+    let result = match state.storage().delete(&id) {
         Ok(Some(audio_path)) => {
             let path = PathBuf::from(audio_path);
             if path.exists() {
                 let _ = std::fs::remove_file(path);
             }
-            let settings = state.current_settings();
-            if let Err(err) = tray::refresh_tray_menu(&app, &settings) {
-                eprintln!("Failed to refresh tray menu: {err}");
-            }
-            #[cfg(target_os = "macos")]
-            if let Err(err) = set_app_menu(&app, &settings) {
-                eprintln!("Failed to refresh app menu: {err}");
-            }
             Ok(true)
         }
-        Ok(None) => {
-            let settings = state.current_settings();
-            if let Err(err) = tray::refresh_tray_menu(&app, &settings) {
-                eprintln!("Failed to refresh tray menu: {err}");
-            }
-            #[cfg(target_os = "macos")]
-            if let Err(err) = set_app_menu(&app, &settings) {
-                eprintln!("Failed to refresh app menu: {err}");
-            }
-            Ok(false)
-        }
+        Ok(None) => Ok(false),
         Err(err) => Err(format!("Failed to delete transcription: {err}")),
+    }?;
+
+    let settings = state.current_settings();
+    if let Err(err) = tray::refresh_tray_menu(&app, &settings) {
+        eprintln!("Failed to refresh tray menu: {err}");
     }
+    #[cfg(target_os = "macos")]
+    if let Err(err) = set_app_menu(&app, &settings) {
+        eprintln!("Failed to refresh app menu: {err}");
+    }
+
+    Ok(result)
 }
 
 #[tauri::command]
