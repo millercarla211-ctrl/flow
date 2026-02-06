@@ -14,9 +14,6 @@ import {
     Download,
     Trash2,
     ChevronLeft,
-    Server,
-    Key,
-    Cpu,
     ChevronRight,
     Check,
     ExternalLink,
@@ -27,12 +24,10 @@ import {
     Mail,
 } from "lucide-react";
 import DotMatrix from "./components/DotMatrix";
-import { Dropdown } from "./components/Dropdown";
 import FAQModal from "./components/FAQModal";
-import { LOCAL_PROVIDERS, CLOUD_PROVIDERS, getProviderPreset } from "./lib/llmProviders";
-import type { ModelInfo, ModelStatus, StoredSettings, TranscriptionMode, LlmProvider } from "./types";
+import type { ModelInfo, ModelStatus, StoredSettings, TranscriptionMode } from "./types";
 
- type OnboardingStep = "welcome" | "local-model" | "cleanup" | "local-signin" | "microphone" | "accessibility" | "ready";
+ type OnboardingStep = "welcome" | "local-model" | "local-signin" | "microphone" | "accessibility" | "ready";
 
 
 type LocalDownloadStatus = {
@@ -196,8 +191,16 @@ const formatShortcutForDisplay = (shortcut: string): string => {
         .replace(/\+/g, " + ");
 };
 
+const stepTransitionVariants = {
+    enter: (direction: 1 | -1) => ({ opacity: 0, x: direction > 0 ? 28 : -28 }),
+    center: { opacity: 1, x: 0 },
+    exit: (direction: 1 | -1) => ({ opacity: 0, x: direction > 0 ? -28 : 28 }),
+};
+
 const Onboarding = ({ onComplete }: OnboardingProps) => {
     const [step, setStep] = useState<OnboardingStep>("welcome");
+    const [transitionDirection, setTransitionDirection] = useState<1 | -1>(1);
+    const [hasStepTransitioned, setHasStepTransitioned] = useState(false);
     const skippedFrom = useRef<OnboardingStep | null>(null);
     const [micPermission, setMicPermission] = useState(false);
     const [accessibilityPermission, setAccessibilityPermission] = useState(false);
@@ -211,11 +214,6 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     });
     const [modelStatus, setModelStatus] = useState<Record<string, ModelStatus>>({});
     const [modelInfo, setModelInfo] = useState<Record<string, ModelInfo>>({});
-    const [llmCleanupEnabled, setLlmCleanupEnabled] = useState(false);
-    const [llmProvider, setLlmProvider] = useState<LlmProvider>("custom");
-    const [llmEndpoint, setLlmEndpoint] = useState("");
-    const [llmApiKey, setLlmApiKey] = useState("");
-    const [llmModel, setLlmModel] = useState("");
     const [showLocalConfirm, setShowLocalConfirm] = useState(false);
 
     const [showFAQModal, setShowFAQModal] = useState(false);
@@ -225,7 +223,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     const pressedModifiers = useRef<Set<string>>(new Set());
     const primaryKey = useRef<string | null>(null);
 
-    const steps: OnboardingStep[] = ["welcome", "local-model", "cleanup", "microphone", "accessibility", "ready"];
+    const steps: OnboardingStep[] = ["welcome", "local-model", "microphone", "accessibility", "ready"];
     const currentStepIndex = steps.indexOf(step);
 
     useEffect(() => {
@@ -333,11 +331,11 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                 localModel: localModelChoice,
                 microphoneDevice: null,
                 language: "en",
-                llmCleanupEnabled,
-                llmProvider,
-                llmEndpoint,
-                llmApiKey,
-                llmModel,
+                llmCleanupEnabled: false,
+                llmProvider: "custom",
+                llmEndpoint: "",
+                llmApiKey: "",
+                llmModel: "",
                 editModeEnabled: false,
             });
             await invoke("complete_onboarding");
@@ -351,20 +349,33 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     const goToNextStep = () => {
         const nextIndex = currentStepIndex + 1;
         if (nextIndex < steps.length) {
+            setHasStepTransitioned(true);
+            setTransitionDirection(1);
             setStep(steps[nextIndex]);
         }
     };
 
     const goToPrevStep = () => {
         if (skippedFrom.current) {
+            setHasStepTransitioned(true);
+            setTransitionDirection(-1);
             setStep(skippedFrom.current);
             skippedFrom.current = null;
             return;
         }
         const prevIndex = currentStepIndex - 1;
         if (prevIndex >= 0) {
+            setHasStepTransitioned(true);
+            setTransitionDirection(-1);
             setStep(steps[prevIndex]);
         }
+    };
+
+    const continueFromLocalSignin = () => {
+        skippedFrom.current = "local-signin";
+        setHasStepTransitioned(true);
+        setTransitionDirection(1);
+        setStep("microphone");
     };
 
     const finalizeCapture = () => {
@@ -634,6 +645,14 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
         goToNextStep();
     };
 
+    const stepMotionProps = {
+        custom: transitionDirection,
+        variants: stepTransitionVariants,
+        animate: "center" as const,
+        exit: "exit" as const,
+        transition: { duration: 0.22, ease: "easeOut" as const },
+    };
+
     return (
         <div className="flex h-screen w-screen flex-col overflow-hidden bg-surface-secondary text-white select-none relative">
             <div data-tauri-drag-region className="h-7 w-full shrink-0" />
@@ -643,14 +662,12 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
             </div>
 
             <div className="flex-1 flex items-center justify-center px-10 pb-10">
-                <AnimatePresence mode="wait">
+                <AnimatePresence mode="wait" custom={transitionDirection}>
                     {step === "welcome" && (
                         <motion.div
                             key="welcome"
-                            initial={{ opacity: 0, y: 16 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -16 }}
-                            transition={{ duration: 0.3 }}
+                            {...stepMotionProps}
+                            initial={hasStepTransitioned ? "enter" : false}
                             className="flex flex-col items-center text-center w-full max-w-5xl"
                         >
                             <div className="mb-6">
@@ -758,10 +775,8 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                     {step === "local-model" && (
                         <motion.div
                             key="local-model"
-                            initial={{ opacity: 0, y: 16 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -16 }}
-                            transition={{ duration: 0.3 }}
+                            {...stepMotionProps}
+                            initial="enter"
                             className="flex flex-col items-center text-center w-full max-w-2xl"
                         >
 
@@ -769,8 +784,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                                 Choose your local model
                             </h2>
                             <div className="mb-6 flex flex-col gap-1 text-sm text-content-muted">
-                                <p>Pick a model, then download it. You can add more in Settings later.</p>
-                                <p className="text-xs text-content-disabled">Both models work offline; choose one and get it ready.</p>
+                                <p>More models & AI cleanup available in Settings after setup.</p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
@@ -1006,156 +1020,21 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                                 </div>
                             </div>
 
-                            <p className="mt-4 text-[11px] text-content-muted">
-                                More models available in Settings after setup.
-                            </p>
-
                             <button
                                 onClick={handleLocalModelContinue}
                                 className="mt-6 flex items-center justify-center gap-2 rounded-lg bg-content-primary px-5 py-2.5 text-sm font-mono font-semibold text-surface-secondary hover:bg-white transition-colors min-w-[150px] tracking-tight"
                             >
                                 Continue
                             </button>
-                        </motion.div>
-                    )}
 
-                    {step === "cleanup" && selectedMode === "local" && (
-                        <motion.div
-                            key="cleanup"
-                            initial={{ opacity: 0, y: 16 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -16 }}
-                            transition={{ duration: 0.3 }}
-                            className="flex flex-col items-center text-center w-full max-w-xl"
-                        >
-
-                            <h2 className="text-xl font-semibold text-content-primary mb-1">
-                                AI Cleanup (optional)
-                            </h2>
-                            <p className="text-sm text-content-muted mb-6">
-                                Let an LLM tidy transcriptions before delivery. You can adjust later in Settings.
-                            </p>
-
-                            <div className="w-full rounded-2xl border border-border-primary bg-surface-tertiary p-4 space-y-3 shadow-[0_10px_24px_rgba(0,0,0,0.25)] text-left">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-elevated border border-border-primary">
-                                            <Wand2 size={14} className="text-content-primary" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[13px] font-medium text-content-primary">AI Cleanup</p>
-                                            <p className="text-[11px] text-content-muted">Uses an LLM to polish text</p>
-                                        </div>
-                                    </div>
-                                    <motion.button
-                                        onClick={() => setLlmCleanupEnabled(!llmCleanupEnabled)}
-                                        className={`relative w-11 h-6 rounded-full transition-colors ${llmCleanupEnabled ? "bg-amber-400" : "bg-border-secondary"}`}
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        <motion.div
-                                            className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm"
-                                            animate={{ left: llmCleanupEnabled ? "calc(100% - 22px)" : "2px" }}
-                                            transition={{ type: "spring", stiffness: 500, damping: 32 }}
-                                        />
-                                    </motion.button>
-                                </div>
-
-<div className="space-y-2">
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-[11px] font-medium text-content-muted ml-1">Provider</label>
-                                                        <Dropdown
-                                                            value={llmProvider}
-                                                            onChange={(val) => {
-                                                                setLlmProvider(val);
-                                                                const preset = getProviderPreset(val);
-                                                                if (preset) {
-                                                                    setLlmEndpoint(preset.endpoint);
-                                                                    setLlmModel(preset.defaultModel);
-                                                                }
-                                                            }}
-                                                            options={[
-                                                                { value: "custom" as LlmProvider, label: "Custom" },
-                                                                { value: "_local_header" as LlmProvider, label: "Local", isHeader: true },
-                                                                ...LOCAL_PROVIDERS.filter(p => p.id !== "custom").map(p => ({
-                                                                    value: p.id,
-                                                                    label: p.label
-                                                                })),
-                                                                { value: "_cloud_header" as LlmProvider, label: "Cloud (API Key)", isHeader: true },
-                                                                ...CLOUD_PROVIDERS.map(p => ({
-                                                                    value: p.id,
-                                                                    label: p.label
-                                                                }))
-                                                            ]}
-                                                            placeholder="Select provider..."
-                                                            searchable
-                                                            searchPlaceholder="Search providers..."
-                                                        />
-                                                    </div>
-
-                                                    {llmProvider && (
-                                                        <>
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-[11px] font-medium text-content-muted ml-1 flex items-center gap-1.5">
-                                                                    <Server size={10} />
-                                                                    Endpoint {llmProvider !== "custom" && <span className="text-content-disabled">(auto-filled)</span>}
-                                                                </label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={llmEndpoint}
-                                                                    onChange={(e) => setLlmEndpoint(e.target.value)}
-                                                                    placeholder={getProviderPreset(llmProvider)?.endpoint ?? "https://your-llm-endpoint.com"}
-                                                                    className="w-full rounded-lg bg-surface-elevated border border-border-secondary py-2 px-3 text-[12px] text-content-primary placeholder-content-disabled focus:border-content-disabled focus:outline-none transition-colors"
-                                                                />
-                                                            </div>
-
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-[11px] font-medium text-content-muted ml-1 flex items-center gap-1.5">
-                                                                    <Key size={10} />
-                                                                    API Key {!getProviderPreset(llmProvider)?.apiKeyRequired && <span className="text-content-disabled">(if required)</span>}
-                                                                </label>
-                                                                <input
-                                                                    type="password"
-                                                                    value={llmApiKey}
-                                                                    onChange={(e) => setLlmApiKey(e.target.value)}
-                                                                    placeholder={getProviderPreset(llmProvider)?.apiKeyRequired ? "Required" : "Optional"}
-                                                                    className="w-full rounded-lg bg-surface-elevated border border-border-secondary py-2 px-3 text-[12px] text-content-primary placeholder-content-disabled focus:border-content-disabled focus:outline-none transition-colors"
-                                                                />
-                                                            </div>
-
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-[11px] font-medium text-content-muted ml-1 flex items-center gap-1.5">
-                                                                    <Cpu size={10} />
-                                                                    Model <span className="text-content-disabled">(leave empty for default)</span>
-                                                                </label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={llmModel}
-                                                                    onChange={(e) => setLlmModel(e.target.value)}
-                                                                    placeholder={getProviderPreset(llmProvider)?.defaultModel ?? "model-name"}
-                                                                    className="w-full rounded-lg bg-surface-elevated border border-border-secondary py-2 px-3 text-[12px] text-content-primary placeholder-content-disabled focus:border-content-disabled focus:outline-none transition-colors"
-                                                                />
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
-                            </div>
-
-                            <button
-                                onClick={goToNextStep}
-                                className="mt-6 flex items-center justify-center gap-2 rounded-lg bg-content-primary px-5 py-2.5 text-sm font-mono font-semibold text-surface-secondary hover:bg-white transition-colors min-w-[150px] tracking-tight"
-                            >
-                                Continue
-                            </button>
                         </motion.div>
                     )}
 
                     {step === "local-signin" && (
                         <motion.div
                             key="local-signin"
-                            initial={{ opacity: 0, y: 16 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -16 }}
-                            transition={{ duration: 0.3 }}
+                            {...stepMotionProps}
+                            initial="enter"
                             className="flex flex-col items-center text-center w-full max-w-sm"
                         >
                             <div className="mb-4 rounded-2xl bg-local/10 p-4">
@@ -1171,14 +1050,12 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
 
                             <button
                                 type="button"
-                                onClick={() => {
-                                    skippedFrom.current = "local-signin";
-                                    setStep("microphone");
-                                }}
+                                onClick={continueFromLocalSignin}
                                 className="w-full flex items-center justify-center gap-2 rounded-lg bg-content-primary px-5 py-3 text-sm font-semibold text-surface-secondary hover:bg-white transition-colors"
                             >
                                 Continue
                             </button>
+
                         </motion.div>
                     )}
 
@@ -1186,10 +1063,8 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
 
                         <motion.div
                             key="microphone"
-                            initial={{ opacity: 0, y: 16 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -16 }}
-                            transition={{ duration: 0.3 }}
+                            {...stepMotionProps}
+                            initial="enter"
                             className="flex flex-col items-center text-center max-w-sm"
                         >
                             <div className="mb-5">
@@ -1239,10 +1114,8 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                     {step === "accessibility" && (
                         <motion.div
                             key="accessibility"
-                            initial={{ opacity: 0, y: 16 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -16 }}
-                            transition={{ duration: 0.3 }}
+                            {...stepMotionProps}
+                            initial="enter"
                             className="flex flex-col items-center text-center max-w-sm"
                         >
                             <div className="mb-5">
@@ -1285,24 +1158,20 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                                 </button>
                             )}
 
-                            {!accessibilityPermission && (
-                                <button
-                                    onClick={goToNextStep}
-                                    className="mt-3 text-xs text-content-disabled hover:text-content-muted transition-colors"
-                                >
-                                    Skip
-                                </button>
-                            )}
+                            <button
+                                onClick={goToNextStep}
+                                className="mt-3 text-xs text-content-muted hover:text-content-muted transition-colors"
+                            >
+                                Skip
+                            </button>
                         </motion.div>
                     )}
 
                     {step === "ready" && (
                         <motion.div
                             key="ready"
-                            initial={{ opacity: 0, y: 16 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -16 }}
-                            transition={{ duration: 0.3 }}
+                            {...stepMotionProps}
+                            initial="enter"
                             className="flex flex-col items-center text-center max-w-md"
                         >
 
@@ -1436,6 +1305,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                     Back
                 </button>
             )}
+
         </div>
     );
 };
