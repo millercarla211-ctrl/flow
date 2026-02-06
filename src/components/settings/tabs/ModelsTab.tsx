@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
-import { AlertCircle, Check, ChevronRight, Download, Info, Key, Server, Square, Trash2 } from "lucide-react";
-import { Dropdown } from "../../Dropdown";
+import { AlertCircle, Check, ChevronRight, Download, Square, Trash2 } from "lucide-react";
 import DotMatrix from "../../DotMatrix";
-import { CLOUD_PROVIDERS, getProviderPreset, LOCAL_PROVIDERS } from "../../../lib/llmProviders";
+import CleanupPanel from "../../CleanupPanel";
 import type { DownloadEvent, LlmProvider, ModelInfo, ModelStatus } from "../../../types";
 
 type EngineGroup = {
@@ -139,132 +138,20 @@ const ModelsTab = ({
                 <p className="mt-1 text-[12px] text-content-muted">Manage transcription engines and AI cleanup.</p>
             </header>
 
-            {/* AI Cleanup Section */}
-            <div className="rounded-xl border border-border-primary bg-surface-surface">
-                <div className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                        <div>
-                            <h3 className="text-[13px] font-medium text-content-primary">AI Cleanup</h3>
-                            <p className="text-[11px] text-content-disabled">Use an LLM to clean up transcriptions</p>
-                        </div>
-                        <motion.button
-                            onClick={() => setLlmCleanupEnabled(!llmCleanupEnabled)}
-                            className={`relative w-10 h-5 rounded-full transition-colors ${llmCleanupEnabled ? "bg-cloud" : "bg-border-secondary"}`}
-                            whileTap={{ scale: 0.95 }}
-                            role="switch"
-                            aria-checked={llmCleanupEnabled}
-                            aria-label="Toggle AI Cleanup"
-                        >
-                            <motion.div
-                                className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
-                                animate={{ left: llmCleanupEnabled ? "calc(100% - 18px)" : "2px" }}
-                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                            />
-                        </motion.button>
-                    </div>
-
-                    <AnimatePresence initial={false}>
-                        {llmCleanupEnabled && (
-                            <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ type: "spring", stiffness: 400, damping: 35 }}
-                                style={{ overflow: "visible" }}
-                            >
-                                <div className="pt-3 border-t border-border-primary space-y-3">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-medium text-content-muted ml-1">Provider</label>
-                                        <Dropdown
-                                            value={llmProvider}
-                                            onChange={(val) => {
-                                                setLlmProvider(val);
-                                                const preset = getProviderPreset(val);
-                                                if (preset) {
-                                                    setLlmEndpoint(preset.endpoint);
-                                                    setLlmModel(preset.defaultModel);
-                                                }
-                                            }}
-                                            options={[
-                                                { value: "custom" as LlmProvider, label: "Custom" },
-                                                { value: "_local_header" as LlmProvider, label: "Local", isHeader: true },
-                                                ...LOCAL_PROVIDERS.filter(p => p.id !== "custom").map(p => ({
-                                                    value: p.id,
-                                                    label: p.label
-                                                })),
-                                                { value: "_cloud_header" as LlmProvider, label: "Cloud (API Key)", isHeader: true },
-                                                ...CLOUD_PROVIDERS.map(p => ({
-                                                    value: p.id,
-                                                    label: p.label
-                                                }))
-                                            ]}
-                                            placeholder="Select provider..."
-                                            searchable
-                                            searchPlaceholder="Search providers..."
-                                        />
-                                    </div>
-
-                                    {llmProvider && (
-                                        <>
-                                            <div className="space-y-1.5">
-                                                <label className="text-[11px] font-medium text-content-muted ml-1 flex items-center gap-1.5">
-                                                    <Server size={10} />
-                                                    Endpoint {llmProvider !== "custom" && <span className="text-content-disabled">(auto-filled)</span>}
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={llmEndpoint}
-                                                    onChange={(e) => setLlmEndpoint(e.target.value)}
-                                                    placeholder={getProviderPreset(llmProvider)?.endpoint ?? "https://your-llm-endpoint.com"}
-                                                    aria-label="LLM Endpoint URL"
-                                                    className="w-full rounded-lg bg-surface-elevated border border-border-secondary py-2 px-3 text-[12px] text-content-primary placeholder-content-disabled focus:border-content-disabled focus:outline-none transition-colors"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <label className="text-[11px] font-medium text-content-muted ml-1 flex items-center gap-1.5">
-                                                    <Key size={10} aria-hidden="true" />
-                                                    API Key {!getProviderPreset(llmProvider)?.apiKeyRequired && <span className="text-content-disabled">(if required)</span>}
-                                                </label>
-                                                <input
-                                                    type="password"
-                                                    value={llmApiKey}
-                                                    onChange={(e) => setLlmApiKey(e.target.value)}
-                                                    placeholder={getProviderPreset(llmProvider)?.apiKeyRequired ? "Required" : "Optional"}
-                                                    aria-label="LLM API Key"
-                                                    className="w-full rounded-lg bg-surface-elevated border border-border-secondary py-2 px-3 text-[12px] text-content-primary placeholder-content-disabled focus:border-content-disabled focus:outline-none transition-colors"
-                                                />
-                                            </div>
-
-                                            <div className="relative z-0">
-                                                <Dropdown
-                                                    value={llmModel}
-                                                    onChange={(val) => setLlmModel(val)}
-                                                    onOpen={fetchAvailableModels}
-                                                    options={[
-                                                        ...availableModels.map(m => ({ value: m, label: m })),
-                                                        ...(llmModel && !availableModels.includes(llmModel) ? [{ value: llmModel, label: llmModel }] : [])
-                                                    ]}
-                                                    placeholder={`Model (default: ${getProviderPreset(llmProvider)?.defaultModel || "none"})`}
-                                                    searchable
-                                                    searchPlaceholder="Search available models..."
-                                                />
-                                            </div>
-                                        </>
-                                    )}
-
-                                    <div className="flex items-center gap-2 rounded-lg border border-border-secondary bg-surface-elevated px-3 py-2">
-                                        <Info size={12} className="text-content-muted shrink-0" />
-                                        <p className="text-[10px] text-content-muted">
-                                            Removes filler words, fixes repetitions, and cleans up speech disfluencies while preserving your meaning.
-                                        </p>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-            </div>
+            <CleanupPanel
+                llmCleanupEnabled={llmCleanupEnabled}
+                setLlmCleanupEnabled={setLlmCleanupEnabled}
+                llmProvider={llmProvider}
+                setLlmProvider={setLlmProvider}
+                llmEndpoint={llmEndpoint}
+                setLlmEndpoint={setLlmEndpoint}
+                llmApiKey={llmApiKey}
+                setLlmApiKey={setLlmApiKey}
+                llmModel={llmModel}
+                setLlmModel={setLlmModel}
+                availableModels={availableModels}
+                fetchAvailableModels={fetchAvailableModels}
+            />
 
             {/* Transcription Engines */}
             <div>
