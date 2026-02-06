@@ -63,6 +63,7 @@ pub async fn download_file<R: Runtime>(
         .unwrap_or(0);
     let mut total_size: u64 = 0;
     let mut retries: usize = 0;
+    let mut resume_supported = true;
 
     loop {
         if cancel_token.is_cancelled() {
@@ -70,8 +71,14 @@ pub async fn download_file<R: Runtime>(
             return Err(anyhow!("Download cancelled"));
         }
 
+        if !resume_supported && downloaded > 0 {
+            downloaded = 0;
+            total_size = 0;
+            let _ = std::fs::remove_file(&target_path);
+        }
+
         let mut request = client.get(url).timeout(DOWNLOAD_REQUEST_TIMEOUT);
-        if downloaded > 0 {
+        if resume_supported && downloaded > 0 {
             request = request.header(RANGE, format!("bytes={downloaded}-"));
         }
 
@@ -103,26 +110,29 @@ pub async fn download_file<R: Runtime>(
             }
         };
 
-        if downloaded > 0 && res.status() == StatusCode::OK {
+        if resume_supported && downloaded > 0 && res.status() == StatusCode::OK {
             downloaded = 0;
             total_size = 0;
             let _ = std::fs::remove_file(&target_path);
-            if !can_retry(&mut retries) {
-                return Err(anyhow!("Could not resume the download. Please try again."));
-            }
-            wait_before_retry(retries).await;
+            resume_supported = false;
+            eprintln!(
+                "[downloader] server does not support range requests for {file_name}; falling back to full restart retries"
+            );
             continue;
         }
 
         if !res.status().is_success() {
-            if downloaded > 0 && res.status() == StatusCode::RANGE_NOT_SATISFIABLE {
+            if resume_supported
+                && downloaded > 0
+                && res.status() == StatusCode::RANGE_NOT_SATISFIABLE
+            {
                 downloaded = 0;
                 total_size = 0;
                 let _ = std::fs::remove_file(&target_path);
-                if !can_retry(&mut retries) {
-                    return Err(anyhow!("Could not resume the download. Please try again."));
-                }
-                wait_before_retry(retries).await;
+                resume_supported = false;
+                eprintln!(
+                    "[downloader] range request not satisfiable for {file_name}; falling back to full restart retries"
+                );
                 continue;
             }
 
