@@ -812,47 +812,39 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                                             <DotMatrix rows={6} cols={18} activeDots={[1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65]} dotSize={2} gap={4} color="var(--color-border-primary)" />
                                         </div>
                                     </div>
-                                    <div className="relative flex items-center justify-between gap-3">
-                                        <div className="flex items-center gap-2">
-                                            <DotMatrix rows={2} cols={2} activeDots={[1, 2]} dotSize={3} gap={2} color="var(--color-local)" />
-                                            <span className="text-[11px] font-semibold text-content-primary">Whisper Large V3 Turbo (Q8)</span>
-                                            {modelInfo[WHISPER_KEY]?.size_mb && (
-                                                <span className="text-[9px] text-content-muted tabular-nums">{modelInfo[WHISPER_KEY].size_mb >= 1000 ? `${(modelInfo[WHISPER_KEY].size_mb / 1000).toFixed(1)} GB` : `${Math.round(modelInfo[WHISPER_KEY].size_mb)} MB`}</span>
-                                            )}
-                                        </div>
-                                        <span
-                                            className={`px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider border ${isWhisperActive
-                                                ? "bg-amber-400/20 text-amber-400 border-amber-400/40"
-                                                : "opacity-0 border-transparent text-transparent pointer-events-none select-none"
-                                                }`}
-                                        >
+                                    {localModelChoice === WHISPER_KEY && (
+                                        <p className="pointer-events-none absolute left-1/2 -top-2 z-10 -translate-x-1/2 text-[8px] font-semibold uppercase tracking-wider text-amber-400">
                                             Active
-                                        </span>
+                                        </p>
+                                    )}
+                                    <div className="relative flex items-center gap-2">
+                                        <DotMatrix rows={2} cols={2} activeDots={[1, 2]} dotSize={3} gap={2} color="var(--color-local)" />
+                                        <span className="text-[11px] font-semibold text-content-primary">Whisper Large V3 Turbo (Q8)</span>
+                                        {modelInfo[WHISPER_KEY]?.size_mb && (
+                                            <span className="text-[9px] text-content-muted tabular-nums">{modelInfo[WHISPER_KEY].size_mb >= 1000 ? `${(modelInfo[WHISPER_KEY].size_mb / 1000).toFixed(1)} GB` : `${Math.round(modelInfo[WHISPER_KEY].size_mb)} MB`}</span>
+                                        )}
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider border bg-local-15 text-local border-local-40">
-                                            Recommended
-                                        </span>
-                                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider border ${whisperInstalled
-                                            ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                                            : "bg-surface-elevated text-content-tertiary border-border-secondary"
-                                            }`}>
-                                            {whisperInstalled ? "Ready" : "Download needed"}
-                                        </span>
+                                    <div className="relative flex items-center flex-wrap gap-1.5">
+                                        {modelInfo[WHISPER_KEY]?.tags?.map((tag) => (
+                                            <span
+                                                key={tag}
+                                                className={`px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider border ${
+                                                    tag.toLowerCase() === "recommended"
+                                                        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                                        : "bg-local-15 text-local border-local-40"
+                                                }`}
+                                            >
+                                                {tag}
+                                            </span>
+                                        ))}
                                     </div>
-                                    <div className="relative space-y-1.5 text-[11px] text-content-secondary font-medium">
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-1 w-3 rounded-full bg-content-tertiary" />
-                                            <span>Good quality, balanced speed</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-1 w-3 rounded-full bg-content-tertiary" />
-                                            <span>Supports custom words</span>
-                                        </div>
-                                    </div>
+                                    {modelInfo[WHISPER_KEY]?.description && (
+                                        <p className="relative text-[11px] text-content-muted text-center py-2">
+                                            {modelInfo[WHISPER_KEY].description}
+                                        </p>
+                                    )}
                                     <div className="relative rounded-lg border border-border-primary bg-surface-tertiary px-3 py-2 text-[10px] text-content-tertiary leading-relaxed space-y-2">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-semibold text-content-secondary">Download</span>
                                             <button
                                                 aria-label={displayState.whisper.status === "downloading" ? "Stop download" : displayState.whisper.status === "complete" ? "Delete model" : "Download model"}
                                                 onClick={(e) => {
@@ -866,23 +858,26 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                                                     }
                                                 }}
                                                 disabled={displayState.whisper.status === "cancelled"}
-                                                className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${displayState.whisper.status === "downloading"
-                                                    ? "border-error/30 text-error hover:bg-error/10"
+                                                className={`flex h-7 w-7 items-center justify-center rounded-md border border-border-secondary transition-colors ${displayState.whisper.status === "downloading"
+                                                    ? "text-error hover:bg-surface-elevated"
                                                     : displayState.whisper.status === "complete"
-                                                        ? "border-error/30 text-error hover:bg-error/10"
+                                                        ? "text-error hover:bg-surface-elevated"
                                                         : displayState.whisper.status === "cancelled"
-                                                            ? "border-border-secondary text-content-disabled cursor-default"
-                                                            : "border-border-secondary text-content-primary hover:border-border-hover"
+                                                            ? "text-content-disabled cursor-default"
+                                                            : "text-content-primary hover:bg-surface-elevated"
                                                     }`}
                                             >
                                                 {displayState.whisper.status === "downloading" ? (
                                                     <Square size={10} className="fill-current" />
                                                 ) : displayState.whisper.status === "complete" ? (
-                                                    <Trash2 size={10} />
+                                                    <Trash2 size={14} />
                                                 ) : (
-                                                    <Download size={10} className={displayState.whisper.status === "cancelled" ? "" : "text-cloud"} />
+                                                    <Download size={14} className={displayState.whisper.status === "cancelled" ? "" : "text-cloud"} />
                                                 )}
                                             </button>
+                                            <span className="text-[11px] font-semibold text-content-secondary">
+                                                {displayState.whisper.status === "complete" ? "Downloaded" : "Download"}
+                                            </span>
                                         </div>
                                         <ModelProgress percent={displayState.whisper.percent} status={displayState.whisper.status} />
                                         <div className="h-4 flex items-center">
@@ -924,49 +919,40 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                                             : "bg-surface-tertiary hover:border-border-secondary"
                                         }`}
                                 >
-                                    <div className="absolute inset-0 pointer-events-none">
-                                        <div className="absolute inset-0 opacity-12">
-                                            <DotMatrix rows={6} cols={18} activeDots={[0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66]} dotSize={2} gap={4} color="var(--color-border-primary)" />
-                                        </div>
-                                    </div>
-                                    <div className="relative flex items-center justify-between gap-3">
-                                        <div className="flex items-center gap-2">
-                                            <DotMatrix rows={2} cols={2} activeDots={[0]} dotSize={3} gap={2} color="var(--color-cloud)" />
-                                            <span className="text-[11px] font-semibold text-content-primary">Parakeet (INT8)</span>
-                                            {modelInfo[PARAKEET_KEY]?.size_mb && (
-                                                <span className="text-[9px] text-content-muted tabular-nums">{modelInfo[PARAKEET_KEY].size_mb >= 1000 ? `${(modelInfo[PARAKEET_KEY].size_mb / 1000).toFixed(1)} GB` : `${Math.round(modelInfo[PARAKEET_KEY].size_mb)} MB`}</span>
-                                            )}
-                                        </div>
-                                        <span
-                                            className={`px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider border ${isParakeetActive
-                                                ? "bg-amber-400/20 text-amber-400 border-amber-400/40"
-                                                : "opacity-0 border-transparent text-transparent pointer-events-none select-none"
-                                                }`}
-                                        >
+                                    <div className="absolute inset-0 pointer-events-none" />
+                                    {localModelChoice === PARAKEET_KEY && (
+                                        <p className="pointer-events-none absolute left-1/2 -top-2 z-10 -translate-x-1/2 text-[8px] font-semibold uppercase tracking-wider text-amber-400">
                                             Active
-                                        </span>
+                                        </p>
+                                    )}
+                                    <div className="relative flex items-center gap-2">
+                                        <DotMatrix rows={2} cols={2} activeDots={[0]} dotSize={3} gap={2} color="var(--color-local)" />
+                                        <span className="text-[11px] font-semibold text-content-primary">Parakeet V3 (INT8)</span>
+                                        {modelInfo[PARAKEET_KEY]?.size_mb && (
+                                            <span className="text-[9px] text-content-muted tabular-nums">{modelInfo[PARAKEET_KEY].size_mb >= 1000 ? `${(modelInfo[PARAKEET_KEY].size_mb / 1000).toFixed(1)} GB` : `${Math.round(modelInfo[PARAKEET_KEY].size_mb)} MB`}</span>
+                                        )}
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider border ${parakeetInstalled
-                                            ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                                            : "bg-surface-elevated text-content-tertiary border-border-secondary"
-                                            }`}>
-                                            {parakeetInstalled ? "Ready" : "Download needed"}
-                                        </span>
+                                    <div className="relative flex items-center flex-wrap gap-1.5">
+                                        {modelInfo[PARAKEET_KEY]?.tags?.map((tag) => (
+                                            <span
+                                                key={tag}
+                                                className={`px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider border ${
+                                                    tag.toLowerCase() === "recommended"
+                                                        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                                        : "bg-local-15 text-local border-local-40"
+                                                }`}
+                                            >
+                                                {tag}
+                                            </span>
+                                        ))}
                                     </div>
-                                    <div className="relative space-y-1.5 text-[11px] text-content-secondary font-medium">
+                                    {modelInfo[PARAKEET_KEY]?.description && (
+                                        <p className="relative text-[11px] text-content-muted text-center py-2">
+                                            {modelInfo[PARAKEET_KEY].description}
+                                        </p>
+                                    )}
+                                    <div className="relative rounded-lg border border-border-primary bg-surface-tertiary px-3 py-2 text-[10px] text-content-tertiary leading-relaxed space-y-2">
                                         <div className="flex items-center gap-2">
-                                            <div className="h-1 w-3 rounded-full bg-content-tertiary" />
-                                            <span>Good accuracy, fast</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-1 w-3 rounded-full bg-content-tertiary" />
-                                            <span>Multilingual</span>
-                                        </div>
-                                    </div>
-                                    <div className="relative rounded-lg border border-border-primary bg-surface-elevated px-3 py-2 text-[10px] text-content-tertiary leading-relaxed space-y-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-semibold text-content-secondary">Download</span>
                                             <button
                                                 aria-label={displayState.parakeet.status === "downloading" ? "Stop download" : displayState.parakeet.status === "complete" ? "Delete model" : "Download model"}
                                                 onClick={(e) => {
@@ -980,23 +966,26 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                                                     }
                                                 }}
                                                 disabled={displayState.parakeet.status === "cancelled"}
-                                                className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${displayState.parakeet.status === "downloading"
-                                                    ? "border-error/30 text-error hover:bg-error/10"
+                                                className={`flex h-7 w-7 items-center justify-center rounded-md border border-border-secondary transition-colors ${displayState.parakeet.status === "downloading"
+                                                    ? "text-error hover:bg-surface-elevated"
                                                     : displayState.parakeet.status === "complete"
-                                                        ? "border-error/30 text-error hover:bg-error/10"
+                                                        ? "text-error hover:bg-surface-elevated"
                                                         : displayState.parakeet.status === "cancelled"
-                                                            ? "border-border-secondary text-content-disabled cursor-default"
-                                                            : "border-border-secondary text-content-primary hover:border-border-hover"
+                                                            ? "text-content-disabled cursor-default"
+                                                            : "text-content-primary hover:bg-surface-elevated"
                                                     }`}
                                             >
                                                 {displayState.parakeet.status === "downloading" ? (
                                                     <Square size={10} className="fill-current" />
                                                 ) : displayState.parakeet.status === "complete" ? (
-                                                    <Trash2 size={10} />
+                                                    <Trash2 size={14} />
                                                 ) : (
-                                                    <Download size={10} className={displayState.parakeet.status === "cancelled" ? "" : "text-cloud"} />
+                                                    <Download size={14} className={displayState.parakeet.status === "cancelled" ? "" : "text-cloud"} />
                                                 )}
                                             </button>
+                                            <span className="text-[11px] font-semibold text-content-secondary">
+                                                {displayState.parakeet.status === "complete" ? "Downloaded" : "Download"}
+                                            </span>
                                         </div>
                                         <ModelProgress percent={displayState.parakeet.percent} status={displayState.parakeet.status} />
                                         <div className="h-4 flex items-center">
