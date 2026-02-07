@@ -27,7 +27,7 @@ import DotMatrix from "./components/DotMatrix";
 import FAQModal from "./components/FAQModal";
 import type { ModelInfo, ModelStatus, StoredSettings, TranscriptionMode } from "./types";
 
- type OnboardingStep = "welcome" | "local-model" | "local-signin" | "microphone" | "accessibility" | "ready";
+type OnboardingStep = "welcome" | "local-model" | "local-signin" | "microphone" | "accessibility" | "ready";
 
 
 type LocalDownloadStatus = {
@@ -201,7 +201,6 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     const [step, setStep] = useState<OnboardingStep>("welcome");
     const [transitionDirection, setTransitionDirection] = useState<1 | -1>(1);
     const [hasStepTransitioned, setHasStepTransitioned] = useState(false);
-    const skippedFrom = useRef<OnboardingStep | null>(null);
     const [micPermission, setMicPermission] = useState(false);
     const [accessibilityPermission, setAccessibilityPermission] = useState(false);
     const [isCheckingMic, setIsCheckingMic] = useState(true);
@@ -223,7 +222,12 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     const pressedModifiers = useRef<Set<string>>(new Set());
     const primaryKey = useRef<string | null>(null);
 
-    const steps: OnboardingStep[] = ["welcome", "local-model", "microphone", "accessibility", "ready"];
+    const steps: OnboardingStep[] = useMemo(
+        () => selectedMode === "cloud"
+            ? ["welcome", "local-signin", "local-model", "microphone", "accessibility", "ready"]
+            : ["welcome", "local-model", "microphone", "accessibility", "ready"],
+        [selectedMode]
+    );
     const currentStepIndex = steps.indexOf(step);
 
     useEffect(() => {
@@ -327,7 +331,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                 holdEnabled: false,
                 toggleShortcut: "Control+Alt+Space",
                 toggleEnabled: false,
-                transcriptionMode: selectedMode,
+                transcriptionMode: "local",
                 localModel: localModelChoice,
                 microphoneDevice: null,
                 language: "en",
@@ -356,26 +360,12 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     };
 
     const goToPrevStep = () => {
-        if (skippedFrom.current) {
-            setHasStepTransitioned(true);
-            setTransitionDirection(-1);
-            setStep(skippedFrom.current);
-            skippedFrom.current = null;
-            return;
-        }
         const prevIndex = currentStepIndex - 1;
         if (prevIndex >= 0) {
             setHasStepTransitioned(true);
             setTransitionDirection(-1);
             setStep(steps[prevIndex]);
         }
-    };
-
-    const continueFromLocalSignin = () => {
-        skippedFrom.current = "local-signin";
-        setHasStepTransitioned(true);
-        setTransitionDirection(1);
-        setStep("microphone");
     };
 
     const finalizeCapture = () => {
@@ -685,10 +675,13 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                             <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                 <button
                                     type="button"
-                                    onClick={() => {}}
                                     disabled
-                                    className={`group relative w-full rounded-2xl border border-border-primary bg-surface-tertiary p-4 text-left space-y-3 shadow-[0_10px_24px_rgba(0,0,0,0.28)] overflow-hidden transition-all opacity-60 cursor-not-allowed`}
-                                    aria-disabled
+                                    className={`group relative w-full rounded-2xl border p-4 text-left space-y-3 shadow-[0_10px_24px_rgba(0,0,0,0.28)] overflow-hidden transition-colors ${selectedMode === "cloud"
+                                        ? "border-cloud-50 bg-surface-tertiary ring-1 ring-cloud-30"
+                                        : "border-border-primary bg-surface-tertiary opacity-70 cursor-not-allowed"
+                                        }`}
+                                    aria-pressed={selectedMode === "cloud"}
+                                    aria-disabled="true"
                                 >
                                     <div className="absolute inset-0 pointer-events-none">
                                         <div className="absolute inset-0 opacity-18">
@@ -1039,7 +1032,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
 
                             <button
                                 type="button"
-                                onClick={continueFromLocalSignin}
+                                onClick={goToNextStep}
                                 className="w-full flex items-center justify-center gap-2 rounded-lg bg-content-primary px-5 py-3 text-sm font-semibold text-surface-secondary hover:bg-white transition-colors"
                             >
                                 Continue
