@@ -1,8 +1,7 @@
 use crate::{
-    assistive, cloud, emit_event, model_manager, permissions, platform,
-    recorder::RecorderManager,
-    settings::{TranscriptionMode, UserSettings},
-    toast, AppRuntime, AppState, AudioSpectrumPayload, EVENT_AUDIO_SPECTRUM, MAIN_WINDOW_LABEL,
+    assistive, emit_event, model_manager, permissions, platform, recorder::RecorderManager,
+    settings::UserSettings, toast, AppRuntime, AppState, AudioSpectrumPayload,
+    EVENT_AUDIO_SPECTRUM, MAIN_WINDOW_LABEL,
 };
 use chrono::{DateTime, Local};
 use parking_lot::Mutex;
@@ -185,10 +184,6 @@ impl PillController {
     }
 
     fn preload_local_model_if_needed(&self, app: &AppHandle<AppRuntime>, settings: &UserSettings) {
-        if !matches!(settings.transcription_mode, TranscriptionMode::Local) {
-            return;
-        }
-
         let app_handle = app.clone();
         let settings = settings.clone();
 
@@ -356,11 +351,6 @@ impl PillController {
             return false;
         }
 
-        if let Err(e) = cloud::check_cloud_ready(app) {
-            cloud::show_sign_in_required(app, &e);
-            return false;
-        }
-
         if !self.try_start_recording(RecordingMode::Hold) {
             return false;
         }
@@ -435,11 +425,6 @@ impl PillController {
                 return;
             }
 
-            if let Err(e) = cloud::check_cloud_ready(app) {
-                cloud::show_sign_in_required(app, &e);
-                return;
-            }
-
             if !self.try_start_recording(RecordingMode::Toggle) {
                 return;
             }
@@ -502,7 +487,7 @@ impl PillController {
             }
         };
 
-        // Only set state if recording actually starts (cloud check, permissions, etc. pass)
+        // Only set state if recording actually starts (permissions and recorder startup pass)
         if self.handle_hold_press(app) {
             *self.smart_press_time.lock() = Some(Local::now());
             *self.shortcut_origin.lock() = Some(ShortcutOrigin::Smart);
