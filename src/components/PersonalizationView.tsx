@@ -207,6 +207,7 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
             return;
         }
         event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
         resizeStartYRef.current = event.clientY;
         resizeStartHeightRef.current = instructionsHeight;
         setIsResizingInstructions(true);
@@ -226,12 +227,24 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
             setIsResizingInstructions(false);
         };
 
+        const handlePointerCancel = () => {
+            setIsResizingInstructions(false);
+        };
+
+        const handleWindowBlur = () => {
+            setIsResizingInstructions(false);
+        };
+
         window.addEventListener("pointermove", handlePointerMove);
         window.addEventListener("pointerup", handlePointerUp);
+        window.addEventListener("pointercancel", handlePointerCancel);
+        window.addEventListener("blur", handleWindowBlur);
 
         return () => {
             window.removeEventListener("pointermove", handlePointerMove);
             window.removeEventListener("pointerup", handlePointerUp);
+            window.removeEventListener("pointercancel", handlePointerCancel);
+            window.removeEventListener("blur", handleWindowBlur);
         };
     }, [isResizingInstructions]);
 

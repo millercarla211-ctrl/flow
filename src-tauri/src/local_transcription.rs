@@ -107,7 +107,8 @@ impl LocalTranscriber {
     }
 
     fn touch(&self) {
-        *self.last_used.lock() = Some(Instant::now());
+        let mut last_used = self.last_used.lock();
+        *last_used = Some(Instant::now());
         self.idle_wait.notify_one();
     }
 
@@ -301,8 +302,10 @@ impl LocalTranscriber {
     }
 
     pub fn unload(&self) {
-        *self.inner.lock() = None;
-        *self.last_used.lock() = None;
+        let mut inner = self.inner.lock();
+        let mut last_used = self.last_used.lock();
+        *inner = None;
+        *last_used = None;
         self.idle_wait.notify_one();
     }
 }

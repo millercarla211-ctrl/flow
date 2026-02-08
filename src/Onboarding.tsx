@@ -499,7 +499,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                                 message: prev[model]?.message,
                             },
                         }));
-                        refreshModelStatus(model as "parakeet_tdt_int8" | "whisper_small_q5");
+                        refreshModelStatus(model);
                     }),
                     listen<{ model: string; error: string }>("download:error", (event) => {
                         const { model, error } = event.payload;

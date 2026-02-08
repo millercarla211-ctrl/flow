@@ -501,7 +501,11 @@ impl AppState {
         }
     }
 
-    pub fn persist_settings(&self, next: UserSettings) -> GlimpseResult<UserSettings> {
+    pub fn persist_settings(&self, mut next: UserSettings) -> GlimpseResult<UserSettings> {
+        if matches!(next.transcription_mode, TranscriptionMode::Cloud) {
+            next.transcription_mode = TranscriptionMode::Local;
+        }
+
         self.settings_store.save(&next)?;
         *self.settings.lock() = next.clone();
         Ok(next)

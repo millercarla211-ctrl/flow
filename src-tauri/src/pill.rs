@@ -1,8 +1,7 @@
 use crate::{
-    assistive, emit_event, model_manager, permissions, platform,
-    recorder::RecorderManager,
-    settings::{TranscriptionMode, UserSettings},
-    toast, AppRuntime, AppState, AudioSpectrumPayload, EVENT_AUDIO_SPECTRUM, MAIN_WINDOW_LABEL,
+    assistive, emit_event, model_manager, permissions, platform, recorder::RecorderManager,
+    settings::UserSettings, toast, AppRuntime, AppState, AudioSpectrumPayload,
+    EVENT_AUDIO_SPECTRUM, MAIN_WINDOW_LABEL,
 };
 use chrono::{DateTime, Local};
 use parking_lot::Mutex;
@@ -185,10 +184,6 @@ impl PillController {
     }
 
     fn preload_local_model_if_needed(&self, app: &AppHandle<AppRuntime>, settings: &UserSettings) {
-        if !matches!(settings.transcription_mode, TranscriptionMode::Local) {
-            return;
-        }
-
         let app_handle = app.clone();
         let settings = settings.clone();
 

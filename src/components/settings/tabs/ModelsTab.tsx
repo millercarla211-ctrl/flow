@@ -14,22 +14,22 @@ type EngineGroup = {
 };
 
 const engineDescription = (engineId: string, engineLabel: string) => {
-    if (engineId.startsWith("whisper")) {
+    if (engineId === "whisper") {
         return "OpenAI's speech recognition with custom vocabulary support.";
     }
-    if (engineId.startsWith("parakeet")) {
+    if (engineId === "parakeet_v3") {
         return "NVIDIA's multilingual speech recognition.";
     }
-    if (engineId.startsWith("moonshine")) {
+    if (engineId === "moonshine") {
         return "Extremely fast, lightweight, optimized for real-time use.";
     }
     return `${engineLabel} transcription engine.`;
 };
 
 const enginePriority = (engineId: string): number => {
-    if (engineId.startsWith("whisper")) return 0;
-    if (engineId.startsWith("parakeet")) return 1;
-    if (engineId.startsWith("moonshine")) return 2;
+    if (engineId === "whisper") return 0;
+    if (engineId === "parakeet_v3") return 1;
+    if (engineId === "moonshine") return 2;
     return 3;
 };
 

@@ -115,7 +115,8 @@ function getTranscriptionEngineId(value: string | null | undefined): Transcripti
 
     if (normalized.includes("whisper")) return "whisper";
     if (normalized.includes("moonshine")) return "moonshine";
-    if (normalized.includes("parakeet")) return "parakeet";
+    if (normalized.includes("parakeet_v3")) return "parakeet_v3";
+    if (normalized.includes("parakeet")) return "parakeet_v3";
 
     return normalized;
 }
