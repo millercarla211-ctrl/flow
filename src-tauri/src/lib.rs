@@ -2,6 +2,7 @@ mod accessibility_context;
 mod analytics;
 mod assistive;
 mod audio;
+mod core;
 mod crypto;
 mod dictionary;
 mod downloader;
