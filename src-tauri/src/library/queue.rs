@@ -1,0 +1,722 @@
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use anyhow::{anyhow, Result};
+use chrono::Utc;
+use tauri::{async_runtime, AppHandle, Emitter, Manager};
+use tokio_util::sync::CancellationToken;
+use webrtc_vad::VadMode;
+
+use crate::transcribe::count_words;
+use crate::{
+    dictionary, model_manager, recorder::speech_percentage_i16_with_mode, storage::StorageManager,
+    toast, transcribe, AppRuntime, AppState, LibraryJob, LibraryJobKind,
+};
+
+use super::processing::{
+    compute_total_chunks, convert_library_item, convert_segments_to_ms, read_wav_info,
+    stream_wav_chunks,
+};
+use super::types::{
+    is_cancelled_message, is_ffmpeg_error_message, LibraryCompletePayload, LibraryErrorPayload,
+    LibraryItem, LibraryItemPatch, LibraryItemStatus, LibraryProgressPayload,
+    LibraryProgressUpdate, LibraryTranscriptionResult, TranscriptSegment, CHUNK_OVERLAP_SECONDS,
+    DIRECT_TRANSCRIBE_MINUTES, EVENT_LIBRARY_COMPLETE, EVENT_LIBRARY_ERROR, EVENT_LIBRARY_PROGRESS,
+    MAX_CHUNK_MINUTES, MOONSHINE_CHUNK_OVERLAP_SECONDS, MOONSHINE_CHUNK_SECONDS,
+    VAD_MIN_SPEECH_PERCENT_CHUNK, VAD_MIN_SPEECH_PERCENT_FILE, WHISPER_CHUNK_OVERLAP_SECONDS,
+    WHISPER_CHUNK_SECONDS,
+};
+
+fn start_library_job_internal(app: &AppHandle<AppRuntime>, job: LibraryJob) {
+    let app_handle = app.clone();
+    async_runtime::spawn(async move {
+        let state_handle = app_handle.state::<AppState>();
+        let job_id = job.id.clone();
+        let token = state_handle.register_library_transcription(job_id.clone());
+
+        match job.kind {
+            LibraryJobKind::Import {
+                source_path,
+                store_original,
+            } => {
+                let app_for_task = app_handle.clone();
+                let token_for_task = token.clone();
+                let job_id_for_task = job_id.clone();
+                let result = async_runtime::spawn_blocking(move || {
+                    let state_for_task = app_for_task.state::<AppState>();
+                    convert_library_item(
+                        &app_for_task,
+                        &state_for_task,
+                        &job_id_for_task,
+                        &source_path,
+                        store_original,
+                        &token_for_task,
+                    )
+                })
+                .await;
+
+                match result {
+                    Ok(Ok(())) => {
+                        if token.is_cancelled() {
+                            handle_library_job_error(
+                                &app_handle,
+                                &state_handle,
+                                &job_id,
+                                anyhow!("Transcription cancelled"),
+                            );
+                            return;
+                        }
+                        start_library_transcription_internal(&app_handle, &state_handle, job_id);
+                    }
+                    Ok(Err(err)) => {
+                        handle_library_job_error(&app_handle, &state_handle, &job_id, err);
+                    }
+                    Err(err) => {
+                        handle_library_job_error(
+                            &app_handle,
+                            &state_handle,
+                            &job_id,
+                            anyhow!("Library import task failed: {err}"),
+                        );
+                    }
+                }
+            }
+            LibraryJobKind::TranscribeExisting => {
+                if token.is_cancelled() {
+                    handle_library_job_error(
+                        &app_handle,
+                        &state_handle,
+                        &job_id,
+                        anyhow!("Transcription cancelled"),
+                    );
+                    return;
+                }
+                start_library_transcription_internal(&app_handle, &state_handle, job_id);
+            }
+        }
+    });
+}
+
+fn start_library_transcription_internal(
+    app: &AppHandle<AppRuntime>,
+    state: &tauri::State<'_, AppState>,
+    id: String,
+) {
+    let storage = state.storage();
+    let item = match storage.get_library_item(&id) {
+        Ok(Some(item)) => item,
+        Ok(None) => {
+            eprintln!("Library item not found for transcription: {id}");
+            let _ = app.emit(
+                EVENT_LIBRARY_ERROR,
+                LibraryErrorPayload {
+                    id: id.clone(),
+                    message: "Library item not found".to_string(),
+                },
+            );
+            release_library_slot(app, state, &id);
+            return;
+        }
+        Err(err) => {
+            eprintln!("Failed to load library item {id}: {err}");
+            let _ = app.emit(
+                EVENT_LIBRARY_ERROR,
+                LibraryErrorPayload {
+                    id: id.clone(),
+                    message: format!("Failed to load library item: {err}"),
+                },
+            );
+            release_library_slot(app, state, &id);
+            return;
+        }
+    };
+
+    if matches!(
+        item.status,
+        LibraryItemStatus::Cancelling | LibraryItemStatus::Cancelled
+    ) {
+        release_library_slot(app, state, &id);
+        return;
+    }
+
+    if matches!(item.status, LibraryItemStatus::Transcribing { .. }) {
+        release_library_slot(app, state, &id);
+        return;
+    }
+
+    let _ = storage.update_library_item(
+        &id,
+        LibraryItemPatch {
+            status: Some(LibraryItemStatus::Transcribing { progress: 0.0 }),
+            transcript: Some(String::new()),
+            segments: Some(Vec::new()),
+            ..Default::default()
+        },
+    );
+    let _ = app.emit(
+        EVENT_LIBRARY_PROGRESS,
+        LibraryProgressPayload {
+            id: id.clone(),
+            progress: 0.0,
+            current_chunk: 0,
+            total_chunks: 0,
+            chunk_text: None,
+            chunk_segments: None,
+        },
+    );
+
+    let token = state.register_library_transcription(id.clone());
+    let app_handle = app.clone();
+    let item_for_task = item.clone();
+    async_runtime::spawn(async move {
+        let id_for_release = id.clone();
+        let token_handle = token.clone();
+        let app_for_task = app_handle.clone();
+        let result = async_runtime::spawn_blocking(move || {
+            let state_handle = app_for_task.state::<AppState>();
+            transcribe_library_item(&app_for_task, &state_handle, &item_for_task, &token_handle)
+        })
+        .await;
+
+        let state_handle = app_handle.state::<AppState>();
+
+        match result {
+            Ok(Ok(mut result)) => {
+                let mut final_transcript = result.transcript.clone();
+                let settings = state_handle.current_settings();
+                final_transcript =
+                    dictionary::apply_replacements(&final_transcript, &settings.replacements);
+
+                if count_words(&final_transcript) == 0 {
+                    let _ = storage.update_library_item(
+                        &id,
+                        LibraryItemPatch {
+                            status: Some(LibraryItemStatus::Error {
+                                message: "No speech detected".to_string(),
+                            }),
+                            ..Default::default()
+                        },
+                    );
+                    let _ = app_handle.emit(
+                        EVENT_LIBRARY_ERROR,
+                        LibraryErrorPayload {
+                            id: id.clone(),
+                            message: "No speech detected".to_string(),
+                        },
+                    );
+                } else {
+                    let _ = storage.update_library_item(
+                        &id,
+                        LibraryItemPatch {
+                            status: Some(LibraryItemStatus::Complete),
+                            transcript: Some(final_transcript),
+                            segments: result.segments.take(),
+                            transcribed_at: Some(Utc::now().to_rfc3339()),
+                            ..Default::default()
+                        },
+                    );
+
+                    let _ = app_handle.emit(
+                        EVENT_LIBRARY_COMPLETE,
+                        LibraryCompletePayload { id: id.clone() },
+                    );
+                }
+            }
+            Ok(Err(err)) => {
+                let message = err.to_string();
+                let status = if is_cancelled_message(&message) {
+                    LibraryItemStatus::Cancelled
+                } else {
+                    LibraryItemStatus::Error {
+                        message: message.clone(),
+                    }
+                };
+                let _ = storage.update_library_item(
+                    &id,
+                    LibraryItemPatch {
+                        status: Some(status),
+                        ..Default::default()
+                    },
+                );
+                let _ = app_handle.emit(
+                    EVENT_LIBRARY_ERROR,
+                    LibraryErrorPayload {
+                        id: id.clone(),
+                        message,
+                    },
+                );
+            }
+            Err(err) => {
+                let message = format!("Library transcription task failed: {err}");
+                let status = if is_cancelled_message(&message) {
+                    LibraryItemStatus::Cancelled
+                } else {
+                    LibraryItemStatus::Error {
+                        message: message.clone(),
+                    }
+                };
+                let _ = storage.update_library_item(
+                    &id,
+                    LibraryItemPatch {
+                        status: Some(status),
+                        ..Default::default()
+                    },
+                );
+                let _ = app_handle.emit(
+                    EVENT_LIBRARY_ERROR,
+                    LibraryErrorPayload {
+                        id: id.clone(),
+                        message,
+                    },
+                );
+            }
+        }
+
+        release_library_slot(&app_handle, &state_handle, &id_for_release);
+    });
+}
+
+fn handle_library_job_error(
+    app: &AppHandle<AppRuntime>,
+    state: &tauri::State<'_, AppState>,
+    id: &str,
+    err: anyhow::Error,
+) {
+    let message = err.to_string();
+    let status = if is_cancelled_message(&message) {
+        LibraryItemStatus::Cancelled
+    } else {
+        LibraryItemStatus::Error {
+            message: message.clone(),
+        }
+    };
+    if is_ffmpeg_error_message(&message) && state.should_show_ffmpeg_toast() {
+        toast::show_with_action(
+            app,
+            "error",
+            Some("FFmpeg Required"),
+            "FFmpeg is required to import this file.",
+            "open_ffmpeg_install",
+            "FFmpeg Help",
+        );
+    }
+    let _ = state.storage().update_library_item(
+        id,
+        LibraryItemPatch {
+            status: Some(status),
+            ..Default::default()
+        },
+    );
+    let _ = app.emit(
+        EVENT_LIBRARY_ERROR,
+        LibraryErrorPayload {
+            id: id.to_string(),
+            message,
+        },
+    );
+    release_library_slot(app, state, id);
+}
+
+pub(crate) fn schedule_library_job(
+    app: &AppHandle<AppRuntime>,
+    state: &tauri::State<'_, AppState>,
+    job: LibraryJob,
+) {
+    if !state.enqueue_library_job(job) {
+        return;
+    }
+    start_next_library_job(app, state);
+}
+
+fn start_next_library_job(app: &AppHandle<AppRuntime>, state: &tauri::State<'_, AppState>) {
+    let Some(job) = state.claim_next_library_job() else {
+        return;
+    };
+    start_library_job_internal(app, job);
+}
+
+pub(crate) fn release_library_slot(
+    app: &AppHandle<AppRuntime>,
+    state: &tauri::State<'_, AppState>,
+    id: &str,
+) {
+    state.clear_active_library_job(id);
+    state.clear_library_transcription(id);
+    start_next_library_job(app, state);
+}
+
+fn transcribe_library_item(
+    app: &AppHandle<AppRuntime>,
+    state: &AppState,
+    item: &LibraryItem,
+    token: &CancellationToken,
+) -> Result<LibraryTranscriptionResult> {
+    if token.is_cancelled() {
+        return Err(anyhow!("Transcription cancelled"));
+    }
+
+    let audio_path = PathBuf::from(&item.audio_path);
+    if !audio_path.exists() {
+        return Err(anyhow!("Audio file not found"));
+    }
+
+    let wav_info = read_wav_info(&audio_path)?;
+    let sample_rate = wav_info.sample_rate;
+    let duration_seconds = wav_info.duration_seconds;
+    if wav_info.total_samples == 0 {
+        return Err(anyhow!("No audio data decoded from WAV file"));
+    }
+
+    let settings = state.current_settings();
+    let ready_model = model_manager::ensure_model_ready(app, &item.speech_model)?;
+    let dictionary_prompt = dictionary::dictionary_prompt_for_model(&ready_model, &settings);
+    let language = settings.language.clone();
+    let transcriber = state.local_transcriber();
+    let use_whisper_chunking =
+        matches!(ready_model.engine, model_manager::LocalModelEngine::Whisper);
+    let use_moonshine_chunking = matches!(
+        ready_model.engine,
+        model_manager::LocalModelEngine::Moonshine { .. }
+    );
+
+    if use_whisper_chunking {
+        let chunk_size = (WHISPER_CHUNK_SECONDS as usize * sample_rate as usize).max(1);
+        let overlap = (WHISPER_CHUNK_OVERLAP_SECONDS as usize * sample_rate as usize)
+            .min(chunk_size.saturating_sub(1));
+        let step = chunk_size.saturating_sub(overlap).max(1);
+
+        let total_chunks =
+            compute_total_chunks(wav_info.total_samples, chunk_size, step).max(1) as u32;
+        let mut full_text = String::new();
+        let mut merged_segments: Vec<TranscriptSegment> = Vec::new();
+        let mut last_end_ms: u64 = 0;
+        let mut used_prompt = false;
+        let mut chunk_index: u32 = 0;
+
+        stream_wav_chunks(&audio_path, chunk_size, overlap, |start_idx, chunk| {
+            if token.is_cancelled() {
+                return Err(anyhow!("Transcription cancelled"));
+            }
+
+            chunk_index = chunk_index.saturating_add(1);
+            let chunk_speech_percent =
+                speech_percentage_i16_with_mode(chunk, sample_rate, VadMode::VeryAggressive);
+            if chunk_speech_percent < VAD_MIN_SPEECH_PERCENT_CHUNK {
+                let progress = (chunk_index as f32) / total_chunks as f32;
+                report_progress(
+                    app,
+                    state.storage(),
+                    &item.id,
+                    LibraryProgressUpdate::with_chunk_counts(progress, chunk_index, total_chunks),
+                );
+                return Ok(());
+            }
+            let prompt = if !used_prompt {
+                dictionary_prompt.as_deref()
+            } else {
+                None
+            };
+            let result = transcriber.transcribe_with_segments(
+                &ready_model,
+                chunk,
+                sample_rate,
+                prompt,
+                Some(&language),
+            )?;
+            if token.is_cancelled() {
+                return Err(anyhow!("Transcription cancelled"));
+            }
+            if prompt.is_some() {
+                used_prompt = true;
+            }
+
+            let chunk_text = result.transcript;
+            let mut appended_text = None;
+            if !chunk_text.trim().is_empty() {
+                let deduped = transcribe::dedupe_overlap_text(&full_text, &chunk_text);
+                if !deduped.trim().is_empty() {
+                    if !full_text.is_empty() {
+                        full_text.push('\n');
+                    }
+                    full_text.push_str(&deduped);
+                    appended_text = Some(deduped);
+                }
+            }
+
+            let mut new_segments: Vec<TranscriptSegment> = Vec::new();
+            if let Some(segments) = result.segments {
+                let offset_ms = (start_idx as f64 / sample_rate as f64 * 1000.0) as u64;
+                for seg in convert_segments_to_ms(&segments) {
+                    let start_ms = seg.start_ms + offset_ms;
+                    let end_ms = seg.end_ms + offset_ms;
+                    if end_ms <= last_end_ms {
+                        continue;
+                    }
+                    let new_segment = TranscriptSegment {
+                        start_ms,
+                        end_ms,
+                        text: seg.text,
+                    };
+                    merged_segments.push(new_segment.clone());
+                    new_segments.push(new_segment);
+                    last_end_ms = end_ms;
+                }
+            }
+
+            let progress = (chunk_index as f32) / total_chunks as f32;
+            let transcript_patch = appended_text.as_ref().map(|_| full_text.clone());
+            let segments_patch = if new_segments.is_empty() {
+                None
+            } else {
+                Some(merged_segments.clone())
+            };
+            let chunk_segments = if new_segments.is_empty() {
+                None
+            } else {
+                Some(new_segments)
+            };
+
+            report_progress(
+                app,
+                state.storage(),
+                &item.id,
+                LibraryProgressUpdate {
+                    progress,
+                    current_chunk: chunk_index,
+                    total_chunks,
+                    transcript: transcript_patch,
+                    segments: segments_patch,
+                    chunk_text: appended_text,
+                    chunk_segments,
+                },
+            );
+            Ok(())
+        })?;
+
+        return Ok(LibraryTranscriptionResult {
+            transcript: full_text.trim().to_string(),
+            segments: if merged_segments.is_empty() {
+                None
+            } else {
+                Some(merged_segments)
+            },
+        });
+    }
+
+    if use_moonshine_chunking && duration_seconds > MOONSHINE_CHUNK_SECONDS as f32 {
+        let chunk_size = (MOONSHINE_CHUNK_SECONDS as usize * sample_rate as usize).max(1);
+        let overlap = (MOONSHINE_CHUNK_OVERLAP_SECONDS as usize * sample_rate as usize)
+            .min(chunk_size.saturating_sub(1));
+        let step = chunk_size.saturating_sub(overlap).max(1);
+        let total_chunks =
+            compute_total_chunks(wav_info.total_samples, chunk_size, step).max(1) as u32;
+        let mut full_text = String::new();
+        let mut chunk_index: u32 = 0;
+
+        stream_wav_chunks(&audio_path, chunk_size, overlap, |_, chunk| {
+            if token.is_cancelled() {
+                return Err(anyhow!("Transcription cancelled"));
+            }
+
+            chunk_index = chunk_index.saturating_add(1);
+            let chunk_speech_percent =
+                speech_percentage_i16_with_mode(chunk, sample_rate, VadMode::VeryAggressive);
+            if chunk_speech_percent < VAD_MIN_SPEECH_PERCENT_CHUNK {
+                let progress = (chunk_index as f32) / total_chunks as f32;
+                report_progress(
+                    app,
+                    state.storage(),
+                    &item.id,
+                    LibraryProgressUpdate::with_chunk_counts(progress, chunk_index, total_chunks),
+                );
+                return Ok(());
+            }
+            let result = transcriber.transcribe(
+                &ready_model,
+                chunk,
+                sample_rate,
+                dictionary_prompt.as_deref(),
+                Some(&language),
+            )?;
+            if token.is_cancelled() {
+                return Err(anyhow!("Transcription cancelled"));
+            }
+
+            let chunk_text = result.transcript;
+            if !chunk_text.trim().is_empty() {
+                let deduped = transcribe::dedupe_overlap_text(&full_text, &chunk_text);
+                if !deduped.trim().is_empty() {
+                    if !full_text.is_empty() {
+                        full_text.push('\n');
+                    }
+                    full_text.push_str(&deduped);
+                }
+            }
+
+            let progress = (chunk_index as f32) / total_chunks as f32;
+            report_progress(
+                app,
+                state.storage(),
+                &item.id,
+                LibraryProgressUpdate::with_chunk_counts(progress, chunk_index, total_chunks),
+            );
+            Ok(())
+        })?;
+
+        return Ok(LibraryTranscriptionResult {
+            transcript: full_text.trim().to_string(),
+            segments: None,
+        });
+    }
+
+    if duration_seconds <= (DIRECT_TRANSCRIBE_MINUTES as f32 * 60.0) {
+        let (samples, sample_rate) = transcribe::load_audio_for_transcription(&audio_path)?;
+        let speech_percent =
+            speech_percentage_i16_with_mode(&samples, sample_rate, VadMode::VeryAggressive);
+        if speech_percent < VAD_MIN_SPEECH_PERCENT_FILE {
+            return Ok(LibraryTranscriptionResult {
+                transcript: String::new(),
+                segments: None,
+            });
+        }
+
+        let result = transcriber.transcribe_with_segments(
+            &ready_model,
+            &samples,
+            sample_rate,
+            dictionary_prompt.as_deref(),
+            Some(&language),
+        )?;
+        if token.is_cancelled() {
+            return Err(anyhow!("Transcription cancelled"));
+        }
+
+        return Ok(LibraryTranscriptionResult {
+            transcript: result.transcript,
+            segments: result.segments.as_deref().map(convert_segments_to_ms),
+        });
+    }
+
+    let chunk_size = (MAX_CHUNK_MINUTES as usize * 60 * sample_rate as usize).max(1);
+    let overlap = (CHUNK_OVERLAP_SECONDS as usize * sample_rate as usize).min(chunk_size);
+    let step = chunk_size.saturating_sub(overlap).max(1);
+    let total_chunks = compute_total_chunks(wav_info.total_samples, chunk_size, step).max(1) as u32;
+    let mut full_text = String::new();
+    let mut merged_segments: Vec<TranscriptSegment> = Vec::new();
+    let mut last_end_ms: u64 = 0;
+    let mut chunk_index: u32 = 0;
+
+    stream_wav_chunks(&audio_path, chunk_size, overlap, |start_idx, chunk| {
+        if token.is_cancelled() {
+            return Err(anyhow!("Transcription cancelled"));
+        }
+
+        chunk_index = chunk_index.saturating_add(1);
+        let chunk_speech_percent =
+            speech_percentage_i16_with_mode(chunk, sample_rate, VadMode::VeryAggressive);
+        if chunk_speech_percent < VAD_MIN_SPEECH_PERCENT_CHUNK {
+            let progress = (chunk_index as f32) / total_chunks as f32;
+            report_progress(
+                app,
+                state.storage(),
+                &item.id,
+                LibraryProgressUpdate::with_chunk_counts(progress, chunk_index, total_chunks),
+            );
+            return Ok(());
+        }
+        let result = transcriber.transcribe_with_segments(
+            &ready_model,
+            chunk,
+            sample_rate,
+            dictionary_prompt.as_deref(),
+            Some(&language),
+        )?;
+        if token.is_cancelled() {
+            return Err(anyhow!("Transcription cancelled"));
+        }
+
+        let chunk_text = result.transcript;
+        if !chunk_text.trim().is_empty() {
+            let deduped = transcribe::dedupe_overlap_text(&full_text, &chunk_text);
+            if !deduped.trim().is_empty() {
+                if !full_text.is_empty() {
+                    full_text.push('\n');
+                }
+                full_text.push_str(&deduped);
+            }
+        }
+
+        if let Some(segments) = result.segments {
+            let offset_ms = (start_idx as f64 / sample_rate as f64 * 1000.0) as u64;
+            for seg in convert_segments_to_ms(&segments) {
+                let start_ms = seg.start_ms + offset_ms;
+                let end_ms = seg.end_ms + offset_ms;
+                if end_ms <= last_end_ms {
+                    continue;
+                }
+                merged_segments.push(TranscriptSegment {
+                    start_ms,
+                    end_ms,
+                    text: seg.text,
+                });
+                last_end_ms = end_ms;
+            }
+        }
+
+        let progress = (chunk_index as f32) / total_chunks as f32;
+        report_progress(
+            app,
+            state.storage(),
+            &item.id,
+            LibraryProgressUpdate::with_chunk_counts(progress, chunk_index, total_chunks),
+        );
+        Ok(())
+    })?;
+
+    Ok(LibraryTranscriptionResult {
+        transcript: full_text.trim().to_string(),
+        segments: if merged_segments.is_empty() {
+            None
+        } else {
+            Some(merged_segments)
+        },
+    })
+}
+
+fn report_progress(
+    app: &AppHandle<AppRuntime>,
+    storage: Arc<StorageManager>,
+    id: &str,
+    update: LibraryProgressUpdate,
+) {
+    let LibraryProgressUpdate {
+        progress,
+        current_chunk,
+        total_chunks,
+        transcript,
+        segments,
+        chunk_text,
+        chunk_segments,
+    } = update;
+
+    let _ = storage.update_library_item(
+        id,
+        LibraryItemPatch {
+            status: Some(LibraryItemStatus::Transcribing { progress }),
+            transcript,
+            segments,
+            ..Default::default()
+        },
+    );
+    let _ = app.emit(
+        EVENT_LIBRARY_PROGRESS,
+        LibraryProgressPayload {
+            id: id.to_string(),
+            progress,
+            current_chunk,
+            total_chunks,
+            chunk_text,
+            chunk_segments,
+        },
+    );
+}
