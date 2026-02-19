@@ -1,7 +1,10 @@
 use crate::{
-    assistive, emit_event, model_manager, permissions, platform, recorder::RecorderManager,
-    settings::UserSettings, toast, AppRuntime, AppState, AudioSpectrumPayload,
-    EVENT_AUDIO_SPECTRUM, MAIN_WINDOW_LABEL,
+    assistive,
+    core::hotkeys::{self, HotkeyProvider, HotkeyState},
+    emit_event, model_manager, permissions, platform,
+    recorder::RecorderManager,
+    settings::UserSettings,
+    toast, AppRuntime, AppState, AudioSpectrumPayload, EVENT_AUDIO_SPECTRUM, MAIN_WINDOW_LABEL,
 };
 use chrono::{DateTime, Local};
 use parking_lot::Mutex;
@@ -13,7 +16,6 @@ use std::sync::{
 };
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 const MIN_RECORDING_DURATION_MS: i64 = 300;
 const SMART_MODE_TAP_THRESHOLD_MS: i64 = 200;
@@ -631,9 +633,9 @@ fn check_accessibility_warning(app: &AppHandle<AppRuntime>) {
 
 pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
     let state = app.state::<AppState>();
-    let manager = app.global_shortcut();
+    let provider = hotkeys::provider(app);
 
-    if let Err(err) = manager.unregister_all() {
+    if let Err(err) = provider.unregister_all() {
         eprintln!("Failed to clear shortcuts: {err}");
     }
 
@@ -641,57 +643,34 @@ pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
 
     if settings.smart_enabled {
         let smart_shortcut = settings.smart_shortcut.clone();
-        manager.on_shortcut(smart_shortcut.as_str(), move |app, _shortcut, event| {
+        provider.on_shortcut(smart_shortcut.as_str(), move |app, event| {
             let state = app.state::<AppState>();
             let pill = state.pill();
             match event.state {
-                ShortcutState::Pressed => pill.handle_smart_press(app),
-                ShortcutState::Released => pill.handle_smart_release(app),
+                HotkeyState::Pressed => pill.handle_smart_press(app),
+                HotkeyState::Released => pill.handle_smart_release(app),
             }
         })?;
     }
 
-    let hold_keys: std::collections::HashSet<&str> = settings
-        .hold_shortcut
-        .split('+')
-        .map(|s| s.trim())
-        .collect();
-    let toggle_keys: std::collections::HashSet<&str> = settings
-        .toggle_shortcut
-        .split('+')
-        .map(|s| s.trim())
-        .collect();
-    let hold_is_subset_of_toggle =
-        settings.hold_enabled && settings.toggle_enabled && hold_keys.is_subset(&toggle_keys);
-
     if settings.hold_enabled {
         let hold_shortcut = settings.hold_shortcut.clone();
-        let check_toggle_overlap = hold_is_subset_of_toggle;
-        let toggle_shortcut_clone = settings.toggle_shortcut.clone();
-
-        manager.on_shortcut(hold_shortcut.as_str(), move |app, shortcut, event| {
-            if check_toggle_overlap {
-                let pressed_shortcut = shortcut.to_string();
-                if pressed_shortcut.to_lowercase() == toggle_shortcut_clone.to_lowercase() {
-                    return;
-                }
-            }
-
+        provider.on_shortcut(hold_shortcut.as_str(), move |app, event| {
             let state = app.state::<AppState>();
             let pill = state.pill();
             match event.state {
-                ShortcutState::Pressed => {
+                HotkeyState::Pressed => {
                     let _ = pill.handle_hold_press(app);
                 }
-                ShortcutState::Released => pill.handle_hold_release(app),
+                HotkeyState::Released => pill.handle_hold_release(app),
             }
         })?;
     }
 
     if settings.toggle_enabled {
         let toggle_shortcut = settings.toggle_shortcut.clone();
-        manager.on_shortcut(toggle_shortcut.as_str(), move |app, _shortcut, event| {
-            if event.state == ShortcutState::Pressed {
+        provider.on_shortcut(toggle_shortcut.as_str(), move |app, event| {
+            if event.state == HotkeyState::Pressed {
                 let state = app.state::<AppState>();
                 let pill = state.pill();
                 pill.handle_toggle_press(app);

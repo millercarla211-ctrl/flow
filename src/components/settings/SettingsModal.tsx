@@ -19,8 +19,16 @@ import {
     getInstalledTranscriptionEngines,
     type TranscriptionEngineId,
 } from "../../lib/transcriptionLanguages";
+import {
+    buildShortcutString,
+    formatShortcutForDisplay,
+    formatShortcutKey,
+    normalizeShortcutModifier,
+    sortShortcutModifiers,
+} from "../../lib/shortcuts";
 import type {
     TranscriptionMode,
+    TextSizeMode,
     StoredSettings,
     AppInfo,
     ModelInfo,
@@ -31,7 +39,10 @@ import type {
     LlmProvider,
 } from "../../types";
 
-const modifierOrder = ["Control", "Shift", "Alt", "Command"];
+const TEXT_SIZE_MODE_STORAGE_KEY = "glimpse_text_size_mode";
+
+const parseTextSizeMode = (value: string | null): TextSizeMode =>
+    value === "small" || value === "default" || value === "large" ? value : "default";
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -80,6 +91,9 @@ const SettingsModal = ({
     const [llmModel, setLlmModel] = useState("");
     const [availableModels, setAvailableModels] = useState<string[]>([]);
     const [editModeEnabled, setEditModeEnabled] = useState(false);
+    const [textSizeMode, setTextSizeMode] = useState<TextSizeMode>(() =>
+        parseTextSizeMode(localStorage.getItem(TEXT_SIZE_MODE_STORAGE_KEY))
+    );
 
     const [authLoading, setAuthLoading] = useState(false);
     const [showFAQModal, setShowFAQModal] = useState(false);
@@ -140,6 +154,11 @@ const SettingsModal = ({
         localStorage.setItem("glimpse_cloud_sync_enabled", String(cloudSyncEnabled));
         emit("auth:changed").catch(() => { });
     }, [cloudSyncEnabled]);
+
+    useEffect(() => {
+        localStorage.setItem(TEXT_SIZE_MODE_STORAGE_KEY, textSizeMode);
+        emit("ui:text_size_changed", { mode: textSizeMode }).catch(() => { });
+    }, [textSizeMode]);
 
     useEffect(() => {
         let unlisten: (() => void) | undefined;
@@ -406,17 +425,15 @@ const SettingsModal = ({
         }
 
         const updatePreview = () => {
-            const mods = Array.from(pressedModifiers.current).sort(
-                (a, b) => ["Control", "Alt", "Shift", "Command"].indexOf(a) - ["Control", "Alt", "Shift", "Command"].indexOf(b)
-            );
-            const key = primaryKey.current ? formatKey(primaryKey.current) : null;
+            const mods = sortShortcutModifiers(pressedModifiers.current);
+            const key = primaryKey.current ? formatShortcutKey(primaryKey.current) : null;
             const parts = [...mods, key].filter(Boolean);
-            setCapturePreview(parts.length > 0 ? parts.join("+") : "");
+            setCapturePreview(parts.length > 0 ? formatShortcutForDisplay(parts.join("+")) : "");
         };
 
         const handleKeyDown = (event: KeyboardEvent) => {
             event.preventDefault();
-            const modifier = normalizeModifier(event);
+            const modifier = normalizeShortcutModifier(event);
             if (modifier) {
                 pressedModifiers.current.add(modifier);
             } else if (event.code) {
@@ -440,7 +457,7 @@ const SettingsModal = ({
                 }
                 setError(null);
             } else {
-                setError("Add a base key to your shortcut");
+                setError("Press at least one key for your shortcut");
             }
             finalizeCapture();
         };
@@ -486,13 +503,7 @@ const SettingsModal = ({
     };
 
     const buildShortcut = () => {
-        if (!primaryKey.current) return null;
-        const orderedMods = Array.from(pressedModifiers.current).sort(
-            (a, b) => modifierOrder.indexOf(a) - modifierOrder.indexOf(b)
-        );
-        const formattedKey = formatKey(primaryKey.current);
-        if (!formattedKey) return null;
-        return [...orderedMods, formattedKey].join("+");
+        return buildShortcutString(pressedModifiers.current, primaryKey.current);
     };
 
     useEffect(() => {
@@ -693,11 +704,11 @@ const SettingsModal = ({
                         </motion.button>
                         <aside className="flex w-44 flex-col border-r border-border-primary bg-surface-surface">
                             <div className="px-4 pt-5 pb-4">
-                                <h2 className="text-[13px] font-semibold text-content-primary">Settings</h2>
+                                <h2 className="ui-text-title-strong ui-color-primary">Settings</h2>
                             </div>
                             <nav className="flex-1 px-2 space-y-4">
                                 <div className="space-y-1">
-                                    <p className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-content-disabled">Account</p>
+                                    <p className="px-2.5 pb-1.5 ui-text-uppercase-meta ui-color-disabled font-semibold">Account</p>
                                     <ModalNavItem
                                         icon={<User size={14} aria-hidden="true" />}
                                         label="Account"
@@ -707,7 +718,7 @@ const SettingsModal = ({
                                 </div>
 
                                 <div className="space-y-1">
-                                    <p className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-content-disabled">General</p>
+                                    <p className="px-2.5 pb-1.5 ui-text-uppercase-meta ui-color-disabled font-semibold">General</p>
                                     <ModalNavItem
                                         icon={<Keyboard size={14} aria-hidden="true" />}
                                         label="General"
@@ -736,7 +747,7 @@ const SettingsModal = ({
                                             exit={{ opacity: 0, height: 0 }}
                                             transition={{ duration: 0.15 }}
                                         >
-                                            <p className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-content-disabled">Local</p>
+                                            <p className="px-2.5 pb-1.5 ui-text-uppercase-meta ui-color-disabled font-semibold">Local</p>
                                             <ModalNavItem
                                                 icon={<Cpu size={14} aria-hidden="true" />}
                                                 label="Models"
@@ -837,6 +848,8 @@ const SettingsModal = ({
                                             variants={tabContentVariants}
                                             micPermission={micPermission}
                                             accessibilityPermission={accessibilityPermission}
+                                            textSizeMode={textSizeMode}
+                                            onTextSizeModeChange={setTextSizeMode}
                                         />
                                     )}
 
@@ -861,27 +874,6 @@ const SettingsModal = ({
         </AnimatePresence>
     );
 
-    function normalizeModifier(event: KeyboardEvent): string | null {
-        if (event.key === "Control" || event.code === "ControlLeft" || event.code === "ControlRight") return "Control";
-        if (event.key === "Shift" || event.code === "ShiftLeft" || event.code === "ShiftRight") return "Shift";
-        if (event.key === "Alt" || event.key === "Option") return "Alt";
-        if (event.key === "Meta") return "Command";
-        return null;
-    }
-
-    function formatKey(code: string): string | null {
-        if (!code) return null;
-        if (code.startsWith("Key") && code.length > 3) return code.slice(3).toUpperCase();
-        if (code.startsWith("Digit") && code.length > 5) return code.slice(5);
-        const namedKeys: Record<string, string> = {
-            Space: "Space", Enter: "Enter", Tab: "Tab", Backspace: "Backspace",
-            Escape: "Escape", Delete: "Delete", ArrowUp: "ArrowUp", ArrowDown: "ArrowDown",
-            ArrowLeft: "ArrowLeft", ArrowRight: "ArrowRight", Backquote: "`", Minus: "-",
-            Equal: "=", BracketLeft: "[", BracketRight: "]", Backslash: "\\",
-            Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/",
-        };
-        return namedKeys[code] ?? code;
-    }
 };
 
 const ModalNavItem = ({ icon, label, active, onClick }: {
@@ -889,7 +881,7 @@ const ModalNavItem = ({ icon, label, active, onClick }: {
 }) => (
     <motion.button
         onClick={onClick}
-        className={`group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12px] font-medium transition-all ${active ? "bg-surface-elevated text-content-primary" : "text-content-muted hover:bg-surface-elevated hover:text-content-secondary"
+        className={`group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 ui-text-body-sm-strong transition-colors ${active ? "bg-surface-elevated ui-color-primary" : "ui-color-muted hover:bg-surface-elevated hover:text-content-secondary"
             }`}
         whileTap={{ scale: 0.98 }}
     >
