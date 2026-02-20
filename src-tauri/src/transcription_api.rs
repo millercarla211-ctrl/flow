@@ -38,3 +38,22 @@ pub fn normalize_transcript(input: &str) -> String {
         .trim()
         .to_string()
 }
+
+pub fn strip_hallucinated_thank_you(input: &str) -> String {
+    const HALLUCINATED_THANK_YOU: &str = "Thank you.";
+
+    let trimmed = input.trim();
+    if trimmed == HALLUCINATED_THANK_YOU {
+        return String::new();
+    }
+
+    if let Some(prefix) = trimmed.strip_suffix(HALLUCINATED_THANK_YOU) {
+        let prefix_trimmed_end = prefix.trim_end();
+        let has_separator = prefix.len() > prefix_trimmed_end.len();
+        if has_separator && prefix_trimmed_end.ends_with('.') {
+            return prefix_trimmed_end.to_string();
+        }
+    }
+
+    trimmed.to_string()
+}
