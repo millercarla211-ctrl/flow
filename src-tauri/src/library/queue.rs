@@ -10,7 +10,7 @@ use webrtc_vad::VadMode;
 use crate::transcribe::count_words;
 use crate::{
     dictionary, model_manager, recorder::speech_percentage_i16_with_mode, storage::StorageManager,
-    toast, transcribe, AppRuntime, AppState, LibraryJob, LibraryJobKind,
+    toast, transcribe, transcription_api, AppRuntime, AppState, LibraryJob, LibraryJobKind,
 };
 
 use super::processing::{
@@ -494,7 +494,7 @@ fn transcribe_library_item(
         })?;
 
         return Ok(LibraryTranscriptionResult {
-            transcript: full_text.trim().to_string(),
+            transcript: transcription_api::strip_hallucinated_thank_you(full_text.trim()),
             segments: if merged_segments.is_empty() {
                 None
             } else {

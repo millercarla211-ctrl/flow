@@ -83,6 +83,7 @@ pub(crate) fn queue_transcription(
                                     chunk_seconds: WHISPER_CHUNK_SECONDS,
                                     overlap_seconds: WHISPER_CHUNK_OVERLAP_SECONDS,
                                     cancel_token: Some(&cancel_token_clone),
+                                    strip_hallucinated_thank_you: true,
                                 },
                             )
                         } else if is_moonshine {
@@ -97,6 +98,7 @@ pub(crate) fn queue_transcription(
                                     chunk_seconds: MOONSHINE_CHUNK_SECONDS,
                                     overlap_seconds: MOONSHINE_CHUNK_OVERLAP_SECONDS,
                                     cancel_token: Some(&cancel_token_clone),
+                                    strip_hallucinated_thank_you: false,
                                 },
                             )
                         } else {
@@ -385,6 +387,7 @@ pub(crate) fn retry_transcription_async(
                                             chunk_seconds: WHISPER_CHUNK_SECONDS,
                                             overlap_seconds: WHISPER_CHUNK_OVERLAP_SECONDS,
                                             cancel_token: Some(&cancel_token_clone),
+                                            strip_hallucinated_thank_you: true,
                                         },
                                     )
                                 } else if is_moonshine {
@@ -399,6 +402,7 @@ pub(crate) fn retry_transcription_async(
                                             chunk_seconds: MOONSHINE_CHUNK_SECONDS,
                                             overlap_seconds: MOONSHINE_CHUNK_OVERLAP_SECONDS,
                                             cancel_token: Some(&cancel_token_clone),
+                                            strip_hallucinated_thank_you: false,
                                         },
                                     )
                                 } else {
@@ -913,6 +917,7 @@ struct LocalChunkingConfig<'a> {
     chunk_seconds: f32,
     overlap_seconds: f32,
     cancel_token: Option<&'a CancellationToken>,
+    strip_hallucinated_thank_you: bool,
 }
 
 fn transcribe_local_chunked(
@@ -928,6 +933,7 @@ fn transcribe_local_chunked(
         chunk_seconds,
         overlap_seconds,
         cancel_token,
+        strip_hallucinated_thank_you,
     } = config;
 
     if samples.is_empty() {
@@ -999,8 +1005,14 @@ fn transcribe_local_chunked(
         start += step;
     }
 
+    let transcript = if strip_hallucinated_thank_you {
+        transcription_api::strip_hallucinated_thank_you(full_text.trim())
+    } else {
+        full_text.trim().to_string()
+    };
+
     Ok(transcription_api::TranscriptionSuccess {
-        transcript: full_text.trim().to_string(),
+        transcript,
         speech_model: model_label,
     })
 }
