@@ -44,6 +44,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "tokio-util",
+ "tracing",
  "transcribe-rs",
  "urlencoding",
  "uuid",

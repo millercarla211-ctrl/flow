@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use tauri::{async_runtime, AppHandle, Emitter};
+use tracing::{debug, warn};
 
 use crate::recorder::RecordingSaved;
 use crate::{
@@ -13,16 +14,18 @@ pub(crate) fn retry_transcription(
     app: &AppHandle<AppRuntime>,
     state: &AppState,
 ) -> Result<(), String> {
-    eprintln!("[retry_transcription] Starting retry for id={}", id);
+    debug!(transcription_id = %id, "retry transcription requested");
 
     let record = state
         .storage()
         .get_by_id(&id)
         .ok_or_else(|| "Transcription not found".to_string())?;
 
-    eprintln!(
-        "[retry_transcription] Found record: audio_path={} speech_model={} synced={}",
-        record.audio_path, record.speech_model, record.synced
+    debug!(
+        transcription_id = %id,
+        speech_model = %record.speech_model,
+        synced = record.synced,
+        "found transcription record for retry"
     );
 
     let audio_path = PathBuf::from(&record.audio_path);
@@ -96,7 +99,7 @@ pub(crate) fn retry_llm_cleanup(
                 if let Err(err) =
                     storage.update_with_llm_cleanup(&record_id, cleaned, llm_model.clone())
                 {
-                    eprintln!("Failed to save LLM cleanup: {err}");
+                    warn!(error = ?err, transcription_id = %record_id, "failed to save LLM cleanup");
                 }
                 let _ = app_handle.emit(
                     EVENT_TRANSCRIPTION_COMPLETE,
@@ -107,7 +110,7 @@ pub(crate) fn retry_llm_cleanup(
                 );
             }
             Err(err) => {
-                eprintln!("LLM cleanup failed: {err}");
+                warn!(error = ?err, transcription_id = %record_id, "LLM cleanup failed");
                 let _ = app_handle.emit(
                     EVENT_TRANSCRIPTION_ERROR,
                     TranscriptionErrorPayload {

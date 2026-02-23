@@ -4,6 +4,7 @@ use monio::{Error as MonioError, Event as MonioEvent, EventType as MonioEventTyp
 use std::collections::HashSet;
 use std::sync::{Arc, LazyLock, Mutex};
 use tauri::AppHandle;
+use tracing::error;
 
 use crate::AppRuntime;
 
@@ -551,7 +552,15 @@ fn ensure_listener_running(app: &AppHandle<AppRuntime>) -> Result<()> {
     }
 
     if let Err(err) = stop_listener_hook() {
-        eprintln!("{err}");
+        error!(
+            error = ?err,
+            "failed to stop existing input listener before restart"
+        );
+        let mut runtime = RUNTIME_HOTKEY_STATE
+            .lock()
+            .expect("hotkey state lock poisoned");
+        runtime.listening = false;
+        return Err(err);
     }
 
     let hook = Hook::new();

@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_updater::UpdaterExt;
+use tracing::{debug, info, warn};
 
 use crate::{toast, AppRuntime, AppState};
 
@@ -55,7 +56,7 @@ pub fn start_background_checker(app: AppHandle<AppRuntime>, state: SharedUpdateS
 
         loop {
             if let Err(err) = check_for_update(&app, &state).await {
-                eprintln!("[update_checker] Check failed: {err}");
+                warn!(error = ?err, "background update check failed");
             }
             tokio::time::sleep(Duration::from_secs(CHECK_INTERVAL_HOURS * 60 * 60)).await;
         }
@@ -66,14 +67,14 @@ async fn check_for_update(
     app: &AppHandle<AppRuntime>,
     state: &SharedUpdateState,
 ) -> anyhow::Result<()> {
-    eprintln!("[update_checker] Checking for updates...");
+    debug!("checking for updates");
 
     let updater = app.updater()?;
     let update = updater.check().await?;
 
     if let Some(update) = update {
         let version = update.version.clone();
-        eprintln!("[update_checker] Update available: v{version}");
+        info!(version = %version, "update available");
 
         {
             let mut guard = state.lock();
@@ -85,7 +86,7 @@ async fn check_for_update(
 
         let _ = app.emit("update:available", version);
     } else {
-        eprintln!("[update_checker] No updates available");
+        debug!("no updates available");
         state.lock().clear();
     }
 
@@ -151,7 +152,7 @@ pub fn trigger_update_check(app: AppHandle<AppRuntime>) {
     let update_state = state.update_state().clone();
     tauri::async_runtime::spawn(async move {
         if let Err(err) = check_for_update(&app, &update_state).await {
-            eprintln!("[update_checker] Manual check failed: {err}");
+            warn!(error = ?err, "manual update check failed");
         }
     });
 }
