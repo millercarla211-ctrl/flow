@@ -1,9 +1,15 @@
+0.6.7
+
+### Fixes
+- Fixed an issue where macros and related peripherals' hotkeys weren't being properly registered.
+
+---
 0.6.6
 
 ### Fixes
 
 - Fixed Whisper hallucinations where "Thank you." would be added in silent pieces of audio.
-- Fixed "An error occoured" errors from happening when spamming the transcribe button too much
+- Fixed "An error occurred" errors from happening when spamming the transcribe button too much.
 
 ### Changes
 
