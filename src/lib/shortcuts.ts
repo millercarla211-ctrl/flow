@@ -1,6 +1,5 @@
 export const shortcutModifierOrder = [
     "Command",
-    "Option",
     "Alt",
     "Control",
     "Shift",
@@ -31,10 +30,10 @@ const displayTokenMap: Record<string, string> = {
 export function normalizeShortcutModifier(event: KeyboardEvent): string | null {
     if (event.code === "MetaLeft" || event.code === "MetaRight") return "Command";
     if (event.code === "ShiftLeft" || event.code === "ShiftRight") return "Shift";
-    if (event.code === "AltLeft" || event.code === "AltRight") return isMacPlatform ? "Option" : "Alt";
+    if (event.code === "AltLeft" || event.code === "AltRight") return "Alt";
     if (event.key === "Control" || event.code === "ControlLeft" || event.code === "ControlRight") return "Control";
     if (event.key === "Shift") return "Shift";
-    if (event.key === "Alt" || event.key === "Option") return isMacPlatform ? "Option" : "Alt";
+    if (event.key === "Alt" || event.key === "Option") return "Alt";
     if (event.key === "Meta") return "Command";
     return null;
 }
@@ -72,9 +71,14 @@ export function formatShortcutKey(code: string): string | null {
 }
 
 export function sortShortcutModifiers(modifiers: Iterable<string>): string[] {
+    const canonicalModifier = (modifier: string) => (modifier === "Option" ? "Alt" : modifier);
     return Array.from(modifiers).sort((a, b) => {
-        const aIndex = shortcutModifierOrder.indexOf(a as (typeof shortcutModifierOrder)[number]);
-        const bIndex = shortcutModifierOrder.indexOf(b as (typeof shortcutModifierOrder)[number]);
+        const aIndex = shortcutModifierOrder.indexOf(
+            canonicalModifier(a) as (typeof shortcutModifierOrder)[number]
+        );
+        const bIndex = shortcutModifierOrder.indexOf(
+            canonicalModifier(b) as (typeof shortcutModifierOrder)[number]
+        );
         const normalizedAIndex = aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex;
         const normalizedBIndex = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
         return normalizedAIndex - normalizedBIndex;
