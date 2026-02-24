@@ -1,9 +1,9 @@
 export const shortcutModifierOrder = [
-    "Control",
     "Command",
-    "Shift",
     "Option",
     "Alt",
+    "Control",
+    "Shift",
 ] as const;
 
 const isMacPlatform =

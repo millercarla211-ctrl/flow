@@ -156,17 +156,17 @@ pub(crate) fn normalize_shortcut(shortcut: &str) -> Result<String> {
     })?;
 
     let mut parts = Vec::with_capacity(5);
-    if control {
-        parts.push("Control".to_string());
-    }
     if command {
         parts.push("Command".to_string());
     }
-    if shift {
-        parts.push("Shift".to_string());
-    }
     if alt {
         parts.push("Alt".to_string());
+    }
+    if control {
+        parts.push("Control".to_string());
+    }
+    if shift {
+        parts.push("Shift".to_string());
     }
     parts.push(key);
 
