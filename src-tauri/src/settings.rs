@@ -110,6 +110,57 @@ fn default_toggle_shortcut() -> String {
     "Control+Alt+Space".to_string()
 }
 
+fn migrate_legacy_shortcut(shortcut: &str) -> String {
+    let mut changed = false;
+    let migrated = shortcut
+        .split('+')
+        .map(|raw| {
+            let token = raw.trim();
+            let replacement = match token.to_ascii_lowercase().as_str() {
+                "leftcommand" | "rightcommand" => "Command",
+                "leftoption" | "rightoption" | "leftalt" | "rightalt" => "Alt",
+                "leftshift" | "rightshift" => "Shift",
+                _ => token,
+            };
+            if replacement != token {
+                changed = true;
+            }
+            replacement.to_string()
+        })
+        .collect::<Vec<_>>()
+        .join("+");
+
+    if changed {
+        migrated
+    } else {
+        shortcut.to_string()
+    }
+}
+
+fn migrate_legacy_shortcuts(settings: &mut UserSettings) -> bool {
+    let mut changed = false;
+
+    let next_smart = migrate_legacy_shortcut(&settings.smart_shortcut);
+    if next_smart != settings.smart_shortcut {
+        settings.smart_shortcut = next_smart;
+        changed = true;
+    }
+
+    let next_hold = migrate_legacy_shortcut(&settings.hold_shortcut);
+    if next_hold != settings.hold_shortcut {
+        settings.hold_shortcut = next_hold;
+        changed = true;
+    }
+
+    let next_toggle = migrate_legacy_shortcut(&settings.toggle_shortcut);
+    if next_toggle != settings.toggle_shortcut {
+        settings.toggle_shortcut = next_toggle;
+        changed = true;
+    }
+
+    changed
+}
+
 fn default_true() -> bool {
     true
 }
@@ -332,6 +383,7 @@ impl SettingsStore {
     /// Load settings from DB, falling back to defaults if empty.
     pub fn load(&self) -> Result<UserSettings> {
         let mut settings = UserSettings::default();
+        let mut should_persist = false;
         {
             let conn = self.conn.lock();
 
@@ -413,11 +465,22 @@ impl SettingsStore {
         if !settings.personalities_notes_seeded {
             seed_personality_notes(&mut settings.personalities);
             settings.personalities_notes_seeded = true;
-            self.save(&settings)?;
+            should_persist = true;
         }
 
         if matches!(settings.transcription_mode, TranscriptionMode::Cloud) {
             settings.transcription_mode = TranscriptionMode::Local;
+            should_persist = true;
+        }
+
+        if migrate_legacy_shortcuts(&mut settings) {
+            // One-time compatibility migration:
+            // older releases allowed side-specific modifier tokens (Left/Right).
+            // Global shortcut registration is now generic-only, so normalize persisted values.
+            should_persist = true;
+        }
+
+        if should_persist {
             self.save(&settings)?;
         }
 
