@@ -2,25 +2,19 @@ export const shortcutModifierOrder = [
     "Control",
     "Command",
     "Shift",
+    "Option",
     "Alt",
-    "LeftCommand",
-    "RightCommand",
-    "LeftShift",
-    "RightShift",
-    "LeftOption",
-    "RightOption",
 ] as const;
+
+const isMacPlatform =
+    typeof navigator !== "undefined" &&
+    /(Mac|iPhone|iPad|iPod)/i.test(navigator.platform || navigator.userAgent);
 
 const displayTokenMap: Record<string, string> = {
     Control: "Ctrl",
-    LeftShift: "LShift",
-    RightShift: "RShift",
     Shift: "Shift",
-    LeftOption: "L⌥",
-    RightOption: "R⌥",
-    Alt: "Alt",
-    LeftCommand: "L⌘",
-    RightCommand: "R⌘",
+    Option: isMacPlatform ? "⌥" : "Alt",
+    Alt: isMacPlatform ? "⌥" : "Alt",
     Command: "⌘",
     Space: "Space",
     Enter: "Enter",
@@ -35,15 +29,12 @@ const displayTokenMap: Record<string, string> = {
 };
 
 export function normalizeShortcutModifier(event: KeyboardEvent): string | null {
-    if (event.code === "MetaLeft") return "LeftCommand";
-    if (event.code === "MetaRight") return "RightCommand";
-    if (event.code === "ShiftLeft") return "LeftShift";
-    if (event.code === "ShiftRight") return "RightShift";
-    if (event.code === "AltLeft") return "LeftOption";
-    if (event.code === "AltRight") return "RightOption";
+    if (event.code === "MetaLeft" || event.code === "MetaRight") return "Command";
+    if (event.code === "ShiftLeft" || event.code === "ShiftRight") return "Shift";
+    if (event.code === "AltLeft" || event.code === "AltRight") return isMacPlatform ? "Option" : "Alt";
     if (event.key === "Control" || event.code === "ControlLeft" || event.code === "ControlRight") return "Control";
     if (event.key === "Shift") return "Shift";
-    if (event.key === "Alt" || event.key === "Option") return "Alt";
+    if (event.key === "Alt" || event.key === "Option") return isMacPlatform ? "Option" : "Alt";
     if (event.key === "Meta") return "Command";
     return null;
 }

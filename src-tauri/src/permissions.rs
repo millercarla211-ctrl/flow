@@ -3,6 +3,7 @@
 #[cfg(target_os = "macos")]
 mod macos {
     use std::process::Command;
+    #[cfg(debug_assertions)]
     use tracing::debug;
 
     /// Check if accessibility (AX) permission is granted.
