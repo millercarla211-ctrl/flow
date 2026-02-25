@@ -429,16 +429,18 @@ impl SettingsStore {
                                 "Error: Failed to decrypt API key: {}. Preserving encrypted value.",
                                 e
                             );
-                            settings.llm_api_key = encrypted_key.clone();
+                            settings.llm_api_key = String::new();
                             llm_api_key_ciphertext = Some(encrypted_key);
                         }
                     }
                 }
             } else {
                 eprintln!("Warning: Could not get hardware UUID, preserving stored API key");
-                settings.llm_api_key = encrypted_key.clone();
                 if key_looks_encrypted {
+                    settings.llm_api_key = String::new();
                     llm_api_key_ciphertext = Some(encrypted_key);
+                } else {
+                    settings.llm_api_key = encrypted_key;
                 }
             }
         }
@@ -467,8 +469,7 @@ impl SettingsStore {
         let stored_key = {
             let mut llm_api_key_ciphertext = self.llm_api_key_ciphertext.lock();
             if settings.llm_api_key.is_empty() {
-                *llm_api_key_ciphertext = None;
-                String::new()
+                llm_api_key_ciphertext.clone().unwrap_or_default()
             } else if llm_api_key_ciphertext
                 .as_ref()
                 .is_some_and(|ciphertext| ciphertext == &settings.llm_api_key)
@@ -617,7 +618,7 @@ mod tests {
 
         let loaded = store.load().expect("load settings");
 
-        assert_eq!(loaded.llm_api_key, ciphertext);
+        assert!(loaded.llm_api_key.is_empty());
         assert_eq!(loaded.transcription_mode, TranscriptionMode::Local);
         assert_eq!(read_string_setting(&store, KEY_LLM_API_KEY), ciphertext);
         assert_eq!(
@@ -646,7 +647,7 @@ mod tests {
         write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
 
         let first_load = store.load().expect("first settings load");
-        assert_eq!(first_load.llm_api_key, unreadable_ciphertext);
+        assert!(first_load.llm_api_key.is_empty());
 
         let plaintext = "sk-restored-readable";
         let readable_ciphertext =
@@ -661,10 +662,12 @@ mod tests {
     }
 
     #[test]
-    fn empty_api_key_save_clears_ciphertext_and_db_value() {
+    fn empty_api_key_save_preserves_cached_ciphertext() {
         let store = test_store();
 
-        *store.llm_api_key_ciphertext.lock() = Some("ciphertext-cache".to_string());
+        let cached_ciphertext = "ciphertext-cache".to_string();
+        *store.llm_api_key_ciphertext.lock() = Some(cached_ciphertext.clone());
+        write_setting(&store, KEY_LLM_API_KEY, &cached_ciphertext);
 
         let mut settings = UserSettings::default();
         settings.personalities_notes_seeded = true;
@@ -673,6 +676,27 @@ mod tests {
         store
             .save(&settings)
             .expect("save settings with empty API key");
+
+        assert_eq!(
+            store.llm_api_key_ciphertext.lock().clone(),
+            Some(cached_ciphertext.clone())
+        );
+        assert_eq!(read_string_setting(&store, KEY_LLM_API_KEY), cached_ciphertext);
+    }
+
+    #[test]
+    fn empty_api_key_save_without_cached_ciphertext_clears_db_value() {
+        let store = test_store();
+
+        write_setting(&store, KEY_LLM_API_KEY, &"stale-value");
+
+        let mut settings = UserSettings::default();
+        settings.personalities_notes_seeded = true;
+        settings.llm_api_key = String::new();
+
+        store
+            .save(&settings)
+            .expect("save settings with empty API key and no cache");
 
         assert_eq!(store.llm_api_key_ciphertext.lock().clone(), None);
         assert!(read_string_setting(&store, KEY_LLM_API_KEY).is_empty());
