@@ -1,8 +1,11 @@
 use tauri::{AppHandle, Emitter};
 
 use super::hotkeys;
-use crate::settings::{LlmProvider, TranscriptionMode, UserSettings};
-use crate::{analytics, model_manager, pill, tray, AppRuntime, AppState, EVENT_SETTINGS_CHANGED};
+use crate::settings::{LlmProvider, TranscriptionMode, UpdateChannel, UserSettings};
+use crate::{
+    analytics, model_manager, pill, tray, update_checker, AppRuntime, AppState,
+    EVENT_SETTINGS_CHANGED,
+};
 
 #[derive(Debug)]
 pub(crate) struct UpdateSettingsArgs {
@@ -16,6 +19,7 @@ pub(crate) struct UpdateSettingsArgs {
     pub local_model: String,
     pub microphone_device: Option<String>,
     pub language: String,
+    pub update_channel: UpdateChannel,
     pub llm_cleanup_enabled: bool,
     pub llm_provider: LlmProvider,
     pub llm_endpoint: String,
@@ -158,6 +162,7 @@ pub(crate) fn update_settings(
     next.local_model = args.local_model;
     next.microphone_device = args.microphone_device;
     next.language = args.language;
+    next.update_channel = args.update_channel;
     next.llm_cleanup_enabled = args.llm_cleanup_enabled;
     next.llm_provider = args.llm_provider;
     next.llm_endpoint = args.llm_endpoint;
@@ -188,6 +193,11 @@ pub(crate) fn update_settings(
 
     if let Err(err) = app.emit(EVENT_SETTINGS_CHANGED, &next) {
         eprintln!("Failed to emit settings change: {err}");
+    }
+
+    if prev.update_channel != next.update_channel {
+        update_checker::clear_update_state(app.clone());
+        update_checker::trigger_update_check(app.clone());
     }
 
     Ok(next)

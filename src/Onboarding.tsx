@@ -307,6 +307,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                 localModel: localModelChoice,
                 microphoneDevice: null,
                 language: "en",
+                updateChannel: "stable",
                 llmCleanupEnabled: false,
                 llmProvider: "custom",
                 llmEndpoint: "",

@@ -18,6 +18,7 @@ const KEY_TRANSCRIPTION_MODE: &str = "transcription_mode";
 const KEY_LOCAL_MODEL: &str = "local_model";
 const KEY_MICROPHONE_DEVICE: &str = "microphone_device";
 const KEY_LANGUAGE: &str = "language";
+const KEY_UPDATE_CHANNEL: &str = "update_channel";
 const KEY_LLM_CLEANUP_ENABLED: &str = "llm_cleanup_enabled";
 const KEY_LLM_PROVIDER: &str = "llm_provider";
 const KEY_LLM_ENDPOINT: &str = "llm_endpoint";
@@ -74,6 +75,8 @@ pub struct UserSettings {
     pub microphone_device: Option<String>,
     #[serde(default = "default_language")]
     pub language: String,
+    #[serde(default = "default_update_channel")]
+    pub update_channel: UpdateChannel,
     #[serde(default)]
     pub llm_cleanup_enabled: bool,
     #[serde(default = "default_llm_provider")]
@@ -232,6 +235,7 @@ impl Default for UserSettings {
             local_model: default_local_model(),
             microphone_device: None,
             language: default_language(),
+            update_channel: default_update_channel(),
             llm_cleanup_enabled: false,
             llm_provider: default_llm_provider(),
             llm_endpoint: String::new(),
@@ -257,6 +261,18 @@ pub enum TranscriptionMode {
 
 fn default_transcription_mode() -> TranscriptionMode {
     TranscriptionMode::Local
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum UpdateChannel {
+    #[default]
+    Stable,
+    Beta,
+}
+
+fn default_update_channel() -> UpdateChannel {
+    UpdateChannel::Stable
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -370,6 +386,8 @@ impl SettingsStore {
                 settings.microphone_device.clone(),
             )?;
             settings.language = self.read_value(&conn, KEY_LANGUAGE, settings.language.clone())?;
+            settings.update_channel =
+                self.read_value(&conn, KEY_UPDATE_CHANNEL, settings.update_channel.clone())?;
             settings.llm_cleanup_enabled =
                 self.read_value(&conn, KEY_LLM_CLEANUP_ENABLED, settings.llm_cleanup_enabled)?;
             settings.llm_provider =
@@ -483,6 +501,7 @@ impl SettingsStore {
         self.write_value(&conn, KEY_LOCAL_MODEL, &settings.local_model)?;
         self.write_value(&conn, KEY_MICROPHONE_DEVICE, &settings.microphone_device)?;
         self.write_value(&conn, KEY_LANGUAGE, &settings.language)?;
+        self.write_value(&conn, KEY_UPDATE_CHANNEL, &settings.update_channel)?;
         self.write_value(
             &conn,
             KEY_LLM_CLEANUP_ENABLED,
@@ -550,4 +569,112 @@ fn db_path(app: &AppHandle) -> Result<PathBuf> {
     dir.push("Glimpse");
     dir.push(SETTINGS_DB_FILE_NAME);
     Ok(dir)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_store() -> SettingsStore {
+        let store = SettingsStore {
+            conn: Mutex::new(Connection::open_in_memory().expect("open in-memory sqlite DB")),
+            llm_api_key_ciphertext: Mutex::new(None),
+        };
+        store.init_schema().expect("init settings schema");
+        store
+    }
+
+    fn write_setting<T: Serialize>(store: &SettingsStore, key: &str, value: &T) {
+        let conn = store.conn.lock();
+        store
+            .write_value(&conn, key, value)
+            .expect("write test setting");
+    }
+
+    fn read_string_setting(store: &SettingsStore, key: &str) -> String {
+        let conn = store.conn.lock();
+        store
+            .read_value(&conn, key, String::new())
+            .expect("read string setting")
+    }
+
+    fn read_mode_setting(store: &SettingsStore, key: &str) -> TranscriptionMode {
+        let conn = store.conn.lock();
+        store
+            .read_value(&conn, key, TranscriptionMode::Local)
+            .expect("read transcription mode setting")
+    }
+
+    #[test]
+    fn deferred_save_preserves_ciphertext_when_key_is_not_decryptable() {
+        let store = test_store();
+        let ciphertext = crate::crypto::encrypt("sk-preserve-me", "different-hardware-uuid")
+            .expect("encrypt fixture API key");
+
+        write_setting(&store, KEY_LLM_API_KEY, &ciphertext);
+        write_setting(&store, KEY_TRANSCRIPTION_MODE, &TranscriptionMode::Cloud);
+        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
+
+        let loaded = store.load().expect("load settings");
+
+        assert_eq!(loaded.llm_api_key, ciphertext);
+        assert_eq!(loaded.transcription_mode, TranscriptionMode::Local);
+        assert_eq!(read_string_setting(&store, KEY_LLM_API_KEY), ciphertext);
+        assert_eq!(
+            read_mode_setting(&store, KEY_TRANSCRIPTION_MODE),
+            TranscriptionMode::Local
+        );
+        assert_eq!(
+            store.llm_api_key_ciphertext.lock().clone(),
+            Some(ciphertext)
+        );
+    }
+
+    #[test]
+    fn key_becomes_accessible_after_decryptable_value_is_saved() {
+        let Some(hardware_uuid) = crate::crypto::get_hardware_uuid() else {
+            eprintln!("Skipping: hardware UUID unavailable on this platform");
+            return;
+        };
+
+        let store = test_store();
+
+        let unreadable_ciphertext =
+            crate::crypto::encrypt("sk-temporarily-unreadable", "different-hardware-uuid")
+                .expect("encrypt unreadable fixture");
+        write_setting(&store, KEY_LLM_API_KEY, &unreadable_ciphertext);
+        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
+
+        let first_load = store.load().expect("first settings load");
+        assert_eq!(first_load.llm_api_key, unreadable_ciphertext);
+
+        let plaintext = "sk-restored-readable";
+        let readable_ciphertext =
+            crate::crypto::encrypt(plaintext, &hardware_uuid).expect("encrypt readable fixture");
+        write_setting(&store, KEY_LLM_API_KEY, &readable_ciphertext);
+        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
+        write_setting(&store, KEY_TRANSCRIPTION_MODE, &TranscriptionMode::Local);
+
+        let second_load = store.load().expect("second settings load");
+        assert_eq!(second_load.llm_api_key, plaintext);
+        assert_eq!(store.llm_api_key_ciphertext.lock().clone(), None);
+    }
+
+    #[test]
+    fn empty_api_key_save_clears_ciphertext_and_db_value() {
+        let store = test_store();
+
+        *store.llm_api_key_ciphertext.lock() = Some("ciphertext-cache".to_string());
+
+        let mut settings = UserSettings::default();
+        settings.personalities_notes_seeded = true;
+        settings.llm_api_key = String::new();
+
+        store
+            .save(&settings)
+            .expect("save settings with empty API key");
+
+        assert_eq!(store.llm_api_key_ciphertext.lock().clone(), None);
+        assert!(read_string_setting(&store, KEY_LLM_API_KEY).is_empty());
+    }
 }

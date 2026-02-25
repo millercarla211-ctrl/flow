@@ -36,6 +36,7 @@ import type {
     DeviceInfo,
     DownloadEvent,
     LlmProvider,
+    UpdateChannel,
 } from "../../types";
 
 const TEXT_SIZE_MODE_STORAGE_KEY = "glimpse_text_size_mode";
@@ -70,6 +71,7 @@ const SettingsModal = ({
     const [localModel, setLocalModel] = useState("parakeet_tdt_int8");
     const [microphoneDevice, setMicrophoneDevice] = useState<string | null>(null);
     const [language, setLanguage] = useState("en");
+    const [updateChannel, setUpdateChannel] = useState<UpdateChannel>("stable");
     const [inputDevices, setInputDevices] = useState<DeviceInfo[]>([]);
     const [modelCatalog, setModelCatalog] = useState<ModelInfo[]>([]);
     const [modelStatus, setModelStatus] = useState<Record<string, ModelStatus>>({});
@@ -252,6 +254,7 @@ const SettingsModal = ({
             setLocalModel(settings.local_model);
             setMicrophoneDevice(settings.microphone_device);
             setLanguage(settings.language);
+            setUpdateChannel(settings.update_channel ?? "stable");
             setLlmCleanupEnabled(settings.llm_cleanup_enabled ?? false);
             setLlmProvider(settings.llm_provider ?? "none");
             setLlmEndpoint(settings.llm_endpoint ?? "");
@@ -301,6 +304,7 @@ const SettingsModal = ({
                     setLocalModel(settings.local_model);
                     setMicrophoneDevice(settings.microphone_device);
                     setLanguage(settings.language);
+                    setUpdateChannel(settings.update_channel ?? "stable");
                     setLlmCleanupEnabled(settings.llm_cleanup_enabled ?? false);
                     setLlmProvider(settings.llm_provider ?? "none");
                     setLlmEndpoint(settings.llm_endpoint ?? "");
@@ -595,6 +599,7 @@ const SettingsModal = ({
                     localModel,
                     microphoneDevice,
                     language,
+                    updateChannel,
                     llmCleanupEnabled,
                     llmProvider,
                     llmEndpoint,
@@ -622,6 +627,7 @@ const SettingsModal = ({
         localModel,
         microphoneDevice,
         language,
+        updateChannel,
         llmCleanupEnabled,
         llmProvider,
         llmEndpoint,
@@ -929,6 +935,8 @@ const SettingsModal = ({
                                             formatBytes={formatBytes}
                                             onOpenDataDir={handleOpenDataDir}
                                             onOpenFAQ={() => setShowFAQModal(true)}
+                                            updateChannel={updateChannel}
+                                            onUpdateChannelChange={setUpdateChannel}
                                         />
                                     )}
                                 </AnimatePresence>
@@ -939,7 +947,11 @@ const SettingsModal = ({
             )}
 
             <FAQModal isOpen={showFAQModal} onClose={() => setShowFAQModal(false)} />
-            <WhatsNewModal isOpen={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
+            <WhatsNewModal
+                isOpen={whatsNewOpen}
+                onClose={() => setWhatsNewOpen(false)}
+                updateChannel={updateChannel}
+            />
         </AnimatePresence>
     );
 

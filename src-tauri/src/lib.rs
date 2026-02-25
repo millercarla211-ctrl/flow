@@ -43,7 +43,9 @@ use recorder::{
 };
 use reqwest::Client;
 use serde::Serialize;
-use settings::{default_local_model, LlmProvider, SettingsStore, TranscriptionMode, UserSettings};
+use settings::{
+    default_local_model, LlmProvider, SettingsStore, TranscriptionMode, UpdateChannel, UserSettings,
+};
 use tauri::async_runtime;
 use tauri::tray::TrayIcon;
 use tauri::Emitter;
@@ -375,7 +377,9 @@ pub fn run() {
             fetch_llm_models,
             open_whats_new,
             open_about_page,
-            update_checker::get_update_status
+            update_checker::get_update_status,
+            update_checker::check_for_updates,
+            update_checker::download_and_install_update
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -877,6 +881,7 @@ fn update_settings(
     localModel: String,
     microphoneDevice: Option<String>,
     language: String,
+    updateChannel: UpdateChannel,
     llmCleanupEnabled: bool,
     llmProvider: LlmProvider,
     llmEndpoint: String,
@@ -898,6 +903,7 @@ fn update_settings(
             local_model: localModel,
             microphone_device: microphoneDevice,
             language,
+            update_channel: updateChannel,
             llm_cleanup_enabled: llmCleanupEnabled,
             llm_provider: llmProvider,
             llm_endpoint: llmEndpoint,
