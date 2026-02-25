@@ -752,30 +752,30 @@ pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
         let hold_shortcut = settings.hold_shortcut.clone();
         let check_toggle_overlap = hold_is_subset_of_toggle;
         let toggle_shortcut_normalized = toggle_shortcut_normalized.clone();
-        provider.on_shortcut(hold_shortcut.as_str(), move |app, event| {
-            if shortcuts_paused(app) {
-                return;
+        if check_toggle_overlap {
+            if let Some(toggle_shortcut) = toggle_shortcut_normalized.as_ref() {
+                eprintln!(
+                    "Skipping Hold shortcut `{hold_shortcut}` because it overlaps Toggle shortcut `{toggle_shortcut}`"
+                );
             }
-            if check_toggle_overlap {
-                if let Some(toggle_shortcut) = toggle_shortcut_normalized.as_ref() {
-                    let pressed_shortcut = event.shortcut.trim();
-                    if pressed_shortcut == *toggle_shortcut {
-                        return;
-                    }
+        } else {
+            provider.on_shortcut(hold_shortcut.as_str(), move |app, event| {
+                if shortcuts_paused(app) {
+                    return;
                 }
-            }
-            let state = app.state::<AppState>();
-            let pill = state.pill();
-            match event.state {
-                HotkeyState::Pressed => {
-                    if pill.should_ignore_shortcut_press() {
-                        return;
+                let state = app.state::<AppState>();
+                let pill = state.pill();
+                match event.state {
+                    HotkeyState::Pressed => {
+                        if pill.should_ignore_shortcut_press() {
+                            return;
+                        }
+                        let _ = pill.handle_hold_press(app);
                     }
-                    let _ = pill.handle_hold_press(app);
+                    HotkeyState::Released => pill.handle_hold_release(app),
                 }
-                HotkeyState::Released => pill.handle_hold_release(app),
-            }
-        })?;
+            })?;
+        }
     }
 
     if settings.toggle_enabled && toggle_shortcut_normalized.is_some() {

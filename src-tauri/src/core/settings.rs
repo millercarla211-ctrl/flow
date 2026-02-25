@@ -24,6 +24,20 @@ pub(crate) struct UpdateSettingsArgs {
     pub edit_mode_enabled: bool,
 }
 
+fn canonicalize_shortcut_for_storage(shortcut: &str) -> String {
+    shortcut
+        .split('+')
+        .map(|raw| {
+            let token = raw.trim();
+            match token.to_ascii_lowercase().as_str() {
+                "option" | "leftoption" | "rightoption" => "Alt".to_string(),
+                _ => token.to_string(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("+")
+}
+
 pub(crate) fn complete_onboarding(
     app: &AppHandle<AppRuntime>,
     state: &AppState,
@@ -134,11 +148,11 @@ pub(crate) fn update_settings(
 
     let mut next = state.current_settings();
     let prev = next.clone();
-    next.smart_shortcut = args.smart_shortcut;
+    next.smart_shortcut = canonicalize_shortcut_for_storage(&args.smart_shortcut);
     next.smart_enabled = args.smart_enabled;
-    next.hold_shortcut = args.hold_shortcut;
+    next.hold_shortcut = canonicalize_shortcut_for_storage(&args.hold_shortcut);
     next.hold_enabled = args.hold_enabled;
-    next.toggle_shortcut = args.toggle_shortcut;
+    next.toggle_shortcut = canonicalize_shortcut_for_storage(&args.toggle_shortcut);
     next.toggle_enabled = args.toggle_enabled;
     next.transcription_mode = args.transcription_mode;
     next.local_model = args.local_model;

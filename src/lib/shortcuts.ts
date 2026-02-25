@@ -38,15 +38,21 @@ const modifierPriorityMap: Record<string, number> = {
     Command: 0,
     Meta: 0,
     Super: 0,
-    Option: 1,
     Alt: 1,
     Control: 2,
     Ctrl: 2,
     Shift: 3,
 };
 
+function canonicalizeModifierToken(modifier: string): string {
+    if (modifier === "Option") return "Alt";
+    if (modifier === "Ctrl") return "Control";
+    return modifier;
+}
+
 function orderShortcutModifiers(modifiers: Iterable<string>): string[] {
-    return Array.from(modifiers).sort((a, b) => {
+    const canonicalModifiers = Array.from(new Set(Array.from(modifiers, canonicalizeModifierToken)));
+    return canonicalModifiers.sort((a, b) => {
         const priorityA = modifierPriorityMap[a] ?? Number.MAX_SAFE_INTEGER;
         const priorityB = modifierPriorityMap[b] ?? Number.MAX_SAFE_INTEGER;
         if (priorityA !== priorityB) return priorityA - priorityB;
@@ -72,7 +78,7 @@ export function normalizeShortcutModifier(event: KeyboardEvent): string | null {
         event.key === "Alt" ||
         event.key === "Option"
     ) {
-        return isMacPlatform ? "Option" : "Alt";
+        return "Alt";
     }
     if (event.code === "ControlLeft" || event.code === "ControlRight" || event.key === "Control" || event.key === "Ctrl") {
         return "Control";

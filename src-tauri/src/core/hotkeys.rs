@@ -13,7 +13,6 @@ pub(crate) enum HotkeyState {
 #[derive(Debug, Clone)]
 pub(crate) struct HotkeyEvent {
     pub state: HotkeyState,
-    pub shortcut: String,
 }
 
 pub(crate) trait HotkeyProvider {
@@ -191,18 +190,12 @@ impl HotkeyProvider for GlobalShortcutProvider<'_> {
         let normalized_shortcut = normalize_shortcut(shortcut)?;
         self.app
             .global_shortcut()
-            .on_shortcut(normalized_shortcut.as_str(), move |app, pressed_shortcut, event| {
+            .on_shortcut(normalized_shortcut.as_str(), move |app, _pressed_shortcut, event| {
                 let state = match event.state {
                     ShortcutState::Pressed => HotkeyState::Pressed,
                     ShortcutState::Released => HotkeyState::Released,
                 };
-                handler(
-                    app,
-                    HotkeyEvent {
-                        state,
-                        shortcut: pressed_shortcut.to_string(),
-                    },
-                );
+                handler(app, HotkeyEvent { state });
             })
             .map_err(|err| {
                 anyhow!(
