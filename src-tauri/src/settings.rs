@@ -18,6 +18,7 @@ const KEY_TRANSCRIPTION_MODE: &str = "transcription_mode";
 const KEY_LOCAL_MODEL: &str = "local_model";
 const KEY_MICROPHONE_DEVICE: &str = "microphone_device";
 const KEY_LANGUAGE: &str = "language";
+const KEY_UPDATE_CHANNEL: &str = "update_channel";
 const KEY_LLM_CLEANUP_ENABLED: &str = "llm_cleanup_enabled";
 const KEY_LLM_PROVIDER: &str = "llm_provider";
 const KEY_LLM_ENDPOINT: &str = "llm_endpoint";
@@ -74,6 +75,8 @@ pub struct UserSettings {
     pub microphone_device: Option<String>,
     #[serde(default = "default_language")]
     pub language: String,
+    #[serde(default = "default_update_channel")]
+    pub update_channel: UpdateChannel,
     #[serde(default)]
     pub llm_cleanup_enabled: bool,
     #[serde(default = "default_llm_provider")]
@@ -232,6 +235,7 @@ impl Default for UserSettings {
             local_model: default_local_model(),
             microphone_device: None,
             language: default_language(),
+            update_channel: default_update_channel(),
             llm_cleanup_enabled: false,
             llm_provider: default_llm_provider(),
             llm_endpoint: String::new(),
@@ -257,6 +261,18 @@ pub enum TranscriptionMode {
 
 fn default_transcription_mode() -> TranscriptionMode {
     TranscriptionMode::Local
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum UpdateChannel {
+    #[default]
+    Stable,
+    Beta,
+}
+
+fn default_update_channel() -> UpdateChannel {
+    UpdateChannel::Stable
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -297,6 +313,7 @@ fn default_language() -> String {
 
 pub struct SettingsStore {
     conn: Mutex<Connection>,
+    llm_api_key_ciphertext: Mutex<Option<String>>,
 }
 
 impl SettingsStore {
@@ -312,6 +329,7 @@ impl SettingsStore {
 
         let store = Self {
             conn: Mutex::new(conn),
+            llm_api_key_ciphertext: Mutex::new(None),
         };
 
         store.init_schema()?;
@@ -332,6 +350,9 @@ impl SettingsStore {
     /// Load settings from DB, falling back to defaults if empty.
     pub fn load(&self) -> Result<UserSettings> {
         let mut settings = UserSettings::default();
+        let mut should_persist = false;
+        let mut llm_api_key_ciphertext: Option<String> = None;
+        let encrypted_key: String;
         {
             let conn = self.conn.lock();
 
@@ -365,6 +386,8 @@ impl SettingsStore {
                 settings.microphone_device.clone(),
             )?;
             settings.language = self.read_value(&conn, KEY_LANGUAGE, settings.language.clone())?;
+            settings.update_channel =
+                self.read_value(&conn, KEY_UPDATE_CHANNEL, settings.update_channel.clone())?;
             settings.llm_cleanup_enabled =
                 self.read_value(&conn, KEY_LLM_CLEANUP_ENABLED, settings.llm_cleanup_enabled)?;
             settings.llm_provider =
@@ -372,24 +395,7 @@ impl SettingsStore {
             settings.llm_endpoint =
                 self.read_value(&conn, KEY_LLM_ENDPOINT, settings.llm_endpoint.clone())?;
 
-            let encrypted_key: String = self.read_value(&conn, KEY_LLM_API_KEY, String::new())?;
-            if !encrypted_key.is_empty() {
-                if let Some(hardware_uuid) = crate::crypto::get_hardware_uuid() {
-                    match crate::crypto::decrypt(&encrypted_key, &hardware_uuid) {
-                        Ok(decrypted) => settings.llm_api_key = decrypted,
-                        Err(e) => {
-                            if !crate::crypto::looks_encrypted(&encrypted_key) {
-                                settings.llm_api_key = encrypted_key;
-                            } else {
-                                eprintln!("Error: Failed to decrypt API key: {}. Key will need to be re-entered.", e);
-                            }
-                        }
-                    }
-                } else {
-                    eprintln!("Warning: Could not get hardware UUID, API key won't be encrypted");
-                    settings.llm_api_key = encrypted_key;
-                }
-            }
+            encrypted_key = self.read_value(&conn, KEY_LLM_API_KEY, String::new())?;
 
             settings.llm_model =
                 self.read_value(&conn, KEY_LLM_MODEL, settings.llm_model.clone())?;
@@ -410,14 +416,48 @@ impl SettingsStore {
                 self.read_value(&conn, KEY_EDIT_MODE_ENABLED, settings.edit_mode_enabled)?;
         }
 
+        if !encrypted_key.is_empty() {
+            let key_looks_encrypted = crate::crypto::looks_encrypted(&encrypted_key);
+            if let Some(hardware_uuid) = crate::crypto::get_hardware_uuid() {
+                match crate::crypto::decrypt(&encrypted_key, &hardware_uuid) {
+                    Ok(decrypted) => settings.llm_api_key = decrypted,
+                    Err(e) => {
+                        if !key_looks_encrypted {
+                            settings.llm_api_key = encrypted_key;
+                        } else {
+                            eprintln!(
+                                "Error: Failed to decrypt API key: {}. Preserving encrypted value.",
+                                e
+                            );
+                            settings.llm_api_key = String::new();
+                            llm_api_key_ciphertext = Some(encrypted_key);
+                        }
+                    }
+                }
+            } else {
+                eprintln!("Warning: Could not get hardware UUID, preserving stored API key");
+                if key_looks_encrypted {
+                    settings.llm_api_key = String::new();
+                    llm_api_key_ciphertext = Some(encrypted_key);
+                } else {
+                    settings.llm_api_key = encrypted_key;
+                }
+            }
+        }
+        *self.llm_api_key_ciphertext.lock() = llm_api_key_ciphertext;
+
         if !settings.personalities_notes_seeded {
             seed_personality_notes(&mut settings.personalities);
             settings.personalities_notes_seeded = true;
-            self.save(&settings)?;
+            should_persist = true;
         }
 
         if matches!(settings.transcription_mode, TranscriptionMode::Cloud) {
             settings.transcription_mode = TranscriptionMode::Local;
+            should_persist = true;
+        }
+
+        if should_persist {
             self.save(&settings)?;
         }
 
@@ -426,6 +466,26 @@ impl SettingsStore {
 
     /// Persist settings into DB immediately.
     pub fn save(&self, settings: &UserSettings) -> Result<()> {
+        let stored_key = {
+            let mut llm_api_key_ciphertext = self.llm_api_key_ciphertext.lock();
+            if settings.llm_api_key.is_empty() {
+                llm_api_key_ciphertext.clone().unwrap_or_default()
+            } else if llm_api_key_ciphertext
+                .as_ref()
+                .is_some_and(|ciphertext| ciphertext == &settings.llm_api_key)
+            {
+                settings.llm_api_key.clone()
+            } else if let Some(hardware_uuid) = crate::crypto::get_hardware_uuid() {
+                *llm_api_key_ciphertext = None;
+                crate::crypto::encrypt(&settings.llm_api_key, &hardware_uuid)
+                    .map_err(|e| anyhow::anyhow!("Failed to encrypt API key: {}", e))?
+            } else {
+                *llm_api_key_ciphertext = None;
+                eprintln!("Warning: Could not get hardware UUID, storing API key unencrypted");
+                settings.llm_api_key.clone()
+            }
+        };
+
         let conn = self.conn.lock();
         self.write_value(
             &conn,
@@ -442,6 +502,7 @@ impl SettingsStore {
         self.write_value(&conn, KEY_LOCAL_MODEL, &settings.local_model)?;
         self.write_value(&conn, KEY_MICROPHONE_DEVICE, &settings.microphone_device)?;
         self.write_value(&conn, KEY_LANGUAGE, &settings.language)?;
+        self.write_value(&conn, KEY_UPDATE_CHANNEL, &settings.update_channel)?;
         self.write_value(
             &conn,
             KEY_LLM_CLEANUP_ENABLED,
@@ -449,16 +510,6 @@ impl SettingsStore {
         )?;
         self.write_value(&conn, KEY_LLM_PROVIDER, &settings.llm_provider)?;
         self.write_value(&conn, KEY_LLM_ENDPOINT, &settings.llm_endpoint)?;
-
-        let stored_key = if settings.llm_api_key.is_empty() {
-            String::new()
-        } else if let Some(hardware_uuid) = crate::crypto::get_hardware_uuid() {
-            crate::crypto::encrypt(&settings.llm_api_key, &hardware_uuid)
-                .map_err(|e| anyhow::anyhow!("Failed to encrypt API key: {}", e))?
-        } else {
-            eprintln!("Warning: Could not get hardware UUID, storing API key unencrypted");
-            settings.llm_api_key.clone()
-        };
         self.write_value(&conn, KEY_LLM_API_KEY, &stored_key)?;
 
         self.write_value(&conn, KEY_LLM_MODEL, &settings.llm_model)?;
@@ -519,4 +570,135 @@ fn db_path(app: &AppHandle) -> Result<PathBuf> {
     dir.push("Glimpse");
     dir.push(SETTINGS_DB_FILE_NAME);
     Ok(dir)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_store() -> SettingsStore {
+        let store = SettingsStore {
+            conn: Mutex::new(Connection::open_in_memory().expect("open in-memory sqlite DB")),
+            llm_api_key_ciphertext: Mutex::new(None),
+        };
+        store.init_schema().expect("init settings schema");
+        store
+    }
+
+    fn write_setting<T: Serialize>(store: &SettingsStore, key: &str, value: &T) {
+        let conn = store.conn.lock();
+        store
+            .write_value(&conn, key, value)
+            .expect("write test setting");
+    }
+
+    fn read_string_setting(store: &SettingsStore, key: &str) -> String {
+        let conn = store.conn.lock();
+        store
+            .read_value(&conn, key, String::new())
+            .expect("read string setting")
+    }
+
+    fn read_mode_setting(store: &SettingsStore, key: &str) -> TranscriptionMode {
+        let conn = store.conn.lock();
+        store
+            .read_value(&conn, key, TranscriptionMode::Local)
+            .expect("read transcription mode setting")
+    }
+
+    #[test]
+    fn deferred_save_preserves_ciphertext_when_key_is_not_decryptable() {
+        let store = test_store();
+        let ciphertext = crate::crypto::encrypt("sk-preserve-me", "different-hardware-uuid")
+            .expect("encrypt fixture API key");
+
+        write_setting(&store, KEY_LLM_API_KEY, &ciphertext);
+        write_setting(&store, KEY_TRANSCRIPTION_MODE, &TranscriptionMode::Cloud);
+        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
+
+        let loaded = store.load().expect("load settings");
+
+        assert!(loaded.llm_api_key.is_empty());
+        assert_eq!(loaded.transcription_mode, TranscriptionMode::Local);
+        assert_eq!(read_string_setting(&store, KEY_LLM_API_KEY), ciphertext);
+        assert_eq!(
+            read_mode_setting(&store, KEY_TRANSCRIPTION_MODE),
+            TranscriptionMode::Local
+        );
+        assert_eq!(
+            store.llm_api_key_ciphertext.lock().clone(),
+            Some(ciphertext)
+        );
+    }
+
+    #[test]
+    fn key_becomes_accessible_after_decryptable_value_is_saved() {
+        let Some(hardware_uuid) = crate::crypto::get_hardware_uuid() else {
+            eprintln!("Skipping: hardware UUID unavailable on this platform");
+            return;
+        };
+
+        let store = test_store();
+
+        let unreadable_ciphertext =
+            crate::crypto::encrypt("sk-temporarily-unreadable", "different-hardware-uuid")
+                .expect("encrypt unreadable fixture");
+        write_setting(&store, KEY_LLM_API_KEY, &unreadable_ciphertext);
+        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
+
+        let first_load = store.load().expect("first settings load");
+        assert!(first_load.llm_api_key.is_empty());
+
+        let plaintext = "sk-restored-readable";
+        let readable_ciphertext =
+            crate::crypto::encrypt(plaintext, &hardware_uuid).expect("encrypt readable fixture");
+        write_setting(&store, KEY_LLM_API_KEY, &readable_ciphertext);
+        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
+        write_setting(&store, KEY_TRANSCRIPTION_MODE, &TranscriptionMode::Local);
+
+        let second_load = store.load().expect("second settings load");
+        assert_eq!(second_load.llm_api_key, plaintext);
+        assert_eq!(store.llm_api_key_ciphertext.lock().clone(), None);
+    }
+
+    #[test]
+    fn empty_api_key_save_preserves_cached_ciphertext() {
+        let store = test_store();
+
+        let cached_ciphertext = "ciphertext-cache".to_string();
+        *store.llm_api_key_ciphertext.lock() = Some(cached_ciphertext.clone());
+        write_setting(&store, KEY_LLM_API_KEY, &cached_ciphertext);
+
+        let mut settings = UserSettings::default();
+        settings.personalities_notes_seeded = true;
+        settings.llm_api_key = String::new();
+
+        store
+            .save(&settings)
+            .expect("save settings with empty API key");
+
+        assert_eq!(
+            store.llm_api_key_ciphertext.lock().clone(),
+            Some(cached_ciphertext.clone())
+        );
+        assert_eq!(read_string_setting(&store, KEY_LLM_API_KEY), cached_ciphertext);
+    }
+
+    #[test]
+    fn empty_api_key_save_without_cached_ciphertext_clears_db_value() {
+        let store = test_store();
+
+        write_setting(&store, KEY_LLM_API_KEY, &"stale-value");
+
+        let mut settings = UserSettings::default();
+        settings.personalities_notes_seeded = true;
+        settings.llm_api_key = String::new();
+
+        store
+            .save(&settings)
+            .expect("save settings with empty API key and no cache");
+
+        assert_eq!(store.llm_api_key_ciphertext.lock().clone(), None);
+        assert!(read_string_setting(&store, KEY_LLM_API_KEY).is_empty());
+    }
 }

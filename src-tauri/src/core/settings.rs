@@ -1,7 +1,11 @@
 use tauri::{AppHandle, Emitter};
 
-use crate::settings::{LlmProvider, TranscriptionMode, UserSettings};
-use crate::{analytics, model_manager, pill, tray, AppRuntime, AppState, EVENT_SETTINGS_CHANGED};
+use super::hotkeys;
+use crate::settings::{LlmProvider, TranscriptionMode, UpdateChannel, UserSettings};
+use crate::{
+    analytics, model_manager, pill, tray, update_checker, AppRuntime, AppState,
+    EVENT_SETTINGS_CHANGED,
+};
 
 #[derive(Debug)]
 pub(crate) struct UpdateSettingsArgs {
@@ -15,12 +19,27 @@ pub(crate) struct UpdateSettingsArgs {
     pub local_model: String,
     pub microphone_device: Option<String>,
     pub language: String,
+    pub update_channel: UpdateChannel,
     pub llm_cleanup_enabled: bool,
     pub llm_provider: LlmProvider,
     pub llm_endpoint: String,
     pub llm_api_key: String,
     pub llm_model: String,
     pub edit_mode_enabled: bool,
+}
+
+fn canonicalize_shortcut_for_storage(shortcut: &str) -> String {
+    shortcut
+        .split('+')
+        .map(|raw| {
+            let token = raw.trim();
+            match token.to_ascii_lowercase().as_str() {
+                "option" | "leftoption" | "rightoption" => "Alt".to_string(),
+                _ => token.to_string(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("+")
 }
 
 pub(crate) fn complete_onboarding(
@@ -85,22 +104,31 @@ pub(crate) fn update_settings(
         return Err("At least one recording mode must be enabled".into());
     }
 
-    let mut enabled_shortcuts: Vec<(&str, &str)> = vec![];
+    let mut enabled_shortcuts: Vec<(&str, &str, String)> = vec![];
     if args.smart_enabled {
-        enabled_shortcuts.push(("Smart", args.smart_shortcut.trim()));
+        let raw = args.smart_shortcut.trim();
+        let normalized = hotkeys::normalize_shortcut(raw)
+            .map_err(|err| format!("Smart shortcut is invalid: {err}"))?;
+        enabled_shortcuts.push(("Smart", raw, normalized));
     }
     if args.hold_enabled {
-        enabled_shortcuts.push(("Hold", args.hold_shortcut.trim()));
+        let raw = args.hold_shortcut.trim();
+        let normalized = hotkeys::normalize_shortcut(raw)
+            .map_err(|err| format!("Hold shortcut is invalid: {err}"))?;
+        enabled_shortcuts.push(("Hold", raw, normalized));
     }
     if args.toggle_enabled {
-        enabled_shortcuts.push(("Toggle", args.toggle_shortcut.trim()));
+        let raw = args.toggle_shortcut.trim();
+        let normalized = hotkeys::normalize_shortcut(raw)
+            .map_err(|err| format!("Toggle shortcut is invalid: {err}"))?;
+        enabled_shortcuts.push(("Toggle", raw, normalized));
     }
 
     for i in 0..enabled_shortcuts.len() {
         for j in (i + 1)..enabled_shortcuts.len() {
-            let (name1, shortcut1) = enabled_shortcuts[i];
-            let (name2, shortcut2) = enabled_shortcuts[j];
-            if shortcut1.to_lowercase() == shortcut2.to_lowercase() {
+            let (name1, _, normalized1) = &enabled_shortcuts[i];
+            let (name2, _, normalized2) = &enabled_shortcuts[j];
+            if normalized1 == normalized2 {
                 return Err(format!(
                     "{} and {} shortcuts cannot be the same",
                     name1, name2
@@ -124,16 +152,17 @@ pub(crate) fn update_settings(
 
     let mut next = state.current_settings();
     let prev = next.clone();
-    next.smart_shortcut = args.smart_shortcut;
+    next.smart_shortcut = canonicalize_shortcut_for_storage(&args.smart_shortcut);
     next.smart_enabled = args.smart_enabled;
-    next.hold_shortcut = args.hold_shortcut;
+    next.hold_shortcut = canonicalize_shortcut_for_storage(&args.hold_shortcut);
     next.hold_enabled = args.hold_enabled;
-    next.toggle_shortcut = args.toggle_shortcut;
+    next.toggle_shortcut = canonicalize_shortcut_for_storage(&args.toggle_shortcut);
     next.toggle_enabled = args.toggle_enabled;
     next.transcription_mode = args.transcription_mode;
     next.local_model = args.local_model;
     next.microphone_device = args.microphone_device;
     next.language = args.language;
+    next.update_channel = args.update_channel;
     next.llm_cleanup_enabled = args.llm_cleanup_enabled;
     next.llm_provider = args.llm_provider;
     next.llm_endpoint = args.llm_endpoint;
@@ -164,6 +193,11 @@ pub(crate) fn update_settings(
 
     if let Err(err) = app.emit(EVENT_SETTINGS_CHANGED, &next) {
         eprintln!("Failed to emit settings change: {err}");
+    }
+
+    if prev.update_channel != next.update_channel {
+        update_checker::clear_update_state(app.clone());
+        update_checker::trigger_update_check(app.clone());
     }
 
     Ok(next)

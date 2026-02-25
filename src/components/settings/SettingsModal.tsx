@@ -20,11 +20,10 @@ import {
     type TranscriptionEngineId,
 } from "../../lib/transcriptionLanguages";
 import {
+    buildShortcutPreviewString,
     buildShortcutString,
     formatShortcutForDisplay,
-    formatShortcutKey,
     normalizeShortcutModifier,
-    sortShortcutModifiers,
 } from "../../lib/shortcuts";
 import type {
     TranscriptionMode,
@@ -37,6 +36,7 @@ import type {
     DeviceInfo,
     DownloadEvent,
     LlmProvider,
+    UpdateChannel,
 } from "../../types";
 
 const TEXT_SIZE_MODE_STORAGE_KEY = "glimpse_text_size_mode";
@@ -71,6 +71,7 @@ const SettingsModal = ({
     const [localModel, setLocalModel] = useState("parakeet_tdt_int8");
     const [microphoneDevice, setMicrophoneDevice] = useState<string | null>(null);
     const [language, setLanguage] = useState("en");
+    const [updateChannel, setUpdateChannel] = useState<UpdateChannel>("stable");
     const [inputDevices, setInputDevices] = useState<DeviceInfo[]>([]);
     const [modelCatalog, setModelCatalog] = useState<ModelInfo[]>([]);
     const [modelStatus, setModelStatus] = useState<Record<string, ModelStatus>>({});
@@ -82,6 +83,7 @@ const SettingsModal = ({
     const [capturePreview, setCapturePreview] = useState<string>("");
     const pressedModifiers = useRef<Set<string>>(new Set());
     const primaryKey = useRef<string | null>(null);
+    const captureActiveRef = useRef<"smart" | "hold" | "toggle" | null>(null);
     const [activeTab, setActiveTab] = useState<"general" | "models" | "about" | "account" | "advanced">("general");
     const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
     const [llmCleanupEnabled, setLlmCleanupEnabled] = useState(false);
@@ -147,8 +149,26 @@ const SettingsModal = ({
     useEffect(() => {
         if (!isOpen) {
             didHydrateRef.current = false;
+            if (captureActive) {
+                invoke("set_shortcut_capture_active", { active: false }).catch(() => { });
+                setCaptureActive(null);
+                captureActiveRef.current = null;
+                setCapturePreview("");
+                pressedModifiers.current.clear();
+                primaryKey.current = null;
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, captureActive]);
+
+    useEffect(() => {
+        captureActiveRef.current = captureActive;
+    }, [captureActive]);
+
+    useEffect(() => {
+        return () => {
+            invoke("set_shortcut_capture_active", { active: false }).catch(() => { });
+        };
+    }, []);
 
     useEffect(() => {
         localStorage.setItem("glimpse_cloud_sync_enabled", String(cloudSyncEnabled));
@@ -234,6 +254,7 @@ const SettingsModal = ({
             setLocalModel(settings.local_model);
             setMicrophoneDevice(settings.microphone_device);
             setLanguage(settings.language);
+            setUpdateChannel(settings.update_channel ?? "stable");
             setLlmCleanupEnabled(settings.llm_cleanup_enabled ?? false);
             setLlmProvider(settings.llm_provider ?? "none");
             setLlmEndpoint(settings.llm_endpoint ?? "");
@@ -283,6 +304,7 @@ const SettingsModal = ({
                     setLocalModel(settings.local_model);
                     setMicrophoneDevice(settings.microphone_device);
                     setLanguage(settings.language);
+                    setUpdateChannel(settings.update_channel ?? "stable");
                     setLlmCleanupEnabled(settings.llm_cleanup_enabled ?? false);
                     setLlmProvider(settings.llm_provider ?? "none");
                     setLlmEndpoint(settings.llm_endpoint ?? "");
@@ -425,41 +447,70 @@ const SettingsModal = ({
         }
 
         const updatePreview = () => {
-            const mods = sortShortcutModifiers(pressedModifiers.current);
-            const key = primaryKey.current ? formatShortcutKey(primaryKey.current) : null;
-            const parts = [...mods, key].filter(Boolean);
-            setCapturePreview(parts.length > 0 ? formatShortcutForDisplay(parts.join("+")) : "");
+            const preview = buildShortcutPreviewString(pressedModifiers.current, primaryKey.current);
+            setCapturePreview(preview ? formatShortcutForDisplay(preview) : "");
+        };
+
+        const captureCurrentCombo = () => {
+            const combo = buildShortcut();
+            if (!combo) {
+                setError("Shortcut must include a non-modifier key (for example, Control+Space).");
+                pressedModifiers.current.clear();
+                primaryKey.current = null;
+                setCapturePreview("");
+                return;
+            }
+
+            if (captureActive === "smart") {
+                setSmartShortcut(combo);
+            } else if (captureActive === "hold") {
+                setHoldShortcut(combo);
+            } else if (captureActive === "toggle") {
+                setToggleShortcut(combo);
+            }
+            setError(null);
+            finalizeCapture();
         };
 
         const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                return;
+            }
             event.preventDefault();
+            setError(null);
             const modifier = normalizeShortcutModifier(event);
             if (modifier) {
                 pressedModifiers.current.add(modifier);
-            } else if (event.code) {
-                primaryKey.current = event.code;
+                updatePreview();
+                return;
             }
-            updatePreview();
+
+            if (event.code) {
+                primaryKey.current = event.code;
+                updatePreview();
+                captureCurrentCombo();
+            }
         };
 
         const handleKeyUp = (event: KeyboardEvent) => {
-            event.preventDefault();
-            if (!primaryKey.current && pressedModifiers.current.size === 0) return;
-
-            const combo = buildShortcut();
-            if (combo) {
-                if (captureActive === "smart") {
-                    setSmartShortcut(combo);
-                } else if (captureActive === "hold") {
-                    setHoldShortcut(combo);
-                } else if (captureActive === "toggle") {
-                    setToggleShortcut(combo);
-                }
-                setError(null);
-            } else {
-                setError("Press at least one key for your shortcut");
+            if (event.key === "Escape") {
+                return;
             }
-            finalizeCapture();
+            event.preventDefault();
+            const modifier = normalizeShortcutModifier(event);
+            if (modifier) {
+                pressedModifiers.current.delete(modifier);
+                updatePreview();
+                return;
+            }
+
+            // Some system-reserved combos can swallow keydown but still emit keyup.
+            // Fall back to keyup capture so combos like Control+Space can still be recorded.
+            if (event.code && !primaryKey.current) {
+                primaryKey.current = event.code;
+                updatePreview();
+                captureCurrentCombo();
+            }
         };
 
         const handleEscape = (event: KeyboardEvent) => {
@@ -483,20 +534,42 @@ const SettingsModal = ({
     useEffect(() => {
         if (!isOpen) return;
         const handleEscape = (e: KeyboardEvent) => {
-            if (e.key === "Escape" && !captureActive) onClose();
+            if (e.key !== "Escape") return;
+            if (e.defaultPrevented) return;
+
+            if (captureActiveRef.current) {
+                e.preventDefault();
+                finalizeCapture();
+                return;
+            }
+
+            onClose();
         };
         window.addEventListener("keydown", handleEscape);
         return () => window.removeEventListener("keydown", handleEscape);
-    }, [isOpen, captureActive, onClose]);
+    }, [isOpen, onClose]);
 
     const handleStartCapture = (mode: "smart" | "hold" | "toggle") => {
+        if (captureActive === mode) {
+            finalizeCapture();
+            setError(null);
+            return;
+        }
+
         pressedModifiers.current.clear();
         primaryKey.current = null;
+        setCapturePreview("");
+        captureActiveRef.current = mode;
         setCaptureActive(mode);
         setError(null);
+        invoke("set_shortcut_capture_active", { active: true }).catch((err) => {
+            console.error("Failed to disable shortcuts for capture", err);
+        });
     };
 
     const finalizeCapture = () => {
+        invoke("set_shortcut_capture_active", { active: false }).catch(() => { });
+        captureActiveRef.current = null;
         setCaptureActive(null);
         pressedModifiers.current.clear();
         primaryKey.current = null;
@@ -526,6 +599,7 @@ const SettingsModal = ({
                     localModel,
                     microphoneDevice,
                     language,
+                    updateChannel,
                     llmCleanupEnabled,
                     llmProvider,
                     llmEndpoint,
@@ -553,6 +627,7 @@ const SettingsModal = ({
         localModel,
         microphoneDevice,
         language,
+        updateChannel,
         llmCleanupEnabled,
         llmProvider,
         llmEndpoint,
@@ -860,6 +935,8 @@ const SettingsModal = ({
                                             formatBytes={formatBytes}
                                             onOpenDataDir={handleOpenDataDir}
                                             onOpenFAQ={() => setShowFAQModal(true)}
+                                            updateChannel={updateChannel}
+                                            onUpdateChannelChange={setUpdateChannel}
                                         />
                                     )}
                                 </AnimatePresence>
@@ -870,7 +947,11 @@ const SettingsModal = ({
             )}
 
             <FAQModal isOpen={showFAQModal} onClose={() => setShowFAQModal(false)} />
-            <WhatsNewModal isOpen={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
+            <WhatsNewModal
+                isOpen={whatsNewOpen}
+                onClose={() => setWhatsNewOpen(false)}
+                updateChannel={updateChannel}
+            />
         </AnimatePresence>
     );
 

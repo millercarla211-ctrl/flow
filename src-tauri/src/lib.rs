@@ -34,6 +34,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
+use crate::core::hotkeys::HotkeyProvider;
 use anyhow::{Context, Result};
 use pill::PillController;
 use recorder::{
@@ -42,7 +43,9 @@ use recorder::{
 };
 use reqwest::Client;
 use serde::Serialize;
-use settings::{default_local_model, LlmProvider, SettingsStore, TranscriptionMode, UserSettings};
+use settings::{
+    default_local_model, LlmProvider, SettingsStore, TranscriptionMode, UpdateChannel, UserSettings,
+};
 use tauri::async_runtime;
 use tauri::tray::TrayIcon;
 use tauri::Emitter;
@@ -228,12 +231,13 @@ pub fn run() {
 
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_aptabase::Builder::new(aptabase_key).build())
-        .plugin(tauri_plugin_user_input::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init());
+
+    let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
 
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_plugin_macos_permissions::init());
@@ -329,6 +333,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_settings,
+            set_shortcut_capture_active,
             update_settings,
             set_user_name,
             dictionary::set_dictionary,
@@ -372,7 +377,9 @@ pub fn run() {
             fetch_llm_models,
             open_whats_new,
             open_about_page,
-            update_checker::get_update_status
+            update_checker::get_update_status,
+            update_checker::check_for_updates,
+            update_checker::download_and_install_update
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -438,6 +445,7 @@ pub struct AppState {
     storage: Arc<storage::StorageManager>,
     settings_store: Arc<SettingsStore>,
     settings: parking_lot::Mutex<UserSettings>,
+    shortcut_capture_active: AtomicBool,
     pub(crate) tray: parking_lot::Mutex<Option<TrayIcon<AppRuntime>>>,
     pub(crate) settings_close_handler_registered: AtomicBool,
     transcription_cancelled: AtomicBool,
@@ -496,6 +504,7 @@ impl AppState {
             storage: Arc::new(storage),
             settings_store,
             settings: parking_lot::Mutex::new(settings),
+            shortcut_capture_active: AtomicBool::new(false),
             tray: parking_lot::Mutex::new(None),
             settings_close_handler_registered: AtomicBool::new(false),
             transcription_cancelled: AtomicBool::new(false),
@@ -545,6 +554,14 @@ impl AppState {
 
     pub fn pill(&self) -> &PillController {
         &self.pill
+    }
+
+    pub fn set_shortcut_capture_active(&self, active: bool) {
+        self.shortcut_capture_active.store(active, Ordering::SeqCst);
+    }
+
+    pub fn is_shortcut_capture_active(&self) -> bool {
+        self.shortcut_capture_active.load(Ordering::SeqCst)
     }
 
     pub fn record_recording_seconds(&self, duration_secs: f64) {
@@ -779,6 +796,27 @@ fn get_settings(state: tauri::State<AppState>) -> Result<UserSettings, String> {
 }
 
 #[tauri::command]
+fn set_shortcut_capture_active(active: bool, app: AppHandle<AppRuntime>) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    state.set_shortcut_capture_active(active);
+
+    if active {
+        if let Err(err) = core::hotkeys::provider(&app).unregister_all() {
+            eprintln!("Failed to clear shortcuts for capture: {err}");
+            toast::show(
+                &app,
+                "warning",
+                Some("Shortcut capture warning"),
+                "Could not disable existing OS shortcuts. Capture may miss keys while shortcuts remain active.",
+            );
+        }
+        return Ok(());
+    }
+
+    pill::register_shortcuts(&app).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
 fn open_accessibility_settings() -> Result<(), String> {
     permissions::open_accessibility_settings()
 }
@@ -843,6 +881,7 @@ fn update_settings(
     localModel: String,
     microphoneDevice: Option<String>,
     language: String,
+    updateChannel: UpdateChannel,
     llmCleanupEnabled: bool,
     llmProvider: LlmProvider,
     llmEndpoint: String,
@@ -864,6 +903,7 @@ fn update_settings(
             local_model: localModel,
             microphone_device: microphoneDevice,
             language,
+            update_channel: updateChannel,
             llm_cleanup_enabled: llmCleanupEnabled,
             llm_provider: llmProvider,
             llm_endpoint: llmEndpoint,

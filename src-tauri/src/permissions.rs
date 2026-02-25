@@ -3,6 +3,8 @@
 #[cfg(target_os = "macos")]
 mod macos {
     use std::process::Command;
+    #[cfg(debug_assertions)]
+    use tracing::debug;
 
     /// Check if accessibility (AX) permission is granted.
     /// Uses AXIsProcessTrusted() from ApplicationServices framework.
@@ -35,7 +37,7 @@ mod macos {
             Ok(result) => {
                 let success = result.status.success();
                 #[cfg(debug_assertions)]
-                eprintln!("[Glimpse] Accessibility osascript check: {}", success);
+                debug!(success, "accessibility osascript permission check");
                 success
             }
             Err(_) => false,

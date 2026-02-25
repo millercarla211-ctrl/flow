@@ -650,19 +650,90 @@ fn check_accessibility_warning(app: &AppHandle<AppRuntime>) {
     let _ = app;
 }
 
+fn shortcuts_paused(app: &AppHandle<AppRuntime>) -> bool {
+    let state = app.state::<AppState>();
+    state.is_shortcut_capture_active()
+}
+
 pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
     let state = app.state::<AppState>();
-    let provider = hotkeys::provider(app);
-
-    if let Err(err) = provider.unregister_all() {
-        eprintln!("Failed to clear shortcuts: {err}");
+    if state.is_shortcut_capture_active() {
+        return Ok(());
     }
 
     let settings = state.current_settings();
 
-    if settings.smart_enabled {
+    let provider = hotkeys::provider(app);
+    if let Err(err) = provider.unregister_all() {
+        eprintln!("Failed to clear shortcuts: {err}");
+    }
+
+    let smart_shortcut_normalized = if settings.smart_enabled {
+        match hotkeys::normalize_shortcut(&settings.smart_shortcut) {
+            Ok(shortcut) => Some(shortcut),
+            Err(err) => {
+                eprintln!(
+                    "Skipping invalid Smart shortcut `{}`: {err}",
+                    settings.smart_shortcut
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let hold_shortcut_normalized = if settings.hold_enabled {
+        match hotkeys::normalize_shortcut(&settings.hold_shortcut) {
+            Ok(shortcut) => Some(shortcut),
+            Err(err) => {
+                eprintln!(
+                    "Skipping invalid Hold shortcut `{}`: {err}",
+                    settings.hold_shortcut
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let toggle_shortcut_normalized = if settings.toggle_enabled {
+        match hotkeys::normalize_shortcut(&settings.toggle_shortcut) {
+            Ok(shortcut) => Some(shortcut),
+            Err(err) => {
+                eprintln!(
+                    "Skipping invalid Toggle shortcut `{}`: {err}",
+                    settings.toggle_shortcut
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let hold_is_subset_of_toggle = if let (Some(hold_shortcut), Some(toggle_shortcut)) = (
+        hold_shortcut_normalized.as_ref(),
+        toggle_shortcut_normalized.as_ref(),
+    ) {
+        let hold_keys: std::collections::HashSet<&str> =
+            hold_shortcut.split('+').map(|token| token.trim()).collect();
+        let toggle_keys: std::collections::HashSet<&str> = toggle_shortcut
+            .split('+')
+            .map(|token| token.trim())
+            .collect();
+        hold_keys.is_subset(&toggle_keys)
+    } else {
+        false
+    };
+
+    if settings.smart_enabled && smart_shortcut_normalized.is_some() {
         let smart_shortcut = settings.smart_shortcut.clone();
         provider.on_shortcut(smart_shortcut.as_str(), move |app, event| {
+            if shortcuts_paused(app) {
+                return;
+            }
             let state = app.state::<AppState>();
             let pill = state.pill();
             match event.state {
@@ -677,28 +748,44 @@ pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
         })?;
     }
 
-    if settings.hold_enabled {
+    if settings.hold_enabled && hold_shortcut_normalized.is_some() {
         let hold_shortcut = settings.hold_shortcut.clone();
-        provider.on_shortcut(hold_shortcut.as_str(), move |app, event| {
-            let state = app.state::<AppState>();
-            let pill = state.pill();
-            match event.state {
-                HotkeyState::Pressed => {
-                    if pill.should_ignore_shortcut_press() {
-                        return;
-                    }
-                    let _ = pill.handle_hold_press(app);
-                }
-                HotkeyState::Released => pill.handle_hold_release(app),
+        let check_toggle_overlap = hold_is_subset_of_toggle;
+        let toggle_shortcut_normalized = toggle_shortcut_normalized.clone();
+        if check_toggle_overlap {
+            if let Some(toggle_shortcut) = toggle_shortcut_normalized.as_ref() {
+                eprintln!(
+                    "Skipping Hold shortcut `{hold_shortcut}` because it overlaps Toggle shortcut `{toggle_shortcut}`"
+                );
             }
-        })?;
+        } else {
+            provider.on_shortcut(hold_shortcut.as_str(), move |app, event| {
+                if shortcuts_paused(app) {
+                    return;
+                }
+                let state = app.state::<AppState>();
+                let pill = state.pill();
+                match event.state {
+                    HotkeyState::Pressed => {
+                        if pill.should_ignore_shortcut_press() {
+                            return;
+                        }
+                        let _ = pill.handle_hold_press(app);
+                    }
+                    HotkeyState::Released => pill.handle_hold_release(app),
+                }
+            })?;
+        }
     }
 
-    if settings.toggle_enabled {
+    if settings.toggle_enabled && toggle_shortcut_normalized.is_some() {
         let toggle_shortcut = settings.toggle_shortcut.clone();
         provider.on_shortcut(toggle_shortcut.as_str(), move |app, event| {
+            if shortcuts_paused(app) {
+                return;
+            }
+            let state = app.state::<AppState>();
             if event.state == HotkeyState::Pressed {
-                let state = app.state::<AppState>();
                 let pill = state.pill();
                 if pill.should_ignore_shortcut_press() {
                     return;
