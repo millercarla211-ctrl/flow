@@ -371,6 +371,11 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
         };
 
         const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                finalizeCapture();
+                return;
+            }
             event.preventDefault();
             const modifier = normalizeShortcutModifier(event);
             if (modifier) {
@@ -394,6 +399,11 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
         };
 
         const handleKeyUp = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                finalizeCapture();
+                return;
+            }
             event.preventDefault();
             const modifier = normalizeShortcutModifier(event);
             if (modifier) {
@@ -420,6 +430,9 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
 
         const handleEscape = (event: KeyboardEvent) => {
             if (event.key === "Escape") {
+                if (event.defaultPrevented) {
+                    return;
+                }
                 event.preventDefault();
                 finalizeCapture();
             }

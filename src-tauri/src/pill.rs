@@ -757,10 +757,8 @@ pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
                 return;
             }
             if check_toggle_overlap {
-                if let (Some(toggle_shortcut), Ok(pressed_shortcut)) = (
-                    toggle_shortcut_normalized.as_ref(),
-                    hotkeys::normalize_shortcut(event.shortcut.as_str()),
-                ) {
+                if let Some(toggle_shortcut) = toggle_shortcut_normalized.as_ref() {
+                    let pressed_shortcut = event.shortcut.trim();
                     if pressed_shortcut == *toggle_shortcut {
                         return;
                     }

@@ -297,6 +297,7 @@ fn default_language() -> String {
 
 pub struct SettingsStore {
     conn: Mutex<Connection>,
+    llm_api_key_ciphertext: Mutex<Option<String>>,
 }
 
 impl SettingsStore {
@@ -312,6 +313,7 @@ impl SettingsStore {
 
         let store = Self {
             conn: Mutex::new(conn),
+            llm_api_key_ciphertext: Mutex::new(None),
         };
 
         store.init_schema()?;
@@ -333,6 +335,7 @@ impl SettingsStore {
     pub fn load(&self) -> Result<UserSettings> {
         let mut settings = UserSettings::default();
         let mut should_persist = false;
+        let mut llm_api_key_ciphertext: Option<String> = None;
         {
             let conn = self.conn.lock();
 
@@ -375,20 +378,29 @@ impl SettingsStore {
 
             let encrypted_key: String = self.read_value(&conn, KEY_LLM_API_KEY, String::new())?;
             if !encrypted_key.is_empty() {
+                let key_looks_encrypted = crate::crypto::looks_encrypted(&encrypted_key);
                 if let Some(hardware_uuid) = crate::crypto::get_hardware_uuid() {
                     match crate::crypto::decrypt(&encrypted_key, &hardware_uuid) {
                         Ok(decrypted) => settings.llm_api_key = decrypted,
                         Err(e) => {
-                            if !crate::crypto::looks_encrypted(&encrypted_key) {
+                            if !key_looks_encrypted {
                                 settings.llm_api_key = encrypted_key;
                             } else {
-                                eprintln!("Error: Failed to decrypt API key: {}. Key will need to be re-entered.", e);
+                                eprintln!(
+                                    "Error: Failed to decrypt API key: {}. Preserving encrypted value.",
+                                    e
+                                );
+                                settings.llm_api_key = encrypted_key.clone();
+                                llm_api_key_ciphertext = Some(encrypted_key);
                             }
                         }
                     }
                 } else {
-                    eprintln!("Warning: Could not get hardware UUID, API key won't be encrypted");
-                    settings.llm_api_key = encrypted_key;
+                    eprintln!("Warning: Could not get hardware UUID, preserving stored API key");
+                    settings.llm_api_key = encrypted_key.clone();
+                    if key_looks_encrypted {
+                        llm_api_key_ciphertext = Some(encrypted_key);
+                    }
                 }
             }
 
@@ -410,6 +422,7 @@ impl SettingsStore {
             settings.edit_mode_enabled =
                 self.read_value(&conn, KEY_EDIT_MODE_ENABLED, settings.edit_mode_enabled)?;
         }
+        *self.llm_api_key_ciphertext.lock() = llm_api_key_ciphertext;
 
         if !settings.personalities_notes_seeded {
             seed_personality_notes(&mut settings.personalities);
@@ -455,12 +468,22 @@ impl SettingsStore {
         self.write_value(&conn, KEY_LLM_PROVIDER, &settings.llm_provider)?;
         self.write_value(&conn, KEY_LLM_ENDPOINT, &settings.llm_endpoint)?;
 
+        let mut llm_api_key_ciphertext = self.llm_api_key_ciphertext.lock();
+
         let stored_key = if settings.llm_api_key.is_empty() {
+            *llm_api_key_ciphertext = None;
             String::new()
+        } else if llm_api_key_ciphertext
+            .as_ref()
+            .is_some_and(|ciphertext| ciphertext == &settings.llm_api_key)
+        {
+            settings.llm_api_key.clone()
         } else if let Some(hardware_uuid) = crate::crypto::get_hardware_uuid() {
+            *llm_api_key_ciphertext = None;
             crate::crypto::encrypt(&settings.llm_api_key, &hardware_uuid)
                 .map_err(|e| anyhow::anyhow!("Failed to encrypt API key: {}", e))?
         } else {
+            *llm_api_key_ciphertext = None;
             eprintln!("Warning: Could not get hardware UUID, storing API key unencrypted");
             settings.llm_api_key.clone()
         };

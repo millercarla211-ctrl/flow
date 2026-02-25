@@ -81,6 +81,7 @@ const SettingsModal = ({
     const [capturePreview, setCapturePreview] = useState<string>("");
     const pressedModifiers = useRef<Set<string>>(new Set());
     const primaryKey = useRef<string | null>(null);
+    const captureActiveRef = useRef<"smart" | "hold" | "toggle" | null>(null);
     const [activeTab, setActiveTab] = useState<"general" | "models" | "about" | "account" | "advanced">("general");
     const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
     const [llmCleanupEnabled, setLlmCleanupEnabled] = useState(false);
@@ -149,12 +150,17 @@ const SettingsModal = ({
             if (captureActive) {
                 invoke("set_shortcut_capture_active", { active: false }).catch(() => { });
                 setCaptureActive(null);
+                captureActiveRef.current = null;
                 setCapturePreview("");
                 pressedModifiers.current.clear();
                 primaryKey.current = null;
             }
         }
     }, [isOpen, captureActive]);
+
+    useEffect(() => {
+        captureActiveRef.current = captureActive;
+    }, [captureActive]);
 
     useEffect(() => {
         return () => {
@@ -463,6 +469,9 @@ const SettingsModal = ({
         };
 
         const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                return;
+            }
             event.preventDefault();
             setError(null);
             const modifier = normalizeShortcutModifier(event);
@@ -480,6 +489,9 @@ const SettingsModal = ({
         };
 
         const handleKeyUp = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                return;
+            }
             event.preventDefault();
             const modifier = normalizeShortcutModifier(event);
             if (modifier) {
@@ -518,11 +530,20 @@ const SettingsModal = ({
     useEffect(() => {
         if (!isOpen) return;
         const handleEscape = (e: KeyboardEvent) => {
-            if (e.key === "Escape" && !captureActive) onClose();
+            if (e.key !== "Escape") return;
+            if (e.defaultPrevented) return;
+
+            if (captureActiveRef.current) {
+                e.preventDefault();
+                finalizeCapture();
+                return;
+            }
+
+            onClose();
         };
         window.addEventListener("keydown", handleEscape);
         return () => window.removeEventListener("keydown", handleEscape);
-    }, [isOpen, captureActive, onClose]);
+    }, [isOpen, onClose]);
 
     const handleStartCapture = (mode: "smart" | "hold" | "toggle") => {
         if (captureActive === mode) {
@@ -534,6 +555,7 @@ const SettingsModal = ({
         pressedModifiers.current.clear();
         primaryKey.current = null;
         setCapturePreview("");
+        captureActiveRef.current = mode;
         setCaptureActive(mode);
         setError(null);
         invoke("set_shortcut_capture_active", { active: true }).catch((err) => {
@@ -543,6 +565,7 @@ const SettingsModal = ({
 
     const finalizeCapture = () => {
         invoke("set_shortcut_capture_active", { active: false }).catch(() => { });
+        captureActiveRef.current = null;
         setCaptureActive(null);
         pressedModifiers.current.clear();
         primaryKey.current = null;

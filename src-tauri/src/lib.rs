@@ -799,6 +799,12 @@ fn set_shortcut_capture_active(active: bool, app: AppHandle<AppRuntime>) -> Resu
     if active {
         if let Err(err) = core::hotkeys::provider(&app).unregister_all() {
             eprintln!("Failed to clear shortcuts for capture: {err}");
+            toast::show(
+                &app,
+                "warning",
+                Some("Shortcut capture warning"),
+                "Could not disable existing OS shortcuts. Capture may miss keys while shortcuts remain active.",
+            );
         }
         return Ok(());
     }

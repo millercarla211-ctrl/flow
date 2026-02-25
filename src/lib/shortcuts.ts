@@ -34,6 +34,26 @@ const legacyDisplayAliasMap: Record<string, string> = {
     rightcontrol: "Control",
 };
 
+const modifierPriorityMap: Record<string, number> = {
+    Command: 0,
+    Meta: 0,
+    Super: 0,
+    Option: 1,
+    Alt: 1,
+    Control: 2,
+    Ctrl: 2,
+    Shift: 3,
+};
+
+function orderShortcutModifiers(modifiers: Iterable<string>): string[] {
+    return Array.from(modifiers).sort((a, b) => {
+        const priorityA = modifierPriorityMap[a] ?? Number.MAX_SAFE_INTEGER;
+        const priorityB = modifierPriorityMap[b] ?? Number.MAX_SAFE_INTEGER;
+        if (priorityA !== priorityB) return priorityA - priorityB;
+        return a.localeCompare(b);
+    });
+}
+
 export function normalizeShortcutModifier(event: KeyboardEvent): string | null {
     if (
         event.code === "MetaLeft" ||
@@ -96,7 +116,7 @@ export function formatShortcutKey(code: string): string | null {
 }
 
 export function buildShortcutString(modifiers: Iterable<string>, keyCode: string | null): string | null {
-    const orderedModifiers = Array.from(modifiers);
+    const orderedModifiers = orderShortcutModifiers(modifiers);
     const formattedKey = keyCode ? formatShortcutKey(keyCode) : null;
     if (!formattedKey) return null;
     const parts = [...orderedModifiers, formattedKey].filter((part): part is string => Boolean(part));
@@ -105,7 +125,7 @@ export function buildShortcutString(modifiers: Iterable<string>, keyCode: string
 }
 
 export function buildShortcutPreviewString(modifiers: Iterable<string>, keyCode: string | null): string {
-    const orderedModifiers = Array.from(modifiers);
+    const orderedModifiers = orderShortcutModifiers(modifiers);
     const formattedKey = keyCode ? formatShortcutKey(keyCode) : null;
     const parts = [...orderedModifiers, formattedKey].filter((part): part is string => Boolean(part));
     return parts.join("+");

@@ -88,26 +88,19 @@ fn normalize_registered_key(token: &str) -> Option<String> {
         }
     }
 
-    Some(
-        match lower.as_str() {
-            "space" | "spacebar" => "space",
-            "enter" => "enter",
-            "tab" => "tab",
-            "backspace" => "backspace",
-            "escape" | "esc" => "escape",
-            "delete" | "del" => "delete",
-            "up" => "arrowup",
-            "down" => "arrowdown",
-            "left" => "arrowleft",
-            "right" => "arrowright",
-            "arrowup" => "arrowup",
-            "arrowdown" => "arrowdown",
-            "arrowleft" => "arrowleft",
-            "arrowright" => "arrowright",
-            _ => lower.as_str(),
-        }
-        .to_string(),
-    )
+    match lower.as_str() {
+        "space" | "spacebar" => Some("space".to_string()),
+        "enter" => Some("enter".to_string()),
+        "tab" => Some("tab".to_string()),
+        "backspace" => Some("backspace".to_string()),
+        "escape" | "esc" => Some("escape".to_string()),
+        "delete" | "del" => Some("delete".to_string()),
+        "up" | "arrowup" => Some("arrowup".to_string()),
+        "down" | "arrowdown" => Some("arrowdown".to_string()),
+        "left" | "arrowleft" => Some("arrowleft".to_string()),
+        "right" | "arrowright" => Some("arrowright".to_string()),
+        _ => None,
+    }
 }
 
 pub(crate) fn normalize_shortcut(shortcut: &str) -> Result<String> {
@@ -223,4 +216,27 @@ impl HotkeyProvider for GlobalShortcutProvider<'_> {
 
 pub(crate) fn provider(app: &AppHandle<AppRuntime>) -> impl HotkeyProvider + '_ {
     GlobalShortcutProvider::new(app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_shortcut;
+
+    #[test]
+    fn reject_unknown_multi_character_base_key() {
+        let result = normalize_shortcut("Control+foobar");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn keep_named_and_symbol_base_keys() {
+        assert_eq!(
+            normalize_shortcut("Control+Space").expect("space should be valid"),
+            "Control+space"
+        );
+        assert_eq!(
+            normalize_shortcut("Control+[").expect("symbol should be valid"),
+            "Control+["
+        );
+    }
 }
