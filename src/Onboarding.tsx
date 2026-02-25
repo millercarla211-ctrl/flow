@@ -26,6 +26,7 @@ import {
 import DotMatrix from "./components/DotMatrix";
 import FAQModal from "./components/FAQModal";
 import {
+    buildShortcutPreviewString,
     buildShortcutString,
     formatShortcutForDisplay,
     normalizeShortcutModifier,
@@ -189,6 +190,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
 
     const [smartShortcut, setSmartShortcut] = useState("Control+Space");
     const [captureActive, setCaptureActive] = useState(false);
+    const [capturePreview, setCapturePreview] = useState("");
     const pressedModifiers = useRef<Set<string>>(new Set());
     const primaryKey = useRef<string | null>(null);
 
@@ -339,7 +341,9 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
     };
 
     const finalizeCapture = () => {
+        invoke("set_shortcut_capture_active", { active: false }).catch(() => { });
         setCaptureActive(false);
+        setCapturePreview("");
         pressedModifiers.current.clear();
         primaryKey.current = null;
     };
@@ -348,28 +352,70 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
         return buildShortcutString(pressedModifiers.current, primaryKey.current);
     };
 
+    const startCapture = () => {
+        pressedModifiers.current.clear();
+        primaryKey.current = null;
+        setCapturePreview("");
+        setCaptureActive(true);
+        invoke("set_shortcut_capture_active", { active: true }).catch((err) => {
+            console.error("Failed to disable shortcuts for capture", err);
+        });
+    };
+
     useEffect(() => {
         if (!captureActive) return;
+
+        const updatePreview = () => {
+            const preview = buildShortcutPreviewString(pressedModifiers.current, primaryKey.current);
+            setCapturePreview(preview ? formatShortcutForDisplay(preview) : "");
+        };
 
         const handleKeyDown = (event: KeyboardEvent) => {
             event.preventDefault();
             const modifier = normalizeShortcutModifier(event);
             if (modifier) {
                 pressedModifiers.current.add(modifier);
-            } else if (event.code) {
+                updatePreview();
+                return;
+            }
+
+            if (event.code) {
                 primaryKey.current = event.code;
+                updatePreview();
+                const combo = buildShortcut();
+                if (combo) {
+                    setSmartShortcut(combo);
+                    finalizeCapture();
+                } else {
+                    pressedModifiers.current.clear();
+                    primaryKey.current = null;
+                }
             }
         };
 
         const handleKeyUp = (event: KeyboardEvent) => {
             event.preventDefault();
-            if (!primaryKey.current && pressedModifiers.current.size === 0) return;
-
-            const combo = buildShortcut();
-            if (combo) {
-                setSmartShortcut(combo);
+            const modifier = normalizeShortcutModifier(event);
+            if (modifier) {
+                pressedModifiers.current.delete(modifier);
+                updatePreview();
+                return;
             }
-            finalizeCapture();
+
+            // Some system-reserved combos can swallow keydown but still emit keyup.
+            // Fall back to keyup capture so combos like Control+Space can still be recorded.
+            if (event.code && !primaryKey.current) {
+                primaryKey.current = event.code;
+                updatePreview();
+                const combo = buildShortcut();
+                if (combo) {
+                    setSmartShortcut(combo);
+                    finalizeCapture();
+                } else {
+                    pressedModifiers.current.clear();
+                    primaryKey.current = null;
+                }
+            }
         };
 
         const handleEscape = (event: KeyboardEvent) => {
@@ -389,6 +435,12 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
             window.removeEventListener("keydown", handleEscape, true);
         };
     }, [captureActive]);
+
+    useEffect(() => {
+        return () => {
+            invoke("set_shortcut_capture_active", { active: false }).catch(() => { });
+        };
+    }, []);
 
     const refreshModelStatus = useCallback((modelKey: string) => {
         invoke<ModelStatus>("check_model_status", { model: modelKey })
@@ -1132,9 +1184,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                             <motion.button
                                 onClick={() => {
                                     if (!captureActive) {
-                                        pressedModifiers.current.clear();
-                                        primaryKey.current = null;
-                                        setCaptureActive(true);
+                                        startCapture();
                                     }
                                 }}
                                 className={`w-full max-w-xs rounded-xl border p-4 text-left transition-all ${captureActive
@@ -1160,7 +1210,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <code className={`ui-text-body-lg font-mono ${captureActive ? "ui-color-warning-strong" : "text-content-primary"}`}>
-                                        {captureActive ? "Press new shortcut..." : formatShortcutForDisplay(smartShortcut)}
+                                        {captureActive ? capturePreview || "Press new shortcut..." : formatShortcutForDisplay(smartShortcut)}
                                     </code>
                                     <span className="ui-text-meta text-content-muted">
                                         {captureActive ? "Esc to cancel" : "Click to change"}

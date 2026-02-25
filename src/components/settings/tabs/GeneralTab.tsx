@@ -303,7 +303,7 @@ const GeneralTab = ({
           Shortcuts
         </h2>
 
-        <div className="space-y-1.5">
+        <div className="space-y-3 rounded-lg bg-surface-surface p-2.5">
           <ShortcutRow
             label="Smart"
             description="tap to toggle, hold to talk"
@@ -364,10 +364,8 @@ const GeneralTab = ({
         </h2>
 
         <div
-          className={`rounded-lg border transition-colors ${
-            editModeEnabled
-              ? "border-border-secondary bg-surface-surface"
-              : "border-border-primary bg-transparent"
+          className={`rounded-lg transition-colors ${
+            editModeEnabled ? "bg-surface-overlay" : "bg-surface-surface"
           }`}
         >
           <div className="py-2 px-2.5">
@@ -477,67 +475,63 @@ const ShortcutRow = ({
 
   return (
     <div
-      className={`rounded-lg border transition-colors ${
-        enabled
-          ? "border-border-secondary bg-surface-surface"
-          : "border-border-primary bg-transparent"
+      className={`space-y-1.5 px-2 py-1.5 transition-opacity ${
+        enabled ? "opacity-100" : "opacity-80"
       }`}
     >
-      <div className="py-2 px-2.5 space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="ui-text-label-strong ui-color-primary">
-              {label}
-            </span>
-            <span className="truncate ui-text-meta ui-color-disabled">
-              {description}
-            </span>
-          </div>
-          <button
-            onClick={onToggle}
-            disabled={enabled && !canDisable}
-            role="switch"
-            aria-checked={enabled}
-            aria-label={`Toggle ${label} shortcut`}
-            className={`w-7 h-4 rounded-full transition-colors relative ${enabled ? "bg-cloud" : "bg-border-secondary"} ${enabled && !canDisable ? "opacity-50 cursor-not-allowed" : ""}`}
-          >
-            <motion.div
-              className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
-              animate={{ left: enabled ? "calc(100% - 14px)" : "2px" }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            />
-          </button>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="ui-text-label-strong ui-color-primary">
+            {label}
+          </span>
+          <span className="truncate ui-text-meta ui-color-disabled">
+            {description}
+          </span>
         </div>
-        <motion.button
-          onClick={onCapture}
-          disabled={!enabled}
-          aria-label={`Record new shortcut for ${label}, currently ${displayShortcut}`}
-          className={`w-full text-left ui-text-kbd px-1.5 py-1 rounded transition-colors ${
-            isCapturing
-              ? "ui-color-primary border border-border-hover"
-              : enabled
-                ? "ui-color-secondary hover:text-content-primary hover:bg-surface-elevated"
-                : "ui-color-disabled cursor-not-allowed"
-          }`}
+        <button
+          onClick={onToggle}
+          disabled={enabled && !canDisable}
+          role="switch"
+          aria-checked={enabled}
+          aria-label={`Toggle ${label} shortcut`}
+          className={`w-7 h-4 rounded-full transition-colors relative ${enabled ? "bg-cloud" : "bg-border-secondary"} ${enabled && !canDisable ? "opacity-50 cursor-not-allowed" : ""}`}
         >
-          {isCapturing ? (
-            <span className="flex min-w-0 items-center gap-1.5">
-              <motion.span
-                className="w-1 h-1 rounded-full bg-cloud"
-                animate={{ opacity: [0.3, 1, 0.3] }}
-                transition={{ duration: 1, repeat: Infinity }}
-              />
-              <span
-                className={`truncate ${capturePreview ? "ui-color-primary" : "ui-color-muted"}`}
-              >
-                {capturePreview || "..."}
-              </span>
-            </span>
-          ) : (
-            <span className="block truncate">{displayShortcut}</span>
-          )}
-        </motion.button>
+          <motion.div
+            className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
+            animate={{ left: enabled ? "calc(100% - 14px)" : "2px" }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+          />
+        </button>
       </div>
+      <motion.button
+        onClick={onCapture}
+        disabled={!enabled}
+        aria-label={`Record new shortcut for ${label}, currently ${displayShortcut}`}
+        className={`w-full border-b pb-1 pt-1 text-left ui-text-kbd transition-colors ${
+          isCapturing
+            ? "ui-color-primary border-border-hover"
+            : enabled
+              ? "ui-color-secondary border-border-primary hover:border-border-secondary hover:text-content-primary"
+              : "ui-color-disabled border-border-primary cursor-not-allowed"
+        }`}
+      >
+        {isCapturing ? (
+          <span className="flex min-w-0 items-center gap-1.5">
+            <motion.span
+              className="w-1 h-1 rounded-full bg-cloud"
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ duration: 1, repeat: Infinity }}
+            />
+            <span
+              className={`truncate ${capturePreview ? "ui-color-primary" : "ui-color-muted"}`}
+            >
+              {capturePreview || "..."}
+            </span>
+          </span>
+        ) : (
+          <span className="block truncate">{displayShortcut}</span>
+        )}
+      </motion.button>
     </div>
   );
 };

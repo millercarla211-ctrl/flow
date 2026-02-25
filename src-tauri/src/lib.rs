@@ -34,6 +34,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
+use crate::core::hotkeys::HotkeyProvider;
 use anyhow::{Context, Result};
 use pill::PillController;
 use recorder::{
@@ -330,6 +331,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_settings,
+            set_shortcut_capture_active,
             update_settings,
             set_user_name,
             dictionary::set_dictionary,
@@ -439,6 +441,7 @@ pub struct AppState {
     storage: Arc<storage::StorageManager>,
     settings_store: Arc<SettingsStore>,
     settings: parking_lot::Mutex<UserSettings>,
+    shortcut_capture_active: AtomicBool,
     pub(crate) tray: parking_lot::Mutex<Option<TrayIcon<AppRuntime>>>,
     pub(crate) settings_close_handler_registered: AtomicBool,
     transcription_cancelled: AtomicBool,
@@ -497,6 +500,7 @@ impl AppState {
             storage: Arc::new(storage),
             settings_store,
             settings: parking_lot::Mutex::new(settings),
+            shortcut_capture_active: AtomicBool::new(false),
             tray: parking_lot::Mutex::new(None),
             settings_close_handler_registered: AtomicBool::new(false),
             transcription_cancelled: AtomicBool::new(false),
@@ -546,6 +550,14 @@ impl AppState {
 
     pub fn pill(&self) -> &PillController {
         &self.pill
+    }
+
+    pub fn set_shortcut_capture_active(&self, active: bool) {
+        self.shortcut_capture_active.store(active, Ordering::SeqCst);
+    }
+
+    pub fn is_shortcut_capture_active(&self) -> bool {
+        self.shortcut_capture_active.load(Ordering::SeqCst)
     }
 
     pub fn record_recording_seconds(&self, duration_secs: f64) {
@@ -777,6 +789,21 @@ impl AppState {
 #[tauri::command]
 fn get_settings(state: tauri::State<AppState>) -> Result<UserSettings, String> {
     Ok(state.current_settings())
+}
+
+#[tauri::command]
+fn set_shortcut_capture_active(active: bool, app: AppHandle<AppRuntime>) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    state.set_shortcut_capture_active(active);
+
+    if active {
+        if let Err(err) = core::hotkeys::provider(&app).unregister_all() {
+            eprintln!("Failed to clear shortcuts for capture: {err}");
+        }
+        return Ok(());
+    }
+
+    pill::register_shortcuts(&app).map_err(|err| err.to_string())
 }
 
 #[tauri::command]

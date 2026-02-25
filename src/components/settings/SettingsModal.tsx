@@ -20,11 +20,10 @@ import {
     type TranscriptionEngineId,
 } from "../../lib/transcriptionLanguages";
 import {
+    buildShortcutPreviewString,
     buildShortcutString,
     formatShortcutForDisplay,
-    formatShortcutKey,
     normalizeShortcutModifier,
-    sortShortcutModifiers,
 } from "../../lib/shortcuts";
 import type {
     TranscriptionMode,
@@ -147,8 +146,21 @@ const SettingsModal = ({
     useEffect(() => {
         if (!isOpen) {
             didHydrateRef.current = false;
+            if (captureActive) {
+                invoke("set_shortcut_capture_active", { active: false }).catch(() => { });
+                setCaptureActive(null);
+                setCapturePreview("");
+                pressedModifiers.current.clear();
+                primaryKey.current = null;
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, captureActive]);
+
+    useEffect(() => {
+        return () => {
+            invoke("set_shortcut_capture_active", { active: false }).catch(() => { });
+        };
+    }, []);
 
     useEffect(() => {
         localStorage.setItem("glimpse_cloud_sync_enabled", String(cloudSyncEnabled));
@@ -425,41 +437,64 @@ const SettingsModal = ({
         }
 
         const updatePreview = () => {
-            const mods = sortShortcutModifiers(pressedModifiers.current);
-            const key = primaryKey.current ? formatShortcutKey(primaryKey.current) : null;
-            const parts = [...mods, key].filter(Boolean);
-            setCapturePreview(parts.length > 0 ? formatShortcutForDisplay(parts.join("+")) : "");
+            const preview = buildShortcutPreviewString(pressedModifiers.current, primaryKey.current);
+            setCapturePreview(preview ? formatShortcutForDisplay(preview) : "");
+        };
+
+        const captureCurrentCombo = () => {
+            const combo = buildShortcut();
+            if (!combo) {
+                setError("Shortcut must include a non-modifier key (for example, Control+Space).");
+                pressedModifiers.current.clear();
+                primaryKey.current = null;
+                setCapturePreview("");
+                return;
+            }
+
+            if (captureActive === "smart") {
+                setSmartShortcut(combo);
+            } else if (captureActive === "hold") {
+                setHoldShortcut(combo);
+            } else if (captureActive === "toggle") {
+                setToggleShortcut(combo);
+            }
+            setError(null);
+            finalizeCapture();
         };
 
         const handleKeyDown = (event: KeyboardEvent) => {
             event.preventDefault();
+            setError(null);
             const modifier = normalizeShortcutModifier(event);
             if (modifier) {
                 pressedModifiers.current.add(modifier);
-            } else if (event.code) {
-                primaryKey.current = event.code;
+                updatePreview();
+                return;
             }
-            updatePreview();
+
+            if (event.code) {
+                primaryKey.current = event.code;
+                updatePreview();
+                captureCurrentCombo();
+            }
         };
 
         const handleKeyUp = (event: KeyboardEvent) => {
             event.preventDefault();
-            if (!primaryKey.current && pressedModifiers.current.size === 0) return;
-
-            const combo = buildShortcut();
-            if (combo) {
-                if (captureActive === "smart") {
-                    setSmartShortcut(combo);
-                } else if (captureActive === "hold") {
-                    setHoldShortcut(combo);
-                } else if (captureActive === "toggle") {
-                    setToggleShortcut(combo);
-                }
-                setError(null);
-            } else {
-                setError("Press at least one key for your shortcut");
+            const modifier = normalizeShortcutModifier(event);
+            if (modifier) {
+                pressedModifiers.current.delete(modifier);
+                updatePreview();
+                return;
             }
-            finalizeCapture();
+
+            // Some system-reserved combos can swallow keydown but still emit keyup.
+            // Fall back to keyup capture so combos like Control+Space can still be recorded.
+            if (event.code && !primaryKey.current) {
+                primaryKey.current = event.code;
+                updatePreview();
+                captureCurrentCombo();
+            }
         };
 
         const handleEscape = (event: KeyboardEvent) => {
@@ -490,13 +525,24 @@ const SettingsModal = ({
     }, [isOpen, captureActive, onClose]);
 
     const handleStartCapture = (mode: "smart" | "hold" | "toggle") => {
+        if (captureActive === mode) {
+            finalizeCapture();
+            setError(null);
+            return;
+        }
+
         pressedModifiers.current.clear();
         primaryKey.current = null;
+        setCapturePreview("");
         setCaptureActive(mode);
         setError(null);
+        invoke("set_shortcut_capture_active", { active: true }).catch((err) => {
+            console.error("Failed to disable shortcuts for capture", err);
+        });
     };
 
     const finalizeCapture = () => {
+        invoke("set_shortcut_capture_active", { active: false }).catch(() => { });
         setCaptureActive(null);
         pressedModifiers.current.clear();
         primaryKey.current = null;

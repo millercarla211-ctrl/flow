@@ -1,5 +1,6 @@
 use tauri::{AppHandle, Emitter};
 
+use super::hotkeys;
 use crate::settings::{LlmProvider, TranscriptionMode, UserSettings};
 use crate::{analytics, model_manager, pill, tray, AppRuntime, AppState, EVENT_SETTINGS_CHANGED};
 
@@ -85,22 +86,31 @@ pub(crate) fn update_settings(
         return Err("At least one recording mode must be enabled".into());
     }
 
-    let mut enabled_shortcuts: Vec<(&str, &str)> = vec![];
+    let mut enabled_shortcuts: Vec<(&str, &str, String)> = vec![];
     if args.smart_enabled {
-        enabled_shortcuts.push(("Smart", args.smart_shortcut.trim()));
+        let raw = args.smart_shortcut.trim();
+        let normalized = hotkeys::normalize_shortcut(raw)
+            .map_err(|err| format!("Smart shortcut is invalid: {err}"))?;
+        enabled_shortcuts.push(("Smart", raw, normalized));
     }
     if args.hold_enabled {
-        enabled_shortcuts.push(("Hold", args.hold_shortcut.trim()));
+        let raw = args.hold_shortcut.trim();
+        let normalized = hotkeys::normalize_shortcut(raw)
+            .map_err(|err| format!("Hold shortcut is invalid: {err}"))?;
+        enabled_shortcuts.push(("Hold", raw, normalized));
     }
     if args.toggle_enabled {
-        enabled_shortcuts.push(("Toggle", args.toggle_shortcut.trim()));
+        let raw = args.toggle_shortcut.trim();
+        let normalized = hotkeys::normalize_shortcut(raw)
+            .map_err(|err| format!("Toggle shortcut is invalid: {err}"))?;
+        enabled_shortcuts.push(("Toggle", raw, normalized));
     }
 
     for i in 0..enabled_shortcuts.len() {
         for j in (i + 1)..enabled_shortcuts.len() {
-            let (name1, shortcut1) = enabled_shortcuts[i];
-            let (name2, shortcut2) = enabled_shortcuts[j];
-            if shortcut1.to_lowercase() == shortcut2.to_lowercase() {
+            let (name1, _, normalized1) = &enabled_shortcuts[i];
+            let (name2, _, normalized2) = &enabled_shortcuts[j];
+            if normalized1 == normalized2 {
                 return Err(format!(
                     "{} and {} shortcuts cannot be the same",
                     name1, name2

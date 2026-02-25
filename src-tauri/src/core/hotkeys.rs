@@ -1,6 +1,4 @@
 use anyhow::{anyhow, Result};
-use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex};
 use tauri::AppHandle;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
@@ -15,6 +13,7 @@ pub(crate) enum HotkeyState {
 #[derive(Debug, Clone)]
 pub(crate) struct HotkeyEvent {
     pub state: HotkeyState,
+    pub shortcut: String,
 }
 
 pub(crate) trait HotkeyProvider {
@@ -24,11 +23,6 @@ pub(crate) trait HotkeyProvider {
     where
         F: Fn(&AppHandle<AppRuntime>, HotkeyEvent) + Send + Sync + 'static;
 }
-
-type ShortcutHandler = Arc<dyn Fn(&AppHandle<AppRuntime>, HotkeyEvent) + Send + Sync + 'static>;
-
-static REGISTERED_HANDLERS: LazyLock<Mutex<HashMap<String, Vec<ShortcutHandler>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ModifierToken {
@@ -51,10 +45,14 @@ fn platform_command_or_control() -> ModifierToken {
 
 fn parse_modifier_token(token: &str) -> Option<ModifierToken> {
     match token.to_ascii_lowercase().as_str() {
-        "control" | "ctrl" => Some(ModifierToken::Control),
-        "shift" => Some(ModifierToken::Shift),
-        "alt" | "option" => Some(ModifierToken::Alt),
-        "command" | "cmd" | "meta" | "super" => Some(ModifierToken::Command),
+        "control" | "ctrl" | "leftcontrol" | "rightcontrol" => Some(ModifierToken::Control),
+        "shift" | "leftshift" | "rightshift" => Some(ModifierToken::Shift),
+        "alt" | "option" | "leftalt" | "rightalt" | "leftoption" | "rightoption" => {
+            Some(ModifierToken::Alt)
+        }
+        "command" | "cmd" | "meta" | "super" | "leftcommand" | "rightcommand" => {
+            Some(ModifierToken::Command)
+        }
         "commandorcontrol" | "commandorctrl" | "cmdorctrl" | "cmdorcontrol" => {
             Some(platform_command_or_control())
         }
@@ -173,10 +171,6 @@ pub(crate) fn normalize_shortcut(shortcut: &str) -> Result<String> {
     Ok(parts.join("+"))
 }
 
-pub(crate) fn validate_shortcut(shortcut: &str) -> Result<()> {
-    normalize_shortcut(shortcut).map(|_| ())
-}
-
 struct GlobalShortcutProvider<'a> {
     app: &'a AppHandle<AppRuntime>,
 }
@@ -194,11 +188,6 @@ impl HotkeyProvider for GlobalShortcutProvider<'_> {
             .unregister_all()
             .map_err(|err| anyhow!("Failed to unregister shortcuts: {err}"))?;
 
-        let mut handlers = REGISTERED_HANDLERS
-            .lock()
-            .expect("hotkey handlers lock poisoned");
-        handlers.clear();
-
         Ok(())
     }
 
@@ -207,48 +196,26 @@ impl HotkeyProvider for GlobalShortcutProvider<'_> {
         F: Fn(&AppHandle<AppRuntime>, HotkeyEvent) + Send + Sync + 'static,
     {
         let normalized_shortcut = normalize_shortcut(shortcut)?;
-        let callback: ShortcutHandler = Arc::new(handler);
-
-        let should_register = {
-            let mut handlers = REGISTERED_HANDLERS
-                .lock()
-                .expect("hotkey handlers lock poisoned");
-            let entry = handlers.entry(normalized_shortcut.clone()).or_default();
-            entry.push(callback);
-            entry.len() == 1
-        };
-
-        if !should_register {
-            return Ok(());
-        }
-
-        let shortcut_key = normalized_shortcut.clone();
-        if let Err(err) = self.app.global_shortcut().on_shortcut(
-            normalized_shortcut.as_str(),
-            move |app, _shortcut, event| {
+        self.app
+            .global_shortcut()
+            .on_shortcut(normalized_shortcut.as_str(), move |app, pressed_shortcut, event| {
                 let state = match event.state {
                     ShortcutState::Pressed => HotkeyState::Pressed,
                     ShortcutState::Released => HotkeyState::Released,
                 };
-                let callbacks = {
-                    let handlers = REGISTERED_HANDLERS
-                        .lock()
-                        .expect("hotkey handlers lock poisoned");
-                    handlers.get(&shortcut_key).cloned().unwrap_or_default()
-                };
-                for callback in callbacks {
-                    callback(app, HotkeyEvent { state });
-                }
-            },
-        ) {
-            let mut handlers = REGISTERED_HANDLERS
-                .lock()
-                .expect("hotkey handlers lock poisoned");
-            handlers.remove(&normalized_shortcut);
-            return Err(anyhow!(
-                "Failed to register shortcut `{shortcut}` (normalized `{normalized_shortcut}`): {err}"
-            ));
-        }
+                handler(
+                    app,
+                    HotkeyEvent {
+                        state,
+                        shortcut: pressed_shortcut.to_string(),
+                    },
+                );
+            })
+            .map_err(|err| {
+                anyhow!(
+                    "Failed to register shortcut `{shortcut}` (normalized `{normalized_shortcut}`): {err}"
+                )
+            })?;
 
         Ok(())
     }
