@@ -35,7 +35,7 @@ parking_lot = "0.12"
 crossbeam-channel = "0.5"
 webrtc-vad = "0.4"
 rustfft = "6"
-reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "stream", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "stream", "rustls-tls", "blocking"] }
 dotenvy = "0.15"
 dotenvy_macro = "0.15"
 tauri-plugin-aptabase = { git = "https://github.com/aptabase/tauri-plugin-aptabase", rev = "7cc36cc" }

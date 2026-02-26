@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import DotMatrix from "./DotMatrix";
@@ -71,9 +71,101 @@ const getInitials = (value: string) => {
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 };
 
+const getWebsiteFallback = (site: string) => {
+    const normalized = normalizeWebsite(site);
+    const preview = formatWebsitePreview(normalized || site).trim();
+    if (!preview) {
+        return "•";
+    }
+    return preview.slice(0, 1).toUpperCase();
+};
+
+const buildWebsiteIconMap = (entries: WebsiteIcon[]) => {
+    const next: Record<string, string> = {};
+    for (const entry of entries) {
+        const key = normalizeWebsite(entry.site);
+        if (key && entry.icon_path) {
+            next[key] = entry.icon_path;
+        }
+    }
+    return next;
+};
+
 type InstalledApp = {
     name: string;
     path: string;
+    icon_path?: string | null;
+};
+
+type WebsiteIcon = {
+    site: string;
+    icon_path?: string | null;
+};
+
+type AppIconBadgeProps = {
+    appName: string;
+    iconPath?: string | null;
+    size?: "chip" | "list" | "option";
+};
+
+const AppIconBadge = ({ appName, iconPath, size = "chip" }: AppIconBadgeProps) => {
+    const iconUrl = iconPath ? convertFileSrc(iconPath) : null;
+    const sizeClass = size === "chip" ? "h-7 w-7" : "h-[18px] w-[18px]";
+    const textClass = size === "chip" ? "ui-text-micro" : "text-[9px] leading-none";
+    const baseClass = `${sizeClass} shrink-0 flex items-center justify-center`;
+
+    if (iconUrl) {
+        return (
+            <span className={`${baseClass} overflow-hidden`} aria-hidden="true">
+                <img
+                    src={iconUrl}
+                    alt=""
+                    className="h-full w-full object-cover rounded-md scale-110"
+                    loading="lazy"
+                />
+            </span>
+        );
+    }
+
+    return (
+        <span
+            className={`${baseClass} rounded-md border border-border-secondary bg-surface-overlay ui-color-secondary`}
+            aria-hidden="true"
+        >
+            <span className={`${textClass} font-semibold`}>{getInitials(appName)}</span>
+        </span>
+    );
+};
+
+type WebsiteFaviconProps = {
+    site: string;
+    iconPath?: string | null;
+    size?: "chip" | "list";
+};
+
+const WebsiteFavicon = ({ site, iconPath, size = "chip" }: WebsiteFaviconProps) => {
+    const sizeClass = size === "chip" ? "h-3.5 w-3.5" : "h-4 w-4";
+    const fallbackTextClass = size === "chip" ? "text-[8px]" : "text-[9px]";
+    if (!iconPath) {
+        return (
+            <span
+                className={`${sizeClass} shrink-0 rounded-sm border border-border-secondary bg-surface-overlay flex items-center justify-center ui-color-secondary ${fallbackTextClass}`}
+                aria-hidden="true"
+            >
+                {getWebsiteFallback(site)}
+            </span>
+        );
+    }
+
+    return (
+        <img
+            src={convertFileSrc(iconPath)}
+            alt=""
+            className={`${sizeClass} shrink-0 rounded-sm`}
+            loading="lazy"
+            aria-hidden="true"
+        />
+    );
 };
 
 type PendingDeletePersonality = {
@@ -84,13 +176,14 @@ type PendingDeletePersonality = {
 type PersonalityModalProps = {
     personality: Personality;
     installedApps: InstalledApp[];
+    websiteIconBySite: Record<string, string>;
     onClose: () => void;
     onUpdate: (patch: Partial<Personality>) => void;
     onUpdateList: (updater: (current: Personality) => Personality) => void;
     onDelete: () => void;
 };
 
-const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpdateList, onDelete }: PersonalityModalProps) => {
+const PersonalityModal = ({ personality, installedApps, websiteIconBySite, onClose, onUpdate, onUpdateList, onDelete }: PersonalityModalProps) => {
     const nameInputRef = useRef<HTMLInputElement>(null);
     const [isEditingName, setIsEditingName] = useState(false);
     const [nameDraft, setNameDraft] = useState(personality.name);
@@ -124,10 +217,6 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
         }
     };
 
-    const installedNameSet = useMemo(() => {
-        return new Set(installedApps.map((app) => app.name.toLowerCase()));
-    }, [installedApps]);
-
     const appOptions = useMemo(() => {
         const seen = new Set<string>();
         return installedApps.filter((app) => {
@@ -140,10 +229,19 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
         });
     }, [installedApps]);
 
+    const installedAppByName = useMemo(() => {
+        return new Map(appOptions.map((app) => [app.name.toLowerCase(), app]));
+    }, [appOptions]);
+
+    const installedNameSet = useMemo(() => {
+        return new Set(installedAppByName.keys());
+    }, [installedAppByName]);
+
     const appDropdownOptions = useMemo(() => {
         return appOptions.map((app) => ({
             value: app.name,
             label: app.name,
+            icon: <AppIconBadge appName={app.name} iconPath={app.icon_path} size="option" />,
         }));
     }, [appOptions]);
 
@@ -415,6 +513,7 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
                                         </div>
                                     ) : (
                                         personality.apps.map((app) => {
+                                            const installedApp = installedAppByName.get(app.toLowerCase());
                                             const isMissing = !installedNameSet.has(app.toLowerCase());
                                             return (
                                                 <div
@@ -422,7 +521,7 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
                                                     className="flex items-center justify-between rounded-lg border border-border-primary bg-surface-surface px-3 py-2"
                                                 >
                                                     <div className="flex items-center gap-2">
-                                                        <DotMatrix rows={1} cols={1} activeDots={[0]} dotSize={3} gap={2} color="var(--color-border-hover)" />
+                                                        <AppIconBadge appName={app} iconPath={installedApp?.icon_path} size="list" />
                                                         <span className="ui-text-body-sm ui-color-primary">{app}</span>
                                                         {isMissing && (
                                                             <span className="ui-text-meta ui-color-disabled">Not installed</span>
@@ -492,7 +591,11 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
                                                 className="flex items-center justify-between rounded-lg border border-border-primary bg-surface-surface px-3 py-2"
                                             >
                                                 <div className="flex items-center gap-2">
-                                                    <DotMatrix rows={1} cols={1} activeDots={[0]} dotSize={3} gap={2} color="var(--color-border-hover)" />
+                                                    <WebsiteFavicon
+                                                        site={site}
+                                                        iconPath={websiteIconBySite[normalizeWebsite(site)]}
+                                                        size="list"
+                                                    />
                                                     <span className="ui-text-label font-mono ui-color-primary">{site}</span>
                                                 </div>
                                                 <button
@@ -520,11 +623,14 @@ const PersonalityModal = ({ personality, installedApps, onClose, onUpdate, onUpd
 const PersonalizationView = () => {
     const [personalities, setPersonalities] = useState<Personality[]>([]);
     const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
+    const [websiteIconBySite, setWebsiteIconBySite] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activePersonalityId, setActivePersonalityId] = useState<string | null>(null);
     const [shiftHeld, setShiftHeld] = useState(false);
     const [pendingDeletePersonality, setPendingDeletePersonality] = useState<PendingDeletePersonality | null>(null);
+    const hasRequestedIconRefreshRef = useRef(false);
+    const websiteIconRefreshKeyRef = useRef<string | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -547,6 +653,96 @@ const PersonalizationView = () => {
     useEffect(() => {
         load();
     }, [load]);
+
+    const websiteDomains = useMemo(() => {
+        const seen = new Set<string>();
+        for (const personality of personalities) {
+            for (const site of personality.websites) {
+                const normalized = normalizeWebsite(site);
+                if (normalized) {
+                    seen.add(normalized);
+                }
+            }
+        }
+        return Array.from(seen).sort();
+    }, [personalities]);
+
+    const loadWebsiteIcons = useCallback(async (sites: string[]) => {
+        if (sites.length === 0) {
+            setWebsiteIconBySite({});
+            return;
+        }
+        try {
+            const iconsResp = await invoke<WebsiteIcon[]>("list_website_icons", { sites });
+            setWebsiteIconBySite(buildWebsiteIconMap(iconsResp ?? []));
+        } catch (err) {
+            console.error(err);
+        }
+    }, []);
+
+    useEffect(() => {
+        void loadWebsiteIcons(websiteDomains);
+    }, [websiteDomains, loadWebsiteIcons]);
+
+    useEffect(() => {
+        if (websiteDomains.length === 0) {
+            websiteIconRefreshKeyRef.current = null;
+            return;
+        }
+
+        const hasMissingIcons = websiteDomains.some((site) => !websiteIconBySite[site]);
+        if (!hasMissingIcons) {
+            websiteIconRefreshKeyRef.current = websiteDomains.join("|");
+            return;
+        }
+
+        const currentKey = websiteDomains.join("|");
+        if (websiteIconRefreshKeyRef.current === currentKey) {
+            return;
+        }
+
+        const timer = window.setTimeout(async () => {
+            websiteIconRefreshKeyRef.current = currentKey;
+            try {
+                const iconsResp = await invoke<WebsiteIcon[]>("list_website_icons", {
+                    sites: websiteDomains,
+                });
+                setWebsiteIconBySite(buildWebsiteIconMap(iconsResp ?? []));
+            } catch {
+                // Keep current icon map; website icon refresh is best-effort only.
+            }
+        }, 2500);
+
+        return () => {
+            window.clearTimeout(timer);
+        };
+    }, [websiteDomains, websiteIconBySite]);
+
+    useEffect(() => {
+        if (hasRequestedIconRefreshRef.current || loading || installedApps.length === 0) {
+            return;
+        }
+
+        const hasMissingIcons = installedApps.some((app) => !app.icon_path);
+        if (!hasMissingIcons) {
+            hasRequestedIconRefreshRef.current = true;
+            return;
+        }
+
+        const timer = window.setTimeout(async () => {
+            hasRequestedIconRefreshRef.current = true;
+            try {
+                const appsResp = await invoke<InstalledApp[]>("list_installed_apps");
+                setInstalledApps(appsResp ?? []);
+            } catch {
+                // Keep current app list; icon refresh is best-effort only.
+            }
+        }, 2500);
+
+        return () => {
+            window.clearTimeout(timer);
+        };
+    }, [installedApps, loading]);
 
     useEffect(() => {
         let cancelled = false;
@@ -675,6 +871,11 @@ const PersonalizationView = () => {
         return personalities.find((personality) => personality.id === activePersonalityId) || null;
     }, [personalities, activePersonalityId]);
 
+    const installedAppByName = useMemo(() => {
+        const entries = installedApps.map((app) => [app.name.toLowerCase(), app] as const);
+        return new Map(entries);
+    }, [installedApps]);
+
     useEffect(() => {
         if (activePersonalityId && !activePersonality) {
             setActivePersonalityId(null);
@@ -802,12 +1003,12 @@ const PersonalizationView = () => {
                                                     <span className="ui-text-meta ui-color-disabled">No apps yet</span>
                                                 ) : (
                                                     appsPreview.map((app) => (
-                                                        <div
-                                                            key={app}
-                                                            title={app}
-                                                            className="h-7 w-7 rounded-lg border border-border-secondary bg-surface-overlay flex items-center justify-center ui-text-micro ui-color-secondary"
-                                                        >
-                                                            {getInitials(app)}
+                                                        <div key={app} title={app}>
+                                                            <AppIconBadge
+                                                                appName={app}
+                                                                iconPath={installedAppByName.get(app.toLowerCase())?.icon_path}
+                                                                size="chip"
+                                                            />
                                                         </div>
                                                     ))
                                                 )}
@@ -824,12 +1025,19 @@ const PersonalizationView = () => {
                                                     <span className="ui-text-meta ui-color-disabled">No sites yet</span>
                                                 ) : (
                                                     sitesPreview.map((site) => (
-                                                            <span
-                                                                key={site}
-                                                                className="min-w-0 max-w-[110px] truncate rounded-md border border-border-primary bg-surface-overlay px-2.5 py-1 ui-text-micro font-mono ui-color-secondary"
-                                                            >
+                                                        <span
+                                                            key={site}
+                                                            className="min-w-0 max-w-[118px] rounded-md border border-border-primary bg-surface-overlay px-2 py-1 ui-text-micro ui-color-secondary inline-flex items-center gap-1"
+                                                        >
+                                                            <WebsiteFavicon
+                                                                site={site}
+                                                                iconPath={websiteIconBySite[normalizeWebsite(site)]}
+                                                                size="chip"
+                                                            />
+                                                            <span className="min-w-0 truncate font-mono">
                                                                 {formatWebsitePreview(site)}
                                                             </span>
+                                                        </span>
 
                                                     ))
                                                 )}
@@ -863,6 +1071,7 @@ const PersonalizationView = () => {
                 <PersonalityModal
                     personality={activePersonality}
                     installedApps={installedApps}
+                    websiteIconBySite={websiteIconBySite}
                     onClose={() => setActivePersonalityId(null)}
                     onUpdate={(patch) => updatePersonality(activePersonality.id, patch)}
                     onUpdateList={(updater) => updatePersonalityList(activePersonality.id, updater)}

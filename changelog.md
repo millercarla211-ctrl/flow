@@ -1,7 +1,7 @@
 0.7.0
 
 ### Features
-
+- Apps & websites in personalization now show their icons.
 
 ### Changes
 - Removed Moonshine support, as it didn't serve a purpose.
