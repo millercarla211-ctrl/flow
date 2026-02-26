@@ -4,6 +4,7 @@ mod assistive;
 mod audio;
 mod core;
 mod crypto;
+mod data_migration;
 mod dictionary;
 mod downloader;
 mod library;
@@ -263,6 +264,9 @@ pub fn run() {
             app.set_activation_policy(ActivationPolicy::Accessory);
 
             let handle = app.handle();
+            if let Err(err) = data_migration::migrate_legacy_app_dirs(handle) {
+                eprintln!("Failed to migrate legacy app directories: {err}");
+            }
             let settings_store = Arc::new(SettingsStore::new(handle)?);
             let mut settings = settings_store.load().unwrap_or_default();
             if model_manager::definition(&settings.local_model).is_none() {
