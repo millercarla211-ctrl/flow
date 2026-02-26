@@ -31,7 +31,6 @@ type EngineSupport = {
 
 const KNOWN_ENGINE_BADGES: Record<string, string> = {
     whisper: "WS",
-    moonshine: "MS",
     parakeet_v3: "P3",
 };
 
@@ -108,13 +107,12 @@ function getTranscriptionEngineId(value: string | null | undefined): Transcripti
     if (KNOWN_ENGINE_BADGES[normalized]) return normalized;
 
     // Preserve explicit version IDs (e.g. parakeet_v3, whisper_v4) when present.
-    const versioned = normalized.match(/^(whisper|moonshine|parakeet)(?:_[a-z0-9]+)*_v(\d+)$/);
+    const versioned = normalized.match(/^(whisper|parakeet)(?:_[a-z0-9]+)*_v(\d+)$/);
     if (versioned) {
         return `${versioned[1]}_v${versioned[2]}`;
     }
 
     if (normalized.includes("whisper")) return "whisper";
-    if (normalized.includes("moonshine")) return "moonshine";
     if (normalized.includes("parakeet_v3")) return "parakeet_v3";
     if (normalized.includes("parakeet")) return "parakeet_v3";
 

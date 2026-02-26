@@ -17,8 +17,6 @@ use crate::{
 
 const WHISPER_CHUNK_SECONDS: f32 = 28.0;
 const WHISPER_CHUNK_OVERLAP_SECONDS: f32 = 2.0;
-const MOONSHINE_CHUNK_SECONDS: f32 = 60.0;
-const MOONSHINE_CHUNK_OVERLAP_SECONDS: f32 = 2.0;
 const VAD_MIN_SPEECH_PERCENT_FILE: f32 = 2.0;
 const VAD_MIN_SPEECH_PERCENT_CHUNK: f32 = 5.0;
 
@@ -65,10 +63,6 @@ pub(crate) fn queue_transcription(
                     let local_recording = recording_for_task.clone();
                     let is_whisper =
                         matches!(ready_model.engine, model_manager::LocalModelEngine::Whisper);
-                    let is_moonshine = matches!(
-                        ready_model.engine,
-                        model_manager::LocalModelEngine::Moonshine { .. }
-                    );
                     let cancel_token_clone = cancel_token.clone();
                     match async_runtime::spawn_blocking(move || {
                         if is_whisper {
@@ -84,21 +78,6 @@ pub(crate) fn queue_transcription(
                                     overlap_seconds: WHISPER_CHUNK_OVERLAP_SECONDS,
                                     cancel_token: Some(&cancel_token_clone),
                                     strip_hallucinated_thank_you: true,
-                                },
-                            )
-                        } else if is_moonshine {
-                            transcribe_local_chunked(
-                                &transcriber,
-                                &ready_model,
-                                &local_recording.samples,
-                                local_recording.sample_rate,
-                                LocalChunkingConfig {
-                                    initial_prompt: dictionary_prompt.as_deref(),
-                                    language: Some(&language),
-                                    chunk_seconds: MOONSHINE_CHUNK_SECONDS,
-                                    overlap_seconds: MOONSHINE_CHUNK_OVERLAP_SECONDS,
-                                    cancel_token: Some(&cancel_token_clone),
-                                    strip_hallucinated_thank_you: false,
                                 },
                             )
                         } else {
@@ -369,10 +348,6 @@ pub(crate) fn retry_transcription_async(
                                 ready_model.engine,
                                 model_manager::LocalModelEngine::Whisper
                             );
-                            let is_moonshine = matches!(
-                                ready_model.engine,
-                                model_manager::LocalModelEngine::Moonshine { .. }
-                            );
                             let cancel_token_clone = cancel_token.clone();
                             match async_runtime::spawn_blocking(move || {
                                 if is_whisper {
@@ -388,21 +363,6 @@ pub(crate) fn retry_transcription_async(
                                             overlap_seconds: WHISPER_CHUNK_OVERLAP_SECONDS,
                                             cancel_token: Some(&cancel_token_clone),
                                             strip_hallucinated_thank_you: true,
-                                        },
-                                    )
-                                } else if is_moonshine {
-                                    transcribe_local_chunked(
-                                        &transcriber,
-                                        &ready_model,
-                                        &samples,
-                                        sample_rate,
-                                        LocalChunkingConfig {
-                                            initial_prompt: dictionary_prompt.as_deref(),
-                                            language: Some(&language),
-                                            chunk_seconds: MOONSHINE_CHUNK_SECONDS,
-                                            overlap_seconds: MOONSHINE_CHUNK_OVERLAP_SECONDS,
-                                            cancel_token: Some(&cancel_token_clone),
-                                            strip_hallucinated_thank_you: false,
                                         },
                                     )
                                 } else {

@@ -1,7 +1,15 @@
 0.7.0
 
+### Features
+
+
+### Changes
+- Removed Moonshine support, as it didn't serve a purpose.
+
+
 ### Fixes
 - Text would create newlines at end of chunk.
+- Capital letters from merged library recordings. 
 ---
 0.6.7
 

@@ -22,7 +22,7 @@ Pre-built releases are available on the [Releases page](https://github.com/Legen
 
 ## Features
 
-- **Local transcription** — Runs entirely on-device using Whisper, Parakeet, or Moonshine models
+- **Local transcription** — Runs entirely on-device using Whisper or Parakeet models
 - **Replacements** - Directly replace words in sentences for other defined words
 - **Custom dictionary** — Define custom words and phrases for accurate transcription
 - **Assistive text insertion** — Automatically inserts transcribed text where you're typing
@@ -66,7 +66,7 @@ Glimpse is licensed under the **GNU Affero General Public License v3 (AGPL-3.0)*
 - [Tauri](https://v2.tauri.app/) — the framework Glimpse is built on
 - [Transcribe-rs](https://github.com/cjpais/transcribe-rs) (MIT) — the underlying STT engine that powers local transcription
 - [whisper-rs](https://github.com/tazz4843/whisper-rs) (Unlicense) — Rust bindings used by the Whisper engine
-- [ort](https://github.com/pykeio/ort) (MIT OR Apache-2.0) — ONNX Runtime bindings used by Parakeet and Moonshine
+- [ort](https://github.com/pykeio/ort) (MIT OR Apache-2.0) — ONNX Runtime bindings used by Parakeet
 
 ### Models
 
@@ -76,8 +76,6 @@ These are models that can be downloaded in the app from Huggingface (license sho
   
 - Parakeet TDT 0.6B v3 (ONNX) (CC-BY-4.0): FP32/Int8 variants from [`istupakov/parakeet-tdt-0.6b-v3-onnx`](https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx) (base model [`nvidia/parakeet-tdt-0.6b-v3`](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3), CC-BY-4.0)
   
-- Moonshine (ONNX) (MIT): Tiny/Base variants from [`UsefulSensors/moonshine`](https://huggingface.co/UsefulSensors/moonshine)
-
 ## For Developers
 
 ### Building Locally

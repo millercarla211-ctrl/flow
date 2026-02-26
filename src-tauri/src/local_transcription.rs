@@ -6,7 +6,6 @@ use anyhow::{anyhow, Result};
 use parking_lot::{Condvar, Mutex};
 use transcribe_rs::{
     engines::{
-        moonshine::{ModelVariant as MoonshineModelVariant, MoonshineEngine, MoonshineModelParams},
         parakeet::{
             ParakeetEngine, ParakeetInferenceParams, ParakeetModelParams, TimestampGranularity,
         },
@@ -43,7 +42,6 @@ struct LoadedEngine {
 enum EngineInstance {
     Parakeet { engine: ParakeetEngine },
     Whisper { engine: WhisperEngine },
-    Moonshine { engine: Box<MoonshineEngine> },
 }
 
 struct PreparedAudio {
@@ -141,9 +139,6 @@ impl LocalTranscriber {
             EngineInstance::Whisper { engine } => engine
                 .transcribe_samples(silence, None)
                 .map_err(|err| anyhow!("Whisper warmup failed: {err}")),
-            EngineInstance::Moonshine { engine } => engine
-                .transcribe_samples(silence, None)
-                .map_err(|err| anyhow!("Moonshine warmup failed: {err}")),
         };
         let _ = warmup_result?;
 
@@ -234,9 +229,6 @@ impl LocalTranscriber {
                     .transcribe_samples(prepared.data.clone(), params)
                     .map_err(|err| anyhow!("Whisper transcription failed: {err}"))?
             }
-            EngineInstance::Moonshine { engine } => engine
-                .transcribe_samples(prepared.data.clone(), None)
-                .map_err(|err| anyhow!("Moonshine transcription failed: {err}"))?,
         };
 
         Ok((result, model_label))
@@ -271,23 +263,6 @@ impl LocalTranscriber {
                     .load_model(model.path.as_path())
                     .map_err(|err| anyhow!("Failed to load Whisper model: {err}"))?;
                 EngineInstance::Whisper { engine }
-            }
-            LocalModelEngine::Moonshine { variant } => {
-                use crate::model_manager::MoonshineVariant;
-                let mut engine = MoonshineEngine::new();
-                let model_variant = match variant {
-                    MoonshineVariant::Tiny => MoonshineModelVariant::Tiny,
-                    MoonshineVariant::Base => MoonshineModelVariant::Base,
-                };
-                engine
-                    .load_model_with_params(
-                        model.path.as_path(),
-                        MoonshineModelParams::variant(model_variant),
-                    )
-                    .map_err(|err| anyhow!("Failed to load Moonshine model: {err}"))?;
-                EngineInstance::Moonshine {
-                    engine: Box::new(engine),
-                }
             }
         };
 

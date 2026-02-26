@@ -20,17 +20,13 @@ const engineDescription = (engineId: string, engineLabel: string) => {
     if (engineId === "parakeet_v3") {
         return "NVIDIA's multilingual speech recognition.";
     }
-    if (engineId === "moonshine") {
-        return "Extremely fast, lightweight, optimized for real-time use.";
-    }
     return `${engineLabel} transcription engine.`;
 };
 
 const enginePriority = (engineId: string): number => {
     if (engineId === "whisper") return 0;
     if (engineId === "parakeet_v3") return 1;
-    if (engineId === "moonshine") return 2;
-    return 3;
+    return 2;
 };
 
 const getSizeColor = (sizeMb: number): string => {

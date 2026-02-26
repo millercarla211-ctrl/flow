@@ -109,8 +109,6 @@ const LANGUAGE_NAMES: &[(&str, &str)] = &[
     ("yue", "Cantonese"),
 ];
 
-const MOONSHINE_LANGUAGE_CODES: &[&str] = &["ar", "en", "zh", "ja", "ko", "es", "uk", "vi"];
-
 const NVIDIA_PARAKEET_V3_LANGUAGE_CODES: &[&str] = &[
     "bg", "hr", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el", "hu", "it", "lv", "lt", "mt",
     "pl", "pt", "ro", "sk", "sl", "es", "sv", "ru", "uk",
@@ -140,10 +138,6 @@ pub fn whisper_supported_languages() -> Vec<SupportedLanguageInfo> {
             name: (*name).to_string(),
         })
         .collect()
-}
-
-pub fn moonshine_supported_languages() -> Vec<SupportedLanguageInfo> {
-    supported_languages_for_codes(MOONSHINE_LANGUAGE_CODES)
 }
 
 pub fn parakeet_v3_supported_languages() -> Vec<SupportedLanguageInfo> {
