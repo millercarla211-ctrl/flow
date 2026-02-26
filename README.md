@@ -84,7 +84,7 @@ These are models that can be downloaded in the app from Huggingface (license sho
 
 - macOS 13+
 - [Rust](https://rustup.rs/) 1.74+
-- [Bun](https://bun.sh/) (or npm/pnpm)
+- [Bun](https://bun.sh/) 1.3+
 - Xcode Command Line Tools
 
 ```bash
