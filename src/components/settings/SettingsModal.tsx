@@ -128,6 +128,15 @@ const SettingsModal = ({
         () => buildTranscriptionLanguageView(modelCatalog, activeTranscriptionEngine, visibleTranscriptionEngines),
         [modelCatalog, activeTranscriptionEngine, visibleTranscriptionEngines]
     );
+    const languageForcedAuto = activeTranscriptionEngine === "parakeet_v3";
+    const displayedLanguage = languageForcedAuto ? "" : language;
+    const displayedLanguageOptions = useMemo(
+        () =>
+            languageForcedAuto
+                ? languageView.options.filter((option) => option.code === "")
+                : languageView.options,
+        [languageForcedAuto, languageView.options]
+    );
 
     const [cloudSyncEnabled, setCloudSyncEnabled] = useState(() => {
         const stored = localStorage.getItem("glimpse_cloud_sync_enabled");
@@ -865,9 +874,9 @@ const SettingsModal = ({
                                             inputDevices={inputDevices}
                                             microphoneDevice={microphoneDevice}
                                             onMicrophoneDeviceChange={setMicrophoneDevice}
-                                            language={language}
+                                            language={displayedLanguage}
                                             onLanguageChange={setLanguage}
-                                            languages={languageView.options}
+                                            languages={displayedLanguageOptions}
                                             languageBadgeColumns={languageView.badgeColumns}
                                             showLanguageSupportBadges={showLanguageSupportBadges}
                                             smartShortcut={smartShortcut}

@@ -8,8 +8,7 @@ use tauri::{AppHandle, Manager, Runtime};
 
 use crate::downloader::{download_model_files, ModelFileDescriptor};
 use crate::model_language_table::{
-    moonshine_supported_languages, parakeet_v3_supported_languages, whisper_supported_languages,
-    SupportedLanguageInfo,
+    parakeet_v3_supported_languages, whisper_supported_languages, SupportedLanguageInfo,
 };
 
 const MODELS_ROOT: &str = "models";
@@ -22,17 +21,10 @@ pub enum ModelStorage {
     File { artifact: &'static str },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum MoonshineVariant {
-    Tiny,
-    Base,
-}
-
 #[derive(Debug, Clone)]
 pub enum LocalModelEngine {
-    Parakeet { quantized: bool },
+    Parakeet,
     Whisper,
-    Moonshine { variant: MoonshineVariant },
 }
 
 #[derive(Debug, Clone)]
@@ -56,38 +48,7 @@ pub struct ReadyModel {
     pub engine: LocalModelEngine,
 }
 
-const PARAKEET_TDT_FP32_FILES: [ModelFileDescriptor; 6] = [
-    ModelFileDescriptor {
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/config.json",
-        name: "config.json",
-    },
-    ModelFileDescriptor {
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/encoder-model.onnx",
-        name: "encoder-model.onnx",
-    },
-    ModelFileDescriptor {
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/encoder-model.onnx.data",
-        name: "encoder-model.onnx.data",
-    },
-    ModelFileDescriptor {
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/decoder_joint-model.onnx",
-        name: "decoder_joint-model.onnx",
-    },
-    ModelFileDescriptor {
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/nemo128.onnx",
-        name: "nemo128.onnx",
-    },
-    ModelFileDescriptor {
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/vocab.txt",
-        name: "vocab.txt",
-    },
-];
-
-const PARAKEET_TDT_INT8_FILES: [ModelFileDescriptor; 5] = [
-    ModelFileDescriptor {
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/config.json",
-        name: "config.json",
-    },
+const PARAKEET_TDT_INT8_FILES: [ModelFileDescriptor; 3] = [
     ModelFileDescriptor {
         url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/encoder-model.int8.onnx",
         name: "encoder-model.int8.onnx",
@@ -95,10 +56,6 @@ const PARAKEET_TDT_INT8_FILES: [ModelFileDescriptor; 5] = [
     ModelFileDescriptor {
         url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/decoder_joint-model.int8.onnx",
         name: "decoder_joint-model.int8.onnx",
-    },
-    ModelFileDescriptor {
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/nemo128.onnx",
-        name: "nemo128.onnx",
     },
     ModelFileDescriptor {
         url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/vocab.txt",
@@ -115,36 +72,6 @@ const WHISPER_LARGE_V3_TURBO_Q8_FILES: [ModelFileDescriptor; 1] = [ModelFileDesc
     url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin",
     name: "ggml-large-v3-turbo-q8_0.bin",
 }];
-
-const MOONSHINE_TINY_FILES: [ModelFileDescriptor; 3] = [
-    ModelFileDescriptor {
-        url: "https://huggingface.co/UsefulSensors/moonshine/resolve/main/onnx/merged/tiny/float/encoder_model.onnx",
-        name: "encoder_model.onnx",
-    },
-    ModelFileDescriptor {
-        url: "https://huggingface.co/UsefulSensors/moonshine/resolve/main/onnx/merged/tiny/float/decoder_model_merged.onnx",
-        name: "decoder_model_merged.onnx",
-    },
-    ModelFileDescriptor {
-        url: "https://huggingface.co/UsefulSensors/moonshine/resolve/main/onnx/merged/base/float/tokenizer.json",
-        name: "tokenizer.json",
-    },
-];
-
-const MOONSHINE_BASE_FILES: [ModelFileDescriptor; 3] = [
-    ModelFileDescriptor {
-        url: "https://huggingface.co/UsefulSensors/moonshine/resolve/main/onnx/merged/base/float/encoder_model.onnx",
-        name: "encoder_model.onnx",
-    },
-    ModelFileDescriptor {
-        url: "https://huggingface.co/UsefulSensors/moonshine/resolve/main/onnx/merged/base/float/decoder_model_merged.onnx",
-        name: "decoder_model_merged.onnx",
-    },
-    ModelFileDescriptor {
-        url: "https://huggingface.co/UsefulSensors/moonshine/resolve/main/onnx/merged/base/float/tokenizer.json",
-        name: "tokenizer.json",
-    },
-];
 
 pub const MODEL_DEFINITIONS: &[ModelDefinition] = &[
     ModelDefinition {
@@ -164,69 +91,30 @@ pub const MODEL_DEFINITIONS: &[ModelDefinition] = &[
     },
     ModelDefinition {
         key: "parakeet_tdt_int8",
-        label: "Parakeet 0.6B (Int8)",
-        description: "Fast multilingual transcription with NVIDIA's quantized Parakeet model.",
-        size_mb: 700.0,
+        label: "Parakeet TDT 0.6B (Int8)",
+        description:
+            "Fast, multilingual and accurate. Based on ONNX for everyday local transcription.",
+        size_mb: 670.0,
         files: &PARAKEET_TDT_INT8_FILES,
-        engine: LocalModelEngine::Parakeet { quantized: true },
+        engine: LocalModelEngine::Parakeet,
         variant: "Int8",
         storage: ModelStorage::Directory,
         tags: &["Multilingual", "Fast"],
         capabilities: &[MODEL_CAPABILITY_TIMESTAMPS],
     },
     ModelDefinition {
-        key: "parakeet_tdt_fp32",
-        label: "Parakeet 0.6B (FP32)",
-        description: "Highest accuracy Parakeet model with full-precision weights.",
-        size_mb: 2300.0,
-        files: &PARAKEET_TDT_FP32_FILES,
-        engine: LocalModelEngine::Parakeet { quantized: false },
-        variant: "FP32",
-        storage: ModelStorage::Directory,
-        tags: &["Multilingual", "High Accuracy"],
-        capabilities: &[MODEL_CAPABILITY_TIMESTAMPS],
-    },
-    ModelDefinition {
         key: "whisper_small_q5",
         label: "Whisper Small",
-        description: "CPU-friendly with dictionary support.",
-        size_mb: 200.0,
+        description: "Small & fast with dictionary support.",
+        size_mb: 190.0,
         files: &WHISPER_SMALL_Q5_FILES,
         engine: LocalModelEngine::Whisper,
         variant: "Q5_1",
         storage: ModelStorage::File {
             artifact: "ggml-small-q5_1.bin",
         },
-        tags: &["English", "Dictionary", "CPU Friendly"],
+        tags: &["English", "Dictionary", "Compute Friendly"],
         capabilities: &[MODEL_CAPABILITY_DICTIONARY, MODEL_CAPABILITY_TIMESTAMPS],
-    },
-    ModelDefinition {
-        key: "moonshine_tiny",
-        label: "Moonshine Tiny",
-        description: "Ultra-fast lightweight model, great for quick transcriptions.",
-        size_mb: 110.0,
-        files: &MOONSHINE_TINY_FILES,
-        engine: LocalModelEngine::Moonshine {
-            variant: MoonshineVariant::Tiny,
-        },
-        variant: "Tiny",
-        storage: ModelStorage::Directory,
-        tags: &["English", "Fast", "Lightweight"],
-        capabilities: &[],
-    },
-    ModelDefinition {
-        key: "moonshine_base",
-        label: "Moonshine Base",
-        description: "Balanced speed and accuracy with Moonshine architecture.",
-        size_mb: 250.0,
-        files: &MOONSHINE_BASE_FILES,
-        engine: LocalModelEngine::Moonshine {
-            variant: MoonshineVariant::Base,
-        },
-        variant: "Base",
-        storage: ModelStorage::Directory,
-        tags: &["English", "Balanced"],
-        capabilities: &[],
     },
 ];
 
@@ -298,8 +186,7 @@ pub struct ModelStatus {
 fn supported_languages(engine: &LocalModelEngine) -> Vec<SupportedLanguageInfo> {
     match engine {
         LocalModelEngine::Whisper => whisper_supported_languages(),
-        LocalModelEngine::Moonshine { .. } => moonshine_supported_languages(),
-        LocalModelEngine::Parakeet { .. } => parakeet_v3_supported_languages(),
+        LocalModelEngine::Parakeet => parakeet_v3_supported_languages(),
     }
 }
 
@@ -356,17 +243,15 @@ fn calculate_dir_size(dir: &Path) -> Result<u64> {
 
 fn engine_label(engine: &LocalModelEngine) -> &'static str {
     match engine {
-        LocalModelEngine::Parakeet { .. } => "Parakeet v3",
+        LocalModelEngine::Parakeet => "Parakeet",
         LocalModelEngine::Whisper => "Whisper",
-        LocalModelEngine::Moonshine { .. } => "Moonshine",
     }
 }
 
 fn engine_id(engine: &LocalModelEngine) -> &'static str {
     match engine {
-        LocalModelEngine::Parakeet { .. } => "parakeet_v3",
+        LocalModelEngine::Parakeet => "parakeet_v3",
         LocalModelEngine::Whisper => "whisper",
-        LocalModelEngine::Moonshine { .. } => "moonshine",
     }
 }
 
@@ -421,8 +306,7 @@ pub fn group_models_by_engine(models: &[ModelInfo]) -> Vec<EngineGroup> {
     result.sort_by_key(|g| match g.models.first().map(|m| m.engine_id.as_str()) {
         Some("whisper") => 0,
         Some("parakeet_v3") => 1,
-        Some("moonshine") => 2,
-        _ => 3,
+        _ => 2,
     });
 
     result

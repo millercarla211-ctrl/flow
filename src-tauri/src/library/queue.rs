@@ -22,9 +22,8 @@ use super::types::{
     LibraryItem, LibraryItemPatch, LibraryItemStatus, LibraryProgressPayload,
     LibraryProgressUpdate, LibraryTranscriptionResult, TranscriptSegment, CHUNK_OVERLAP_SECONDS,
     DIRECT_TRANSCRIBE_MINUTES, EVENT_LIBRARY_COMPLETE, EVENT_LIBRARY_ERROR, EVENT_LIBRARY_PROGRESS,
-    MAX_CHUNK_MINUTES, MOONSHINE_CHUNK_OVERLAP_SECONDS, MOONSHINE_CHUNK_SECONDS,
-    VAD_MIN_SPEECH_PERCENT_CHUNK, VAD_MIN_SPEECH_PERCENT_FILE, WHISPER_CHUNK_OVERLAP_SECONDS,
-    WHISPER_CHUNK_SECONDS,
+    MAX_CHUNK_MINUTES, VAD_MIN_SPEECH_PERCENT_CHUNK, VAD_MIN_SPEECH_PERCENT_FILE,
+    WHISPER_CHUNK_OVERLAP_SECONDS, WHISPER_CHUNK_SECONDS,
 };
 
 fn start_library_job_internal(app: &AppHandle<AppRuntime>, job: LibraryJob) {
@@ -369,15 +368,11 @@ fn transcribe_library_item(
 
     let settings = state.current_settings();
     let ready_model = model_manager::ensure_model_ready(app, &item.speech_model)?;
-    let dictionary_prompt = dictionary::dictionary_prompt_for_model(&ready_model, &settings);
+    let dictionary_terms = dictionary::dictionary_entries_for_model(&ready_model, &settings);
     let language = settings.language.clone();
     let transcriber = state.local_transcriber();
     let use_whisper_chunking =
         matches!(ready_model.engine, model_manager::LocalModelEngine::Whisper);
-    let use_moonshine_chunking = matches!(
-        ready_model.engine,
-        model_manager::LocalModelEngine::Moonshine { .. }
-    );
 
     if use_whisper_chunking {
         let chunk_size = (WHISPER_CHUNK_SECONDS as usize * sample_rate as usize).max(1);
@@ -390,7 +385,6 @@ fn transcribe_library_item(
         let mut full_text = String::new();
         let mut merged_segments: Vec<TranscriptSegment> = Vec::new();
         let mut last_end_ms: u64 = 0;
-        let mut used_prompt = false;
         let mut chunk_index: u32 = 0;
 
         stream_wav_chunks(&audio_path, chunk_size, overlap, |start_idx, chunk| {
@@ -411,23 +405,15 @@ fn transcribe_library_item(
                 );
                 return Ok(());
             }
-            let prompt = if !used_prompt {
-                dictionary_prompt.as_deref()
-            } else {
-                None
-            };
             let result = transcriber.transcribe_with_segments(
                 &ready_model,
                 chunk,
                 sample_rate,
-                prompt,
+                dictionary_terms.as_slice(),
                 Some(&language),
             )?;
             if token.is_cancelled() {
                 return Err(anyhow!("Transcription cancelled"));
-            }
-            if prompt.is_some() {
-                used_prompt = true;
             }
 
             let chunk_text = result.transcript;
@@ -435,11 +421,8 @@ fn transcribe_library_item(
             if !chunk_text.trim().is_empty() {
                 let deduped = transcribe::dedupe_overlap_text(&full_text, &chunk_text);
                 if !deduped.trim().is_empty() {
-                    if !full_text.is_empty() {
-                        full_text.push('\n');
-                    }
-                    full_text.push_str(&deduped);
-                    appended_text = Some(deduped);
+                    let appended = append_library_chunk(&mut full_text, &deduped);
+                    appended_text = Some(appended);
                 }
             }
 
@@ -503,72 +486,6 @@ fn transcribe_library_item(
         });
     }
 
-    if use_moonshine_chunking && duration_seconds > MOONSHINE_CHUNK_SECONDS as f32 {
-        let chunk_size = (MOONSHINE_CHUNK_SECONDS as usize * sample_rate as usize).max(1);
-        let overlap = (MOONSHINE_CHUNK_OVERLAP_SECONDS as usize * sample_rate as usize)
-            .min(chunk_size.saturating_sub(1));
-        let step = chunk_size.saturating_sub(overlap).max(1);
-        let total_chunks =
-            compute_total_chunks(wav_info.total_samples, chunk_size, step).max(1) as u32;
-        let mut full_text = String::new();
-        let mut chunk_index: u32 = 0;
-
-        stream_wav_chunks(&audio_path, chunk_size, overlap, |_, chunk| {
-            if token.is_cancelled() {
-                return Err(anyhow!("Transcription cancelled"));
-            }
-
-            chunk_index = chunk_index.saturating_add(1);
-            let chunk_speech_percent =
-                speech_percentage_i16_with_mode(chunk, sample_rate, VadMode::VeryAggressive);
-            if chunk_speech_percent < VAD_MIN_SPEECH_PERCENT_CHUNK {
-                let progress = (chunk_index as f32) / total_chunks as f32;
-                report_progress(
-                    app,
-                    state.storage(),
-                    &item.id,
-                    LibraryProgressUpdate::with_chunk_counts(progress, chunk_index, total_chunks),
-                );
-                return Ok(());
-            }
-            let result = transcriber.transcribe(
-                &ready_model,
-                chunk,
-                sample_rate,
-                dictionary_prompt.as_deref(),
-                Some(&language),
-            )?;
-            if token.is_cancelled() {
-                return Err(anyhow!("Transcription cancelled"));
-            }
-
-            let chunk_text = result.transcript;
-            if !chunk_text.trim().is_empty() {
-                let deduped = transcribe::dedupe_overlap_text(&full_text, &chunk_text);
-                if !deduped.trim().is_empty() {
-                    if !full_text.is_empty() {
-                        full_text.push('\n');
-                    }
-                    full_text.push_str(&deduped);
-                }
-            }
-
-            let progress = (chunk_index as f32) / total_chunks as f32;
-            report_progress(
-                app,
-                state.storage(),
-                &item.id,
-                LibraryProgressUpdate::with_chunk_counts(progress, chunk_index, total_chunks),
-            );
-            Ok(())
-        })?;
-
-        return Ok(LibraryTranscriptionResult {
-            transcript: full_text.trim().to_string(),
-            segments: None,
-        });
-    }
-
     if duration_seconds <= (DIRECT_TRANSCRIBE_MINUTES as f32 * 60.0) {
         let (samples, sample_rate) = transcribe::load_audio_for_transcription(&audio_path)?;
         let speech_percent =
@@ -584,7 +501,7 @@ fn transcribe_library_item(
             &ready_model,
             &samples,
             sample_rate,
-            dictionary_prompt.as_deref(),
+            dictionary_terms.as_slice(),
             Some(&language),
         )?;
         if token.is_cancelled() {
@@ -628,7 +545,7 @@ fn transcribe_library_item(
             &ready_model,
             chunk,
             sample_rate,
-            dictionary_prompt.as_deref(),
+            dictionary_terms.as_slice(),
             Some(&language),
         )?;
         if token.is_cancelled() {
@@ -639,10 +556,7 @@ fn transcribe_library_item(
         if !chunk_text.trim().is_empty() {
             let deduped = transcribe::dedupe_overlap_text(&full_text, &chunk_text);
             if !deduped.trim().is_empty() {
-                if !full_text.is_empty() {
-                    full_text.push('\n');
-                }
-                full_text.push_str(&deduped);
+                append_library_chunk(&mut full_text, &deduped);
             }
         }
 
@@ -719,4 +633,38 @@ fn report_progress(
             chunk_segments,
         },
     );
+}
+
+fn append_library_chunk(existing: &mut String, next: &str) -> String {
+    let trimmed = next.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let mut normalized = trimmed.to_string();
+    let ends_sentence = existing
+        .chars()
+        .rev()
+        .find(|ch| !ch.is_whitespace())
+        .map(|ch| matches!(ch, '.' | '!' | '?' | ':' | ';'))
+        .unwrap_or(true);
+
+    if !ends_sentence {
+        lowercase_first_alpha(&mut normalized);
+    }
+
+    transcribe::append_deduped_chunk(existing, &normalized);
+    normalized
+}
+
+fn lowercase_first_alpha(text: &mut String) {
+    if let Some((idx, ch)) = text.char_indices().find(|(_, ch)| ch.is_alphabetic()) {
+        if ch.is_uppercase() {
+            let mut lowered = String::with_capacity(text.len());
+            lowered.push_str(&text[..idx]);
+            lowered.extend(ch.to_lowercase());
+            lowered.push_str(&text[idx + ch.len_utf8()..]);
+            *text = lowered;
+        }
+    }
 }

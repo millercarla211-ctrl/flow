@@ -17,8 +17,6 @@ use crate::{
 
 const WHISPER_CHUNK_SECONDS: f32 = 28.0;
 const WHISPER_CHUNK_OVERLAP_SECONDS: f32 = 2.0;
-const MOONSHINE_CHUNK_SECONDS: f32 = 60.0;
-const MOONSHINE_CHUNK_OVERLAP_SECONDS: f32 = 2.0;
 const VAD_MIN_SPEECH_PERCENT_FILE: f32 = 2.0;
 const VAD_MIN_SPEECH_PERCENT_CHUNK: f32 = 5.0;
 
@@ -58,17 +56,13 @@ pub(crate) fn queue_transcription(
             let model_key = settings.local_model.clone();
             match model_manager::ensure_model_ready(&app_handle, &model_key) {
                 Ok(ready_model) => {
-                    let dictionary_prompt =
-                        dictionary::dictionary_prompt_for_model(&ready_model, &settings);
+                    let dictionary_terms =
+                        dictionary::dictionary_entries_for_model(&ready_model, &settings);
                     let language = settings.language.clone();
                     let transcriber = app_handle.state::<AppState>().local_transcriber();
                     let local_recording = recording_for_task.clone();
                     let is_whisper =
                         matches!(ready_model.engine, model_manager::LocalModelEngine::Whisper);
-                    let is_moonshine = matches!(
-                        ready_model.engine,
-                        model_manager::LocalModelEngine::Moonshine { .. }
-                    );
                     let cancel_token_clone = cancel_token.clone();
                     match async_runtime::spawn_blocking(move || {
                         if is_whisper {
@@ -78,27 +72,12 @@ pub(crate) fn queue_transcription(
                                 &local_recording.samples,
                                 local_recording.sample_rate,
                                 LocalChunkingConfig {
-                                    initial_prompt: dictionary_prompt.as_deref(),
+                                    dictionary: &dictionary_terms,
                                     language: Some(&language),
                                     chunk_seconds: WHISPER_CHUNK_SECONDS,
                                     overlap_seconds: WHISPER_CHUNK_OVERLAP_SECONDS,
                                     cancel_token: Some(&cancel_token_clone),
                                     strip_hallucinated_thank_you: true,
-                                },
-                            )
-                        } else if is_moonshine {
-                            transcribe_local_chunked(
-                                &transcriber,
-                                &ready_model,
-                                &local_recording.samples,
-                                local_recording.sample_rate,
-                                LocalChunkingConfig {
-                                    initial_prompt: dictionary_prompt.as_deref(),
-                                    language: Some(&language),
-                                    chunk_seconds: MOONSHINE_CHUNK_SECONDS,
-                                    overlap_seconds: MOONSHINE_CHUNK_OVERLAP_SECONDS,
-                                    cancel_token: Some(&cancel_token_clone),
-                                    strip_hallucinated_thank_you: false,
                                 },
                             )
                         } else {
@@ -117,7 +96,7 @@ pub(crate) fn queue_transcription(
                                     &ready_model,
                                     &local_recording.samples,
                                     local_recording.sample_rate,
-                                    dictionary_prompt.as_deref(),
+                                    &dictionary_terms,
                                     Some(&language),
                                 )
                             }
@@ -361,17 +340,13 @@ pub(crate) fn retry_transcription_async(
                     let model_key = settings.local_model.clone();
                     match model_manager::ensure_model_ready(&app_handle, &model_key) {
                         Ok(ready_model) => {
-                            let dictionary_prompt =
-                                dictionary::dictionary_prompt_for_model(&ready_model, &settings);
+                            let dictionary_terms =
+                                dictionary::dictionary_entries_for_model(&ready_model, &settings);
                             let language = settings.language.clone();
                             let transcriber = app_handle.state::<AppState>().local_transcriber();
                             let is_whisper = matches!(
                                 ready_model.engine,
                                 model_manager::LocalModelEngine::Whisper
-                            );
-                            let is_moonshine = matches!(
-                                ready_model.engine,
-                                model_manager::LocalModelEngine::Moonshine { .. }
                             );
                             let cancel_token_clone = cancel_token.clone();
                             match async_runtime::spawn_blocking(move || {
@@ -382,27 +357,12 @@ pub(crate) fn retry_transcription_async(
                                         &samples,
                                         sample_rate,
                                         LocalChunkingConfig {
-                                            initial_prompt: dictionary_prompt.as_deref(),
+                                            dictionary: &dictionary_terms,
                                             language: Some(&language),
                                             chunk_seconds: WHISPER_CHUNK_SECONDS,
                                             overlap_seconds: WHISPER_CHUNK_OVERLAP_SECONDS,
                                             cancel_token: Some(&cancel_token_clone),
                                             strip_hallucinated_thank_you: true,
-                                        },
-                                    )
-                                } else if is_moonshine {
-                                    transcribe_local_chunked(
-                                        &transcriber,
-                                        &ready_model,
-                                        &samples,
-                                        sample_rate,
-                                        LocalChunkingConfig {
-                                            initial_prompt: dictionary_prompt.as_deref(),
-                                            language: Some(&language),
-                                            chunk_seconds: MOONSHINE_CHUNK_SECONDS,
-                                            overlap_seconds: MOONSHINE_CHUNK_OVERLAP_SECONDS,
-                                            cancel_token: Some(&cancel_token_clone),
-                                            strip_hallucinated_thank_you: false,
                                         },
                                     )
                                 } else {
@@ -421,7 +381,7 @@ pub(crate) fn retry_transcription_async(
                                             &ready_model,
                                             &samples,
                                             sample_rate,
-                                            dictionary_prompt.as_deref(),
+                                            &dictionary_terms,
                                             Some(&language),
                                         )
                                     }
@@ -912,7 +872,7 @@ fn downmix_interleaved(samples: &[i16], channels: usize) -> Vec<i16> {
 }
 
 struct LocalChunkingConfig<'a> {
-    initial_prompt: Option<&'a str>,
+    dictionary: &'a [String],
     language: Option<&'a str>,
     chunk_seconds: f32,
     overlap_seconds: f32,
@@ -928,7 +888,7 @@ fn transcribe_local_chunked(
     config: LocalChunkingConfig<'_>,
 ) -> Result<transcription_api::TranscriptionSuccess> {
     let LocalChunkingConfig {
-        initial_prompt,
+        dictionary,
         language,
         chunk_seconds,
         overlap_seconds,
@@ -958,7 +918,6 @@ fn transcribe_local_chunked(
     let mut full_text = String::new();
     let mut start = 0usize;
     let mut model_label = None;
-    let mut used_prompt = false;
 
     while start < samples.len() {
         if let Some(token) = cancel_token {
@@ -979,11 +938,7 @@ fn transcribe_local_chunked(
             start += step;
             continue;
         }
-        let prompt = if !used_prompt { initial_prompt } else { None };
-        let result = transcriber.transcribe(model, chunk, sample_rate, prompt, language)?;
-        if prompt.is_some() {
-            used_prompt = true;
-        }
+        let result = transcriber.transcribe(model, chunk, sample_rate, dictionary, language)?;
         if model_label.is_none() {
             model_label = result.speech_model.clone();
         }
@@ -992,10 +947,7 @@ fn transcribe_local_chunked(
         if !chunk_text.trim().is_empty() {
             let deduped = dedupe_overlap_text(&full_text, &chunk_text);
             if !deduped.trim().is_empty() {
-                if !full_text.is_empty() {
-                    full_text.push('\n');
-                }
-                full_text.push_str(&deduped);
+                append_deduped_chunk(&mut full_text, &deduped);
             }
         }
 
@@ -1046,6 +998,21 @@ pub(crate) fn dedupe_overlap_text(existing: &str, next: &str) -> String {
     }
 
     next_trim.to_string()
+}
+
+pub(crate) fn append_deduped_chunk(existing: &mut String, next: &str) {
+    let trimmed = next.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+
+    if existing.is_empty() {
+        existing.push_str(trimmed);
+        return;
+    }
+
+    existing.push(' ');
+    existing.push_str(trimmed);
 }
 
 fn maybe_warn_llm_unavailable(app: &AppHandle<AppRuntime>, is_edit_mode: bool) {
