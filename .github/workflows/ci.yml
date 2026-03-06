@@ -23,9 +23,7 @@ jobs:
     env:
       MACOSX_DEPLOYMENT_TARGET: "14.0"
       CMAKE_OSX_DEPLOYMENT_TARGET: "14.0"
-      # whisper-rs-sys bindgen is brittle against GitHub's moving Xcode SDK image.
-      # Use the crate's bundled bindings in CI and still build the native library.
-      WHISPER_DONT_GENERATE_BINDINGS: "1"
+      DEVELOPER_DIR: /Applications/Xcode_16.3.app/Contents/Developer
 
     steps:
       - name: resolve PR
@@ -51,6 +49,9 @@ jobs:
         with:
           repository: ${{ steps.pr.outputs.head_repo }}
           ref: ${{ steps.pr.outputs.head_sha }}
+
+      - name: verify Xcode
+        run: xcodebuild -version
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
