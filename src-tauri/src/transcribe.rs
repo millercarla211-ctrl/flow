@@ -918,7 +918,6 @@ fn transcribe_local_chunked(
     let mut full_text = String::new();
     let mut start = 0usize;
     let mut model_label = None;
-    let mut used_dictionary = false;
 
     while start < samples.len() {
         if let Some(token) = cancel_token {
@@ -939,12 +938,7 @@ fn transcribe_local_chunked(
             start += step;
             continue;
         }
-        let chunk_dictionary = if !used_dictionary { dictionary } else { &[] };
-        let result =
-            transcriber.transcribe(model, chunk, sample_rate, chunk_dictionary, language)?;
-        if !chunk_dictionary.is_empty() {
-            used_dictionary = true;
-        }
+        let result = transcriber.transcribe(model, chunk, sample_rate, dictionary, language)?;
         if model_label.is_none() {
             model_label = result.speech_model.clone();
         }

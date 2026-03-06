@@ -385,7 +385,6 @@ fn transcribe_library_item(
         let mut full_text = String::new();
         let mut merged_segments: Vec<TranscriptSegment> = Vec::new();
         let mut last_end_ms: u64 = 0;
-        let mut used_dictionary = false;
         let mut chunk_index: u32 = 0;
 
         stream_wav_chunks(&audio_path, chunk_size, overlap, |start_idx, chunk| {
@@ -406,23 +405,15 @@ fn transcribe_library_item(
                 );
                 return Ok(());
             }
-            let chunk_dictionary = if !used_dictionary {
-                dictionary_terms.as_slice()
-            } else {
-                &[]
-            };
             let result = transcriber.transcribe_with_segments(
                 &ready_model,
                 chunk,
                 sample_rate,
-                chunk_dictionary,
+                dictionary_terms.as_slice(),
                 Some(&language),
             )?;
             if token.is_cancelled() {
                 return Err(anyhow!("Transcription cancelled"));
-            }
-            if !chunk_dictionary.is_empty() {
-                used_dictionary = true;
             }
 
             let chunk_text = result.transcript;

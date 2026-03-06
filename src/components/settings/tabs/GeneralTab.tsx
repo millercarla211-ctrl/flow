@@ -250,13 +250,11 @@ const GeneralTab = ({
                   <p>
                     Language list is filtered to the models you have installed.
                   </p>
-                  <p className="mt-1">
-                    When multiple engines are installed, badges show which
-                    engine supports each language (for example WS, MS, P3).
-                  </p>
-                  <p className="mt-1">
-                    Amber badge matches your active local model.
-                  </p>
+                  {showLanguageSupportBadges && (
+                    <p className="mt-1">
+                      Badges show which installed engine supports each language.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

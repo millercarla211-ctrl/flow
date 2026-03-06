@@ -451,6 +451,11 @@ impl SettingsStore {
             should_persist = true;
         }
 
+        if crate::model_manager::definition(&settings.local_model).is_none() {
+            settings.local_model = default_local_model();
+            should_persist = true;
+        }
+
         if matches!(settings.transcription_mode, TranscriptionMode::Cloud) {
             settings.transcription_mode = TranscriptionMode::Local;
             should_persist = true;
