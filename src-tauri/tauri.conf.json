@@ -64,9 +64,7 @@
         "scope": [
           "$APPDATA/library/**",
           "$APPDATA/local/cache/appicons/**",
-          "$APPDATA/*/cache/appicons/**",
-          "$APPDATA/local/cache/siteicons/**",
-          "$APPDATA/*/cache/siteicons/**"
+          "$APPDATA/local/cache/siteicons/**"
         ]
       }
     },
