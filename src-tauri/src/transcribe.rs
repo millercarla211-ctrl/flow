@@ -155,8 +155,9 @@ pub(crate) fn queue_transcription(
                 let llm_available = llm_cleanup::is_llm_available(&settings);
                 let should_refine_transcript =
                     llm_cleanup::should_refine_transcript(&settings, active_mode.as_ref());
-                let preflight_unavailable = (llm_available || should_refine_transcript)
-                    && matches!(llm_cleanup::cached_preflight_available(), Some(false));
+                let llm_needed = is_edit_mode || should_refine_transcript;
+                let preflight_unavailable =
+                    llm_needed && matches!(llm_cleanup::cached_preflight_available(), Some(false));
                 let should_use_llm = if is_edit_mode {
                     llm_available && !preflight_unavailable
                 } else {

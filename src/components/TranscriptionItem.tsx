@@ -124,15 +124,18 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (isDeleting) return;
     setIsDeleting(true);
     setMenuOpen(false);
     setSelectionText("");
-    onDelete(record.id).catch((err) => {
+    try {
+      await onDelete(record.id);
+    } catch (err) {
       console.error("Failed to delete:", err);
+    } finally {
       setIsDeleting(false);
-    });
+    }
   };
 
   const handleRetry = async () => {

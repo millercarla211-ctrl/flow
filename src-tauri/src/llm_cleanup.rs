@@ -521,6 +521,11 @@ fn looks_like_assistant_reply(text: &str) -> bool {
     .any(|prefix| lowered.starts_with(prefix))
 }
 
+fn personality_has_style_guidance(mode: Option<&Personality>) -> bool {
+    mode.and_then(mode_context::format_cleanup_style_guidance_for_personality)
+        .is_some()
+}
+
 fn cleanup_result_looks_safe(source: &str, candidate: &str, has_style_guidance: bool) -> bool {
     let source = source.trim();
     let candidate = candidate.trim();
@@ -570,6 +575,7 @@ pub async fn cleanup_transcription(
     }
 
     eprintln!("[LLM] Processing transcription: {} chars", text.len());
+    let has_style_guidance = personality_has_style_guidance(mode);
 
     let result = run_text_task(
         client,
@@ -581,7 +587,7 @@ pub async fn cleanup_transcription(
     )
     .await?;
 
-    if !cleanup_result_looks_safe(text, &result, mode.is_some()) {
+    if !cleanup_result_looks_safe(text, &result, has_style_guidance) {
         eprintln!("[LLM] Cleanup candidate rejected by safety checks, keeping raw transcript");
         return Ok(text.to_string());
     }
@@ -596,7 +602,7 @@ pub fn is_llm_available(settings: &UserSettings) -> bool {
 }
 
 pub fn should_refine_transcript(settings: &UserSettings, mode: Option<&Personality>) -> bool {
-    is_llm_available(settings) && (settings.cleanup_enabled || mode.is_some())
+    is_llm_available(settings) && (settings.cleanup_enabled || personality_has_style_guidance(mode))
 }
 
 pub fn resolved_model_name(settings: &UserSettings) -> Option<String> {
@@ -752,10 +758,10 @@ pub fn clear_preflight_cache() {
 }
 
 pub async fn run_preflight(client: Client, settings: UserSettings) {
-    let has_personalization = settings
-        .personalities
-        .iter()
-        .any(|personality| personality.enabled && !personality.instructions.is_empty());
+    let has_personalization = settings.personalities.iter().any(|personality| {
+        personality.enabled
+            && mode_context::format_cleanup_style_guidance_for_personality(personality).is_some()
+    });
     let llm_is_needed =
         settings.edit_mode_enabled || settings.cleanup_enabled || has_personalization;
 
@@ -779,4 +785,57 @@ pub async fn run_preflight(client: Client, settings: UserSettings) {
     let mut state = preflight_state().lock();
     state.last_checked_at = Some(Instant::now());
     state.available = available;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_personality(instructions: &[&str]) -> Personality {
+        Personality {
+            id: "sample".to_string(),
+            name: "Sample".to_string(),
+            enabled: true,
+            apps: Vec::new(),
+            websites: Vec::new(),
+            instructions: instructions.iter().map(|value| value.to_string()).collect(),
+        }
+    }
+
+    fn llm_settings() -> UserSettings {
+        UserSettings {
+            llm_enabled: true,
+            cleanup_enabled: false,
+            llm_provider: LlmProvider::OpenAI,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn parses_fenced_structured_cleanup_output() {
+        let response = "```json\n{\"text\":\"Refined transcript\"}\n```";
+
+        assert_eq!(
+            parse_text_response(response).as_deref(),
+            Some("Refined transcript")
+        );
+    }
+
+    #[test]
+    fn blank_personality_guidance_does_not_enable_refinement() {
+        let settings = llm_settings();
+        let personality = sample_personality(&["", "   "]);
+
+        assert!(!personality_has_style_guidance(Some(&personality)));
+        assert!(!should_refine_transcript(&settings, Some(&personality)));
+    }
+
+    #[test]
+    fn cleanup_safety_rejects_low_overlap_rewrites_without_guidance() {
+        assert!(!cleanup_result_looks_safe(
+            "Schedule the review for tomorrow afternoon.",
+            "Here is a polished rewrite with action items and added context.",
+            false
+        ));
+    }
 }

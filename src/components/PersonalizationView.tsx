@@ -615,6 +615,7 @@ const PersonalityModal = ({
                               onClick={() => removeApp(app)}
                               className="rounded-md p-1.5 text-content-muted hover:text-content-primary hover:bg-surface-elevated transition-colors"
                               title="Remove"
+                              aria-label={`Remove ${app}`}
                             >
                               <X size={12} />
                             </button>
@@ -694,6 +695,7 @@ const PersonalityModal = ({
                             onClick={() => removeWebsite(site)}
                             className="rounded-md p-1.5 text-content-muted hover:text-content-primary hover:bg-surface-elevated transition-colors"
                             title="Remove"
+                            aria-label={`Remove ${site}`}
                           >
                             <X size={12} />
                           </button>
@@ -728,6 +730,7 @@ const PersonalizationView = () => {
     useState<PendingDeletePersonality | null>(null);
   const hasRequestedIconRefreshRef = useRef(false);
   const websiteIconRefreshKeyRef = useRef<string | null>(null);
+  const persistVersionRef = useRef(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -899,13 +902,21 @@ const PersonalizationView = () => {
   }, []);
 
   const persistPersonalities = useCallback(async (next: Personality[]) => {
+    const persistVersion = persistVersionRef.current + 1;
+    persistVersionRef.current = persistVersion;
     setError(null);
     try {
       const cleaned = await invoke<Personality[]>("set_personalities", {
         personalities: next,
       });
+      if (persistVersion !== persistVersionRef.current) {
+        return;
+      }
       setPersonalities(cleaned ?? next);
     } catch (err) {
+      if (persistVersion !== persistVersionRef.current) {
+        return;
+      }
       console.error(err);
       setError(err instanceof Error ? err.message : String(err));
     }

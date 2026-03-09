@@ -496,6 +496,11 @@ impl SettingsStore {
             self.save(&settings)?;
         }
 
+        if legacy_llm_cleanup_enabled_exists {
+            let conn = self.conn.lock();
+            self.delete_value(&conn, LEGACY_KEY_LLM_CLEANUP_ENABLED)?;
+        }
+
         Ok(settings)
     }
 
@@ -625,6 +630,12 @@ impl SettingsStore {
         .with_context(|| format!("Failed to upsert setting '{key}' into DB"))?;
         Ok(())
     }
+
+    fn delete_value(&self, conn: &Connection, key: &str) -> Result<()> {
+        conn.execute("DELETE FROM settings WHERE key = ?1", params![key])
+            .with_context(|| format!("Failed to delete setting '{key}' from DB"))?;
+        Ok(())
+    }
 }
 
 fn db_path(app: &AppHandle) -> Result<PathBuf> {
@@ -636,4 +647,122 @@ fn db_path(app: &AppHandle) -> Result<PathBuf> {
     dir.push("Glimpse");
     dir.push(SETTINGS_DB_FILE_NAME);
     Ok(dir)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_store() -> SettingsStore {
+        let store = SettingsStore {
+            conn: Mutex::new(Connection::open_in_memory().expect("open in-memory sqlite DB")),
+            llm_api_key_ciphertext: Mutex::new(None),
+        };
+        store.init_schema().expect("init settings schema");
+        store
+    }
+
+    fn write_setting<T: Serialize>(store: &SettingsStore, key: &str, value: &T) {
+        let conn = store.conn.lock();
+        store
+            .write_value(&conn, key, value)
+            .expect("write test setting");
+    }
+
+    fn read_bool_setting(store: &SettingsStore, key: &str) -> bool {
+        let conn = store.conn.lock();
+        store
+            .read_value(&conn, key, false)
+            .expect("read bool setting")
+    }
+
+    #[test]
+    fn legacy_cleanup_flag_migrates_and_removes_legacy_key() {
+        let store = test_store();
+        write_setting(&store, LEGACY_KEY_LLM_CLEANUP_ENABLED, &true);
+        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
+
+        let loaded = store.load().expect("load settings");
+
+        assert!(loaded.llm_enabled);
+        assert!(loaded.cleanup_enabled);
+        assert!(read_bool_setting(&store, KEY_LLM_ENABLED));
+        assert!(read_bool_setting(&store, KEY_CLEANUP_ENABLED));
+        let conn = store.conn.lock();
+        let legacy_raw = store
+            .read_optional_raw_value_from_conn(&conn, LEGACY_KEY_LLM_CLEANUP_ENABLED)
+            .expect("read legacy key");
+        assert!(legacy_raw.is_none());
+    }
+
+    #[test]
+    fn legacy_cleanup_flag_only_backfills_missing_new_keys() {
+        let store = test_store();
+        write_setting(&store, LEGACY_KEY_LLM_CLEANUP_ENABLED, &true);
+        write_setting(&store, KEY_LLM_ENABLED, &false);
+        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
+
+        let loaded = store.load().expect("load settings");
+
+        assert!(!loaded.llm_enabled);
+        assert!(loaded.cleanup_enabled);
+        assert!(!read_bool_setting(&store, KEY_LLM_ENABLED));
+        assert!(read_bool_setting(&store, KEY_CLEANUP_ENABLED));
+        let conn = store.conn.lock();
+        let legacy_raw = store
+            .read_optional_raw_value_from_conn(&conn, LEGACY_KEY_LLM_CLEANUP_ENABLED)
+            .expect("read legacy key");
+        assert!(legacy_raw.is_none());
+    }
+
+    #[test]
+    fn unreadable_encrypted_api_key_is_preserved_without_exposing_plaintext() {
+        let store = test_store();
+        let ciphertext = crate::crypto::encrypt("api-key-value", "different-hardware-id")
+            .expect("encrypt fixture key");
+
+        write_setting(&store, KEY_LLM_API_KEY, &ciphertext);
+        write_setting(&store, KEY_TRANSCRIPTION_MODE, &TranscriptionMode::Cloud);
+        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
+
+        let loaded = store.load().expect("load settings");
+        let conn = store.conn.lock();
+        let stored_ciphertext = store
+            .read_value(&conn, KEY_LLM_API_KEY, String::new())
+            .expect("read stored ciphertext");
+
+        assert!(loaded.llm_api_key.is_empty());
+        assert_eq!(stored_ciphertext, ciphertext);
+        assert_eq!(
+            store.llm_api_key_ciphertext.lock().clone(),
+            Some(ciphertext)
+        );
+    }
+
+    #[test]
+    fn decryptable_api_key_replaces_cached_ciphertext_after_reload() {
+        let Some(hardware_uuid) = crate::crypto::get_hardware_uuid() else {
+            return;
+        };
+
+        let store = test_store();
+        let unreadable_ciphertext =
+            crate::crypto::encrypt("api-key-value", "different-hardware-id")
+                .expect("encrypt unreadable fixture");
+        write_setting(&store, KEY_LLM_API_KEY, &unreadable_ciphertext);
+        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
+
+        let first = store.load().expect("first load");
+        assert!(first.llm_api_key.is_empty());
+
+        let readable_ciphertext = crate::crypto::encrypt("api-key-value", &hardware_uuid)
+            .expect("encrypt readable fixture");
+        write_setting(&store, KEY_LLM_API_KEY, &readable_ciphertext);
+        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
+
+        let second = store.load().expect("second load");
+
+        assert_eq!(second.llm_api_key, "api-key-value");
+        assert_eq!(store.llm_api_key_ciphertext.lock().clone(), None);
+    }
 }

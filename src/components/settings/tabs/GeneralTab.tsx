@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { Check, Copy, Info } from "lucide-react";
 import { Dropdown } from "../../Dropdown";
@@ -13,6 +14,7 @@ import type {
 } from "../../../lib/transcriptionLanguages";
 
 type CaptureMode = "smart" | "hold" | "toggle" | null;
+type HelpTooltipId = "edit-mode" | "cleanup";
 
 type GeneralTabProps = {
   variants: Variants;
@@ -88,8 +90,24 @@ const GeneralTab = ({
   cleanupEnabled,
   setCleanupEnabled,
   llmEnabled,
-}: GeneralTabProps) => (
-  <motion.div
+}: GeneralTabProps) => {
+  const [openHelpTooltip, setOpenHelpTooltip] =
+    useState<HelpTooltipId | null>(null);
+
+  const showHelpTooltip = (tooltip: HelpTooltipId) => {
+    setOpenHelpTooltip(tooltip);
+  };
+
+  const hideHelpTooltip = (tooltip: HelpTooltipId) => {
+    setOpenHelpTooltip((current) => (current === tooltip ? null : current));
+  };
+
+  const toggleHelpTooltip = (tooltip: HelpTooltipId) => {
+    setOpenHelpTooltip((current) => (current === tooltip ? null : tooltip));
+  };
+
+  return (
+    <motion.div
     key="general"
     variants={variants}
     initial="hidden"
@@ -392,14 +410,39 @@ const GeneralTab = ({
                 <span className="ui-text-meta ui-color-disabled">
                   transform selected text with voice
                 </span>
-                <div className="relative group">
+                <div
+                  className="relative"
+                  onMouseEnter={() => showHelpTooltip("edit-mode")}
+                  onMouseLeave={() => hideHelpTooltip("edit-mode")}
+                >
                   <button
+                    type="button"
                     className="p-0.5 text-content-disabled hover:text-content-muted transition-colors"
                     aria-label="More information about Edit Mode"
+                    aria-expanded={openHelpTooltip === "edit-mode"}
+                    aria-controls="edit-mode-help-tooltip"
+                    onFocus={() => showHelpTooltip("edit-mode")}
+                    onBlur={() => hideHelpTooltip("edit-mode")}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        hideHelpTooltip("edit-mode");
+                      }
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        toggleHelpTooltip("edit-mode");
+                      }
+                    }}
                   >
                     <Info size={10} aria-hidden="true" />
                   </button>
-                  <div className="absolute right-0 bottom-full mb-1 hidden group-hover:block z-10">
+                  <div
+                    id="edit-mode-help-tooltip"
+                    role="tooltip"
+                    className={`absolute right-0 bottom-full mb-1 z-10 ${
+                      openHelpTooltip === "edit-mode" ? "block" : "hidden"
+                    }`}
+                  >
                     <div className="bg-surface-overlay border border-border-secondary rounded-lg px-2.5 py-1.5 ui-text-micro ui-color-secondary w-44 shadow-lg leading-tight">
                       <p>
                         Select text in any app, and speak a command like "make
@@ -449,14 +492,39 @@ const GeneralTab = ({
                 <span className="ui-text-meta ui-color-disabled">
                   remove filler words and polish transcripts
                 </span>
-                <div className="relative group">
+                <div
+                  className="relative"
+                  onMouseEnter={() => showHelpTooltip("cleanup")}
+                  onMouseLeave={() => hideHelpTooltip("cleanup")}
+                >
                   <button
+                    type="button"
                     className="p-0.5 text-content-disabled hover:text-content-muted transition-colors"
                     aria-label="More information about Cleanup"
+                    aria-expanded={openHelpTooltip === "cleanup"}
+                    aria-controls="cleanup-help-tooltip"
+                    onFocus={() => showHelpTooltip("cleanup")}
+                    onBlur={() => hideHelpTooltip("cleanup")}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        hideHelpTooltip("cleanup");
+                      }
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        toggleHelpTooltip("cleanup");
+                      }
+                    }}
                   >
                     <Info size={10} aria-hidden="true" />
                   </button>
-                  <div className="absolute right-0 bottom-full mb-1 hidden group-hover:block z-10">
+                  <div
+                    id="cleanup-help-tooltip"
+                    role="tooltip"
+                    className={`absolute right-0 bottom-full mb-1 z-10 ${
+                      openHelpTooltip === "cleanup" ? "block" : "hidden"
+                    }`}
+                  >
                     <div className="bg-surface-overlay border border-border-secondary rounded-lg px-2.5 py-1.5 ui-text-micro ui-color-secondary w-44 shadow-lg leading-tight">
                       <p>
                         Cleans up transcripts after transcription while keeping
@@ -500,8 +568,9 @@ const GeneralTab = ({
         </motion.div>
       )}
     </AnimatePresence>
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 type ShortcutRowProps = {
   label: string;

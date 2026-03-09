@@ -129,11 +129,21 @@ fn resolve_mode_context(settings: &UserSettings) -> Option<Vec<ModeContextMode>>
 pub fn format_mode_context(modes: &[ModeContextMode]) -> String {
     let mut lines = Vec::new();
     for mode in modes {
-        lines.push(format!("Mode: {}", mode.name));
-        for instruction in &mode.instructions {
-            let normalized = instruction.trim().trim_start_matches('-').trim();
-            lines.push(format!("- {}", normalized));
+        let normalized_instructions: Vec<String> = mode
+            .instructions
+            .iter()
+            .filter_map(|instruction| {
+                let normalized = instruction.trim().trim_start_matches('-').trim();
+                (!normalized.is_empty()).then(|| format!("- {}", normalized))
+            })
+            .collect();
+
+        if normalized_instructions.is_empty() {
+            continue;
         }
+
+        lines.push(format!("Mode: {}", mode.name));
+        lines.extend(normalized_instructions);
     }
 
     lines.join("\n")
@@ -150,10 +160,6 @@ pub fn format_active_cleanup_style_guidance(settings: &UserSettings) -> Option<S
 }
 
 pub fn format_cleanup_style_guidance_for_personality(personality: &Personality) -> Option<String> {
-    if personality.instructions.is_empty() {
-        return None;
-    }
-
     let mode = ModeContextMode {
         name: personality.name.clone(),
         instructions: personality.instructions.clone(),

@@ -383,7 +383,9 @@ const SettingsModal = ({
         try {
           const models = await invoke<ModelInfo[]>("list_models");
           setModelCatalog(models);
-          models.forEach((model) => refreshModelStatus(model.key));
+          for (const model of models) {
+            void refreshModelStatus(model.key);
+          }
           setLocalModel((current) =>
             models.some((model) => model.key === current)
               ? current
@@ -442,12 +444,13 @@ const SettingsModal = ({
   useEffect(() => {
     if (!isOpen) return;
 
+    let cancelled = false;
     let unlistenProgress: UnlistenFn | null = null;
     let unlistenComplete: UnlistenFn | null = null;
     let unlistenError: UnlistenFn | null = null;
 
     const setup = async () => {
-      unlistenProgress = await listen<DownloadProgressPayload>(
+      const progressUnlisten = await listen<DownloadProgressPayload>(
         "download:progress",
         (event) => {
           const payload = event.payload;
@@ -463,8 +466,13 @@ const SettingsModal = ({
           }));
         },
       );
+      if (cancelled) {
+        progressUnlisten();
+        return;
+      }
+      unlistenProgress = progressUnlisten;
 
-      unlistenComplete = await listen<{ model: string }>(
+      const completeUnlisten = await listen<{ model: string }>(
         "download:complete",
         (event) => {
           const model = event.payload.model;
@@ -480,8 +488,13 @@ const SettingsModal = ({
           refreshModelStatus(model);
         },
       );
+      if (cancelled) {
+        completeUnlisten();
+        return;
+      }
+      unlistenComplete = completeUnlisten;
 
-      unlistenError = await listen<{ model: string; error: string }>(
+      const errorUnlisten = await listen<{ model: string; error: string }>(
         "download:error",
         (event) => {
           const { model, error } = event.payload;
@@ -498,11 +511,19 @@ const SettingsModal = ({
           }));
         },
       );
+      if (cancelled) {
+        errorUnlisten();
+        return;
+      }
+      unlistenError = errorUnlisten;
     };
 
-    setup();
+    void setup().catch((err) => {
+      console.error("Failed to register download listeners:", err);
+    });
 
     return () => {
+      cancelled = true;
       unlistenProgress?.();
       unlistenComplete?.();
       unlistenError?.();

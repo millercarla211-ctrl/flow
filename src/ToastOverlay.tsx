@@ -224,6 +224,10 @@ const ToastOverlay: React.FC = () => {
         dismissAnimationTimerRef.current = null;
       }
       if (toastRef.current) {
+        if (copyResetTimerRef.current) {
+          clearTimeout(copyResetTimerRef.current);
+          copyResetTimerRef.current = null;
+        }
         setToast(null);
         setCopied(false);
         try {

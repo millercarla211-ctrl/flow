@@ -89,8 +89,13 @@ const Home = () => {
   );
 
   const sidebarWidth = isSidebarCollapsed ? 68 : 200;
+  const currentUserAvatar =
+    currentUser && typeof currentUser.prefs.avatar === "string"
+      ? currentUser.prefs.avatar
+      : null;
 
   useEffect(() => {
+    let cancelled = false;
     let unlistenSettings: UnlistenFn | null = null;
     let unlistenNavigate: UnlistenFn | null = null;
     let unlistenModels: UnlistenFn | null = null;
@@ -120,7 +125,11 @@ const Home = () => {
       setTranscriptionMode(event.payload.transcription_mode);
       setLlmEnabled(event.payload.llm_enabled);
     }).then((fn) => {
-      unlistenSettings = fn;
+      if (cancelled) {
+        fn();
+      } else {
+        unlistenSettings = fn;
+      }
     });
 
     listen("navigate:about", () => {
@@ -130,14 +139,22 @@ const Home = () => {
         emit("updater:check");
       }, 100);
     }).then((fn) => {
-      unlistenNavigate = fn;
+      if (cancelled) {
+        fn();
+      } else {
+        unlistenNavigate = fn;
+      }
     });
 
     listen("navigate:models", () => {
       setSettingsTab("models");
       setIsSettingsOpen(true);
     }).then((fn) => {
-      unlistenModels = fn;
+      if (cancelled) {
+        fn();
+      } else {
+        unlistenModels = fn;
+      }
     });
 
     listen<{ paths?: string[] }>("tauri://drag-enter", (event) => {
@@ -145,7 +162,11 @@ const Home = () => {
         setDragActive(true);
       }
     }).then((fn) => {
-      unlistenDragEnter = fn;
+      if (cancelled) {
+        fn();
+      } else {
+        unlistenDragEnter = fn;
+      }
     });
 
     listen<{ paths?: string[] }>("tauri://drag-over", (event) => {
@@ -153,13 +174,21 @@ const Home = () => {
         setDragActive(true);
       }
     }).then((fn) => {
-      unlistenDragOver = fn;
+      if (cancelled) {
+        fn();
+      } else {
+        unlistenDragOver = fn;
+      }
     });
 
     listen("tauri://drag-leave", () => {
       setDragActive(false);
     }).then((fn) => {
-      unlistenDragLeave = fn;
+      if (cancelled) {
+        fn();
+      } else {
+        unlistenDragLeave = fn;
+      }
     });
 
     listen<{ paths?: string[] }>("tauri://drag-drop", (event) => {
@@ -169,7 +198,11 @@ const Home = () => {
         setActiveView("library");
       }
     }).then((fn) => {
-      unlistenDragDrop = fn;
+      if (cancelled) {
+        fn();
+      } else {
+        unlistenDragDrop = fn;
+      }
     });
 
     listen<string[]>("library:open_import", (event) => {
@@ -178,7 +211,11 @@ const Home = () => {
         setActiveView("library");
       }
     }).then((fn) => {
-      unlistenOpenImport = fn;
+      if (cancelled) {
+        fn();
+      } else {
+        unlistenOpenImport = fn;
+      }
     });
 
     let unlistenSignIn: UnlistenFn | null = null;
@@ -186,10 +223,15 @@ const Home = () => {
       setSettingsTab("account");
       setIsSettingsOpen(true);
     }).then((fn) => {
-      unlistenSignIn = fn;
+      if (cancelled) {
+        fn();
+      } else {
+        unlistenSignIn = fn;
+      }
     });
 
     return () => {
+      cancelled = true;
       unlistenSettings?.();
       unlistenNavigate?.();
       unlistenModels?.();
@@ -203,6 +245,7 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     let unlistenUpdate: UnlistenFn | null = null;
     let unlistenCleared: UnlistenFn | null = null;
 
@@ -223,16 +266,25 @@ const Home = () => {
     listen<string>("update:available", () => {
       setUpdateAvailable(true);
     }).then((fn) => {
-      unlistenUpdate = fn;
+      if (cancelled) {
+        fn();
+      } else {
+        unlistenUpdate = fn;
+      }
     });
 
     listen("update:cleared", () => {
       setUpdateAvailable(false);
     }).then((fn) => {
-      unlistenCleared = fn;
+      if (cancelled) {
+        fn();
+      } else {
+        unlistenCleared = fn;
+      }
     });
 
     return () => {
+      cancelled = true;
       unlistenUpdate?.();
       unlistenCleared?.();
     };
@@ -539,9 +591,9 @@ const Home = () => {
             className="fixed top-10 right-6 flex items-center gap-2 px-3 py-1.5 rounded-full border border-border-primary bg-surface-surface hover:bg-surface-overlay hover:border-border-secondary transition-colors z-10"
           >
             <div className="w-6 h-6 rounded-full bg-surface-elevated border border-border-secondary flex items-center justify-center overflow-hidden">
-              {(currentUser.prefs as Record<string, string>)?.avatar ? (
+              {currentUserAvatar ? (
                 <img
-                  src={(currentUser.prefs as Record<string, string>).avatar}
+                  src={currentUserAvatar}
                   alt=""
                   className="w-full h-full object-cover"
                 />
