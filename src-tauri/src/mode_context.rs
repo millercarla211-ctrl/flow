@@ -7,8 +7,6 @@ pub struct ModeContextMode {
     pub instructions: Vec<String>,
 }
 
-const MODE_PROMPT_PREAMBLE: &str = "You transform text according to the instructions below.\n- Follow the mode instructions exactly.\n- Preserve meaning unless the instructions require otherwise.\n- Output only the transformed text.";
-
 fn extract_host(candidate: &str) -> Option<String> {
     let mut value = candidate.trim().to_lowercase();
     if value.is_empty() {
@@ -133,24 +131,39 @@ pub fn format_mode_context(modes: &[ModeContextMode]) -> String {
     for mode in modes {
         lines.push(format!("Mode: {}", mode.name));
         for instruction in &mode.instructions {
-            lines.push(format!("- {}", instruction));
+            let normalized = instruction.trim().trim_start_matches('-').trim();
+            lines.push(format!("- {}", normalized));
         }
     }
 
     lines.join("\n")
 }
 
-pub fn build_mode_prompt(settings: &UserSettings) -> Option<String> {
+pub fn format_active_cleanup_style_guidance(settings: &UserSettings) -> Option<String> {
     let modes = resolve_mode_context(settings)?;
     let instructions = format_mode_context(&modes);
     if instructions.is_empty() {
+        None
+    } else {
+        Some(instructions)
+    }
+}
+
+pub fn format_cleanup_style_guidance_for_personality(personality: &Personality) -> Option<String> {
+    if personality.instructions.is_empty() {
         return None;
     }
 
-    let mut prompt = MODE_PROMPT_PREAMBLE.to_string();
-    prompt.push_str("\n\n");
-    prompt.push_str(&instructions);
-    Some(prompt)
+    let mode = ModeContextMode {
+        name: personality.name.clone(),
+        instructions: personality.instructions.clone(),
+    };
+    let instructions = format_mode_context(&[mode]);
+    if instructions.is_empty() {
+        None
+    } else {
+        Some(instructions)
+    }
 }
 
 pub fn resolve_active_personality(settings: &UserSettings) -> Option<Personality> {
@@ -166,27 +179,4 @@ pub fn resolve_active_personality(settings: &UserSettings) -> Option<Personality
         .filter(|mode| mode.enabled)
         .find(|mode| mode_matches(mode, &context))
         .cloned()
-}
-
-pub fn build_mode_prompt_for_personality(
-    _settings: &UserSettings,
-    personality: &Personality,
-) -> Option<String> {
-    if personality.instructions.is_empty() {
-        return None;
-    }
-
-    let mode = ModeContextMode {
-        name: personality.name.clone(),
-        instructions: personality.instructions.clone(),
-    };
-    let instructions = format_mode_context(&[mode]);
-    if instructions.is_empty() {
-        return None;
-    }
-
-    let mut prompt = MODE_PROMPT_PREAMBLE.to_string();
-    prompt.push_str("\n\n");
-    prompt.push_str(&instructions);
-    Some(prompt)
 }

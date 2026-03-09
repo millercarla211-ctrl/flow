@@ -19,7 +19,9 @@ const KEY_LOCAL_MODEL: &str = "local_model";
 const KEY_MICROPHONE_DEVICE: &str = "microphone_device";
 const KEY_LANGUAGE: &str = "language";
 const KEY_UPDATE_CHANNEL: &str = "update_channel";
-const KEY_LLM_CLEANUP_ENABLED: &str = "llm_cleanup_enabled";
+const LEGACY_KEY_LLM_CLEANUP_ENABLED: &str = "llm_cleanup_enabled";
+const KEY_LLM_ENABLED: &str = "llm_enabled";
+const KEY_CLEANUP_ENABLED: &str = "cleanup_enabled";
 const KEY_LLM_PROVIDER: &str = "llm_provider";
 const KEY_LLM_ENDPOINT: &str = "llm_endpoint";
 const KEY_LLM_API_KEY: &str = "llm_api_key";
@@ -78,7 +80,9 @@ pub struct UserSettings {
     #[serde(default = "default_update_channel")]
     pub update_channel: UpdateChannel,
     #[serde(default)]
-    pub llm_cleanup_enabled: bool,
+    pub llm_enabled: bool,
+    #[serde(default)]
+    pub cleanup_enabled: bool,
     #[serde(default = "default_llm_provider")]
     pub llm_provider: LlmProvider,
     #[serde(default)]
@@ -236,7 +240,8 @@ impl Default for UserSettings {
             microphone_device: None,
             language: default_language(),
             update_channel: default_update_channel(),
-            llm_cleanup_enabled: false,
+            llm_enabled: false,
+            cleanup_enabled: false,
             llm_provider: default_llm_provider(),
             llm_endpoint: String::new(),
             llm_api_key: String::new(),
@@ -361,6 +366,9 @@ impl SettingsStore {
         let mut should_persist = false;
         let mut llm_api_key_ciphertext: Option<String> = None;
         let encrypted_key: String;
+        let legacy_llm_cleanup_enabled_exists: bool;
+        let llm_enabled_exists: bool;
+        let cleanup_enabled_exists: bool;
         {
             let conn = self.conn.lock();
 
@@ -395,8 +403,19 @@ impl SettingsStore {
             )?;
             settings.language = self.read_value(&conn, KEY_LANGUAGE, settings.language.clone())?;
             settings.update_channel = self.read_update_channel(&conn)?;
-            settings.llm_cleanup_enabled =
-                self.read_value(&conn, KEY_LLM_CLEANUP_ENABLED, settings.llm_cleanup_enabled)?;
+            let legacy_llm_cleanup_enabled =
+                self.read_optional_value::<bool>(&conn, LEGACY_KEY_LLM_CLEANUP_ENABLED)?;
+            let llm_enabled = self.read_optional_value::<bool>(&conn, KEY_LLM_ENABLED)?;
+            let cleanup_enabled = self.read_optional_value::<bool>(&conn, KEY_CLEANUP_ENABLED)?;
+            legacy_llm_cleanup_enabled_exists = legacy_llm_cleanup_enabled.is_some();
+            llm_enabled_exists = llm_enabled.is_some();
+            cleanup_enabled_exists = cleanup_enabled.is_some();
+            settings.llm_enabled = llm_enabled
+                .or(legacy_llm_cleanup_enabled)
+                .unwrap_or(settings.llm_enabled);
+            settings.cleanup_enabled = cleanup_enabled
+                .or(legacy_llm_cleanup_enabled)
+                .unwrap_or(settings.cleanup_enabled);
             settings.llm_provider =
                 self.read_value(&conn, KEY_LLM_PROVIDER, settings.llm_provider.clone())?;
             settings.llm_endpoint =
@@ -459,6 +478,10 @@ impl SettingsStore {
             should_persist = true;
         }
 
+        if legacy_llm_cleanup_enabled_exists && (!llm_enabled_exists || !cleanup_enabled_exists) {
+            should_persist = true;
+        }
+
         if crate::model_manager::definition(&settings.local_model).is_none() {
             settings.local_model = default_local_model();
             should_persist = true;
@@ -515,11 +538,8 @@ impl SettingsStore {
         self.write_value(&conn, KEY_MICROPHONE_DEVICE, &settings.microphone_device)?;
         self.write_value(&conn, KEY_LANGUAGE, &settings.language)?;
         self.write_value(&conn, KEY_UPDATE_CHANNEL, &settings.update_channel)?;
-        self.write_value(
-            &conn,
-            KEY_LLM_CLEANUP_ENABLED,
-            &settings.llm_cleanup_enabled,
-        )?;
+        self.write_value(&conn, KEY_LLM_ENABLED, &settings.llm_enabled)?;
+        self.write_value(&conn, KEY_CLEANUP_ENABLED, &settings.cleanup_enabled)?;
         self.write_value(&conn, KEY_LLM_PROVIDER, &settings.llm_provider)?;
         self.write_value(&conn, KEY_LLM_ENDPOINT, &settings.llm_endpoint)?;
         self.write_value(&conn, KEY_LLM_API_KEY, &stored_key)?;
@@ -542,20 +562,34 @@ impl SettingsStore {
     where
         T: for<'de> Deserialize<'de>,
     {
-        let raw: Option<String> = conn
-            .query_row(
-                "SELECT value FROM settings WHERE key = ?1",
-                params![key],
-                |row| row.get(0),
-            )
-            .optional()
-            .context("Failed to read setting from DB")?;
-
-        if let Some(raw) = raw {
+        if let Some(raw) = self.read_optional_raw_value_from_conn(conn, key)? {
             serde_json::from_str(&raw).context("Malformed setting JSON in DB")
         } else {
             Ok(default)
         }
+    }
+
+    fn read_optional_value<T>(&self, conn: &Connection, key: &str) -> Result<Option<T>>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        self.read_optional_raw_value_from_conn(conn, key)?
+            .map(|raw| serde_json::from_str(&raw).context("Malformed setting JSON in DB"))
+            .transpose()
+    }
+
+    fn read_optional_raw_value_from_conn(
+        &self,
+        conn: &Connection,
+        key: &str,
+    ) -> Result<Option<String>> {
+        conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params![key],
+            |row| row.get(0),
+        )
+        .optional()
+        .context("Failed to read setting from DB")
     }
 
     fn read_update_channel(&self, conn: &Connection) -> Result<UpdateChannel> {
@@ -636,6 +670,13 @@ mod tests {
         store
             .read_value(&conn, key, TranscriptionMode::Local)
             .expect("read transcription mode setting")
+    }
+
+    fn read_bool_setting(store: &SettingsStore, key: &str) -> bool {
+        let conn = store.conn.lock();
+        store
+            .read_value(&conn, key, false)
+            .expect("read bool setting")
     }
 
     #[test]
@@ -739,5 +780,20 @@ mod tests {
 
         assert_eq!(store.llm_api_key_ciphertext.lock().clone(), None);
         assert!(read_string_setting(&store, KEY_LLM_API_KEY).is_empty());
+    }
+
+    #[test]
+    fn legacy_llm_cleanup_flag_migrates_to_split_settings() {
+        let store = test_store();
+
+        write_setting(&store, LEGACY_KEY_LLM_CLEANUP_ENABLED, &true);
+        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
+
+        let loaded = store.load().expect("load settings");
+
+        assert!(loaded.llm_enabled);
+        assert!(loaded.cleanup_enabled);
+        assert!(read_bool_setting(&store, KEY_LLM_ENABLED));
+        assert!(read_bool_setting(&store, KEY_CLEANUP_ENABLED));
     }
 }

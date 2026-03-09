@@ -20,7 +20,8 @@ pub(crate) struct UpdateSettingsArgs {
     pub microphone_device: Option<String>,
     pub language: String,
     pub update_channel: UpdateChannel,
-    pub llm_cleanup_enabled: bool,
+    pub llm_enabled: bool,
+    pub cleanup_enabled: bool,
     pub llm_provider: LlmProvider,
     pub llm_endpoint: String,
     pub llm_api_key: String,
@@ -141,7 +142,7 @@ pub(crate) fn update_settings(
         return Err("Unknown model selection".into());
     }
 
-    if args.llm_cleanup_enabled && !matches!(args.llm_provider, LlmProvider::None) {
+    if args.llm_enabled && !matches!(args.llm_provider, LlmProvider::None) {
         if matches!(args.llm_provider, LlmProvider::Custom) && args.llm_endpoint.trim().is_empty() {
             return Err("Custom LLM endpoint cannot be empty".into());
         }
@@ -163,7 +164,8 @@ pub(crate) fn update_settings(
     next.microphone_device = args.microphone_device;
     next.language = args.language;
     next.update_channel = args.update_channel;
-    next.llm_cleanup_enabled = args.llm_cleanup_enabled;
+    next.llm_enabled = args.llm_enabled;
+    next.cleanup_enabled = args.cleanup_enabled;
     next.llm_provider = args.llm_provider;
     next.llm_endpoint = args.llm_endpoint;
     next.llm_api_key = args.llm_api_key;

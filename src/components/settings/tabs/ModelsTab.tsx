@@ -9,7 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import DotMatrix from "../../DotMatrix";
-import CleanupPanel from "../../CleanupPanel";
+import LanguageModelPanel from "../../LanguageModelPanel";
 import type {
   DownloadEvent,
   LlmProvider,
@@ -49,8 +49,8 @@ const getSizeColor = (sizeMb: number): string => {
 
 type ModelsTabProps = {
   variants: Variants;
-  llmCleanupEnabled: boolean;
-  setLlmCleanupEnabled: (value: boolean) => void;
+  llmEnabled: boolean;
+  setLlmEnabled: (value: boolean) => void;
   llmProvider: LlmProvider;
   setLlmProvider: (value: LlmProvider) => void;
   llmEndpoint: string;
@@ -74,8 +74,8 @@ type ModelsTabProps = {
 
 const ModelsTab = ({
   variants,
-  llmCleanupEnabled,
-  setLlmCleanupEnabled,
+  llmEnabled,
+  setLlmEnabled,
   llmProvider,
   setLlmProvider,
   llmEndpoint,
@@ -143,16 +143,16 @@ const ModelsTab = ({
     >
       <header>
         <h1 className="ui-text-title-lg font-medium ui-color-primary">
-          Local Models
+          Models
         </h1>
         <p className="mt-1 ui-text-body-sm ui-color-muted">
-          Manage transcription engines and AI cleanup.
+          Manage transcription engines and language model access.
         </p>
       </header>
 
-      <CleanupPanel
-        llmCleanupEnabled={llmCleanupEnabled}
-        setLlmCleanupEnabled={setLlmCleanupEnabled}
+      <LanguageModelPanel
+        llmEnabled={llmEnabled}
+        setLlmEnabled={setLlmEnabled}
         llmProvider={llmProvider}
         setLlmProvider={setLlmProvider}
         llmEndpoint={llmEndpoint}

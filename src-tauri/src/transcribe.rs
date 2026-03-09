@@ -139,11 +139,11 @@ pub(crate) fn queue_transcription(
                     return;
                 }
 
-                if pending_selected_text.is_some() && !llm_cleanup::is_cleanup_available(&settings)
-                {
+                if pending_selected_text.is_some() && !llm_cleanup::is_llm_available(&settings) {
                     emit_transcription_error(
                         &app_handle,
-                        "Edit mode requires LLM cleanup to be configured. Enable LLM cleanup in Settings → Models.".to_string(),
+                        "Edit mode requires a language model. Enable it in Settings → Models."
+                            .to_string(),
                         "edit_mode",
                         saved_for_task.path.display().to_string(),
                     );
@@ -152,10 +152,16 @@ pub(crate) fn queue_transcription(
                 }
 
                 let is_edit_mode = pending_selected_text.is_some();
-                let cleanup_enabled = llm_cleanup::is_cleanup_available(&settings);
-                let preflight_unavailable = cleanup_enabled
+                let llm_available = llm_cleanup::is_llm_available(&settings);
+                let should_refine_transcript =
+                    llm_cleanup::should_refine_transcript(&settings, active_mode.as_ref());
+                let preflight_unavailable = (llm_available || should_refine_transcript)
                     && matches!(llm_cleanup::cached_preflight_available(), Some(false));
-                let should_use_llm = cleanup_enabled && !preflight_unavailable;
+                let should_use_llm = if is_edit_mode {
+                    llm_available && !preflight_unavailable
+                } else {
+                    should_refine_transcript && !preflight_unavailable
+                };
 
                 let (final_transcript, llm_cleaned) = if should_use_llm {
                     if let Some(ref selected) = pending_selected_text {
@@ -169,10 +175,10 @@ pub(crate) fn queue_transcription(
                         {
                             Ok(edited) => (edited, true),
                             Err(err) => {
-                                eprintln!("LLM edit failed, using raw transcript: {err}");
+                                eprintln!("LLM edit failed, keeping original selected text: {err}");
                                 llm_cleanup::note_preflight_failure();
                                 maybe_warn_llm_unavailable(&app_handle, true);
-                                (raw_transcript.clone(), false)
+                                (selected.clone(), false)
                             }
                         }
                     } else {
@@ -186,7 +192,7 @@ pub(crate) fn queue_transcription(
                         {
                             Ok(cleaned) => (cleaned, true),
                             Err(err) => {
-                                eprintln!("LLM cleanup failed, using raw transcript: {err}");
+                                eprintln!("Cleanup failed, using raw transcript: {err}");
                                 llm_cleanup::note_preflight_failure();
                                 maybe_warn_llm_unavailable(&app_handle, false);
                                 (raw_transcript.clone(), false)
@@ -412,10 +418,11 @@ pub(crate) fn retry_transcription_async(
                     return;
                 }
 
-                let cleanup_enabled = llm_cleanup::is_cleanup_available(&settings);
-                let preflight_unavailable = cleanup_enabled
+                let should_refine_transcript =
+                    llm_cleanup::should_refine_transcript(&settings, saved_personality.as_ref());
+                let preflight_unavailable = should_refine_transcript
                     && matches!(llm_cleanup::cached_preflight_available(), Some(false));
-                let should_use_llm = cleanup_enabled && !preflight_unavailable;
+                let should_use_llm = should_refine_transcript && !preflight_unavailable;
 
                 let (final_transcript, llm_cleaned) = if should_use_llm {
                     match llm_cleanup::cleanup_transcription(
@@ -428,9 +435,7 @@ pub(crate) fn retry_transcription_async(
                     {
                         Ok(cleaned) => (cleaned, true),
                         Err(err) => {
-                            eprintln!(
-                                "LLM cleanup failed during retry, using raw transcript: {err}"
-                            );
+                            eprintln!("Cleanup failed during retry, using raw transcript: {err}");
                             llm_cleanup::note_preflight_failure();
                             maybe_warn_llm_unavailable(&app_handle, false);
                             (raw_transcript.clone(), false)
@@ -1026,7 +1031,7 @@ fn maybe_warn_llm_unavailable(app: &AppHandle<AppRuntime>, is_edit_mode: bool) {
             toast::Payload {
                 toast_type: "error".to_string(),
                 title: Some("Edit Mode".to_string()),
-                message: "LLM cleanup unreachable. Edit mode won't run.".to_string(),
+                message: "Language model unreachable. Edit mode won't run.".to_string(),
                 auto_dismiss: Some(true),
                 duration: Some(10_000),
                 retry_id: None,
@@ -1039,8 +1044,8 @@ fn maybe_warn_llm_unavailable(app: &AppHandle<AppRuntime>, is_edit_mode: bool) {
         toast::show_with_action(
             app,
             "warning",
-            Some("LLM Cleanup"),
-            "LLM cleanup unreachable. Transcription will skip cleanup.",
+            Some("Language Model"),
+            "Language model unreachable. Transcript refinement was skipped.",
             "open_llm_cleanup_settings",
             "Open Settings",
         );
