@@ -20,7 +20,8 @@ pub(crate) struct UpdateSettingsArgs {
     pub microphone_device: Option<String>,
     pub language: String,
     pub update_channel: UpdateChannel,
-    pub llm_cleanup_enabled: bool,
+    pub llm_enabled: bool,
+    pub cleanup_enabled: bool,
     pub llm_provider: LlmProvider,
     pub llm_endpoint: String,
     pub llm_api_key: String,
@@ -42,52 +43,7 @@ fn canonicalize_shortcut_for_storage(shortcut: &str) -> String {
         .join("+")
 }
 
-pub(crate) fn complete_onboarding(
-    app: &AppHandle<AppRuntime>,
-    state: &AppState,
-) -> Result<(), String> {
-    let mut settings = state.current_settings();
-    let model = settings.local_model.clone();
-    settings.onboarding_completed = true;
-    state
-        .persist_settings(settings)
-        .map_err(|err| err.to_string())?;
-    analytics::track_onboarding_completed(app, &model);
-    Ok(())
-}
-
-pub(crate) fn reset_onboarding(state: &AppState) -> Result<(), String> {
-    let mut settings = state.current_settings();
-    settings.onboarding_completed = false;
-    state
-        .persist_settings(settings)
-        .map_err(|err| err.to_string())?;
-    Ok(())
-}
-
-pub(crate) fn set_user_name(
-    name: String,
-    app: &AppHandle<AppRuntime>,
-    state: &AppState,
-) -> Result<UserSettings, String> {
-    let mut settings = state.current_settings();
-    settings.user_name = name.trim().to_string();
-    let next = state
-        .persist_settings(settings)
-        .map_err(|err| err.to_string())?;
-
-    if let Err(err) = app.emit(EVENT_SETTINGS_CHANGED, &next) {
-        eprintln!("Failed to emit settings change: {err}");
-    }
-
-    Ok(next)
-}
-
-pub(crate) fn update_settings(
-    args: UpdateSettingsArgs,
-    app: &AppHandle<AppRuntime>,
-    state: &AppState,
-) -> Result<UserSettings, String> {
+fn validate_update_settings_args(args: &UpdateSettingsArgs) -> Result<(), String> {
     if args.smart_enabled && args.smart_shortcut.trim().is_empty() {
         return Err("Smart shortcut cannot be empty when enabled".into());
     }
@@ -141,14 +97,76 @@ pub(crate) fn update_settings(
         return Err("Unknown model selection".into());
     }
 
-    if args.llm_cleanup_enabled && !matches!(args.llm_provider, LlmProvider::None) {
+    if args.llm_enabled && matches!(args.llm_provider, LlmProvider::None) {
+        return Err("LLM cannot be enabled when provider is None".into());
+    }
+
+    if args.cleanup_enabled && !args.llm_enabled {
+        return Err("AI Cleanup cannot be enabled without an active language model".into());
+    }
+
+    if args.llm_enabled {
         if matches!(args.llm_provider, LlmProvider::Custom) && args.llm_endpoint.trim().is_empty() {
             return Err("Custom LLM endpoint cannot be empty".into());
         }
         if matches!(args.llm_provider, LlmProvider::OpenAI) && args.llm_api_key.trim().is_empty() {
             return Err("OpenAI API key is required".into());
         }
+        if args.llm_model.trim().is_empty() {
+            return Err("Choose a language model before enabling AI features".into());
+        }
     }
+
+    Ok(())
+}
+
+pub(crate) fn complete_onboarding(
+    app: &AppHandle<AppRuntime>,
+    state: &AppState,
+) -> Result<(), String> {
+    let mut settings = state.current_settings();
+    let model = settings.local_model.clone();
+    settings.onboarding_completed = true;
+    state
+        .persist_settings(settings)
+        .map_err(|err| err.to_string())?;
+    analytics::track_onboarding_completed(app, &model);
+    Ok(())
+}
+
+pub(crate) fn reset_onboarding(state: &AppState) -> Result<(), String> {
+    let mut settings = state.current_settings();
+    settings.onboarding_completed = false;
+    state
+        .persist_settings(settings)
+        .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+pub(crate) fn set_user_name(
+    name: String,
+    app: &AppHandle<AppRuntime>,
+    state: &AppState,
+) -> Result<UserSettings, String> {
+    let mut settings = state.current_settings();
+    settings.user_name = name.trim().to_string();
+    let next = state
+        .persist_settings(settings)
+        .map_err(|err| err.to_string())?;
+
+    if let Err(err) = app.emit(EVENT_SETTINGS_CHANGED, &next) {
+        eprintln!("Failed to emit settings change: {err}");
+    }
+
+    Ok(next)
+}
+
+pub(crate) fn update_settings(
+    args: UpdateSettingsArgs,
+    app: &AppHandle<AppRuntime>,
+    state: &AppState,
+) -> Result<UserSettings, String> {
+    validate_update_settings_args(&args)?;
 
     let mut next = state.current_settings();
     let prev = next.clone();
@@ -163,11 +181,12 @@ pub(crate) fn update_settings(
     next.microphone_device = args.microphone_device;
     next.language = args.language;
     next.update_channel = args.update_channel;
-    next.llm_cleanup_enabled = args.llm_cleanup_enabled;
+    next.llm_enabled = args.llm_enabled;
+    next.cleanup_enabled = args.cleanup_enabled;
     next.llm_provider = args.llm_provider;
     next.llm_endpoint = args.llm_endpoint;
     next.llm_api_key = args.llm_api_key;
-    next.llm_model = args.llm_model;
+    next.llm_model = args.llm_model.trim().to_string();
     next.edit_mode_enabled = args.edit_mode_enabled;
 
     let next = state
@@ -201,4 +220,78 @@ pub(crate) fn update_settings(
     }
 
     Ok(next)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::default_local_model;
+
+    fn base_args() -> UpdateSettingsArgs {
+        UpdateSettingsArgs {
+            smart_shortcut: "Control+Space".to_string(),
+            smart_enabled: true,
+            hold_shortcut: "Control+Shift+Space".to_string(),
+            hold_enabled: false,
+            toggle_shortcut: "Control+Alt+Space".to_string(),
+            toggle_enabled: false,
+            transcription_mode: TranscriptionMode::Local,
+            local_model: default_local_model(),
+            microphone_device: None,
+            language: "en".to_string(),
+            update_channel: UpdateChannel::Stable,
+            llm_enabled: false,
+            cleanup_enabled: false,
+            llm_provider: LlmProvider::None,
+            llm_endpoint: String::new(),
+            llm_api_key: String::new(),
+            llm_model: String::new(),
+            edit_mode_enabled: false,
+        }
+    }
+
+    #[test]
+    fn rejects_enabling_llm_without_provider() {
+        let mut args = base_args();
+        args.llm_enabled = true;
+
+        let err = validate_update_settings_args(&args).unwrap_err();
+
+        assert_eq!(err, "LLM cannot be enabled when provider is None");
+    }
+
+    #[test]
+    fn rejects_enabling_cleanup_without_llm() {
+        let mut args = base_args();
+        args.cleanup_enabled = true;
+
+        let err = validate_update_settings_args(&args).unwrap_err();
+
+        assert_eq!(
+            err,
+            "AI Cleanup cannot be enabled without an active language model"
+        );
+    }
+
+    #[test]
+    fn rejects_shortcut_collisions_after_normalization() {
+        let mut args = base_args();
+        args.hold_enabled = true;
+        args.hold_shortcut = "Ctrl+Space".to_string();
+
+        let err = validate_update_settings_args(&args).unwrap_err();
+
+        assert_eq!(err, "Smart and Hold shortcuts cannot be the same");
+    }
+
+    #[test]
+    fn rejects_enabling_llm_without_explicit_model_selection() {
+        let mut args = base_args();
+        args.llm_enabled = true;
+        args.llm_provider = LlmProvider::Ollama;
+
+        let err = validate_update_settings_args(&args).unwrap_err();
+
+        assert_eq!(err, "Choose a language model before enabling AI features");
+    }
 }

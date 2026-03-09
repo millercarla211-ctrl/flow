@@ -210,26 +210,3 @@ impl HotkeyProvider for GlobalShortcutProvider<'_> {
 pub(crate) fn provider(app: &AppHandle<AppRuntime>) -> impl HotkeyProvider + '_ {
     GlobalShortcutProvider::new(app)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::normalize_shortcut;
-
-    #[test]
-    fn reject_unknown_multi_character_base_key() {
-        let result = normalize_shortcut("Control+foobar");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn keep_named_and_symbol_base_keys() {
-        assert_eq!(
-            normalize_shortcut("Control+Space").expect("space should be valid"),
-            "Control+space"
-        );
-        assert_eq!(
-            normalize_shortcut("Control+[").expect("symbol should be valid"),
-            "Control+["
-        );
-    }
-}

@@ -398,7 +398,8 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
         microphoneDevice: null,
         language: "en",
         updateChannel: "stable",
-        llmCleanupEnabled: false,
+        llmEnabled: false,
+        cleanupEnabled: false,
         llmProvider: "custom",
         llmEndpoint: "",
         llmApiKey: "",
@@ -909,7 +910,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="h-1 w-3 rounded-full bg-amber-400/80" />
-                      <span>Faster cleanup & delivery</span>
+                      <span>Smarter writing tools & delivery</span>
                     </div>
                   </div>
                   <div className="relative flex items-center gap-3 rounded-xl border border-border-primary bg-surface-tertiary px-3 py-2 ui-text-meta text-content-secondary leading-relaxed">
@@ -922,7 +923,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
                       color="var(--color-border-secondary)"
                     />
                     <p className="flex-1">
-                      Get better models and faster cleanup & delivery ($5.99/mo)
+                      Get better models and smarter writing tools ($5.99/mo)
                       with cloud.
                     </p>
                   </div>
@@ -1019,7 +1020,8 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
               </h2>
               <div className="mb-6 flex flex-col gap-1 ui-text-body-lg text-content-muted">
                 <p>
-                  More models & AI cleanup available in Settings after setup.
+                  More models and language model setup available in Settings
+                  after setup.
                 </p>
               </div>
 
@@ -1410,7 +1412,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
               key="ready"
               {...stepMotionProps}
               initial="enter"
-                            className="flex w-full max-w-sm flex-col items-center text-center"
+              className="flex w-full max-w-sm flex-col items-center text-center"
             >
               <h2 className="ui-text-title-lg font-semibold text-content-primary mb-1">
                 You're ready!

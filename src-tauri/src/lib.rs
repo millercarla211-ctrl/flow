@@ -277,6 +277,7 @@ pub fn run() {
             }
 
             app.manage(AppState::new(Arc::clone(&settings_store), settings, handle));
+            library::commands::recover_interrupted_library_items(handle);
 
             #[cfg(target_os = "macos")]
             {
@@ -887,7 +888,8 @@ fn update_settings(
     microphoneDevice: Option<String>,
     language: String,
     updateChannel: UpdateChannel,
-    llmCleanupEnabled: bool,
+    llmEnabled: bool,
+    cleanupEnabled: bool,
     llmProvider: LlmProvider,
     llmEndpoint: String,
     llmApiKey: String,
@@ -909,7 +911,8 @@ fn update_settings(
             microphone_device: microphoneDevice,
             language,
             update_channel: updateChannel,
-            llm_cleanup_enabled: llmCleanupEnabled,
+            llm_enabled: llmEnabled,
+            cleanup_enabled: cleanupEnabled,
             llm_provider: llmProvider,
             llm_endpoint: llmEndpoint,
             llm_api_key: llmApiKey,

@@ -62,12 +62,12 @@ pub(crate) fn retry_llm_cleanup(
         .ok_or_else(|| "Transcription not found".to_string())?;
 
     if record.status != storage::TranscriptionStatus::Success {
-        return Err("Can only apply LLM cleanup to successful transcriptions".to_string());
+        return Err("Can only apply cleanup to successful transcriptions".to_string());
     }
 
     let settings = state.current_settings();
-    if !llm_cleanup::is_cleanup_available(&settings) {
-        return Err("LLM cleanup is not configured".to_string());
+    if !llm_cleanup::is_llm_available(&settings) {
+        return Err("Choose a language model in Settings -> Models.".to_string());
     }
     let llm_model = llm_cleanup::resolved_model_name(&settings);
 
@@ -99,7 +99,7 @@ pub(crate) fn retry_llm_cleanup(
                 if let Err(err) =
                     storage.update_with_llm_cleanup(&record_id, cleaned, llm_model.clone())
                 {
-                    warn!(error = ?err, transcription_id = %record_id, "failed to save LLM cleanup");
+                    warn!(error = ?err, transcription_id = %record_id, "failed to save cleanup");
                 }
                 let _ = app_handle.emit(
                     EVENT_TRANSCRIPTION_COMPLETE,
@@ -110,11 +110,11 @@ pub(crate) fn retry_llm_cleanup(
                 );
             }
             Err(err) => {
-                warn!(error = ?err, transcription_id = %record_id, "LLM cleanup failed");
+                warn!(error = ?err, transcription_id = %record_id, "cleanup failed");
                 let _ = app_handle.emit(
                     EVENT_TRANSCRIPTION_ERROR,
                     TranscriptionErrorPayload {
-                        message: format!("LLM cleanup failed: {err}"),
+                        message: format!("Cleanup failed: {err}"),
                         stage: "llm_cleanup".to_string(),
                     },
                 );
@@ -144,6 +144,6 @@ pub(crate) fn undo_llm_cleanup(
             Ok(())
         }
         Ok(None) => Err("No raw text available to revert to".to_string()),
-        Err(err) => Err(format!("Failed to undo LLM cleanup: {err}")),
+        Err(err) => Err(format!("Failed to undo cleanup: {err}")),
     }
 }

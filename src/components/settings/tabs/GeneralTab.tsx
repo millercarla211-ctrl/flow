@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { Check, Copy, Info } from "lucide-react";
 import { Dropdown } from "../../Dropdown";
@@ -13,6 +14,7 @@ import type {
 } from "../../../lib/transcriptionLanguages";
 
 type CaptureMode = "smart" | "hold" | "toggle" | null;
+type HelpTooltipId = "edit-mode" | "cleanup";
 
 type GeneralTabProps = {
   variants: Variants;
@@ -47,7 +49,9 @@ type GeneralTabProps = {
   setErrorCopied: (value: boolean) => void;
   editModeEnabled: boolean;
   setEditModeEnabled: (value: boolean) => void;
-  llmCleanupEnabled: boolean;
+  cleanupEnabled: boolean;
+  setCleanupEnabled: (value: boolean) => void;
+  llmEnabled: boolean;
 };
 
 const GeneralTab = ({
@@ -83,9 +87,27 @@ const GeneralTab = ({
   setErrorCopied,
   editModeEnabled,
   setEditModeEnabled,
-  llmCleanupEnabled,
-}: GeneralTabProps) => (
-  <motion.div
+  cleanupEnabled,
+  setCleanupEnabled,
+  llmEnabled,
+}: GeneralTabProps) => {
+  const [openHelpTooltip, setOpenHelpTooltip] =
+    useState<HelpTooltipId | null>(null);
+
+  const showHelpTooltip = (tooltip: HelpTooltipId) => {
+    setOpenHelpTooltip(tooltip);
+  };
+
+  const hideHelpTooltip = (tooltip: HelpTooltipId) => {
+    setOpenHelpTooltip((current) => (current === tooltip ? null : current));
+  };
+
+  const toggleHelpTooltip = (tooltip: HelpTooltipId) => {
+    setOpenHelpTooltip((current) => (current === tooltip ? null : tooltip));
+  };
+
+  return (
+    <motion.div
     key="general"
     variants={variants}
     initial="hidden"
@@ -94,9 +116,7 @@ const GeneralTab = ({
     className="space-y-6"
   >
     <div className="space-y-2">
-      <h2 className="ui-text-section-label ui-color-muted">
-        Processing
-      </h2>
+      <h2 className="ui-text-section-label ui-color-muted">Processing</h2>
       <div
         className="grid grid-cols-2 gap-3"
         role="radiogroup"
@@ -297,9 +317,7 @@ const GeneralTab = ({
 
     <div className="grid grid-cols-2 gap-3">
       <div className="space-y-2">
-        <h2 className="ui-text-section-label ui-color-muted">
-          Shortcuts
-        </h2>
+        <h2 className="ui-text-section-label ui-color-muted">Shortcuts</h2>
 
         <div className="space-y-3 rounded-lg bg-surface-surface p-2.5">
           <ShortcutRow
@@ -357,60 +375,167 @@ const GeneralTab = ({
       </div>
 
       <div className="space-y-2">
-        <h2 className="ui-text-section-label ui-color-muted">
-          Features
-        </h2>
+        <h2 className="ui-text-section-label ui-color-muted">Features</h2>
 
-        <div
-          className={`rounded-lg transition-colors ${
-            editModeEnabled ? "bg-surface-overlay" : "bg-surface-surface"
-          }`}
-        >
-          <div className="py-2 px-2.5">
-            <div className="flex items-center justify-between">
-              <span className="ui-text-label-strong ui-color-primary">
-                Edit Mode
-              </span>
-              <button
-                onClick={() => setEditModeEnabled(!editModeEnabled)}
-                role="switch"
-                aria-checked={editModeEnabled}
-                aria-label="Toggle Edit Mode"
-                className={`w-7 h-4 rounded-full transition-colors relative ${
-                  editModeEnabled ? "bg-cloud" : "bg-border-secondary"
-                }`}
-              >
-                <motion.div
-                  className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
-                  animate={{
-                    left: editModeEnabled ? "calc(100% - 14px)" : "2px",
-                  }}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                />
-              </button>
-            </div>
-            <div className="flex items-center justify-between mt-0.5">
-              <span className="ui-text-meta ui-color-disabled">
-                transform selected text with voice
-              </span>
-              <div className="relative group">
+        <div className="space-y-3">
+          <div
+            className={`rounded-lg transition-colors ${
+              editModeEnabled ? "bg-surface-overlay" : "bg-surface-surface"
+            }`}
+          >
+            <div className="py-2 px-2.5">
+              <div className="flex items-center justify-between">
+                <span className="ui-text-label-strong ui-color-primary">
+                  Edit Mode
+                </span>
                 <button
-                  className="p-0.5 text-content-disabled hover:text-content-muted transition-colors"
-                  aria-label="More information about Edit Mode"
+                  onClick={() => setEditModeEnabled(!editModeEnabled)}
+                  role="switch"
+                  aria-checked={editModeEnabled}
+                  aria-label="Toggle Edit Mode"
+                  className={`w-7 h-4 rounded-full transition-colors relative ${
+                    editModeEnabled ? "bg-cloud" : "bg-border-secondary"
+                  }`}
                 >
-                  <Info size={10} aria-hidden="true" />
+                  <motion.div
+                    className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
+                    animate={{
+                      left: editModeEnabled ? "calc(100% - 14px)" : "2px",
+                    }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  />
                 </button>
-                <div className="absolute right-0 bottom-full mb-1 hidden group-hover:block z-10">
-                  <div className="bg-surface-overlay border border-border-secondary rounded-lg px-2.5 py-1.5 ui-text-micro ui-color-secondary w-44 shadow-lg leading-tight">
-                    <p>
-                      Select text in any app, and speak a command like "make
-                      this formal" or "fix my grammar".
-                    </p>
-                    {transcriptionMode === "local" && !llmCleanupEnabled && (
-                      <p className="text-warning mt-1">
-                        Requires AI cleanup to be enabled in the Models tab.
+              </div>
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="ui-text-meta ui-color-disabled">
+                  transform selected text with voice
+                </span>
+                <div
+                  className="relative"
+                  onMouseEnter={() => showHelpTooltip("edit-mode")}
+                  onMouseLeave={() => hideHelpTooltip("edit-mode")}
+                >
+                  <button
+                    type="button"
+                    className="p-0.5 text-content-disabled hover:text-content-muted transition-colors"
+                    aria-label="More information about Edit Mode"
+                    aria-expanded={openHelpTooltip === "edit-mode"}
+                    aria-controls="edit-mode-help-tooltip"
+                    onFocus={() => showHelpTooltip("edit-mode")}
+                    onBlur={() => hideHelpTooltip("edit-mode")}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        hideHelpTooltip("edit-mode");
+                      }
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        toggleHelpTooltip("edit-mode");
+                      }
+                    }}
+                  >
+                    <Info size={10} aria-hidden="true" />
+                  </button>
+                  <div
+                    id="edit-mode-help-tooltip"
+                    role="tooltip"
+                    className={`absolute right-0 bottom-full mb-1 z-10 ${
+                      openHelpTooltip === "edit-mode" ? "block" : "hidden"
+                    }`}
+                  >
+                    <div className="bg-surface-overlay border border-border-secondary rounded-lg px-2.5 py-1.5 ui-text-micro ui-color-secondary w-44 shadow-lg leading-tight">
+                      <p>
+                        Select text in any app, and speak a command like "make
+                        this formal" or "fix my grammar".
                       </p>
-                    )}
+                      {transcriptionMode === "local" && !llmEnabled && (
+                        <p className="text-warning mt-1">
+                          Requires the language model in the Models tab.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className={`rounded-lg transition-colors ${
+              cleanupEnabled ? "bg-surface-overlay" : "bg-surface-surface"
+            }`}
+          >
+            <div className="py-2 px-2.5">
+              <div className="flex items-center justify-between">
+                <span className="ui-text-label-strong ui-color-primary">
+                  Cleanup
+                </span>
+                <button
+                  onClick={() => setCleanupEnabled(!cleanupEnabled)}
+                  role="switch"
+                  aria-checked={cleanupEnabled}
+                  aria-label="Toggle Cleanup"
+                  className={`w-7 h-4 rounded-full transition-colors relative ${
+                    cleanupEnabled ? "bg-cloud" : "bg-border-secondary"
+                  }`}
+                >
+                  <motion.div
+                    className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
+                    animate={{
+                      left: cleanupEnabled ? "calc(100% - 14px)" : "2px",
+                    }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  />
+                </button>
+              </div>
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="ui-text-meta ui-color-disabled">
+                  remove filler words and polish transcripts
+                </span>
+                <div
+                  className="relative"
+                  onMouseEnter={() => showHelpTooltip("cleanup")}
+                  onMouseLeave={() => hideHelpTooltip("cleanup")}
+                >
+                  <button
+                    type="button"
+                    className="p-0.5 text-content-disabled hover:text-content-muted transition-colors"
+                    aria-label="More information about Cleanup"
+                    aria-expanded={openHelpTooltip === "cleanup"}
+                    aria-controls="cleanup-help-tooltip"
+                    onFocus={() => showHelpTooltip("cleanup")}
+                    onBlur={() => hideHelpTooltip("cleanup")}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        hideHelpTooltip("cleanup");
+                      }
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        toggleHelpTooltip("cleanup");
+                      }
+                    }}
+                  >
+                    <Info size={10} aria-hidden="true" />
+                  </button>
+                  <div
+                    id="cleanup-help-tooltip"
+                    role="tooltip"
+                    className={`absolute right-0 bottom-full mb-1 z-10 ${
+                      openHelpTooltip === "cleanup" ? "block" : "hidden"
+                    }`}
+                  >
+                    <div className="bg-surface-overlay border border-border-secondary rounded-lg px-2.5 py-1.5 ui-text-micro ui-color-secondary w-44 shadow-lg leading-tight">
+                      <p>
+                        Cleans up transcripts after transcription while keeping
+                        the original meaning intact.
+                      </p>
+                      {transcriptionMode === "local" && !llmEnabled && (
+                        <p className="text-warning mt-1">
+                          Requires the language model in the Models tab.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -443,8 +568,9 @@ const GeneralTab = ({
         </motion.div>
       )}
     </AnimatePresence>
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 type ShortcutRowProps = {
   label: string;
@@ -479,9 +605,7 @@ const ShortcutRow = ({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="ui-text-label-strong ui-color-primary">
-            {label}
-          </span>
+          <span className="ui-text-label-strong ui-color-primary">{label}</span>
           <span className="truncate ui-text-meta ui-color-disabled">
             {description}
           </span>

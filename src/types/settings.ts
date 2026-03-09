@@ -48,7 +48,8 @@ export type StoredSettings = {
     microphone_device: string | null;
     language: string;
     update_channel: UpdateChannel;
-    llm_cleanup_enabled: boolean;
+    llm_enabled: boolean;
+    cleanup_enabled: boolean;
     llm_provider: LlmProvider;
     llm_endpoint: string;
     llm_api_key: string;

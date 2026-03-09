@@ -78,7 +78,7 @@ export function useTranscriptions() {
         try {
             await invoke("retry_llm_cleanup", { id });
         } catch (err) {
-            console.error("Failed to retry LLM cleanup:", err);
+            console.error("Failed to retry cleanup:", err);
         }
     }, []);
 
@@ -86,7 +86,7 @@ export function useTranscriptions() {
         try {
             await invoke("undo_llm_cleanup", { id });
         } catch (err) {
-            console.error("Failed to undo LLM cleanup:", err);
+            console.error("Failed to undo cleanup:", err);
         }
     }, []);
 

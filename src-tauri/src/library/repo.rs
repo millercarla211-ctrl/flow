@@ -99,6 +99,22 @@ pub(crate) fn get_library_items_page(
     Ok((items, has_more))
 }
 
+pub(crate) fn get_recoverable_library_items(conn: &Connection) -> Result<Vec<LibraryItem>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, audio_path, source_path, store_original, status, progress, error_message, transcript, segments,
+                duration_seconds, file_size_bytes, original_format, created_at, transcribed_at,
+                tags, llm_cleanup_enabled, speech_model, show_timestamps
+         FROM library_items
+         WHERE status IN ('pending', 'importing', 'transcribing', 'cancelling')
+         ORDER BY created_at ASC",
+    )?;
+
+    let items = stmt
+        .query_map([], library_item_from_row)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(items)
+}
+
 pub(crate) fn update_library_item(
     conn: &mut Connection,
     id: &str,

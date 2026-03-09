@@ -653,6 +653,11 @@ impl StorageManager {
         crate::library::repo::get_library_items_page(&conn, filter, limit, offset)
     }
 
+    pub fn get_recoverable_library_items(&self) -> Result<Vec<LibraryItem>> {
+        let conn = self.connection.lock();
+        crate::library::repo::get_recoverable_library_items(&conn)
+    }
+
     pub fn update_library_item(
         &self,
         id: &str,
