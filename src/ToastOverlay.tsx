@@ -147,8 +147,9 @@ const ToastOverlay: React.FC = () => {
     e.stopPropagation();
     if (!toast) return;
 
-    const copyText = [toast.title, toast.message].filter(Boolean).join("\n");
-    if (!copyText) return;
+    const copyText = [toast.type !== "update" ? null : toast.title, toast.message]
+      .filter(Boolean)
+      .join("\n");
 
     try {
       await navigator.clipboard.writeText(copyText);
