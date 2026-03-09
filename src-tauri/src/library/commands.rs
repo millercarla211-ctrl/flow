@@ -1,8 +1,8 @@
 use std::fs;
-use std::path::{Component, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::{AppRuntime, AppState, LibraryJob, LibraryJobKind};
 
@@ -15,6 +15,12 @@ use super::types::{
     LibraryItemPatch, LibraryItemStatus, LibraryItemsPage, EVENT_LIBRARY_ERROR,
     EVENT_LIBRARY_OPEN_IMPORT,
 };
+
+enum LibraryDeleteScope {
+    SkipFilesystemDeletion,
+    DeleteFile(PathBuf),
+    DeleteDirectory(PathBuf),
+}
 
 #[tauri::command]
 pub fn create_library_item(
@@ -91,62 +97,20 @@ pub fn delete_library_item(
         return Ok(());
     };
 
-    let path = PathBuf::from(&item.audio_path);
-    if !path.is_absolute()
-        || path
-            .components()
-            .any(|component| matches!(component, Component::ParentDir))
-    {
-        return Err("Invalid library file path; delete aborted.".to_string());
-    }
-
-    let root = match library_root(&app) {
-        Ok(root) => root,
-        Err(err) => {
-            eprintln!("Failed to resolve library root for delete: {err}");
-            return Err("Failed to resolve library storage location.".to_string());
-        }
-    };
-    let root = root
-        .canonicalize()
-        .map_err(|_| "Failed to resolve library storage location.".to_string())?;
-    let safe_path = if path.exists() {
-        path.canonicalize()
-            .map_err(|_| "Library item path could not be resolved; delete aborted.".to_string())?
-    } else if let Some(parent) = path.parent() {
-        if parent.exists() {
-            let parent = parent.canonicalize().map_err(|_| {
-                "Library item folder could not be resolved; delete aborted.".to_string()
-            })?;
-            parent.join(path.file_name().unwrap_or_default())
-        } else {
-            path.clone()
-        }
-    } else {
-        path.clone()
-    };
-    if !safe_path.starts_with(&root) {
-        return Err(
-            "Library item is stored outside the library folder; delete aborted.".to_string(),
-        );
-    }
-
-    if let Some(parent) = safe_path.parent() {
-        if parent == root {
-            if safe_path.exists() {
-                fs::remove_file(&safe_path)
+    match determine_delete_scope(&app, &item.audio_path) {
+        LibraryDeleteScope::DeleteFile(path) => {
+            if path.exists() {
+                fs::remove_file(&path)
                     .map_err(|err| format!("Failed to delete library file: {err}"))?;
             }
-        } else if parent.exists() {
-            fs::remove_dir_all(parent)
-                .map_err(|err| format!("Failed to delete library files: {err}"))?;
-        } else if safe_path.exists() {
-            fs::remove_file(&safe_path)
-                .map_err(|err| format!("Failed to delete library file: {err}"))?;
         }
-    } else if safe_path.exists() {
-        fs::remove_file(&safe_path)
-            .map_err(|err| format!("Failed to delete library file: {err}"))?;
+        LibraryDeleteScope::DeleteDirectory(path) => {
+            if path.exists() {
+                fs::remove_dir_all(&path)
+                    .map_err(|err| format!("Failed to delete library files: {err}"))?;
+            }
+        }
+        LibraryDeleteScope::SkipFilesystemDeletion => {}
     }
 
     storage
@@ -201,35 +165,10 @@ pub fn retry_library_transcription(
         .map_err(|err| format!("Failed to load library item: {err}"))?
         .ok_or_else(|| "Library item not found".to_string())?;
 
-    let audio_exists = PathBuf::from(&item.audio_path).exists();
-    let mut job = LibraryJobKind::TranscribeExisting;
-
-    if !audio_exists {
-        let mut candidates: Vec<PathBuf> = Vec::new();
-        if let Some(path) = stored_original_path(&item) {
-            candidates.push(path);
-        }
-        let source = item.source_path.trim();
-        if !source.is_empty() {
-            candidates.push(PathBuf::from(source));
-        }
-
-        if let Some(source_path) = candidates.into_iter().find(|path| path.exists()) {
-            job = LibraryJobKind::Import {
-                source_path,
-                store_original: item.store_original,
-            };
-        } else {
-            let message = "Original file not found. Re-import the file to try again.".to_string();
-            let _ = storage.update_library_item(
-                &id,
-                LibraryItemPatch {
-                    status: Some(LibraryItemStatus::Error {
-                        message: message.clone(),
-                    }),
-                    ..Default::default()
-                },
-            );
+    let job = match build_retry_job(&item) {
+        Ok(job) => job,
+        Err(message) => {
+            set_library_item_error(&storage, &id, &message);
             let _ = app.emit(
                 EVENT_LIBRARY_ERROR,
                 LibraryErrorPayload {
@@ -239,7 +178,7 @@ pub fn retry_library_transcription(
             );
             return Err(message);
         }
-    }
+    };
 
     let _ = storage.update_library_item(
         &id,
@@ -302,6 +241,57 @@ pub fn get_library_tags(state: tauri::State<'_, AppState>) -> Result<Vec<String>
         .map_err(|err| format!("Failed to load tags: {err}"))
 }
 
+pub(crate) fn recover_interrupted_library_items(app: &AppHandle<AppRuntime>) {
+    let state = app.state::<AppState>();
+    let storage = state.storage();
+    let items = match storage.get_recoverable_library_items() {
+        Ok(items) => items,
+        Err(err) => {
+            eprintln!("Failed to load recoverable library items: {err}");
+            return;
+        }
+    };
+
+    for item in items {
+        match item.status {
+            LibraryItemStatus::Cancelling => {
+                let _ = storage.update_library_item(
+                    &item.id,
+                    LibraryItemPatch {
+                        status: Some(LibraryItemStatus::Cancelled),
+                        ..Default::default()
+                    },
+                );
+            }
+            LibraryItemStatus::Pending
+            | LibraryItemStatus::Importing { .. }
+            | LibraryItemStatus::Transcribing { .. } => match build_recovery_job(&item) {
+                Ok(kind) => {
+                    let _ = storage.update_library_item(
+                        &item.id,
+                        LibraryItemPatch {
+                            status: Some(LibraryItemStatus::Pending),
+                            ..Default::default()
+                        },
+                    );
+                    schedule_library_job(
+                        app,
+                        &state,
+                        LibraryJob {
+                            id: item.id.clone(),
+                            kind,
+                        },
+                    );
+                }
+                Err(message) => {
+                    set_library_item_error(&storage, &item.id, &message);
+                }
+            },
+            _ => {}
+        }
+    }
+}
+
 pub fn handle_opened_paths(app: &AppHandle<AppRuntime>, urls: Vec<PathBuf>) -> Result<()> {
     let paths: Vec<String> = urls
         .into_iter()
@@ -316,4 +306,139 @@ pub fn handle_opened_paths(app: &AppHandle<AppRuntime>, urls: Vec<PathBuf>) -> R
     }
     let _ = app.emit(EVENT_LIBRARY_OPEN_IMPORT, paths);
     Ok(())
+}
+
+fn determine_delete_scope(app: &AppHandle<AppRuntime>, audio_path: &str) -> LibraryDeleteScope {
+    let path = PathBuf::from(audio_path);
+    if !path.is_absolute()
+        || path
+            .components()
+            .any(|component| matches!(component, Component::ParentDir))
+    {
+        return LibraryDeleteScope::SkipFilesystemDeletion;
+    }
+
+    let root = match library_root(app).and_then(|root| {
+        root.canonicalize()
+            .map_err(anyhow::Error::from)
+            .context("Failed to resolve library storage location.")
+    }) {
+        Ok(root) => root,
+        Err(err) => {
+            eprintln!("Skipping library file deletion: {err}");
+            return LibraryDeleteScope::SkipFilesystemDeletion;
+        }
+    };
+
+    determine_delete_scope_from_paths(&root, &path)
+}
+
+fn determine_delete_scope_from_paths(root: &Path, path: &Path) -> LibraryDeleteScope {
+    let safe_path = if path.exists() {
+        match path.canonicalize() {
+            Ok(path) => path,
+            Err(err) => {
+                eprintln!("Skipping library file deletion, failed to canonicalize file: {err}");
+                return LibraryDeleteScope::SkipFilesystemDeletion;
+            }
+        }
+    } else if let Some(parent) = path.parent() {
+        if parent.exists() {
+            match parent.canonicalize() {
+                Ok(parent) => parent.join(path.file_name().unwrap_or_default()),
+                Err(err) => {
+                    eprintln!(
+                        "Skipping library file deletion, failed to canonicalize parent folder: {err}"
+                    );
+                    return LibraryDeleteScope::SkipFilesystemDeletion;
+                }
+            }
+        } else {
+            path.to_path_buf()
+        }
+    } else {
+        path.to_path_buf()
+    };
+
+    if !safe_path.starts_with(root) {
+        return LibraryDeleteScope::SkipFilesystemDeletion;
+    }
+
+    match safe_path.parent() {
+        Some(parent) if parent == root => LibraryDeleteScope::DeleteFile(safe_path),
+        Some(parent) if parent.exists() => {
+            LibraryDeleteScope::DeleteDirectory(parent.to_path_buf())
+        }
+        _ if safe_path.exists() => LibraryDeleteScope::DeleteFile(safe_path),
+        _ => LibraryDeleteScope::SkipFilesystemDeletion,
+    }
+}
+
+fn build_retry_job(item: &LibraryItem) -> Result<LibraryJobKind, String> {
+    if PathBuf::from(&item.audio_path).exists() {
+        return Ok(LibraryJobKind::TranscribeExisting);
+    }
+
+    find_recoverable_source_path(item)
+        .map(|source_path| LibraryJobKind::Import {
+            source_path,
+            store_original: item.store_original,
+        })
+        .ok_or_else(missing_original_file_message)
+}
+
+fn build_recovery_job(item: &LibraryItem) -> Result<LibraryJobKind, String> {
+    match item.status {
+        LibraryItemStatus::Importing { .. } => {
+            if let Some(source_path) = find_recoverable_source_path(item) {
+                return Ok(LibraryJobKind::Import {
+                    source_path,
+                    store_original: item.store_original,
+                });
+            }
+            if PathBuf::from(&item.audio_path).exists() {
+                return Ok(LibraryJobKind::TranscribeExisting);
+            }
+            Err(missing_original_file_message())
+        }
+        LibraryItemStatus::Pending | LibraryItemStatus::Transcribing { .. } => {
+            build_retry_job(item)
+        }
+        LibraryItemStatus::Cancelling => Err("Transcription cancelled".to_string()),
+        _ => Err("Library item is not recoverable".to_string()),
+    }
+}
+
+fn find_recoverable_source_path(item: &LibraryItem) -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(path) = stored_original_path(item) {
+        candidates.push(path);
+    }
+
+    let source = item.source_path.trim();
+    if !source.is_empty() {
+        candidates.push(PathBuf::from(source));
+    }
+
+    candidates.into_iter().find(|path| path.exists())
+}
+
+fn missing_original_file_message() -> String {
+    "Original file not found. Re-import the file to try again.".to_string()
+}
+
+fn set_library_item_error(
+    storage: &std::sync::Arc<crate::storage::StorageManager>,
+    id: &str,
+    message: &str,
+) {
+    let _ = storage.update_library_item(
+        id,
+        LibraryItemPatch {
+            status: Some(LibraryItemStatus::Error {
+                message: message.to_string(),
+            }),
+            ..Default::default()
+        },
+    );
 }

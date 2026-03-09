@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { Check, Copy } from "lucide-react";
 import DotMatrix from "./components/DotMatrix";
 import type { ToastType, ToastPayload } from "./types";
 
@@ -63,8 +64,10 @@ const TwinklingGrid = React.memo(({ variant = "cloud" }: { variant?: "cloud" | "
 const ToastOverlay: React.FC = () => {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dismissAnimationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastRef = useRef<ToastState | null>(null);
 
   useEffect(() => {
@@ -104,7 +107,12 @@ const ToastOverlay: React.FC = () => {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    if (copyResetTimerRef.current) {
+      clearTimeout(copyResetTimerRef.current);
+      copyResetTimerRef.current = null;
+    }
     setToast(null);
+    setCopied(false);
     closeAll();
   };
 
@@ -131,6 +139,29 @@ const ToastOverlay: React.FC = () => {
         message: typeof err === "string" ? err : "Retry failed. Please try again.",
         type: "error",
       } : null);
+    }
+  };
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!toast) return;
+
+    const copyText = [toast.title, toast.message].filter(Boolean).join("\n");
+    if (!copyText) return;
+
+    try {
+      await navigator.clipboard.writeText(copyText);
+      setCopied(true);
+      if (copyResetTimerRef.current) {
+        clearTimeout(copyResetTimerRef.current);
+      }
+      copyResetTimerRef.current = setTimeout(() => {
+        copyResetTimerRef.current = null;
+        setCopied(false);
+      }, 1500);
+    } catch (err) {
+      console.error("Failed to copy toast:", err);
     }
   };
 
@@ -161,6 +192,11 @@ const ToastOverlay: React.FC = () => {
       }
       setToast({ ...ev.payload, isLeaving: false });
       setIsRetrying(false);
+      setCopied(false);
+      if (copyResetTimerRef.current) {
+        clearTimeout(copyResetTimerRef.current);
+        copyResetTimerRef.current = null;
+      }
 
       const durations: Record<ToastType, number> = {
         error: 0,
@@ -189,6 +225,7 @@ const ToastOverlay: React.FC = () => {
       }
       if (toastRef.current) {
         setToast(null);
+        setCopied(false);
         try {
           await invoke("toast_dismissed");
         } catch { /* ignore */ }
@@ -201,6 +238,7 @@ const ToastOverlay: React.FC = () => {
       unsub2.then((u) => u());
       unsub3.then((u) => u());
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
     };
   }, []);
 
@@ -208,6 +246,7 @@ const ToastOverlay: React.FC = () => {
 
   const colors = COLORS[toast.type];
   const showRetry = toast.retryId && toast.mode === "cloud";
+  const showCopy = toast.type === "error";
 
   const handleBackgroundClick = () => {
     dismissWithCleanup();
@@ -229,7 +268,7 @@ const ToastOverlay: React.FC = () => {
     >
       <div
         className={`
-          w-fit max-w-[420px] max-h-[140px] bg-black rounded-2xl border px-4 py-3 overflow-y-auto overflow-x-hidden
+          relative w-fit max-w-[420px] max-h-[140px] bg-black rounded-2xl border px-4 py-3 overflow-y-auto overflow-x-hidden
           ${colors.border}
           ${toast.isLeaving ? "animate-toast-out" : "animate-toast-in"}
         `}
@@ -238,17 +277,29 @@ const ToastOverlay: React.FC = () => {
       >
         {toast.type === "celebration" && <TwinklingGrid variant="cloud" />}
         {toast.type === "update" && <TwinklingGrid variant="accent" />}
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label="Close notification"
-          className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center 
-                     ui-color-gray-500 ui-hover-on-solid ui-text-body-sm transition-colors z-10"
-        >
-          <span aria-hidden="true">✕</span>
-        </button>
+        <div className="absolute top-2 right-2 bottom-2 flex flex-col items-center justify-between z-10">
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Close notification"
+            className="w-5 h-5 flex items-center justify-center ui-color-gray-500 ui-hover-on-solid ui-text-body-sm transition-colors"
+          >
+            <span aria-hidden="true">✕</span>
+          </button>
+          {showCopy && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="w-5 h-5 flex items-center justify-center rounded-md ui-color-gray-500 ui-hover-on-solid transition-colors"
+              title={copied ? "Copied" : "Copy message"}
+              aria-label={copied ? "Copied" : "Copy message"}
+            >
+              {copied ? <Check size={12} /> : <Copy size={12} />}
+            </button>
+          )}
+        </div>
 
-        <div className="flex items-start gap-3 pr-5">
+        <div className="flex items-start gap-3 pr-10">
           {toast.type === "update" ? (
             <div className="mt-0.5 shrink-0">
               <DotMatrix

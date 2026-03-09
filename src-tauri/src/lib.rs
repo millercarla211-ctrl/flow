@@ -277,6 +277,7 @@ pub fn run() {
             }
 
             app.manage(AppState::new(Arc::clone(&settings_store), settings, handle));
+            library::commands::recover_interrupted_library_items(handle);
 
             #[cfg(target_os = "macos")]
             {
