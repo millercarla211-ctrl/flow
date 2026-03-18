@@ -3,6 +3,7 @@ Spring Cleaning 🌱 update. This update was focused on cleaning up internal fil
 
 ### Fixes
 - A bug where the Language Model dropdown wouldn't open.
+- fix `Glimpse quit unexpectedly.` by properly unloading models when force closing the app.
 
 0.7.0
 
