@@ -2,6 +2,9 @@
 
 Spring Cleaning update 🌱. This update was focused on cleaning up internal files and overhauling the organizing of the app, this is mainly in preparation for windows, which is coming soon!
 
+### Changes
+- Bumped Glimpse-Speech to 1.0.3 making Whisper even faster.
+
 ### Fixes
 - A bug where the Language Model dropdown wouldn't open.
 - fix `Glimpse quit unexpectedly.` by properly unloading models when force closing the app.
