@@ -485,7 +485,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
 
   const hideWindow = useCallback(async () => {
     try {
-      invoke("cancel_recording");
+      await invoke("cancel_recording");
       const win = getCurrentWindow();
       await win.hide();
     } catch (err) {
