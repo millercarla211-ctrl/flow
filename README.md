@@ -17,7 +17,7 @@
 
 ---
 
-Glimpse is a local-first voice dictation app for Mac. No subscription, no data leaving your machine. It's just fast, accurate transcription powered by models running entirely on-device.
+Glimpse is a local-first voice dictation app for Mac. No subscription, no cloud required. It's just fast, accurate transcription powered by models running entirely on-device.
 
 Built as an open-source alternative to Superwhisper and WisprFlow, for people who left (or never started) because of pricing or privacy concerns.
 
@@ -27,7 +27,7 @@ Grab the latest `.dmg` from the [Releases page](https://github.com/LegendarySpy/
 
 ## Features
 
-- **Local transcription** — Runs entirely on-device using Whisper or Parakeet. Nothing is sent to the cloud by default.
+- **Local transcription** — Runs entirely on-device using Whisper or Parakeet. Your audio and transcripts stay on-device.
 - **Assistive text insertion** — Transcribed text is inserted directly where you're typing, in any app.
 - **Edit mode** — Highlight any text, speak your changes, and Glimpse rewrites it in context.
 - **Personalization** — Set per-app writing styles so Glimpse knows the difference between an email and a Slack message.
@@ -44,20 +44,23 @@ Grab the latest `.dmg` from the [Releases page](https://github.com/LegendarySpy/
 - [x] Audio & video transcription
 - [ ] Temporary mode (transcribe without saving)
 - [ ] App localization
-- [ ] Ask mode — query what's on your screen
 - [ ] Better customizable keybinds
+- [ ] Auto-dictionary
+- [ ] Auto media pausing
+- [ ] Personalization snippets
+- [ ] Windows
+- [ ] Recording auto deletion
 
 ## Privacy
 
-The core app runs fully on-device. Your transcriptions, API keys, and prompts are never collected or transmitted.
+Glimpse runs fully on-device. Your transcriptions, audio, API keys, and prompts are **never** collected or transmitted.
 
-Glimpse does collect **anonymous, non-identifying analytics** via [Aptabase](https://aptabase.com/) to help prioritize development:
+Glimpse collects **anonymous usage telemetry** via [PostHog EU](https://posthog.com/) to help prioritize development:
 
-- App launches/exits, uptime, recording count
-- Which transcription engine is active and which keybind mode is used
-- Model downloads and onboarding completion
+- **Collected:** app launches/exits, uptime, recording count, transcription engine and keybind mode, model downloads, onboarding completion
+- **Never collected:** transcripts, audio, API keys, prompts, or any personally identifiable information
 
-Analytics are GDPR compliant and fully anonymous. For complete transparency, see [`src-tauri/src/analytics.rs`](src-tauri/src/analytics.rs).
+Telemetry is tied to a random install ID (not your identity) and stored in the EU. You can **opt out** at any time in **Settings → Advanced**. For complete transparency, see [`src-tauri/src/analytics.rs`](src-tauri/src/analytics.rs) and the [Glimpse Wiki](https://github.com/LegendarySpy/Glimpse/wiki/Analytics).
 
 ## License
 

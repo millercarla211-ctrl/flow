@@ -28,7 +28,6 @@ pub(crate) fn queue_transcription(
     let state = app.state::<AppState>();
     state.clear_cancellation();
     state.set_pending_path(Some(saved.path.clone()));
-    state.record_recording_seconds(compute_audio_duration_seconds(&saved) as f64);
 
     let pending_selected_text = state.take_pending_selected_text();
     let cancel_token = state.create_transcription_token();
@@ -259,11 +258,6 @@ pub(crate) fn queue_transcription(
                     saved_for_task.path.display().to_string(),
                     llm_cleaned,
                     metadata,
-                    "local",
-                    saved_for_task
-                        .recording_mode
-                        .as_deref()
-                        .unwrap_or("unknown"),
                     "local",
                 );
 
@@ -503,14 +497,8 @@ pub(crate) fn retry_transcription_async(
                 analytics::track_transcription_completed(
                     &app_handle,
                     "local",
-                    saved_for_task
-                        .recording_mode
-                        .as_deref()
-                        .unwrap_or("unknown"),
-                    "local",
                     Some(&metadata.speech_model),
                     llm_cleaned,
-                    metadata.audio_duration_seconds as f64,
                 );
                 app_handle
                     .state::<AppState>()
@@ -540,7 +528,6 @@ pub(crate) fn retry_transcription_async(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
 fn emit_transcription_complete_with_cleanup(
     app: &AppHandle<AppRuntime>,
     raw_transcript: String,
@@ -550,17 +537,12 @@ fn emit_transcription_complete_with_cleanup(
     llm_cleaned: bool,
     metadata: storage::TranscriptionMetadata,
     mode: &str,
-    keybind: &str,
-    engine: &str,
 ) {
     analytics::track_transcription_completed(
         app,
         mode,
-        keybind,
-        engine,
         Some(&metadata.speech_model),
         llm_cleaned,
-        metadata.audio_duration_seconds as f64,
     );
     app.state::<AppState>().record_transcription_completed();
 
@@ -658,7 +640,7 @@ pub(crate) fn emit_transcription_error(
 }
 
 fn emit_auto_paste_error(app: &AppHandle<AppRuntime>, message: String) {
-    analytics::track_transcription_failed(app, "auto_paste", "n/a", "paste_error");
+    analytics::track_transcription_failed(app, "auto_paste", "paste_error");
 
     toast::emit_toast(
         app,
@@ -683,7 +665,6 @@ fn emit_transcription_error_inner(
     audio_path: String,
     reset_state: bool,
 ) {
-    let engine = "local";
     let reason = if message.contains("No speech") || message.contains("empty") {
         "no_speech"
     } else if message.contains("Model") || message.contains("model") {
@@ -691,7 +672,7 @@ fn emit_transcription_error_inner(
     } else {
         "api_error"
     };
-    analytics::track_transcription_failed(app, stage, engine, reason);
+    analytics::track_transcription_failed(app, stage, reason);
 
     crate::emit_event(
         app,

@@ -32,6 +32,8 @@ const KEY_DICTIONARY: &str = "dictionary";
 const KEY_REPLACEMENTS: &str = "replacements";
 const KEY_PERSONALITIES: &str = "personalities";
 const KEY_EDIT_MODE_ENABLED: &str = "edit_mode_enabled";
+const KEY_ANALYTICS_ENABLED: &str = "analytics_enabled";
+const KEY_ANALYTICS_INSTALL_ID: &str = "analytics_install_id";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Replacement {
@@ -103,6 +105,10 @@ pub struct UserSettings {
     pub personalities: Vec<Personality>,
     #[serde(default)]
     pub edit_mode_enabled: bool,
+    #[serde(default = "default_true")]
+    pub analytics_enabled: bool,
+    #[serde(default)]
+    pub analytics_install_id: String,
 }
 
 fn default_smart_shortcut() -> String {
@@ -252,6 +258,8 @@ impl Default for UserSettings {
             replacements: Vec::new(),
             personalities: default_personalities(),
             edit_mode_enabled: false,
+            analytics_enabled: true,
+            analytics_install_id: String::new(),
         }
     }
 }
@@ -440,6 +448,13 @@ impl SettingsStore {
                 self.read_value(&conn, KEY_PERSONALITIES, settings.personalities.clone())?;
             settings.edit_mode_enabled =
                 self.read_value(&conn, KEY_EDIT_MODE_ENABLED, settings.edit_mode_enabled)?;
+            settings.analytics_enabled =
+                self.read_value(&conn, KEY_ANALYTICS_ENABLED, settings.analytics_enabled)?;
+            settings.analytics_install_id = self.read_value(
+                &conn,
+                KEY_ANALYTICS_INSTALL_ID,
+                settings.analytics_install_id.clone(),
+            )?;
         }
 
         if !encrypted_key.is_empty() {
@@ -471,6 +486,11 @@ impl SettingsStore {
             }
         }
         *self.llm_api_key_ciphertext.lock() = llm_api_key_ciphertext;
+
+        if settings.analytics_install_id.is_empty() {
+            settings.analytics_install_id = uuid::Uuid::new_v4().to_string();
+            should_persist = true;
+        }
 
         if !settings.personalities_notes_seeded {
             seed_personality_notes(&mut settings.personalities);
@@ -560,6 +580,12 @@ impl SettingsStore {
         self.write_value(&conn, KEY_REPLACEMENTS, &settings.replacements)?;
         self.write_value(&conn, KEY_PERSONALITIES, &settings.personalities)?;
         self.write_value(&conn, KEY_EDIT_MODE_ENABLED, &settings.edit_mode_enabled)?;
+        self.write_value(&conn, KEY_ANALYTICS_ENABLED, &settings.analytics_enabled)?;
+        self.write_value(
+            &conn,
+            KEY_ANALYTICS_INSTALL_ID,
+            &settings.analytics_install_id,
+        )?;
         Ok(())
     }
 

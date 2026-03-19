@@ -256,6 +256,8 @@ const SettingsModal = ({
                       accessibilityPermission={form.accessibilityPermission}
                       textSizeMode={form.textSizeMode}
                       onTextSizeModeChange={form.setTextSizeMode}
+                      analyticsEnabled={form.analyticsEnabled}
+                      onAnalyticsEnabledChange={form.setAnalyticsEnabled}
                     />
                   )}
 

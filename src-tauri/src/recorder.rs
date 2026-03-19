@@ -9,7 +9,6 @@ use parking_lot::Mutex;
 use uuid::Uuid;
 use webrtc_vad::{SampleRate as VadSampleRate, Vad, VadMode};
 
-/// Reason why a recording was rejected
 #[derive(Debug, Clone)]
 pub enum RecordingRejectionReason {
     TooShort { duration_ms: i64, min_ms: i64 },
@@ -81,7 +80,6 @@ pub struct CompletedRecording {
     pub channels: u16,
     pub started_at: DateTime<Local>,
     pub ended_at: DateTime<Local>,
-    pub recording_mode: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -91,7 +89,6 @@ pub struct RecordingSaved {
     pub ended_at: DateTime<Local>,
     /// Override duration in seconds (used for retries when we know the original duration)
     pub duration_override_seconds: Option<f32>,
-    pub recording_mode: Option<String>,
 }
 
 impl Default for RecorderManager {
@@ -302,7 +299,6 @@ impl RecorderCore {
                     channels: active.channels,
                     started_at: active.started_at,
                     ended_at: Local::now(),
-                    recording_mode: None,
                 }));
             }
 
@@ -324,7 +320,6 @@ impl RecorderCore {
                 channels: 1,
                 started_at: active.started_at,
                 ended_at: Local::now(),
-                recording_mode: None,
             }))
         } else {
             Ok(None)
@@ -332,13 +327,9 @@ impl RecorderCore {
     }
 }
 
-/// Configuration for recording validation
 pub struct ValidationConfig {
-    /// Minimum duration in milliseconds (default: 300ms)
     pub min_duration_ms: i64,
-    /// Minimum RMS energy threshold (default: 0.005)
     pub min_rms_energy: f32,
-    /// Minimum percentage of frames that must contain speech (default: 5%)
     pub min_speech_percentage: f32,
 }
 
@@ -352,23 +343,18 @@ impl Default for ValidationConfig {
     }
 }
 
-/// Validates if a recording contains meaningful audio worth transcribing.
-/// Returns Ok(()) if valid, or Err with the rejection reason.
 pub fn validate_recording(recording: &CompletedRecording) -> Result<(), RecordingRejectionReason> {
     validate_recording_with_config(recording, &ValidationConfig::default())
 }
 
-/// Validates a recording with custom configuration.
 pub fn validate_recording_with_config(
     recording: &CompletedRecording,
     config: &ValidationConfig,
 ) -> Result<(), RecordingRejectionReason> {
-    // Check 1: Empty buffer
     if recording.samples.is_empty() {
         return Err(RecordingRejectionReason::EmptyBuffer);
     }
 
-    // Check 2: Minimum duration
     let duration_ms = (recording.ended_at - recording.started_at).num_milliseconds();
     if duration_ms < config.min_duration_ms {
         return Err(RecordingRejectionReason::TooShort {
@@ -377,14 +363,12 @@ pub fn validate_recording_with_config(
         });
     }
 
-    // Convert to f32 for analysis
     let samples_f32: Vec<f32> = recording
         .samples
         .iter()
         .map(|s| *s as f32 / i16::MAX as f32)
         .collect();
 
-    // Check 3: RMS energy level (catches silence/very quiet recordings)
     let rms = calculate_rms(&samples_f32);
     if rms < config.min_rms_energy {
         return Err(RecordingRejectionReason::TooQuiet {
@@ -393,7 +377,6 @@ pub fn validate_recording_with_config(
         });
     }
 
-    // Check 4: Voice Activity Detection - ensure at least some speech is present
     let speech_percentage = calculate_speech_percentage(&samples_f32, recording.sample_rate);
     if speech_percentage < config.min_speech_percentage {
         return Err(RecordingRejectionReason::NoSpeechDetected);
@@ -402,7 +385,6 @@ pub fn validate_recording_with_config(
     Ok(())
 }
 
-/// Calculate Root Mean Square energy of audio samples
 fn calculate_rms(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return 0.0;
@@ -426,7 +408,6 @@ fn create_vad(sample_rate: u32, mode: VadMode) -> Option<Vad> {
     Some(Vad::new_with_rate_and_mode(rate, mode))
 }
 
-/// Calculate percentage of frames containing speech using VAD
 fn calculate_speech_percentage_with_mode(samples: &[f32], sample_rate: u32, mode: VadMode) -> f32 {
     if samples.is_empty() {
         return 0.0;
@@ -582,7 +563,6 @@ pub fn persist_recording(
         started_at: recording.started_at,
         ended_at: recording.ended_at,
         duration_override_seconds,
-        recording_mode: recording.recording_mode.clone(),
     })
 }
 

@@ -356,7 +356,7 @@ pub async fn download_model(
 
     result.map_err(|err| err.to_string())?;
 
-    crate::analytics::track_model_downloaded(&app, &model, def.size_mb);
+    crate::analytics::track_model_downloaded(&app, &model);
 
     let status = ModelStatus::from_definition(&dir, def);
 
