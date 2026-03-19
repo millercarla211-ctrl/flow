@@ -27,6 +27,7 @@ pub(crate) struct UpdateSettingsArgs {
     pub llm_api_key: String,
     pub llm_model: String,
     pub edit_mode_enabled: bool,
+    pub analytics_enabled: bool,
 }
 
 fn canonicalize_shortcut_for_storage(shortcut: &str) -> String {
@@ -125,12 +126,11 @@ pub(crate) fn complete_onboarding(
     state: &AppState,
 ) -> Result<(), String> {
     let mut settings = state.current_settings();
-    let model = settings.local_model.clone();
     settings.onboarding_completed = true;
     state
         .persist_settings(settings)
         .map_err(|err| err.to_string())?;
-    analytics::track_onboarding_completed(app, &model);
+    analytics::track_onboarding_completed(app);
     Ok(())
 }
 
@@ -188,6 +188,7 @@ pub(crate) fn update_settings(
     next.llm_api_key = args.llm_api_key;
     next.llm_model = args.llm_model.trim().to_string();
     next.edit_mode_enabled = args.edit_mode_enabled;
+    next.analytics_enabled = args.analytics_enabled;
 
     let next = state
         .persist_settings(next)
@@ -247,6 +248,7 @@ mod tests {
             llm_api_key: String::new(),
             llm_model: String::new(),
             edit_mode_enabled: false,
+            analytics_enabled: true,
         }
     }
 

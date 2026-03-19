@@ -106,6 +106,7 @@ export function useSettingsForm({
   const [llmModel, setLlmModel] = useState("");
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [editModeEnabled, setEditModeEnabled] = useState(false);
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [textSizeMode, setTextSizeModeRaw] = useState<TextSizeMode>(() =>
     parseTextSizeMode(localStorage.getItem(TEXT_SIZE_MODE_STORAGE_KEY)),
   );
@@ -333,6 +334,7 @@ export function useSettingsForm({
         setLlmApiKeyRaw(s.llm_api_key ?? "");
         setLlmModel(s.llm_model ?? "");
         setEditModeEnabled(s.edit_mode_enabled ?? false);
+        setAnalyticsEnabled(s.analytics_enabled ?? true);
       },
     );
     return () => {
@@ -384,6 +386,7 @@ export function useSettingsForm({
         setLlmApiKeyRaw(settings.llm_api_key ?? "");
         setLlmModel(settings.llm_model ?? "");
         setEditModeEnabled(settings.edit_mode_enabled ?? false);
+        setAnalyticsEnabled(settings.analytics_enabled ?? true);
       } catch (err) {
         console.error("Failed to load settings:", err);
         setError("Failed to load settings");
@@ -662,6 +665,7 @@ export function useSettingsForm({
           llmApiKey,
           llmModel,
           editModeEnabled: effectiveLlm ? editModeEnabled : false,
+          analyticsEnabled,
         });
         setError(null);
       } catch (err) {
@@ -693,6 +697,7 @@ export function useSettingsForm({
     llmApiKey,
     llmModel,
     editModeEnabled,
+    analyticsEnabled,
     llmConfigReady,
   ]);
 
@@ -925,6 +930,8 @@ export function useSettingsForm({
     setCleanupEnabled,
     editModeEnabled,
     setEditModeEnabled,
+    analyticsEnabled,
+    setAnalyticsEnabled,
 
     authLoading,
     currentUser,

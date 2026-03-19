@@ -40,7 +40,6 @@ pub(crate) fn retry_transcription(
         started_at: record.timestamp,
         ended_at: record.timestamp,
         duration_override_seconds: Some(record.audio_duration_seconds),
-        recording_mode: None,
     };
 
     let settings = state.current_settings();

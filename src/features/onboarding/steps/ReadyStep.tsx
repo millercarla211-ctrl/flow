@@ -65,7 +65,10 @@ export function ReadyStep({
     if (!captureActive) return;
 
     const updatePreview = () => {
-      const preview = buildShortcutPreviewString(pressedModifiers.current, primaryKey.current);
+      const preview = buildShortcutPreviewString(
+        pressedModifiers.current,
+        primaryKey.current,
+      );
       onSetPreview(preview ? formatShortcutForDisplay(preview) : "");
     };
 
@@ -153,15 +156,19 @@ export function ReadyStep({
       </h2>
 
       <p className="ui-text-body-lg text-content-muted mb-6">
-        Smart is on by default. Set the shortcut you want here:
+        Smart is on by default, others available in settings.
       </p>
 
       <div className="w-full rounded-lg bg-surface-surface p-2.5 text-left">
         <div className="space-y-1.5 px-2 py-1.5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <span className="ui-text-label-strong ui-color-primary">Smart</span>
-              <span className="truncate ui-text-meta ui-color-disabled">tap to toggle, hold to talk</span>
+              <span className="ui-text-label-strong ui-color-primary">
+                Smart
+              </span>
+              <span className="truncate ui-text-meta ui-color-disabled">
+                tap to toggle, hold to talk
+              </span>
             </div>
             <span className="shrink-0 rounded-md bg-amber-400/20 px-1.5 py-0.5 ui-text-micro font-medium ui-color-warning-strong">
               Default
@@ -187,24 +194,26 @@ export function ReadyStep({
                   animate={{ opacity: [0.3, 1, 0.3] }}
                   transition={{ duration: 1, repeat: Infinity }}
                 />
-                <span className={`truncate ${capturePreview ? "ui-color-primary" : "ui-color-muted"}`}>
+                <span
+                  className={`truncate ${capturePreview ? "ui-color-primary" : "ui-color-muted"}`}
+                >
                   {capturePreview || "Press new shortcut..."}
                 </span>
               </span>
             ) : (
-              <span className="block truncate">{formatShortcutForDisplay(smartShortcut)}</span>
+              <span className="block truncate">
+                {formatShortcutForDisplay(smartShortcut)}
+              </span>
             )}
           </motion.button>
 
           <p className="ui-text-meta text-content-muted">
-            {captureActive ? "Press your new shortcut, or hit Esc to cancel." : "Click the shortcut to change it."}
+            {captureActive
+              ? "Press your new shortcut, or hit Esc to cancel."
+              : "Click the shortcut to change it."}
           </p>
         </div>
       </div>
-
-      <p className="mt-4 ui-text-label text-content-disabled">
-        You can add more shortcuts in Settings later.
-      </p>
 
       <button
         onClick={onComplete}
@@ -214,8 +223,15 @@ export function ReadyStep({
         {isCompleting ? "Saving..." : "Get Started"}
       </button>
 
+      <p className="mt-3 ui-text-micro ui-color-disabled text-center">
+        Glimpse sends anonymous usage analytics to help improve the app. You can
+        disable this anytime in Settings &rarr; Advanced.
+      </p>
+
       {completionError && (
-        <p className="mt-3 ui-text-label text-error text-center">{completionError}</p>
+        <p className="mt-3 ui-text-label text-error text-center">
+          {completionError}
+        </p>
       )}
     </motion.div>
   );

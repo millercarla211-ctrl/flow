@@ -135,15 +135,13 @@ function App() {
       );
     }
 
-    const settingsContent = showOnboarding ? (
-      <OnboardingScreen onComplete={handleOnboardingComplete} />
-    ) : (
-      <Home />
-    );
-
     return (
       <div className="settings-view h-screen w-screen overflow-hidden">
-        {settingsContent}
+        {showOnboarding ? (
+          <OnboardingScreen onComplete={handleOnboardingComplete} />
+        ) : (
+          <Home />
+        )}
       </div>
     );
   }

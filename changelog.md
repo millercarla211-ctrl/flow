@@ -1,3 +1,10 @@
+0.7.2
+
+
+### Changes
+- Fully updated analytics, changed from Aptabase to PostHog.
+- Advanced settings and onboarding have UI changes to explain and disable anonymous analytics.
+
 0.7.1
 
 Spring Cleaning update 🌱. This update was focused on cleaning up internal files and overhauling the organizing of the app, this is mainly in preparation for windows, which is coming soon!

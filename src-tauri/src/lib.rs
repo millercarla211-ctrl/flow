@@ -54,7 +54,6 @@ use tauri::{AppHandle, Manager, Wry};
 
 #[cfg(target_os = "macos")]
 use tauri::ActivationPolicy;
-use tauri_plugin_aptabase::EventTracker;
 use tauri_plugin_opener::OpenerExt;
 
 pub(crate) const MAIN_WINDOW_LABEL: &str = "main";
@@ -228,10 +227,7 @@ pub fn run() {
     let _guard = rt.enter();
     tauri::async_runtime::set(rt.handle().clone());
 
-    let aptabase_key = option_env!("APTABASE_KEY").unwrap_or("A-DEV-0000000000");
-
     let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_aptabase::Builder::new(aptabase_key).build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
@@ -332,7 +328,13 @@ pub fn run() {
                 .state::<AppState>()
                 .start_preflight_loop(handle.clone());
 
-            let _ = app.track_event("app_started", None);
+            {
+                let h = handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    analytics::init(&h).await;
+                    analytics::track_app_started(&h);
+                });
+            }
 
             Ok(())
         })
@@ -417,10 +419,8 @@ pub fn run() {
                 analytics::track_app_exited(
                     handler,
                     (now - state.session_started_at).as_secs_f64(),
-                    counters.recording_seconds,
                     counters.transcription_count,
                 );
-                handler.flush_events_blocking();
             }
             _ => {}
         });
@@ -475,7 +475,6 @@ pub struct AppState {
 
 #[derive(Clone, Copy)]
 struct SessionCounters {
-    recording_seconds: f64,
     transcription_count: u32,
 }
 
@@ -530,10 +529,15 @@ impl AppState {
             preflight_notify: Arc::new(Notify::new()),
             session_started_at: Instant::now(),
             session_counters: parking_lot::Mutex::new(SessionCounters {
-                recording_seconds: 0.0,
                 transcription_count: 0,
             }),
         }
+    }
+
+    /// Read analytics state from the in-memory cache (single lock acquisition).
+    pub fn analytics_state(&self) -> (bool, String) {
+        let s = self.settings.lock();
+        (s.analytics_enabled, s.analytics_install_id.clone())
     }
 
     pub fn current_settings(&self) -> UserSettings {
@@ -569,12 +573,6 @@ impl AppState {
 
     pub fn is_shortcut_capture_active(&self) -> bool {
         self.shortcut_capture_active.load(Ordering::SeqCst)
-    }
-
-    pub fn record_recording_seconds(&self, duration_secs: f64) {
-        if duration_secs.is_finite() && duration_secs > 0.0 {
-            self.session_counters.lock().recording_seconds += duration_secs;
-        }
     }
 
     pub fn record_transcription_completed(&self) {
@@ -896,6 +894,7 @@ fn update_settings(
     llmApiKey: String,
     llmModel: String,
     editModeEnabled: bool,
+    analyticsEnabled: bool,
     app: AppHandle<AppRuntime>,
     state: tauri::State<AppState>,
 ) -> Result<UserSettings, String> {
@@ -919,6 +918,7 @@ fn update_settings(
             llm_api_key: llmApiKey,
             llm_model: llmModel,
             edit_mode_enabled: editModeEnabled,
+            analytics_enabled: analyticsEnabled,
         },
         &app,
         &state,
