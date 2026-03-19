@@ -213,9 +213,13 @@ const AdvancedTab = ({
               </button>
             </div>
             <span className="ui-text-micro ui-color-disabled block mt-0.5">
-              anonymous, no transcripts or audio.{" "}
+              anonymous, no transcripts or audio shared.{" "}
               <button
-                onClick={() => openUrl("https://github.com/LegendarySpy/Glimpse/wiki/Analytics")}
+                onClick={() =>
+                  openUrl(
+                    "https://github.com/LegendarySpy/Glimpse/wiki/Analytics",
+                  )
+                }
                 className="ui-color-muted hover:text-content-secondary transition-colors underline"
               >
                 More info
@@ -225,7 +229,8 @@ const AdvancedTab = ({
         </div>
 
         <p className="ui-text-micro ui-color-disabled px-0.5">
-          Restart Glimpse after changing permissions in System Settings.
+          After changing permissions or analytics, restart Glimpse for changes
+          to take effect.
         </p>
       </div>
     </div>

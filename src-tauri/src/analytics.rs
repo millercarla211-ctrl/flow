@@ -53,7 +53,7 @@ fn build_event(
     event_name: &str,
     props: serde_json::Value,
 ) -> Option<posthog_rs::Event> {
-    if POSTHOG_API_KEY.is_none_or(|k| k.is_empty()) {
+    if POSTHOG_API_KEY.is_none_or(|k| k.is_empty()) || POSTHOG_HOST.is_none_or(|h| h.is_empty()) {
         return None;
     }
 
@@ -80,6 +80,8 @@ fn capture_event(app: &tauri::AppHandle<AppRuntime>, event_name: &str, props: se
 }
 
 /// Best-effort blocking capture for use during app exit.
+/// SAFETY: Must be called from a synchronous context (e.g. Tauri window event handler).
+/// Calling from within an async Tokio task will panic.
 fn capture_event_blocking(
     app: &tauri::AppHandle<AppRuntime>,
     event_name: &str,
