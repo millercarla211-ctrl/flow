@@ -46,7 +46,7 @@ function playbackRate(infoDict) {
 function loadMediaRemote() {
     const mediaRemote = $.NSBundle.bundleWithPath('/System/Library/PrivateFrameworks/MediaRemote.framework/');
     if (!mediaRemote) return false;
-    mediaRemote.load;
+    if (!mediaRemote.load) return false;
     ObjC.bindFunction('MRMediaRemoteSendCommand', ['bool', ['int', 'id']]);
     return true;
 }
@@ -222,22 +222,49 @@ function run(argv) {
     }
 
     fn run_script(args: &[&str]) -> Option<String> {
+        use std::io::Read;
+        use std::time::{Duration, Instant};
+
         let mut command = Command::new("osascript");
-        command.args(["-l", "JavaScript", "-e", MEDIA_REMOTE_SCRIPT]);
+        command
+            .args(["-l", "JavaScript", "-e", MEDIA_REMOTE_SCRIPT])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null());
         for arg in args {
             command.arg(arg);
         }
 
-        let output = command.output().ok()?;
-        if !output.status.success() {
-            return None;
-        }
+        let mut child = command.spawn().ok()?;
+        let deadline = Instant::now() + Duration::from_secs(3);
 
-        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if stdout.is_empty() {
-            return None;
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    if !status.success() {
+                        return None;
+                    }
+                    let mut stdout = String::new();
+                    child.stdout.take()?.read_to_string(&mut stdout).ok()?;
+                    let stdout = stdout.trim().to_string();
+                    if stdout.is_empty() {
+                        return None;
+                    }
+                    return Some(stdout);
+                }
+                Ok(None) => {
+                    if Instant::now() >= deadline {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return None;
+                    }
+                    std::thread::sleep(Duration::from_millis(25));
+                }
+                Err(_) => {
+                    let _ = child.kill();
+                    return None;
+                }
+            }
         }
-        Some(stdout)
     }
 }
 
