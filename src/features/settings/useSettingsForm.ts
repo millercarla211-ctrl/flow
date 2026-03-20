@@ -190,7 +190,7 @@ export function useSettingsForm({
     setLlmModel(s.llm_model ?? "");
     setEditModeEnabled(s.edit_mode_enabled ?? false);
     setMediaControlEnabled(s.media_control_enabled ?? true);
-    setAutoUpdateEnabled(s.auto_update_enabled ?? true);
+    setAutoUpdateEnabled(s.auto_update_enabled ?? false);
     setAnalyticsEnabled(s.analytics_enabled ?? true);
   }, []);
 

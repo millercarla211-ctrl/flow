@@ -109,7 +109,7 @@ pub struct UserSettings {
     pub edit_mode_enabled: bool,
     #[serde(default = "default_true")]
     pub media_control_enabled: bool,
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub auto_update_enabled: bool,
     #[serde(default = "default_true")]
     pub analytics_enabled: bool,
@@ -275,7 +275,7 @@ impl Default for UserSettings {
             personalities: default_personalities(),
             edit_mode_enabled: false,
             media_control_enabled: true,
-            auto_update_enabled: true,
+            auto_update_enabled: false,
             analytics_enabled: true,
             analytics_install_id: String::new(),
         }

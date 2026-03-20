@@ -271,10 +271,12 @@ async fn wait_for_idle(app: &AppHandle<AppRuntime>, required: Duration) -> bool 
 }
 
 fn should_restart_for_auto_update(app: &AppHandle<AppRuntime>, state: &SharedUpdateState) -> bool {
-    app.state::<AppState>().is_auto_update_enabled()
+    let app_state = app.state::<AppState>();
+    app_state.is_auto_update_enabled()
+        && app_state.pill().status() == PillStatus::Idle
         && state.lock().is_available()
         && !is_settings_window_visible(app)
-        && app.state::<AppState>().is_backend_idle()
+        && app_state.is_backend_idle()
 }
 
 fn is_settings_window_visible(app: &AppHandle<AppRuntime>) -> bool {
