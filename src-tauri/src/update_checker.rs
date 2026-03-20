@@ -164,6 +164,7 @@ async fn run_auto_update_loop(app: AppHandle<AppRuntime>, state: SharedUpdateSta
         if !app.state::<AppState>().is_auto_update_enabled()
             || !state.lock().is_available()
             || is_settings_window_visible(&app)
+            || !app.state::<AppState>().is_backend_idle()
         {
             continue;
         }
@@ -203,11 +204,17 @@ async fn wait_for_idle(app: &AppHandle<AppRuntime>, required: Duration) -> bool 
     while elapsed < required {
         tokio::time::sleep(poll).await;
 
-        if app.state::<AppState>().pill().status() != PillStatus::Idle {
+        let state = app.state::<AppState>();
+
+        if state.pill().status() != PillStatus::Idle {
             return false;
         }
 
-        if !app.state::<AppState>().is_auto_update_enabled() {
+        if !state.is_auto_update_enabled() {
+            return false;
+        }
+
+        if !state.is_backend_idle() {
             return false;
         }
 

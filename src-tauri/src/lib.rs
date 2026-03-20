@@ -45,9 +45,7 @@ use recorder::{
 };
 use reqwest::Client;
 use serde::Serialize;
-use settings::{
-    default_local_model, LlmProvider, SettingsStore, TranscriptionMode, UserSettings,
-};
+use settings::{default_local_model, LlmProvider, SettingsStore, TranscriptionMode, UserSettings};
 use tauri::async_runtime;
 use tauri::tray::TrayIcon;
 use tauri::Emitter;
@@ -548,6 +546,13 @@ impl AppState {
     /// Read auto-update setting from the in-memory cache (no DB hit).
     pub fn is_auto_update_enabled(&self) -> bool {
         self.settings.lock().auto_update_enabled
+    }
+
+    pub fn is_backend_idle(&self) -> bool {
+        self.download_tokens.lock().is_empty()
+            && self.library_active.lock().is_none()
+            && self.library_queue.lock().is_empty()
+            && self.retry_tokens.lock().is_empty()
     }
 
     pub fn set_auto_update_completed(&self) {

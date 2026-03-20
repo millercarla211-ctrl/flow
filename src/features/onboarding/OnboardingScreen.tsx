@@ -297,6 +297,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
         llmModel: "",
         editModeEnabled: false,
         mediaControlEnabled: true,
+        autoUpdateEnabled: true,
         analyticsEnabled: true,
       });
       await invoke("complete_onboarding");

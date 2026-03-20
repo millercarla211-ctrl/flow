@@ -8,6 +8,8 @@
 - Advanced tab as been renamed to App and now includes automations.
 - Gently redesign some settings menus.
 - Updated toast only shows from auto-updates no longer manual updates
+- Shrunk the caret size in personalization
+- Added blank spaces in preset personalization
 
 
 0.7.2

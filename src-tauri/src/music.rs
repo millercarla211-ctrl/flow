@@ -144,6 +144,10 @@ function run(argv) {
             let display_name =
                 (!payload.display_name.trim().is_empty()).then_some(payload.display_name);
 
+            if bundle_id.is_none() && display_name.is_none() {
+                return None;
+            }
+
             Some(Self {
                 bundle_id,
                 display_name,
@@ -175,9 +179,9 @@ function run(argv) {
 
     pub(crate) fn pause_if_playing() -> Option<PauseSession> {
         let newly_paused = pause_active_now_playing();
+        let target = newly_paused?;
 
         let mut shared = state().lock();
-        let target = newly_paused.or_else(|| shared.paused_target.clone())?;
         let session = shared.alloc_session();
         shared.active_session = Some(session);
         shared.paused_target = Some(target);
