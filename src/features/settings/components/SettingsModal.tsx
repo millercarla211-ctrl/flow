@@ -15,7 +15,7 @@ import { useSettingsForm } from "../useSettingsForm";
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: "general" | "account" | "models" | "about";
+  initialTab?: "general" | "account" | "models" | "about" | "app";
   currentUser: AuthUser | null;
   onUpdateUser: () => Promise<void>;
   transcriptionMode: TranscriptionMode;

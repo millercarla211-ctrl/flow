@@ -67,7 +67,7 @@ const SidebarItem = ({
 const Home = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<
-    "general" | "account" | "models" | "about"
+    "general" | "account" | "models" | "about" | "app"
   >("general");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [activeView, setActiveView] = useState<

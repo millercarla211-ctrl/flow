@@ -77,6 +77,11 @@ pub fn create_state() -> SharedUpdateState {
     Arc::new(Mutex::new(UpdateState::default()))
 }
 
+fn clear_update_state_and_emit(app: &AppHandle<AppRuntime>) {
+    app.state::<AppState>().update_state().lock().clear();
+    let _ = app.emit("update:cleared", ());
+}
+
 // --- Auto-update marker file (persists "just auto-updated" state across restarts) ---
 
 fn marker_path(app: &AppHandle<AppRuntime>) -> Option<PathBuf> {
@@ -452,7 +457,7 @@ async fn check_for_update(
         }
         None => {
             debug!(channel = ?channel, "no updates available");
-            state.lock().clear();
+            clear_update_state_and_emit(app);
         }
     }
 
@@ -589,8 +594,7 @@ pub async fn download_and_install_update(
         },
     );
 
-    app.state::<AppState>().update_state().lock().clear();
-    let _ = app.emit("update:cleared", ());
+    clear_update_state_and_emit(&app);
 
     info!(channel = ?resolved_channel, "update downloaded and installed");
     Ok(())
@@ -621,9 +625,7 @@ pub fn simulate_update_available(app: AppHandle<AppRuntime>, version: String) {
 
 #[tauri::command]
 pub fn clear_update_state(app: AppHandle<AppRuntime>) {
-    let state = app.state::<AppState>();
-    state.update_state().lock().clear();
-    let _ = app.emit("update:cleared", ());
+    clear_update_state_and_emit(&app);
 }
 
 #[allow(dead_code)]

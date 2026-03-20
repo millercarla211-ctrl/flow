@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { invoke } from "@tauri-apps/api/core"
+import { getVersion } from "@tauri-apps/api/app"
 import { relaunch } from "@tauri-apps/plugin-process"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import { Download, RefreshCw, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
@@ -50,13 +51,26 @@ export function UpdateChecker({
     const [progress, setProgress] = useState(0)
     const [error, setError] = useState<string | null>(null)
     const [downloadError, setDownloadError] = useState<string | null>(null)
-    const [installed, setInstalled] = useState(() => {
-        if (typeof window !== "undefined") {
-            return localStorage.getItem(PENDING_RESTART_KEY) === "true"
-        }
-        return false
-    })
+    const [installed, setInstalled] = useState(false)
     const [whatsNewOpen, setWhatsNewOpen] = useState(false)
+
+    useEffect(() => {
+        const pendingVersion = localStorage.getItem(PENDING_RESTART_KEY)
+        if (!pendingVersion) return
+        if (pendingVersion === "true") {
+            // Legacy sentinel from older builds; real pending restarts now store the target version.
+            localStorage.removeItem(PENDING_RESTART_KEY)
+            return
+        }
+        getVersion().then((currentVersion) => {
+            if (pendingVersion === currentVersion) {
+                // Update was already applied — clear stale key
+                localStorage.removeItem(PENDING_RESTART_KEY)
+            } else {
+                setInstalled(true)
+            }
+        })
+    }, [])
 
     const checkForUpdates = useCallback(async (channel: UpdateChannel) => {
         setChecking(true)
@@ -141,10 +155,13 @@ export function UpdateChecker({
         setDownloadError(null)
 
         try {
+            const pendingVersion = availableVersion
             await invoke("download_and_install_update", { channel: updateChannel })
             setInstalled(true)
             setAvailableVersion(null)
-            localStorage.setItem(PENDING_RESTART_KEY, "true")
+            if (pendingVersion) {
+                localStorage.setItem(PENDING_RESTART_KEY, pendingVersion)
+            }
         } catch (err) {
             console.error("Update failed:", err)
             setDownloadError(formatError(err))

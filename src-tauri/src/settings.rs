@@ -107,7 +107,7 @@ pub struct UserSettings {
     pub personalities: Vec<Personality>,
     #[serde(default)]
     pub edit_mode_enabled: bool,
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub media_control_enabled: bool,
     #[serde(default)]
     pub auto_update_enabled: bool,
@@ -274,7 +274,7 @@ impl Default for UserSettings {
             replacements: Vec::new(),
             personalities: default_personalities(),
             edit_mode_enabled: false,
-            media_control_enabled: true,
+            media_control_enabled: false,
             auto_update_enabled: false,
             analytics_enabled: true,
             analytics_install_id: String::new(),

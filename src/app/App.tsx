@@ -5,12 +5,10 @@ import PillOverlay from "../features/pill/PillOverlay";
 import ToastOverlay from "../features/toast/ToastOverlay";
 import Home from "../Home";
 import OnboardingScreen from "../features/onboarding/OnboardingScreen";
-import { useSettings, useAppInfo } from "../features/settings/queries";
-import { debugShowToast } from "../features/toast/api";
+import { useSettings } from "../features/settings/queries";
 import type { TextSizeMode } from "../types";
 import "./App.css";
 
-const VERSION_STORAGE_KEY = "glimpse_last_version";
 const TEXT_SIZE_MODE_STORAGE_KEY = "glimpse_text_size_mode";
 
 const parseTextSizeMode = (value: string | null): TextSizeMode =>
@@ -36,7 +34,6 @@ function App() {
   const { data: settings, isLoading: settingsLoading } = useSettings(
     undefined,
   );
-  const { data: appInfo } = useAppInfo();
 
   useEffect(() => {
     const win = getCurrentWindow();
@@ -88,25 +85,6 @@ function App() {
       setShowOnboarding(!settings.onboarding_completed);
     }
   }, [isSettingsWindow, settings]);
-
-  // Version toast check
-  useEffect(() => {
-    if (!isSettingsWindow || !appInfo) return;
-
-    const currentVersion = appInfo.version;
-    const storedVersion = localStorage.getItem(VERSION_STORAGE_KEY);
-
-    if (storedVersion && storedVersion !== currentVersion) {
-      debugShowToast({
-        toastType: "update",
-        message: `Updated to v${currentVersion}`,
-        action: "open_whats_new",
-        actionLabel: "See what's new",
-      }).catch((err) => console.error("Failed to show version toast:", err));
-    }
-
-    localStorage.setItem(VERSION_STORAGE_KEY, currentVersion);
-  }, [isSettingsWindow, appInfo]);
 
   useEffect(() => {
     const body = document.body;

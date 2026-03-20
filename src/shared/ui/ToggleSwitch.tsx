@@ -36,6 +36,7 @@ const ToggleSwitch = ({
 
   return (
     <button
+      type="button"
       onClick={onToggle}
       role="switch"
       aria-checked={enabled}
@@ -47,6 +48,7 @@ const ToggleSwitch = ({
     >
       <motion.div
         className={`absolute ${config.thumb} rounded-full bg-white shadow-sm`}
+        initial={false}
         animate={{ left: enabled ? config.onLeft : config.offLeft }}
         transition={{ type: "spring", stiffness: 500, damping: 30 }}
       />

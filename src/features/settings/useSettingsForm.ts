@@ -106,7 +106,7 @@ export function useSettingsForm({
   const [llmModel, setLlmModel] = useState("");
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [editModeEnabled, setEditModeEnabled] = useState(false);
-  const [mediaControlEnabled, setMediaControlEnabled] = useState(true);
+  const [mediaControlEnabled, setMediaControlEnabled] = useState(false);
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(false);
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [textSizeMode, setTextSizeModeRaw] = useState<TextSizeMode>(() =>
@@ -189,7 +189,7 @@ export function useSettingsForm({
     setLlmApiKeyRaw(s.llm_api_key ?? "");
     setLlmModel(s.llm_model ?? "");
     setEditModeEnabled(s.edit_mode_enabled ?? false);
-    setMediaControlEnabled(s.media_control_enabled ?? true);
+    setMediaControlEnabled(s.media_control_enabled ?? false);
     setAutoUpdateEnabled(s.auto_update_enabled ?? false);
     setAnalyticsEnabled(s.analytics_enabled ?? true);
   }, []);

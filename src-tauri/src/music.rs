@@ -47,7 +47,7 @@ function playbackRate(infoDict) {
 function loadMediaRemote() {
     const mediaRemote = $.NSBundle.bundleWithPath('/System/Library/PrivateFrameworks/MediaRemote.framework/');
     if (!mediaRemote) return false;
-    if (!mediaRemote.load) return false;
+    if (!mediaRemote.load || !mediaRemote.load()) return false;
     ObjC.bindFunction('MRMediaRemoteSendCommand', ['bool', ['int', 'id']]);
     return true;
 }
