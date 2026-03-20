@@ -32,6 +32,8 @@ const KEY_DICTIONARY: &str = "dictionary";
 const KEY_REPLACEMENTS: &str = "replacements";
 const KEY_PERSONALITIES: &str = "personalities";
 const KEY_EDIT_MODE_ENABLED: &str = "edit_mode_enabled";
+const KEY_MEDIA_CONTROL_ENABLED: &str = "media_control_enabled";
+const KEY_AUTO_UPDATE_ENABLED: &str = "auto_update_enabled";
 const KEY_ANALYTICS_ENABLED: &str = "analytics_enabled";
 const KEY_ANALYTICS_INSTALL_ID: &str = "analytics_install_id";
 
@@ -105,6 +107,10 @@ pub struct UserSettings {
     pub personalities: Vec<Personality>,
     #[serde(default)]
     pub edit_mode_enabled: bool,
+    #[serde(default)]
+    pub media_control_enabled: bool,
+    #[serde(default)]
+    pub auto_update_enabled: bool,
     #[serde(default = "default_true")]
     pub analytics_enabled: bool,
     #[serde(default)]
@@ -202,24 +208,34 @@ fn seed_personality_notes(personalities: &mut [Personality]) {
         let defaults = match personality.id.as_str() {
             "messaging" => vec![
                 "- Write semi-casual, friendly, as if you're messaging someone".to_string(),
+                "".to_string(),
                 "- Transcribe spoken emoji descriptions directly into icons (e.g., 'laughing face' becomes 😂).".to_string(),
+                "".to_string(),
                 "- Retain all internet slang, acronyms, and text-speak (e.g., 'tmrw', 'rn', 'omg') exactly as said.".to_string(),
             ],
             "email" => vec![
                 "- Write in correct email semi-formal, friendly, formatting with new lines and paragraphs.".to_string(),
+                "".to_string(),
                 "- Fix run-on sentences by breaking them into distinct, logical statements.".to_string(),
+                "".to_string(),
                 "- Ensure standard capitalization and punctuation rules are applied strictly.".to_string(),
+                "".to_string(),
                 "- Sign off emails with [My Name].".to_string(),
             ],
             "notes" => vec![
                 "- Distill into a concise, scannable format based on the user's speech.".to_string(),
+                "".to_string(),
                 "- Remove conversational filler (ums, ahs), repetitive thoughts, and fluff.".to_string(),
+                "".to_string(),
                 "- Utilize Markdown syntax: Use bullet points for lists and bold text for key concepts.".to_string(),
+                "".to_string(),
                 "- Rephrase rambling narrative into direct, active-voice statements based on the user's speech.".to_string(),
             ],
             "coding" => vec![
                 "- Treat technical keywords, library names, and logic as immutable constants based on the user's speech; do not rephrase them.".to_string(),
+                "".to_string(),
                 "- Apply proper casing conventions to variables and functions based on context (e.g., camelCase for JS, snake_case for Python) based on the user's speech.".to_string(),
+                "".to_string(),
                 "- Prioritize syntax accuracy over conversational flow based on the user's speech.".to_string(),
             ],
             _ => Vec::new(),
@@ -258,6 +274,8 @@ impl Default for UserSettings {
             replacements: Vec::new(),
             personalities: default_personalities(),
             edit_mode_enabled: false,
+            media_control_enabled: false,
+            auto_update_enabled: false,
             analytics_enabled: true,
             analytics_install_id: String::new(),
         }
@@ -448,6 +466,13 @@ impl SettingsStore {
                 self.read_value(&conn, KEY_PERSONALITIES, settings.personalities.clone())?;
             settings.edit_mode_enabled =
                 self.read_value(&conn, KEY_EDIT_MODE_ENABLED, settings.edit_mode_enabled)?;
+            settings.media_control_enabled = self.read_value(
+                &conn,
+                KEY_MEDIA_CONTROL_ENABLED,
+                settings.media_control_enabled,
+            )?;
+            settings.auto_update_enabled =
+                self.read_value(&conn, KEY_AUTO_UPDATE_ENABLED, settings.auto_update_enabled)?;
             settings.analytics_enabled =
                 self.read_value(&conn, KEY_ANALYTICS_ENABLED, settings.analytics_enabled)?;
             settings.analytics_install_id = self.read_value(
@@ -580,6 +605,16 @@ impl SettingsStore {
         self.write_value(&conn, KEY_REPLACEMENTS, &settings.replacements)?;
         self.write_value(&conn, KEY_PERSONALITIES, &settings.personalities)?;
         self.write_value(&conn, KEY_EDIT_MODE_ENABLED, &settings.edit_mode_enabled)?;
+        self.write_value(
+            &conn,
+            KEY_MEDIA_CONTROL_ENABLED,
+            &settings.media_control_enabled,
+        )?;
+        self.write_value(
+            &conn,
+            KEY_AUTO_UPDATE_ENABLED,
+            &settings.auto_update_enabled,
+        )?;
         self.write_value(&conn, KEY_ANALYTICS_ENABLED, &settings.analytics_enabled)?;
         self.write_value(
             &conn,

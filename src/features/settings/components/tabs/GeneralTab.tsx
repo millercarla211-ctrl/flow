@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { Check, Copy, Info } from "lucide-react";
+import ToggleSwitch from "../../../../shared/ui/ToggleSwitch";
 import { Dropdown } from "../../../../shared/ui/Dropdown";
 import { formatShortcutForDisplay } from "../../../../shared/lib/shortcuts";
 import type {
@@ -20,7 +21,6 @@ type GeneralTabProps = {
   variants: Variants;
   transcriptionMode: TranscriptionMode;
   onTranscriptionModeChange: (mode: TranscriptionMode) => void;
-  loading: boolean;
   modelStatus: Record<string, ModelStatus>;
   localModel: string;
   onOpenModelsTab: () => void;
@@ -58,7 +58,6 @@ const GeneralTab = ({
   variants,
   transcriptionMode,
   onTranscriptionModeChange,
-  loading,
   modelStatus,
   localModel,
   onOpenModelsTab,
@@ -129,10 +128,10 @@ const GeneralTab = ({
           role="radio"
           aria-checked={transcriptionMode === "cloud"}
           aria-label="Cloud processing (Coming soon)"
-          className={`py-3 px-3.5 rounded-lg border text-left transition-colors opacity-60 cursor-not-allowed ${
+          className={`py-3 px-3.5 rounded-lg border text-left transition-all duration-100 opacity-60 cursor-not-allowed ${
             transcriptionMode === "cloud"
-              ? "border-cloud-30 bg-cloud-5"
-              : "border-border-primary bg-transparent"
+              ? "border-cloud-30 bg-cloud-5 shadow-[0_3px_0_-1px_rgba(251,191,36,0.4),inset_0_1px_0_0_rgba(251,191,36,0.1)]"
+              : "border-border-primary bg-surface-surface shadow-[0_3px_0_-1px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)]"
           }`}
           aria-disabled="true"
         >
@@ -170,11 +169,11 @@ const GeneralTab = ({
           onClick={() => onTranscriptionModeChange("local")}
           role="radio"
           aria-checked={transcriptionMode === "local"}
-          className={`py-3 px-3.5 rounded-lg border text-left transition-colors ${
+          className={`py-3 px-3.5 rounded-lg border text-left transition-all duration-100 ${
             transcriptionMode === "local"
-              ? "border-local-30 bg-local-5"
-              : "border-border-primary bg-transparent hover:border-border-secondary"
-          }`}
+              ? "border-local-30 bg-local-5 shadow-[0_3px_0_-1px_rgba(165,179,254,0.4),inset_0_1px_0_0_rgba(165,179,254,0.1)]"
+              : "border-border-primary bg-surface-surface shadow-[0_3px_0_-1px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:border-local-30 hover:bg-local-5 hover:shadow-[0_2px_0_-1px_rgba(165,179,254,0.4),inset_0_1px_0_0_rgba(165,179,254,0.1)] hover:translate-y-[1px]"
+          } active:translate-y-[2px] active:shadow-none`}
         >
           <div className="flex items-baseline gap-1.5">
             <span
@@ -208,8 +207,7 @@ const GeneralTab = ({
         </button>
       </div>
       <AnimatePresence>
-        {!loading &&
-          transcriptionMode === "local" &&
+        {transcriptionMode === "local" &&
           !modelStatus[localModel]?.installed && (
             <motion.p
               initial={{ opacity: 0, height: 0 }}
@@ -389,24 +387,12 @@ const GeneralTab = ({
                 <span className="ui-text-label-strong ui-color-primary">
                   Edit Mode
                 </span>
-                <button
-                  onClick={() => llmEnabled && setEditModeEnabled(!editModeEnabled)}
-                  role="switch"
-                  aria-checked={editModeEnabled}
-                  aria-label="Toggle Edit Mode"
-                  className={`w-7 h-4 rounded-full transition-colors relative ${
-                    editModeEnabled ? "bg-cloud" : "bg-border-secondary"
-                  } ${aiFeaturesDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                <ToggleSwitch
+                  enabled={editModeEnabled}
+                  onToggle={() => llmEnabled && setEditModeEnabled(!editModeEnabled)}
+                  ariaLabel="Toggle Edit Mode"
                   disabled={aiFeaturesDisabled}
-                >
-                  <motion.div
-                    className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
-                    animate={{
-                      left: editModeEnabled ? "calc(100% - 14px)" : "2px",
-                    }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  />
-                </button>
+                />
               </div>
               <div className="flex items-center justify-between mt-0.5">
                 <span
@@ -492,24 +478,12 @@ const GeneralTab = ({
                 <span className="ui-text-label-strong ui-color-primary">
                   Cleanup
                 </span>
-                <button
-                  onClick={() => llmEnabled && setCleanupEnabled(!cleanupEnabled)}
-                  role="switch"
-                  aria-checked={cleanupEnabled}
-                  aria-label="Toggle Cleanup"
-                  className={`w-7 h-4 rounded-full transition-colors relative ${
-                    cleanupEnabled ? "bg-cloud" : "bg-border-secondary"
-                  } ${aiFeaturesDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                <ToggleSwitch
+                  enabled={cleanupEnabled}
+                  onToggle={() => llmEnabled && setCleanupEnabled(!cleanupEnabled)}
+                  ariaLabel="Toggle Cleanup"
                   disabled={aiFeaturesDisabled}
-                >
-                  <motion.div
-                    className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
-                    animate={{
-                      left: cleanupEnabled ? "calc(100% - 14px)" : "2px",
-                    }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  />
-                </button>
+                />
               </div>
               <div className="flex items-center justify-between mt-0.5">
                 <span
@@ -653,20 +627,12 @@ const ShortcutRow = ({
             {description}
           </span>
         </div>
-        <button
-          onClick={onToggle}
+        <ToggleSwitch
+          enabled={enabled}
+          onToggle={onToggle}
+          ariaLabel={`Toggle ${label} shortcut`}
           disabled={enabled && !canDisable}
-          role="switch"
-          aria-checked={enabled}
-          aria-label={`Toggle ${label} shortcut`}
-          className={`w-7 h-4 rounded-full transition-colors relative ${enabled ? "bg-cloud" : "bg-border-secondary"} ${enabled && !canDisable ? "opacity-50 cursor-not-allowed" : ""}`}
-        >
-          <motion.div
-            className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
-            animate={{ left: enabled ? "calc(100% - 14px)" : "2px" }}
-            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-          />
-        </button>
+        />
       </div>
       <motion.button
         onClick={onCapture}

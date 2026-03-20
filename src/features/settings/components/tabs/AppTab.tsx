@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { motion, type Variants } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
+import ToggleSwitch from "../../../../shared/ui/ToggleSwitch";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { requestAccessibilityPermission } from "tauri-plugin-macos-permissions-api";
 import type { TextSizeMode } from "../../../../types";
@@ -89,27 +90,35 @@ const PermissionStatus = ({ granted }: { granted: boolean | null }) => {
   return <span className="ui-text-meta ui-color-warning">off</span>;
 };
 
-type AdvancedTabProps = {
+type AppTabProps = {
   variants: Variants;
   micPermission: boolean | null;
   accessibilityPermission: boolean | null;
   textSizeMode: TextSizeMode;
   onTextSizeModeChange: (mode: TextSizeMode) => void;
+  mediaControlEnabled: boolean;
+  onMediaControlEnabledChange: (enabled: boolean) => void;
+  autoUpdateEnabled: boolean;
+  onAutoUpdateEnabledChange: (enabled: boolean) => void;
   analyticsEnabled: boolean;
   onAnalyticsEnabledChange: (enabled: boolean) => void;
 };
 
-const AdvancedTab = ({
+const AppTab = ({
   variants,
   micPermission,
   accessibilityPermission,
   textSizeMode,
   onTextSizeModeChange,
+  mediaControlEnabled,
+  onMediaControlEnabledChange,
+  autoUpdateEnabled,
+  onAutoUpdateEnabledChange,
   analyticsEnabled,
   onAnalyticsEnabledChange,
-}: AdvancedTabProps) => (
+}: AppTabProps) => (
   <motion.div
-    key="advanced"
+    key="app"
     variants={variants}
     initial="hidden"
     animate="visible"
@@ -120,7 +129,7 @@ const AdvancedTab = ({
       <h2 className="ui-text-section-label-sm ui-color-muted">Appearance</h2>
 
       <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-lg border border-border-primary bg-surface-surface">
+        <div className="rounded-lg bg-surface-surface">
           <div className="py-2 px-2.5 space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="ui-text-label-strong ui-color-primary">
@@ -140,7 +149,7 @@ const AdvancedTab = ({
     <div className="grid grid-cols-2 gap-3">
       <div className="space-y-2">
         <h2 className="ui-text-section-label-sm ui-color-muted">
-          Permissions & Privacy
+          Privacy & Permissions
         </h2>
 
         <div className="space-y-3 rounded-lg bg-surface-surface p-2.5">
@@ -196,21 +205,11 @@ const AdvancedTab = ({
               <span className="ui-text-label-strong ui-color-primary">
                 Usage Analytics
               </span>
-              <button
-                onClick={() => onAnalyticsEnabledChange(!analyticsEnabled)}
-                role="switch"
-                aria-checked={analyticsEnabled}
-                aria-label="Toggle usage analytics"
-                className={`w-7 h-4 rounded-full transition-colors relative ${analyticsEnabled ? "bg-cloud" : "bg-border-secondary"}`}
-              >
-                <motion.div
-                  className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
-                  animate={{
-                    left: analyticsEnabled ? "calc(100% - 14px)" : "2px",
-                  }}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                />
-              </button>
+              <ToggleSwitch
+                enabled={analyticsEnabled}
+                onToggle={() => onAnalyticsEnabledChange(!analyticsEnabled)}
+                ariaLabel="Toggle usage analytics"
+              />
             </div>
             <span className="ui-text-micro ui-color-disabled block mt-0.5">
               anonymous, no transcripts or audio shared.{" "}
@@ -229,12 +228,56 @@ const AdvancedTab = ({
         </div>
 
         <p className="ui-text-micro ui-color-disabled px-0.5">
-          Disabling analytics takes effect immediately. Re-enabling or changing
-          permissions requires a restart.
+          Permission changes may require a restart.
         </p>
+      </div>
+
+      <div className="space-y-2">
+        <h2 className="ui-text-section-label-sm ui-color-muted">
+          Automation
+        </h2>
+
+        <div className="space-y-3 rounded-lg bg-surface-surface p-2.5">
+          <div className="px-2 py-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="ui-text-label-strong ui-color-primary">
+                Auto-pause Media
+              </span>
+              <ToggleSwitch
+                enabled={mediaControlEnabled}
+                onToggle={() =>
+                  onMediaControlEnabledChange(!mediaControlEnabled)
+                }
+                ariaLabel="Toggle auto-pause media while recording"
+              />
+            </div>
+            <span className="ui-text-micro ui-color-disabled block mt-0.5">
+              pauses the active Now Playing app while recording, then resumes it
+              when done.
+            </span>
+          </div>
+
+          <div className="px-2 py-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="ui-text-label-strong ui-color-primary">
+                Auto-update
+              </span>
+              <ToggleSwitch
+                enabled={autoUpdateEnabled}
+                onToggle={() =>
+                  onAutoUpdateEnabledChange(!autoUpdateEnabled)
+                }
+                ariaLabel="Toggle auto-update"
+              />
+            </div>
+            <span className="ui-text-micro ui-color-disabled block mt-0.5">
+              automatically downloads and installs updates when idle.
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   </motion.div>
 );
 
-export default AdvancedTab;
+export default AppTab;

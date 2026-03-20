@@ -89,8 +89,11 @@ fn capture_event_blocking(
 ) {
     if let Some(event) = build_event(app, event_name, props) {
         let _ = tauri::async_runtime::block_on(async {
-            tokio::time::timeout(std::time::Duration::from_secs(2), posthog_rs::capture(event))
-                .await
+            tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                posthog_rs::capture(event),
+            )
+            .await
         });
     }
 }
@@ -116,11 +119,7 @@ pub fn track_transcription_completed(
     );
 }
 
-pub fn track_transcription_failed(
-    app: &tauri::AppHandle<AppRuntime>,
-    stage: &str,
-    reason: &str,
-) {
+pub fn track_transcription_failed(app: &tauri::AppHandle<AppRuntime>, stage: &str, reason: &str) {
     capture_event(
         app,
         "transcription_failed",

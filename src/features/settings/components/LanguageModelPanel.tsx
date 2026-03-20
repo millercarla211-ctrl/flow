@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Key, Server } from "lucide-react";
+import ToggleSwitch from "../../../shared/ui/ToggleSwitch";
 import {
   CLOUD_PROVIDERS,
   getProviderPreset,
@@ -44,7 +45,7 @@ const LanguageModelPanel = ({
   );
 
   return (
-    <div className="rounded-xl border border-border-primary bg-surface-surface">
+    <div className="rounded-xl border border-border-primary bg-surface-surface shadow-[0_3px_0_-1px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)]">
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -55,20 +56,12 @@ const LanguageModelPanel = ({
               Shared by Cleanup, Edit Mode, and Personalization.
             </p>
           </div>
-          <motion.button
-            onClick={() => setLlmEnabled(!llmEnabled)}
-            className={`relative w-10 h-5 rounded-full transition-colors ${llmEnabled ? "bg-cloud" : "bg-border-secondary"}`}
-            whileTap={{ scale: 0.95 }}
-            role="switch"
-            aria-checked={llmEnabled}
-            aria-label="Toggle AI features"
-          >
-            <motion.div
-              className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
-              animate={{ left: llmEnabled ? "calc(100% - 18px)" : "2px" }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            />
-          </motion.button>
+          <ToggleSwitch
+            enabled={llmEnabled}
+            onToggle={() => setLlmEnabled(!llmEnabled)}
+            ariaLabel="Toggle AI features"
+            size="md"
+          />
         </div>
 
         <AnimatePresence initial={false}>

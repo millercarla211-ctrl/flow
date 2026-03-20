@@ -1,13 +1,13 @@
 import { type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Cpu, Info, Keyboard, Sliders, User, X } from "lucide-react";
+import { AppWindow, Cpu, Info, Keyboard, User, X } from "lucide-react";
 import FAQModal from "../../../shared/ui/FAQModal";
 import WhatsNewModal from "../../updates/components/WhatsNewModal";
 import AboutTab from "./tabs/AboutTab";
 import AccountTab from "./tabs/AccountTab";
 import GeneralTab from "./tabs/GeneralTab";
 import ModelsTab from "./tabs/ModelsTab";
-import AdvancedTab from "./tabs/AdvancedTab";
+import AppTab from "./tabs/AppTab";
 import type { User as AuthUser } from "../../auth/api";
 import type { TranscriptionMode } from "../../../types";
 import { useSettingsForm } from "../useSettingsForm";
@@ -15,7 +15,7 @@ import { useSettingsForm } from "../useSettingsForm";
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: "general" | "account" | "models" | "about";
+  initialTab?: "general" | "account" | "models" | "about" | "app";
   currentUser: AuthUser | null;
   onUpdateUser: () => Promise<void>;
   transcriptionMode: TranscriptionMode;
@@ -127,10 +127,10 @@ const SettingsModal = ({
                     onClick={() => form.setActiveTab("general")}
                   />
                   <ModalNavItem
-                    icon={<Sliders size={14} aria-hidden="true" />}
-                    label="Advanced"
-                    active={form.activeTab === "advanced"}
-                    onClick={() => form.setActiveTab("advanced")}
+                    icon={<AppWindow size={14} aria-hidden="true" />}
+                    label="App"
+                    active={form.activeTab === "app"}
+                    onClick={() => form.setActiveTab("app")}
                   />
                   <ModalNavItem
                     icon={<Info size={14} aria-hidden="true" />}
@@ -168,6 +168,7 @@ const SettingsModal = ({
                 className="flex-1 min-h-0 overflow-y-scroll px-6 pt-8 pb-5 settings-scroll"
                 style={{ scrollbarGutter: "stable" }}
               >
+                {form.loading ? null : (
                 <AnimatePresence mode="wait">
                   {form.activeTab === "account" && (
                     <AccountTab
@@ -187,7 +188,6 @@ const SettingsModal = ({
                       variants={tabContentVariants}
                       transcriptionMode={form.transcriptionMode}
                       onTranscriptionModeChange={form.setTranscriptionMode}
-                      loading={form.loading}
                       modelStatus={form.modelStatus}
                       localModel={form.localModel}
                       onOpenModelsTab={() => form.setActiveTab("models")}
@@ -249,13 +249,19 @@ const SettingsModal = ({
                     />
                   )}
 
-                  {form.activeTab === "advanced" && (
-                    <AdvancedTab
+                  {form.activeTab === "app" && (
+                    <AppTab
                       variants={tabContentVariants}
                       micPermission={form.micPermission}
                       accessibilityPermission={form.accessibilityPermission}
                       textSizeMode={form.textSizeMode}
                       onTextSizeModeChange={form.setTextSizeMode}
+                      mediaControlEnabled={form.mediaControlEnabled}
+                      onMediaControlEnabledChange={
+                        form.setMediaControlEnabled
+                      }
+                      autoUpdateEnabled={form.autoUpdateEnabled}
+                      onAutoUpdateEnabledChange={form.setAutoUpdateEnabled}
                       analyticsEnabled={form.analyticsEnabled}
                       onAnalyticsEnabledChange={form.setAnalyticsEnabled}
                     />
@@ -273,6 +279,7 @@ const SettingsModal = ({
                     />
                   )}
                 </AnimatePresence>
+                )}
               </div>
             </main>
           </motion.div>

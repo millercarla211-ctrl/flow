@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Bug, Bell, AlertTriangle, CheckCircle, Info, AlertCircle, Zap, Download, RefreshCw, Trash2, Sparkles } from "lucide-react";
+import { Bug, AlertTriangle, CheckCircle, Info, AlertCircle, Zap, Download, RefreshCw, Trash2, Sparkles } from "lucide-react";
 
 function DebugSection() {
     const showToast = async (
@@ -14,11 +14,6 @@ function DebugSection() {
             action: action ?? null,
             actionLabel: actionLabel ?? null,
         });
-    };
-
-    const resetVersionTracking = () => {
-        localStorage.setItem("glimpse_last_version", "0.0.0");
-        alert("Version tracking reset. Reload the app to see the update toast.");
     };
 
     const simulateUpdateAvailable = async () => {
@@ -137,19 +132,6 @@ function DebugSection() {
                             Clear Update State
                         </button>
                     </div>
-                </div>
-
-                <div>
-                    <p className="ui-text-label font-medium text-content-muted uppercase tracking-wider mb-3">
-                        Version Tracking
-                    </p>
-                    <button
-                        onClick={resetVersionTracking}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-elevated border border-border-secondary ui-text-label text-content-secondary hover:bg-surface-elevated-hover hover:border-border-hover transition-colors w-full"
-                    >
-                        <Bell size={12} />
-                        Reset Version (trigger "just updated" toast)
-                    </button>
                 </div>
 
                 <div>

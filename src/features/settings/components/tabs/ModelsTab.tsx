@@ -170,7 +170,7 @@ const ModelsTab = ({
         <h3 className="ui-text-section-label-sm ui-color-disabled mb-3">
           Transcription Engines
         </h3>
-        <div className="rounded-xl border border-border-primary bg-surface-surface overflow-hidden divide-y divide-border-primary">
+        <div className="rounded-xl border border-border-primary bg-surface-surface overflow-hidden divide-y divide-border-primary shadow-[0_3px_0_-1px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)]">
           {groupedModels.map((group) => {
             const isExpanded = expandedEngine === group.id;
             const installedCount = group.models.filter(
@@ -346,7 +346,7 @@ const ModelRow = ({
           {installed && !isActive && (
             <button
               onClick={onUse}
-              className="px-2.5 py-1 rounded-md ui-text-button-sm ui-color-secondary hover:text-content-primary hover:bg-surface-elevated transition-colors"
+              className="px-2.5 py-1 rounded-md border border-border-primary bg-surface-surface ui-text-button-sm ui-color-secondary shadow-[0_2px_0_-1px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:border-local-30 hover:bg-local-5 hover:text-local hover:shadow-[0_1px_0_-1px_rgba(165,179,254,0.4),inset_0_1px_0_0_rgba(165,179,254,0.1)] hover:translate-y-[1px] active:translate-y-[2px] active:shadow-none transition-all duration-100"
             >
               Use
             </button>
