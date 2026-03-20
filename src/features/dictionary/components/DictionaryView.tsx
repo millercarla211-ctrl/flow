@@ -32,7 +32,7 @@ const PageSwitcher = ({
                     className="flex items-center gap-2 group"
                 >
                     <motion.div
-                        className="h-2 rounded-full bg-amber-400"
+                        className="h-2 rounded-full bg-cloud"
                         animate={{
                             width: activePage === page.key ? 24 : 8,
                             opacity: activePage === page.key ? 1 : 0.35,

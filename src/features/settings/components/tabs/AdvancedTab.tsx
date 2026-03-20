@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { motion, type Variants } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
+import ToggleSwitch from "../../../../shared/ui/ToggleSwitch";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { requestAccessibilityPermission } from "tauri-plugin-macos-permissions-api";
 import type { TextSizeMode } from "../../../../types";
@@ -89,31 +90,6 @@ const PermissionStatus = ({ granted }: { granted: boolean | null }) => {
   return <span className="ui-text-meta ui-color-warning">off</span>;
 };
 
-const ToggleSwitch = ({
-  enabled,
-  onToggle,
-  ariaLabel,
-}: {
-  enabled: boolean;
-  onToggle: () => void;
-  ariaLabel: string;
-}) => (
-  <button
-    onClick={onToggle}
-    role="switch"
-    aria-checked={enabled}
-    aria-label={ariaLabel}
-    className={`w-7 h-4 rounded-full transition-colors relative ${enabled ? "bg-cloud" : "bg-border-secondary"}`}
-  >
-    <motion.div
-      className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
-      animate={{
-        left: enabled ? "calc(100% - 14px)" : "2px",
-      }}
-      transition={{ type: "spring", stiffness: 500, damping: 30 }}
-    />
-  </button>
-);
 
 type AdvancedTabProps = {
   variants: Variants;

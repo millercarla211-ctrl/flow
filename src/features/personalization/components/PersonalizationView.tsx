@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Plus } from "lucide-react";
+import ToggleSwitch from "../../../shared/ui/ToggleSwitch";
 import DotMatrix from "../../../shared/ui/DotMatrix";
 import type { Personality } from "../../../types";
 import {
@@ -418,38 +419,19 @@ const PersonalizationView = () => {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          updatePersonality(personality.id, {
-                            enabled: !personality.enabled,
-                          });
-                        }}
-                        aria-label={
-                          personality.enabled ? "Disable mode" : "Enable mode"
-                        }
-                        role="switch"
-                        aria-checked={personality.enabled}
-                        className={`relative h-4 w-7 rounded-full transition-colors ${
-                          personality.enabled
-                            ? "bg-cloud"
-                            : "bg-border-secondary"
-                        }`}
-                      >
-                        <motion.div
-                          className="absolute top-[2px] h-3 w-3 rounded-full bg-white shadow-sm"
-                          animate={{
-                            left: personality.enabled
-                              ? "calc(100% - 14px)"
-                              : "2px",
-                          }}
-                          transition={{
-                            type: "spring",
-                            stiffness: 500,
-                            damping: 30,
-                          }}
+                      <div onClick={(event) => event.stopPropagation()}>
+                        <ToggleSwitch
+                          enabled={personality.enabled}
+                          onToggle={() =>
+                            updatePersonality(personality.id, {
+                              enabled: !personality.enabled,
+                            })
+                          }
+                          ariaLabel={
+                            personality.enabled ? "Disable mode" : "Enable mode"
+                          }
                         />
-                      </button>
+                      </div>
                     </div>
                   </div>
 

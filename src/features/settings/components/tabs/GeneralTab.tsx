@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { Check, Copy, Info } from "lucide-react";
+import ToggleSwitch from "../../../../shared/ui/ToggleSwitch";
 import { Dropdown } from "../../../../shared/ui/Dropdown";
 import { formatShortcutForDisplay } from "../../../../shared/lib/shortcuts";
 import type {
@@ -389,24 +390,12 @@ const GeneralTab = ({
                 <span className="ui-text-label-strong ui-color-primary">
                   Edit Mode
                 </span>
-                <button
-                  onClick={() => llmEnabled && setEditModeEnabled(!editModeEnabled)}
-                  role="switch"
-                  aria-checked={editModeEnabled}
-                  aria-label="Toggle Edit Mode"
-                  className={`w-7 h-4 rounded-full transition-colors relative ${
-                    editModeEnabled ? "bg-cloud" : "bg-border-secondary"
-                  } ${aiFeaturesDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                <ToggleSwitch
+                  enabled={editModeEnabled}
+                  onToggle={() => llmEnabled && setEditModeEnabled(!editModeEnabled)}
+                  ariaLabel="Toggle Edit Mode"
                   disabled={aiFeaturesDisabled}
-                >
-                  <motion.div
-                    className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
-                    animate={{
-                      left: editModeEnabled ? "calc(100% - 14px)" : "2px",
-                    }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  />
-                </button>
+                />
               </div>
               <div className="flex items-center justify-between mt-0.5">
                 <span
@@ -492,24 +481,12 @@ const GeneralTab = ({
                 <span className="ui-text-label-strong ui-color-primary">
                   Cleanup
                 </span>
-                <button
-                  onClick={() => llmEnabled && setCleanupEnabled(!cleanupEnabled)}
-                  role="switch"
-                  aria-checked={cleanupEnabled}
-                  aria-label="Toggle Cleanup"
-                  className={`w-7 h-4 rounded-full transition-colors relative ${
-                    cleanupEnabled ? "bg-cloud" : "bg-border-secondary"
-                  } ${aiFeaturesDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                <ToggleSwitch
+                  enabled={cleanupEnabled}
+                  onToggle={() => llmEnabled && setCleanupEnabled(!cleanupEnabled)}
+                  ariaLabel="Toggle Cleanup"
                   disabled={aiFeaturesDisabled}
-                >
-                  <motion.div
-                    className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
-                    animate={{
-                      left: cleanupEnabled ? "calc(100% - 14px)" : "2px",
-                    }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  />
-                </button>
+                />
               </div>
               <div className="flex items-center justify-between mt-0.5">
                 <span
@@ -653,20 +630,12 @@ const ShortcutRow = ({
             {description}
           </span>
         </div>
-        <button
-          onClick={onToggle}
+        <ToggleSwitch
+          enabled={enabled}
+          onToggle={onToggle}
+          ariaLabel={`Toggle ${label} shortcut`}
           disabled={enabled && !canDisable}
-          role="switch"
-          aria-checked={enabled}
-          aria-label={`Toggle ${label} shortcut`}
-          className={`w-7 h-4 rounded-full transition-colors relative ${enabled ? "bg-cloud" : "bg-border-secondary"} ${enabled && !canDisable ? "opacity-50 cursor-not-allowed" : ""}`}
-        >
-          <motion.div
-            className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
-            animate={{ left: enabled ? "calc(100% - 14px)" : "2px" }}
-            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-          />
-        </button>
+        />
       </div>
       <motion.button
         onClick={onCapture}

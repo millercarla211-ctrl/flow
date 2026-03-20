@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { motion, AnimatePresence } from "framer-motion";
+import ToggleSwitch from "../../../shared/ui/ToggleSwitch";
 import {
     Lock,
     Loader2,
@@ -349,17 +350,11 @@ const AccountView = ({
                             </div>
                         </div>
                         {isSubscriber ? (
-                            <button
-                                onClick={onCloudSyncToggle}
-                                role="switch"
-                                aria-checked={cloudSyncEnabled}
-                                aria-label="Toggle History Sync"
-                                className={`relative w-7 h-4 rounded-full transition-colors ${cloudSyncEnabled ? "bg-amber-400" : "bg-border-secondary"}`}
-                            >
-                                <div
-                                    className={`absolute top-[2px] h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${cloudSyncEnabled ? "translate-x-[14px]" : "translate-x-[2px]"}`}
-                                />
-                            </button>
+                            <ToggleSwitch
+                                enabled={cloudSyncEnabled}
+                                onToggle={onCloudSyncToggle}
+                                ariaLabel="Toggle History Sync"
+                            />
                         ) : null}
                     </div>
                 </div>
