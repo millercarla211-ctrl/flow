@@ -130,10 +130,10 @@ const GeneralTab = ({
           role="radio"
           aria-checked={transcriptionMode === "cloud"}
           aria-label="Cloud processing (Coming soon)"
-          className={`py-3 px-3.5 rounded-lg border text-left transition-colors opacity-60 cursor-not-allowed ${
+          className={`py-3 px-3.5 rounded-lg border text-left transition-all duration-100 opacity-60 cursor-not-allowed ${
             transcriptionMode === "cloud"
-              ? "border-cloud-30 bg-cloud-5"
-              : "border-border-primary bg-transparent"
+              ? "border-cloud-30 bg-cloud-5 shadow-[0_3px_0_-1px_rgba(251,191,36,0.4),inset_0_1px_0_0_rgba(251,191,36,0.1)]"
+              : "border-border-primary bg-surface-surface shadow-[0_3px_0_-1px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)]"
           }`}
           aria-disabled="true"
         >
@@ -171,11 +171,11 @@ const GeneralTab = ({
           onClick={() => onTranscriptionModeChange("local")}
           role="radio"
           aria-checked={transcriptionMode === "local"}
-          className={`py-3 px-3.5 rounded-lg border text-left transition-colors ${
+          className={`py-3 px-3.5 rounded-lg border text-left transition-all duration-100 ${
             transcriptionMode === "local"
-              ? "border-local-30 bg-local-5"
-              : "border-border-primary bg-transparent hover:border-border-secondary"
-          }`}
+              ? "border-local-30 bg-local-5 shadow-[0_3px_0_-1px_rgba(165,179,254,0.4),inset_0_1px_0_0_rgba(165,179,254,0.1)]"
+              : "border-border-primary bg-surface-surface shadow-[0_3px_0_-1px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:border-local-30 hover:bg-local-5 hover:shadow-[0_2px_0_-1px_rgba(165,179,254,0.4),inset_0_1px_0_0_rgba(165,179,254,0.1)] hover:translate-y-[1px]"
+          } active:translate-y-[2px] active:shadow-none`}
         >
           <div className="flex items-baseline gap-1.5">
             <span

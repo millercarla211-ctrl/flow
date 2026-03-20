@@ -260,7 +260,7 @@ export function UpdateChecker({
 
     return (
         <>
-            <div className="flex items-center gap-2 rounded-lg border border-border-primary bg-surface-surface px-3 py-2 h-[52px]">
+            <div className="flex items-center gap-2 rounded-lg bg-surface-surface px-3 py-2 h-[52px]">
                 {checking ? (
                     <>
                         <Loader2 size={16} className="text-content-muted animate-spin shrink-0" />

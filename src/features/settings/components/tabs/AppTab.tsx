@@ -91,7 +91,7 @@ const PermissionStatus = ({ granted }: { granted: boolean | null }) => {
 };
 
 
-type AdvancedTabProps = {
+type AppTabProps = {
   variants: Variants;
   micPermission: boolean | null;
   accessibilityPermission: boolean | null;
@@ -103,7 +103,7 @@ type AdvancedTabProps = {
   onAnalyticsEnabledChange: (enabled: boolean) => void;
 };
 
-const AdvancedTab = ({
+const AppTab = ({
   variants,
   micPermission,
   accessibilityPermission,
@@ -113,9 +113,9 @@ const AdvancedTab = ({
   onMediaControlEnabledChange,
   analyticsEnabled,
   onAnalyticsEnabledChange,
-}: AdvancedTabProps) => (
+}: AppTabProps) => (
   <motion.div
-    key="advanced"
+    key="app"
     variants={variants}
     initial="hidden"
     animate="visible"
@@ -126,7 +126,7 @@ const AdvancedTab = ({
       <h2 className="ui-text-section-label-sm ui-color-muted">Appearance</h2>
 
       <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-lg border border-border-primary bg-surface-surface">
+        <div className="rounded-lg bg-surface-surface">
           <div className="py-2 px-2.5 space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="ui-text-label-strong ui-color-primary">
@@ -146,7 +146,7 @@ const AdvancedTab = ({
     <div className="grid grid-cols-2 gap-3">
       <div className="space-y-2">
         <h2 className="ui-text-section-label-sm ui-color-muted">
-          Permissions & Privacy
+          Privacy & Permissions
         </h2>
 
         <div className="space-y-3 rounded-lg bg-surface-surface p-2.5">
@@ -224,6 +224,16 @@ const AdvancedTab = ({
           </div>
         </div>
 
+        <p className="ui-text-micro ui-color-disabled px-0.5">
+          Permission changes may require a restart.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <h2 className="ui-text-section-label-sm ui-color-muted">
+          Automation
+        </h2>
+
         <div className="space-y-3 rounded-lg bg-surface-surface p-2.5">
           <div className="px-2 py-1.5">
             <div className="flex items-center justify-between gap-2">
@@ -244,14 +254,9 @@ const AdvancedTab = ({
             </span>
           </div>
         </div>
-
-        <p className="ui-text-micro ui-color-disabled px-0.5">
-          Analytics and media controls take effect immediately. Permission
-          changes may require a restart.
-        </p>
       </div>
     </div>
   </motion.div>
 );
 
-export default AdvancedTab;
+export default AppTab;

@@ -47,7 +47,7 @@ const parseTextSizeMode = (value: string | null): TextSizeMode =>
     ? value
     : "default";
 
-type ActiveTab = "general" | "models" | "about" | "account" | "advanced";
+type ActiveTab = "general" | "models" | "about" | "account" | "app";
 
 interface UseSettingsFormOptions {
   isOpen: boolean;
@@ -278,7 +278,7 @@ export function useSettingsForm({
   }, []);
 
   useEffect(() => {
-    if (activeTab !== "advanced" || !isOpen) return;
+    if (activeTab !== "app" || !isOpen) return;
     const checkPermissions = async () => {
       try {
         const nativeMic = await checkMicrophonePermission();

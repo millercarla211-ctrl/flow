@@ -45,7 +45,7 @@ const LanguageModelPanel = ({
   );
 
   return (
-    <div className="rounded-xl border border-border-primary bg-surface-surface">
+    <div className="rounded-xl border border-border-primary bg-surface-surface shadow-[0_3px_0_-1px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)]">
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
