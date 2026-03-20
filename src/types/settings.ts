@@ -59,6 +59,7 @@ export type StoredSettings = {
     replacements: Replacement[];
     personalities: Personality[];
     edit_mode_enabled: boolean;
+    media_control_enabled: boolean;
     analytics_enabled: boolean;
     analytics_install_id: string;
 };

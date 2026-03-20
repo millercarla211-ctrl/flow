@@ -89,12 +89,40 @@ const PermissionStatus = ({ granted }: { granted: boolean | null }) => {
   return <span className="ui-text-meta ui-color-warning">off</span>;
 };
 
+const ToggleSwitch = ({
+  enabled,
+  onToggle,
+  ariaLabel,
+}: {
+  enabled: boolean;
+  onToggle: () => void;
+  ariaLabel: string;
+}) => (
+  <button
+    onClick={onToggle}
+    role="switch"
+    aria-checked={enabled}
+    aria-label={ariaLabel}
+    className={`w-7 h-4 rounded-full transition-colors relative ${enabled ? "bg-cloud" : "bg-border-secondary"}`}
+  >
+    <motion.div
+      className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
+      animate={{
+        left: enabled ? "calc(100% - 14px)" : "2px",
+      }}
+      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+    />
+  </button>
+);
+
 type AdvancedTabProps = {
   variants: Variants;
   micPermission: boolean | null;
   accessibilityPermission: boolean | null;
   textSizeMode: TextSizeMode;
   onTextSizeModeChange: (mode: TextSizeMode) => void;
+  mediaControlEnabled: boolean;
+  onMediaControlEnabledChange: (enabled: boolean) => void;
   analyticsEnabled: boolean;
   onAnalyticsEnabledChange: (enabled: boolean) => void;
 };
@@ -105,6 +133,8 @@ const AdvancedTab = ({
   accessibilityPermission,
   textSizeMode,
   onTextSizeModeChange,
+  mediaControlEnabled,
+  onMediaControlEnabledChange,
   analyticsEnabled,
   onAnalyticsEnabledChange,
 }: AdvancedTabProps) => (
@@ -196,21 +226,11 @@ const AdvancedTab = ({
               <span className="ui-text-label-strong ui-color-primary">
                 Usage Analytics
               </span>
-              <button
-                onClick={() => onAnalyticsEnabledChange(!analyticsEnabled)}
-                role="switch"
-                aria-checked={analyticsEnabled}
-                aria-label="Toggle usage analytics"
-                className={`w-7 h-4 rounded-full transition-colors relative ${analyticsEnabled ? "bg-cloud" : "bg-border-secondary"}`}
-              >
-                <motion.div
-                  className="absolute top-[2px] w-3 h-3 rounded-full bg-white shadow-sm"
-                  animate={{
-                    left: analyticsEnabled ? "calc(100% - 14px)" : "2px",
-                  }}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                />
-              </button>
+              <ToggleSwitch
+                enabled={analyticsEnabled}
+                onToggle={() => onAnalyticsEnabledChange(!analyticsEnabled)}
+                ariaLabel="Toggle usage analytics"
+              />
             </div>
             <span className="ui-text-micro ui-color-disabled block mt-0.5">
               anonymous, no transcripts or audio shared.{" "}
@@ -228,9 +248,30 @@ const AdvancedTab = ({
           </div>
         </div>
 
+        <div className="space-y-3 rounded-lg bg-surface-surface p-2.5">
+          <div className="px-2 py-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="ui-text-label-strong ui-color-primary">
+                Auto-pause Media
+              </span>
+              <ToggleSwitch
+                enabled={mediaControlEnabled}
+                onToggle={() =>
+                  onMediaControlEnabledChange(!mediaControlEnabled)
+                }
+                ariaLabel="Toggle auto-pause media while recording"
+              />
+            </div>
+            <span className="ui-text-micro ui-color-disabled block mt-0.5">
+              pauses the active Now Playing app while recording, then resumes it
+              when done.
+            </span>
+          </div>
+        </div>
+
         <p className="ui-text-micro ui-color-disabled px-0.5">
-          Disabling analytics takes effect immediately. Re-enabling or changing
-          permissions requires a restart.
+          Analytics and media controls take effect immediately. Permission
+          changes may require a restart.
         </p>
       </div>
     </div>

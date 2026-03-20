@@ -538,12 +538,7 @@ fn emit_transcription_complete_with_cleanup(
     metadata: storage::TranscriptionMetadata,
     mode: &str,
 ) {
-    analytics::track_transcription_completed(
-        app,
-        mode,
-        Some(&metadata.speech_model),
-        llm_cleaned,
-    );
+    analytics::track_transcription_completed(app, mode, Some(&metadata.speech_model), llm_cleaned);
     app.state::<AppState>().record_transcription_completed();
 
     crate::emit_event(

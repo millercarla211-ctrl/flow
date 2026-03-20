@@ -27,6 +27,7 @@ pub(crate) struct UpdateSettingsArgs {
     pub llm_api_key: String,
     pub llm_model: String,
     pub edit_mode_enabled: bool,
+    pub media_control_enabled: bool,
     pub analytics_enabled: bool,
 }
 
@@ -188,6 +189,7 @@ pub(crate) fn update_settings(
     next.llm_api_key = args.llm_api_key;
     next.llm_model = args.llm_model.trim().to_string();
     next.edit_mode_enabled = args.edit_mode_enabled;
+    next.media_control_enabled = args.media_control_enabled;
     next.analytics_enabled = args.analytics_enabled;
 
     let next = state
@@ -248,6 +250,7 @@ mod tests {
             llm_api_key: String::new(),
             llm_model: String::new(),
             edit_mode_enabled: false,
+            media_control_enabled: true,
             analytics_enabled: true,
         }
     }

@@ -32,6 +32,7 @@ const KEY_DICTIONARY: &str = "dictionary";
 const KEY_REPLACEMENTS: &str = "replacements";
 const KEY_PERSONALITIES: &str = "personalities";
 const KEY_EDIT_MODE_ENABLED: &str = "edit_mode_enabled";
+const KEY_MEDIA_CONTROL_ENABLED: &str = "media_control_enabled";
 const KEY_ANALYTICS_ENABLED: &str = "analytics_enabled";
 const KEY_ANALYTICS_INSTALL_ID: &str = "analytics_install_id";
 
@@ -105,6 +106,8 @@ pub struct UserSettings {
     pub personalities: Vec<Personality>,
     #[serde(default)]
     pub edit_mode_enabled: bool,
+    #[serde(default = "default_true")]
+    pub media_control_enabled: bool,
     #[serde(default = "default_true")]
     pub analytics_enabled: bool,
     #[serde(default)]
@@ -258,6 +261,7 @@ impl Default for UserSettings {
             replacements: Vec::new(),
             personalities: default_personalities(),
             edit_mode_enabled: false,
+            media_control_enabled: true,
             analytics_enabled: true,
             analytics_install_id: String::new(),
         }
@@ -448,6 +452,11 @@ impl SettingsStore {
                 self.read_value(&conn, KEY_PERSONALITIES, settings.personalities.clone())?;
             settings.edit_mode_enabled =
                 self.read_value(&conn, KEY_EDIT_MODE_ENABLED, settings.edit_mode_enabled)?;
+            settings.media_control_enabled = self.read_value(
+                &conn,
+                KEY_MEDIA_CONTROL_ENABLED,
+                settings.media_control_enabled,
+            )?;
             settings.analytics_enabled =
                 self.read_value(&conn, KEY_ANALYTICS_ENABLED, settings.analytics_enabled)?;
             settings.analytics_install_id = self.read_value(
@@ -580,6 +589,11 @@ impl SettingsStore {
         self.write_value(&conn, KEY_REPLACEMENTS, &settings.replacements)?;
         self.write_value(&conn, KEY_PERSONALITIES, &settings.personalities)?;
         self.write_value(&conn, KEY_EDIT_MODE_ENABLED, &settings.edit_mode_enabled)?;
+        self.write_value(
+            &conn,
+            KEY_MEDIA_CONTROL_ENABLED,
+            &settings.media_control_enabled,
+        )?;
         self.write_value(&conn, KEY_ANALYTICS_ENABLED, &settings.analytics_enabled)?;
         self.write_value(
             &conn,

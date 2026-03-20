@@ -13,6 +13,7 @@ mod local_transcription;
 mod mode_context;
 mod model_language_table;
 mod model_manager;
+mod music;
 mod permissions;
 mod personalization;
 mod pill;
@@ -894,6 +895,7 @@ fn update_settings(
     llmApiKey: String,
     llmModel: String,
     editModeEnabled: bool,
+    mediaControlEnabled: bool,
     analyticsEnabled: bool,
     app: AppHandle<AppRuntime>,
     state: tauri::State<AppState>,
@@ -918,6 +920,7 @@ fn update_settings(
             llm_api_key: llmApiKey,
             llm_model: llmModel,
             edit_mode_enabled: editModeEnabled,
+            media_control_enabled: mediaControlEnabled,
             analytics_enabled: analyticsEnabled,
         },
         &app,

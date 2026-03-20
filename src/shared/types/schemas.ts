@@ -64,6 +64,7 @@ export const StoredSettingsSchema = z.object({
   replacements: z.array(ReplacementSchema),
   personalities: z.array(PersonalitySchema),
   edit_mode_enabled: z.boolean(),
+  media_control_enabled: z.boolean(),
   analytics_enabled: z.boolean(),
   analytics_install_id: z.string(),
 });

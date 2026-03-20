@@ -256,6 +256,10 @@ const SettingsModal = ({
                       accessibilityPermission={form.accessibilityPermission}
                       textSizeMode={form.textSizeMode}
                       onTextSizeModeChange={form.setTextSizeMode}
+                      mediaControlEnabled={form.mediaControlEnabled}
+                      onMediaControlEnabledChange={
+                        form.setMediaControlEnabled
+                      }
                       analyticsEnabled={form.analyticsEnabled}
                       onAnalyticsEnabledChange={form.setAnalyticsEnabled}
                     />

@@ -1,7 +1,7 @@
 use crate::{
     assistive,
     core::hotkeys::{self, HotkeyProvider, HotkeyState},
-    emit_event, model_manager, permissions, platform,
+    emit_event, model_manager, music, permissions, platform,
     recorder::RecorderManager,
     settings::UserSettings,
     toast, AppRuntime, AppState, AudioSpectrumPayload, EVENT_AUDIO_SPECTRUM, MAIN_WINDOW_LABEL,
@@ -145,6 +145,7 @@ pub struct PillController {
     last_shortcut_press_time: Mutex<Option<Instant>>,
     hold_key_down: Mutex<bool>,
     shortcut_origin: Mutex<Option<ShortcutOrigin>>,
+    paused_media_session: Mutex<Option<music::PauseSession>>,
     recorder: Arc<RecorderManager>,
     audio_spectrum_emitter: Mutex<Option<AudioSpectrumEmitter>>,
 }
@@ -158,6 +159,7 @@ impl PillController {
             last_shortcut_press_time: Mutex::new(None),
             hold_key_down: Mutex::new(false),
             shortcut_origin: Mutex::new(None),
+            paused_media_session: Mutex::new(None),
             recorder,
             audio_spectrum_emitter: Mutex::new(None),
         }
@@ -248,6 +250,7 @@ impl PillController {
         if let Err(err) = self.recorder.stop() {
             eprintln!("[Pill] Failed to stop recorder during error transition: {err}");
         }
+        self.resume_paused_media();
         self.reset_recording_state();
         *self.hold_key_down.lock() = false;
         self.transition_to(app, PillStatus::Error);
@@ -272,6 +275,7 @@ impl PillController {
     }
 
     pub fn reset(&self, app: &AppHandle<AppRuntime>) {
+        self.resume_paused_media();
         self.reset_recording_state();
         *self.hold_key_down.lock() = false;
         self.transition_to(app, PillStatus::Idle);
@@ -281,6 +285,23 @@ impl PillController {
         if self.status() != PillStatus::Listening {
             self.reset(app);
         }
+    }
+
+    fn pause_media_if_playing(&self, app: &AppHandle<AppRuntime>) {
+        if !app
+            .state::<AppState>()
+            .current_settings()
+            .media_control_enabled
+        {
+            return;
+        }
+        let session = music::pause_if_playing();
+        *self.paused_media_session.lock() = session;
+    }
+
+    fn resume_paused_media(&self) {
+        let session = self.paused_media_session.lock().take();
+        music::resume_if_paused_by_us(session);
     }
 
     fn reset_recording_state(&self) {
@@ -392,6 +413,7 @@ impl PillController {
             Ok(started) => {
                 self.transition_to(app, PillStatus::Listening);
                 self.start_audio_spectrum_emitter(app);
+                self.pause_media_if_playing(app);
                 emit_event(
                     app,
                     crate::EVENT_RECORDING_START,
@@ -461,6 +483,7 @@ impl PillController {
                 Ok(started) => {
                     self.transition_to(app, PillStatus::Listening);
                     self.start_audio_spectrum_emitter(app);
+                    self.pause_media_if_playing(app);
                     emit_event(
                         app,
                         crate::EVENT_RECORDING_START,
