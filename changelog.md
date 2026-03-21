@@ -1,3 +1,8 @@
+0.7.4
+
+### Fixes
+- Fixed a bug where sometimes auto music pausing would not work.
+---
 0.7.3
 
 ### Features
@@ -11,7 +16,7 @@
 - Shrunk the caret size in personalization.
 - Added blank spaces in preset personalization.
 
-
+---
 0.7.2
 
 ### Changes
