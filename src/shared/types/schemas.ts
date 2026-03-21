@@ -5,6 +5,15 @@ import { z } from "zod";
 export const TranscriptionModeSchema = z.enum(["cloud", "local"]);
 export const TextSizeModeSchema = z.enum(["small", "default", "large"]);
 export const UpdateChannelSchema = z.enum(["stable", "prerelease"]);
+export const RecordingPrunePolicySchema = z.enum([
+  "never",
+  "immediately",
+  "day",
+  "week",
+  "month",
+  "three_months",
+  "year",
+]);
 
 export const LlmProviderSchema = z.enum([
   "none",
@@ -66,6 +75,7 @@ export const StoredSettingsSchema = z.object({
   edit_mode_enabled: z.boolean(),
   media_control_enabled: z.boolean(),
   auto_update_enabled: z.boolean(),
+  recording_prune_policy: RecordingPrunePolicySchema,
   analytics_enabled: z.boolean(),
   analytics_install_id: z.string(),
 });
@@ -86,6 +96,7 @@ export const TranscriptionRecordSchema = z.object({
   text: z.string(),
   raw_text: z.string().nullable().optional(),
   audio_path: z.string(),
+  audio_available: z.boolean().default(false),
   status: z.enum(["success", "error"]),
   error_message: z.string().optional(),
   llm_cleaned: z.boolean(),

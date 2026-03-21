@@ -22,6 +22,8 @@ pub struct TranscriptionRecord {
     #[serde(default)]
     pub raw_text: Option<String>,
     pub audio_path: String,
+    #[serde(default)]
+    pub audio_available: bool,
     pub status: TranscriptionStatus,
     pub error_message: Option<String>,
     /// Whether LLM cleanup was applied
@@ -134,6 +136,7 @@ impl StorageManager {
             text,
             raw_text: None,
             audio_path,
+            audio_available: true,
             status,
             error_message,
             llm_cleaned: false,
@@ -165,6 +168,7 @@ impl StorageManager {
             text: cleaned_text,
             raw_text: Some(raw_text),
             audio_path,
+            audio_available: true,
             status: TranscriptionStatus::Success,
             error_message: None,
             llm_cleaned: true,
@@ -474,12 +478,20 @@ impl StorageManager {
             )
         })?;
 
+        let audio_path: String = row.get("audio_path")?;
+        let audio_available = if audio_path.is_empty() {
+            false
+        } else {
+            PathBuf::from(&audio_path).exists()
+        };
+
         Ok(TranscriptionRecord {
             id: row.get("id")?,
             timestamp,
             text: row.get("text")?,
             raw_text: row.get("raw_text")?,
-            audio_path: row.get("audio_path")?,
+            audio_path,
+            audio_available,
             status,
             error_message: row.get("error_message")?,
             llm_cleaned: row.get::<_, i64>("llm_cleaned")? == 1,

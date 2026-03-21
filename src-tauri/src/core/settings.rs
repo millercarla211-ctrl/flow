@@ -2,7 +2,9 @@ use serde::Deserialize;
 use tauri::{AppHandle, Emitter};
 
 use super::hotkeys;
-use crate::settings::{LlmProvider, TranscriptionMode, UpdateChannel, UserSettings};
+use crate::settings::{
+    LlmProvider, RecordingPrunePolicy, TranscriptionMode, UpdateChannel, UserSettings,
+};
 use crate::{
     analytics, model_manager, pill, tray, update_checker, AppRuntime, AppState,
     EVENT_SETTINGS_CHANGED,
@@ -31,6 +33,7 @@ pub(crate) struct UpdateSettingsArgs {
     pub edit_mode_enabled: bool,
     pub media_control_enabled: bool,
     pub auto_update_enabled: bool,
+    pub recording_prune_policy: RecordingPrunePolicy,
     pub analytics_enabled: bool,
 }
 
@@ -194,6 +197,7 @@ pub(crate) fn update_settings(
     next.edit_mode_enabled = args.edit_mode_enabled;
     next.media_control_enabled = args.media_control_enabled;
     next.auto_update_enabled = args.auto_update_enabled;
+    next.recording_prune_policy = args.recording_prune_policy;
     next.analytics_enabled = args.analytics_enabled;
 
     let next = state
@@ -226,6 +230,10 @@ pub(crate) fn update_settings(
         update_checker::trigger_update_check(app.clone());
     }
 
+    if prev.recording_prune_policy != next.recording_prune_policy {
+        crate::schedule_recording_prune(app.clone(), next.clone());
+    }
+
     Ok(next)
 }
 
@@ -256,6 +264,7 @@ mod tests {
             edit_mode_enabled: false,
             media_control_enabled: true,
             auto_update_enabled: true,
+            recording_prune_policy: RecordingPrunePolicy::Never,
             analytics_enabled: true,
         }
     }

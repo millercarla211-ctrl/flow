@@ -1,7 +1,11 @@
 0.7.4
 
+### Features
+- Added remove recordings to automation, you can select how long to wait to remove them.
+
 ### Changes
 - Small UI tweaks.
+- The retry recording button will no longer show, if the recording audio has been removed.
 
 ### Fixes
 - Sometimes auto music pausing would not work.

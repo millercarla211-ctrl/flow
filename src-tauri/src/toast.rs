@@ -84,11 +84,11 @@ pub fn hide(app: &AppHandle<AppRuntime>) {
 
 fn position_toast_window(app: &AppHandle<AppRuntime>, toast_window: &WebviewWindow<AppRuntime>) {
     let scale_factor = toast_window.scale_factor().unwrap_or(1.0);
-    
+
     let state = app.state::<AppState>();
     let is_expanded = state.pill().is_expanded();
     let base_margin = if is_expanded { 380.0 } else { 300.0 };
-    
+
     let toast_width = (420.0 * scale_factor) as i32;
     let bottom_margin = (base_margin * scale_factor) as i32;
 

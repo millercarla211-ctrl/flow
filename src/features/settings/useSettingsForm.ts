@@ -38,6 +38,7 @@ import type {
   DownloadEvent,
   LlmProvider,
   UpdateChannel,
+  RecordingPrunePolicy,
 } from "../../types";
 
 const TEXT_SIZE_MODE_STORAGE_KEY = "glimpse_text_size_mode";
@@ -108,6 +109,8 @@ export function useSettingsForm({
   const [editModeEnabled, setEditModeEnabled] = useState(false);
   const [mediaControlEnabled, setMediaControlEnabled] = useState(false);
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(false);
+  const [recordingPrunePolicy, setRecordingPrunePolicy] =
+    useState<RecordingPrunePolicy>("never");
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [textSizeMode, setTextSizeModeRaw] = useState<TextSizeMode>(() =>
     parseTextSizeMode(localStorage.getItem(TEXT_SIZE_MODE_STORAGE_KEY)),
@@ -191,6 +194,7 @@ export function useSettingsForm({
     setEditModeEnabled(s.edit_mode_enabled ?? false);
     setMediaControlEnabled(s.media_control_enabled ?? false);
     setAutoUpdateEnabled(s.auto_update_enabled ?? false);
+    setRecordingPrunePolicy(s.recording_prune_policy ?? "never");
     setAnalyticsEnabled(s.analytics_enabled ?? true);
   }, []);
 
@@ -658,6 +662,7 @@ export function useSettingsForm({
             editModeEnabled: effectiveLlm ? editModeEnabled : false,
             mediaControlEnabled,
             autoUpdateEnabled,
+            recordingPrunePolicy,
             analyticsEnabled,
           },
         });
@@ -693,6 +698,7 @@ export function useSettingsForm({
     editModeEnabled,
     mediaControlEnabled,
     autoUpdateEnabled,
+    recordingPrunePolicy,
     analyticsEnabled,
     llmConfigReady,
   ]);
@@ -930,6 +936,8 @@ export function useSettingsForm({
     setMediaControlEnabled,
     autoUpdateEnabled,
     setAutoUpdateEnabled,
+    recordingPrunePolicy,
+    setRecordingPrunePolicy,
     analyticsEnabled,
     setAnalyticsEnabled,
 

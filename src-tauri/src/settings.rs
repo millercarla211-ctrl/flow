@@ -34,6 +34,7 @@ const KEY_PERSONALITIES: &str = "personalities";
 const KEY_EDIT_MODE_ENABLED: &str = "edit_mode_enabled";
 const KEY_MEDIA_CONTROL_ENABLED: &str = "media_control_enabled";
 const KEY_AUTO_UPDATE_ENABLED: &str = "auto_update_enabled";
+const KEY_RECORDING_PRUNE_POLICY: &str = "recording_prune_policy";
 const KEY_ANALYTICS_ENABLED: &str = "analytics_enabled";
 const KEY_ANALYTICS_INSTALL_ID: &str = "analytics_install_id";
 
@@ -111,6 +112,8 @@ pub struct UserSettings {
     pub media_control_enabled: bool,
     #[serde(default)]
     pub auto_update_enabled: bool,
+    #[serde(default = "default_recording_prune_policy")]
+    pub recording_prune_policy: RecordingPrunePolicy,
     #[serde(default = "default_true")]
     pub analytics_enabled: bool,
     #[serde(default)]
@@ -276,6 +279,7 @@ impl Default for UserSettings {
             edit_mode_enabled: false,
             media_control_enabled: false,
             auto_update_enabled: false,
+            recording_prune_policy: default_recording_prune_policy(),
             analytics_enabled: true,
             analytics_install_id: String::new(),
         }
@@ -304,6 +308,23 @@ pub enum UpdateChannel {
 
 fn default_update_channel() -> UpdateChannel {
     UpdateChannel::Stable
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordingPrunePolicy {
+    #[default]
+    Never,
+    Immediately,
+    Day,
+    Week,
+    Month,
+    ThreeMonths,
+    Year,
+}
+
+fn default_recording_prune_policy() -> RecordingPrunePolicy {
+    RecordingPrunePolicy::Never
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -473,6 +494,11 @@ impl SettingsStore {
             )?;
             settings.auto_update_enabled =
                 self.read_value(&conn, KEY_AUTO_UPDATE_ENABLED, settings.auto_update_enabled)?;
+            settings.recording_prune_policy = self.read_value(
+                &conn,
+                KEY_RECORDING_PRUNE_POLICY,
+                settings.recording_prune_policy,
+            )?;
             settings.analytics_enabled =
                 self.read_value(&conn, KEY_ANALYTICS_ENABLED, settings.analytics_enabled)?;
             settings.analytics_install_id = self.read_value(
@@ -614,6 +640,11 @@ impl SettingsStore {
             &conn,
             KEY_AUTO_UPDATE_ENABLED,
             &settings.auto_update_enabled,
+        )?;
+        self.write_value(
+            &conn,
+            KEY_RECORDING_PRUNE_POLICY,
+            &settings.recording_prune_policy,
         )?;
         self.write_value(&conn, KEY_ANALYTICS_ENABLED, &settings.analytics_enabled)?;
         self.write_value(

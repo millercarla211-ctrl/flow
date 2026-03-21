@@ -27,6 +27,7 @@ interface DropdownProps<T extends string | number> {
     searchable?: boolean;
     searchPlaceholder?: string;
     className?: string;
+    buttonClassName?: string;
     menuClassName?: string;
     onOpen?: () => void;
 }
@@ -41,6 +42,7 @@ export function Dropdown<T extends string | number>({
     searchable = false,
     searchPlaceholder = "Search...",
     className = "",
+    buttonClassName,
     menuClassName = "",
     onOpen,
 }: DropdownProps<T>) {
@@ -151,7 +153,7 @@ export function Dropdown<T extends string | number>({
                 onClick={() => setIsOpen(!isOpen)}
                 aria-haspopup="listbox"
                 aria-expanded={isOpen}
-                className="w-full flex items-center justify-between rounded-lg bg-surface-surface border border-border-primary py-2 px-3 ui-text-body-sm text-left hover:border-border-secondary focus:border-border-hover focus:outline-none transition-colors"
+                className={`w-full flex items-center justify-between rounded-lg bg-surface-surface border border-border-primary text-left hover:border-border-secondary focus:border-border-hover focus:outline-none transition-colors ${buttonClassName || "py-2 px-3 ui-text-body-sm"}`}
             >
                 <div className="flex items-center gap-2 min-w-0">
                     {icon && <span className="text-content-muted shrink-0" aria-hidden="true">{icon}</span>}

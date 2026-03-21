@@ -187,6 +187,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
     day: "numeric",
   });
   const isError = record.status === "error";
+  const canRetryFromAudio = record.audio_available;
   const errorMessage = record.error_message || "Transcription failed";
   const displayText = isError ? null : record.text;
   const speechModelLabel = record.speech_model?.trim()
@@ -546,7 +547,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -4 }}
                   transition={{ duration: 0.12 }}
-                  className="fixed z-[100] min-w-[160px] rounded-lg border border-border-secondary bg-surface-overlay shadow-xl shadow-black/50"
+                  className="fixed z-[100] min-w-[160px] rounded-lg border border-border-secondary bg-surface-overlay shadow-xl shadow-black/50 overflow-hidden"
                   style={{
                     top: menuRef.current
                       ? menuRef.current.getBoundingClientRect().bottom + 4
@@ -569,14 +570,16 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                       <div className="h-px bg-border-secondary mx-2" />
                     </>
                   )}
-                  <button
-                    onClick={handleRetry}
-                    disabled={isRetrying}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors disabled:opacity-50"
-                  >
-                    <RotateCw size={12} className="text-cloud" />
-                    <span>Retry</span>
-                  </button>
+                  {canRetryFromAudio && (
+                    <button
+                      onClick={handleRetry}
+                      disabled={isRetrying}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors disabled:opacity-50"
+                    >
+                      <RotateCw size={12} className="text-cloud" />
+                      <span>Retry</span>
+                    </button>
+                  )}
 
                   {!isError &&
                     onRetryLlm &&
@@ -609,8 +612,6 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                         <span>Restore original transcript</span>
                       </button>
                     )}
-
-                  <div className="h-px bg-border-secondary mx-2" />
 
                   <button
                     onClick={handleDelete}

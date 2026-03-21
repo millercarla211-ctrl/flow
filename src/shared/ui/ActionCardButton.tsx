@@ -56,7 +56,7 @@ type ActionCardButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const BASE_SHADOW =
-  "0 3px 0 -1px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.06)";
+  "0 3px 0 -1px rgba(0, 0, 0, 0.5)";
 
 const joinClasses = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(" ");
@@ -82,7 +82,7 @@ const ActionCardButton = ({
   const actionStyle = {
     "--action-card-border": resolvedAccent.borderColor,
     "--action-card-background": resolvedAccent.backgroundColor,
-    "--action-card-shadow": `0 2px 0 -1px ${resolvedAccent.shadowColor}, inset 0 1px 0 0 ${resolvedAccent.insetColor}`,
+    "--action-card-shadow": `0 2px 0 -1px ${resolvedAccent.shadowColor}`,
     "--action-card-rest-shadow": BASE_SHADOW,
     ...style,
   } as CSSProperties;
