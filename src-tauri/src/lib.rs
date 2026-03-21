@@ -381,6 +381,7 @@ pub fn run() {
             open_ffmpeg_install,
             complete_onboarding,
             cancel_recording,
+            pill::set_pill_expanded,
             reset_onboarding,
             toast::debug_show_toast,
             fetch_llm_models,

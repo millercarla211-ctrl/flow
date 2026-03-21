@@ -82,15 +82,21 @@ pub fn hide(app: &AppHandle<AppRuntime>) {
     }
 }
 
-fn position_toast_window(_app: &AppHandle<AppRuntime>, toast_window: &WebviewWindow<AppRuntime>) {
+fn position_toast_window(app: &AppHandle<AppRuntime>, toast_window: &WebviewWindow<AppRuntime>) {
     let scale_factor = toast_window.scale_factor().unwrap_or(1.0);
+    
+    let state = app.state::<AppState>();
+    let is_expanded = state.pill().is_expanded();
+    let base_margin = if is_expanded { 380.0 } else { 300.0 };
+    
     let toast_width = (420.0 * scale_factor) as i32;
-    let bottom_margin = (300.0 * scale_factor) as i32;
+    let bottom_margin = (base_margin * scale_factor) as i32;
 
     if let Ok(Some(monitor)) = toast_window.current_monitor() {
         let screen = monitor.size();
-        let x = (screen.width as i32 - toast_width) / 2;
-        let y = screen.height as i32 - bottom_margin;
+        let mon_pos = monitor.position();
+        let x = mon_pos.x + (screen.width as i32 - toast_width) / 2;
+        let y = mon_pos.y + screen.height as i32 - bottom_margin;
         let _ = toast_window.set_position(tauri::PhysicalPosition::new(x, y));
     }
 }

@@ -13,8 +13,8 @@
       {
         "label": "main",
         "title": "Glimpse",
-        "width": 175,
-        "height": 140,
+        "width": 300,
+        "height": 190,
         "x": -9999,
         "y": -9999,
         "resizable": false,
