@@ -289,7 +289,6 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
           localModel: resolvedLocalModel,
           microphoneDevice: null,
           language: "en",
-          updateChannel: "stable",
           llmEnabled: false,
           cleanupEnabled: false,
           llmProvider: "custom",

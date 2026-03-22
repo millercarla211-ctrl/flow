@@ -5,14 +5,14 @@ import { relaunch } from "@tauri-apps/plugin-process"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import { Download, RefreshCw, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import type { UpdateChannel } from "../../../types"
 import WhatsNewModal from "./WhatsNewModal"
 import DotMatrix from "../../../shared/ui/DotMatrix"
 
+
 interface UpdateCheckerProps {
     autoCheck?: boolean
-    updateChannel: UpdateChannel
 }
+
 
 interface UpdateStatusPayload {
     available: boolean
@@ -43,8 +43,8 @@ const formatError = (err: unknown): string => {
 
 export function UpdateChecker({
     autoCheck = true,
-    updateChannel,
 }: UpdateCheckerProps) {
+
     const [availableVersion, setAvailableVersion] = useState<string | null>(null)
     const [checking, setChecking] = useState(false)
     const [downloading, setDownloading] = useState(false)
@@ -72,12 +72,12 @@ export function UpdateChecker({
         })
     }, [])
 
-    const checkForUpdates = useCallback(async (channel: UpdateChannel) => {
+    const checkForUpdates = useCallback(async () => {
         setChecking(true)
         setError(null)
         setDownloadError(null)
         try {
-            const result = await invoke<UpdateStatusPayload>("check_for_updates", { channel })
+            const result = await invoke<UpdateStatusPayload>("check_for_updates")
             setAvailableVersion(result.available ? result.version : null)
         } catch (err) {
             console.error("Update check failed:", err)
@@ -87,17 +87,19 @@ export function UpdateChecker({
         }
     }, [])
 
+
     useEffect(() => {
         if (autoCheck) {
-            checkForUpdates(updateChannel)
+            checkForUpdates()
         }
-    }, [autoCheck, checkForUpdates, updateChannel])
+    }, [autoCheck, checkForUpdates])
+
 
     useEffect(() => {
         let unlistenCheck: UnlistenFn | undefined
 
         listen("updater:check", () => {
-            checkForUpdates(updateChannel)
+            checkForUpdates()
         }).then((fn) => {
             unlistenCheck = fn
         })
@@ -105,7 +107,8 @@ export function UpdateChecker({
         return () => {
             unlistenCheck?.()
         }
-    }, [checkForUpdates, updateChannel])
+    }, [checkForUpdates])
+
 
     useEffect(() => {
         let unlistenProgress: UnlistenFn | undefined
@@ -156,7 +159,8 @@ export function UpdateChecker({
 
         try {
             const pendingVersion = availableVersion
-            await invoke("download_and_install_update", { channel: updateChannel })
+            await invoke("download_and_install_update")
+
             setInstalled(true)
             setAvailableVersion(null)
             if (pendingVersion) {
@@ -264,7 +268,8 @@ export function UpdateChecker({
                     <p className="ui-text-meta ui-color-error-subtle truncate" title={error}>{error}</p>
                 </div>
                 <motion.button
-                    onClick={() => checkForUpdates(updateChannel)}
+                    onClick={() => checkForUpdates()}
+
                     className="flex items-center gap-1.5 rounded-lg border border-red-500/20 px-2.5 py-1.5 ui-text-button ui-color-error-strong hover:bg-red-500/10 transition-colors shrink-0"
                     whileTap={{ scale: 0.97 }}
                 >
@@ -296,7 +301,8 @@ export function UpdateChecker({
                     What&apos;s new?
                 </button>
                 <motion.button
-                    onClick={() => checkForUpdates(updateChannel)}
+                    onClick={() => checkForUpdates()}
+
                     disabled={checking}
                     className="p-1.5 rounded-md text-content-muted hover:text-content-secondary hover:bg-surface-elevated transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                     whileTap={{ scale: 0.95 }}
@@ -309,8 +315,8 @@ export function UpdateChecker({
             <WhatsNewModal
                 isOpen={whatsNewOpen}
                 onClose={() => setWhatsNewOpen(false)}
-                updateChannel={updateChannel}
             />
+
         </>
     )
 }

@@ -37,9 +37,9 @@ import type {
   DeviceInfo,
   DownloadEvent,
   LlmProvider,
-  UpdateChannel,
   RecordingPrunePolicy,
 } from "../../types";
+
 
 const TEXT_SIZE_MODE_STORAGE_KEY = "glimpse_text_size_mode";
 
@@ -78,8 +78,8 @@ export function useSettingsForm({
   const [localModel, setLocalModel] = useState("");
   const [microphoneDevice, setMicrophoneDevice] = useState<string | null>(null);
   const [language, setLanguage] = useState("en");
-  const [updateChannel, setUpdateChannel] = useState<UpdateChannel>("stable");
   const [inputDevices, setInputDevices] = useState<DeviceInfo[]>([]);
+
   const [modelCatalog, setModelCatalog] = useState<ModelInfo[]>([]);
   const [modelStatus, setModelStatus] = useState<Record<string, ModelStatus>>(
     {},
@@ -184,7 +184,7 @@ export function useSettingsForm({
     setLocalModel(s.local_model);
     setMicrophoneDevice(s.microphone_device);
     setLanguage(s.language);
-    setUpdateChannel(s.update_channel ?? "stable");
+
     setLlmEnabledRaw(s.llm_enabled ?? false);
     setCleanupEnabled(s.cleanup_enabled ?? false);
     setLlmProviderRaw(s.llm_provider ?? "none");
@@ -652,7 +652,7 @@ export function useSettingsForm({
             localModel,
             microphoneDevice,
             language,
-            updateChannel,
+
             llmEnabled,
             cleanupEnabled: effectiveLlm ? cleanupEnabled : false,
             llmProvider,
@@ -688,7 +688,7 @@ export function useSettingsForm({
     localModel,
     microphoneDevice,
     language,
-    updateChannel,
+
     llmEnabled,
     cleanupEnabled,
     llmProvider,
@@ -903,8 +903,7 @@ export function useSettingsForm({
     languages: displayedLanguageOptions,
     languageBadgeColumns: languageView.badgeColumns,
     showLanguageSupportBadges,
-    updateChannel,
-    setUpdateChannel,
+
 
     inputDevices,
     modelCatalog,

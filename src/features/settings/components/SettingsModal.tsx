@@ -276,9 +276,8 @@ const SettingsModal = ({
                       formatBytes={form.formatBytes}
                       onOpenDataDir={form.handleOpenDataDir}
                       onOpenFAQ={() => form.setShowFAQModal(true)}
-                      updateChannel={form.updateChannel}
-                      onUpdateChannelChange={form.setUpdateChannel}
                     />
+
                   )}
                 </AnimatePresence>
                 )}
@@ -295,8 +294,8 @@ const SettingsModal = ({
       <WhatsNewModal
         isOpen={form.whatsNewOpen}
         onClose={() => form.setWhatsNewOpen(false)}
-        updateChannel={form.updateChannel}
       />
+
     </AnimatePresence>
   );
 };
