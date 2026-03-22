@@ -132,7 +132,7 @@ function App() {
 
   const ActiveOverlay = overlayRegistry[windowLabel] ?? PillOverlay;
   return (
-    <div className="flex h-full w-full items-center justify-center">
+    <div className="flex h-screen w-screen items-center justify-center overflow-hidden">
       <ActiveOverlay />
     </div>
   );

@@ -4,6 +4,7 @@ export type TranscriptionRecord = {
     text: string;
     raw_text?: string | null;
     audio_path: string;
+    audio_available: boolean;
     status: "success" | "error";
     error_message?: string;
     llm_cleaned: boolean;

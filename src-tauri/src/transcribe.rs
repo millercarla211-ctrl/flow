@@ -583,6 +583,8 @@ fn emit_transcription_complete_with_cleanup(
         eprintln!("Failed to refresh app menu: {err}");
     }
 
+    crate::schedule_recording_prune(app.clone(), settings);
+
     let update_state = app.state::<AppState>().update_state().clone();
     update_checker::maybe_show_update_toast(app, &update_state);
 }
@@ -620,6 +622,8 @@ fn handle_empty_transcription(app: &AppHandle<AppRuntime>, audio_path: &Path) {
             );
         }
     }
+
+    crate::schedule_recording_prune(app.clone(), app.state::<AppState>().current_settings());
 
     app.state::<AppState>().pill().safe_reset(app);
     app.state::<AppState>().set_pending_path(None);
@@ -718,6 +722,8 @@ fn emit_transcription_error_inner(
             action_label: None,
         },
     );
+
+    crate::schedule_recording_prune(app.clone(), settings);
 
     if reset_state {
         state.pill().reset(app);

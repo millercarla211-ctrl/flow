@@ -101,7 +101,10 @@ export function useRetryTranscription() {
     onMutate: (id) => {
       setRetryingIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
     },
-    onSuccess: () => {
+    onError: (_error, id) => {
+      setRetryingIds((prev) => prev.filter((entry) => entry !== id));
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: transcriptionKeys.all });
     },
   });

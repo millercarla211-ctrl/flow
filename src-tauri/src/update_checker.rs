@@ -204,42 +204,44 @@ async fn run_auto_update_loop(app: AppHandle<AppRuntime>, state: SharedUpdateSta
         info!("auto-update: app is idle and window hidden, downloading update");
 
         match resolve_available_update(&app, None).await {
-            Ok(Some((update, channel))) => match update.download_and_install(|_, _| {}, || {}).await {
-                Ok(()) => {
-                    if should_restart_for_auto_update(&app, &state) {
-                        if write_marker(&app) {
-                            state.lock().clear();
-                            info!(channel = ?channel, "auto-update: installed, restarting");
-                            app.request_restart();
-                            return;
-                        }
-                        warn!(channel = ?channel, "auto-update: installed, but marker write failed");
-                    } else {
-                        info!(channel = ?channel, "auto-update: installed, waiting for restart conditions");
-                    }
-
-                    // Update is already installed — wait for restart conditions
-                    // without re-downloading.
-                    loop {
-                        tokio::time::sleep(Duration::from_secs(AUTO_UPDATE_POLL_SECS)).await;
-                        if !app.state::<AppState>().is_auto_update_enabled() {
-                            break;
-                        }
+            Ok(Some((update, channel))) => {
+                match update.download_and_install(|_, _| {}, || {}).await {
+                    Ok(()) => {
                         if should_restart_for_auto_update(&app, &state) {
                             if write_marker(&app) {
                                 state.lock().clear();
-                                info!(channel = ?channel, "auto-update: restarting (deferred)");
+                                info!(channel = ?channel, "auto-update: installed, restarting");
                                 app.request_restart();
                                 return;
                             }
+                            warn!(channel = ?channel, "auto-update: installed, but marker write failed");
+                        } else {
+                            info!(channel = ?channel, "auto-update: installed, waiting for restart conditions");
                         }
+
+                        // Update is already installed — wait for restart conditions
+                        // without re-downloading.
+                        loop {
+                            tokio::time::sleep(Duration::from_secs(AUTO_UPDATE_POLL_SECS)).await;
+                            if !app.state::<AppState>().is_auto_update_enabled() {
+                                break;
+                            }
+                            if should_restart_for_auto_update(&app, &state) {
+                                if write_marker(&app) {
+                                    state.lock().clear();
+                                    info!(channel = ?channel, "auto-update: restarting (deferred)");
+                                    app.request_restart();
+                                    return;
+                                }
+                            }
+                        }
+                        continue;
                     }
-                    continue;
+                    Err(err) => {
+                        warn!(error = %err, "auto-update: download/install failed");
+                    }
                 }
-                Err(err) => {
-                    warn!(error = %err, "auto-update: download/install failed");
-                }
-            },
+            }
             Ok(None) => {}
             Err(err) => {
                 warn!(error = %err, "auto-update: failed to resolve update");

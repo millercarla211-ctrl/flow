@@ -1,5 +1,5 @@
 import { setup, assign, fromCallback } from "xstate";
-import type { PillStatus, AudioSpectrumPayload, PillStatePayload } from "../../types";
+import type { PillStatus, AudioSpectrumPayload, PillStatePayload, PillModePayload } from "../../types";
 
 export type PillContext = {
   spectrumBins: Uint8Array;
@@ -7,13 +7,17 @@ export type PillContext = {
   audioReferenceLevel: number;
   audioFrameCount: number;
   isErrorFlashing: boolean;
+  isExpanded: boolean;
+  expandedText: string;
 };
 
 export type PillEvent =
   | { type: "PILL_STATE"; payload: PillStatePayload }
   | { type: "AUDIO_SPECTRUM"; payload: AudioSpectrumPayload }
   | { type: "ERROR_FLASH_DONE" }
-  | { type: "DISMISS" };
+  | { type: "DISMISS" }
+  | { type: "EXPAND"; text?: string }
+  | { type: "COLLAPSE" };
 
 const pillStateListener = fromCallback<PillEvent>(({ sendBack }) => {
   let unlisten: (() => void) | undefined;
@@ -47,6 +51,26 @@ const spectrumListener = fromCallback<PillEvent>(({ sendBack }) => {
   };
 });
 
+const expandListener = fromCallback<PillEvent>(({ sendBack }) => {
+  let unlisten: (() => void) | undefined;
+
+  import("@tauri-apps/api/event").then(({ listen }) => {
+    listen<PillModePayload>("pill:mode", (e) => {
+      if (e.payload.expanded) {
+        sendBack({ type: "EXPAND", text: e.payload.text });
+      } else {
+        sendBack({ type: "COLLAPSE" });
+      }
+    }).then((fn) => {
+      unlisten = fn;
+    });
+  });
+
+  return () => {
+    unlisten?.();
+  };
+});
+
 const errorFlashTimer = fromCallback<PillEvent>(({ sendBack }) => {
   const id = setTimeout(() => sendBack({ type: "ERROR_FLASH_DONE" }), 1200);
   return () => clearTimeout(id);
@@ -63,6 +87,7 @@ export const pillMachine = setup({
     pillStateListener,
     spectrumListener,
     errorFlashTimer,
+    expandListener,
   },
   actions: {
     resetAudioState: assign({
@@ -80,6 +105,15 @@ export const pillMachine = setup({
     }),
     startErrorFlash: assign({ isErrorFlashing: true }),
     stopErrorFlash: assign({ isErrorFlashing: false }),
+    setExpanded: assign({
+      isExpanded: true,
+      expandedText: ({ event }) =>
+        event.type === "EXPAND" ? (event.text ?? "") : "",
+    }),
+    clearExpanded: assign({
+      isExpanded: false,
+      expandedText: "",
+    }),
   },
   guards: {
     isListening: (_, params: { status: PillStatus }) => params.status === "listening",
@@ -95,11 +129,19 @@ export const pillMachine = setup({
     audioReferenceLevel: 0,
     audioFrameCount: 0,
     isErrorFlashing: false,
+    isExpanded: false,
+    expandedText: "",
   },
   // Global listeners — always active regardless of state
   invoke: [
     { id: "pillStateListener", src: "pillStateListener" },
+    { id: "expandListener", src: "expandListener" },
   ],
+  // Expand/collapse works in any state (orthogonal to pill status)
+  on: {
+    EXPAND: { actions: "setExpanded" },
+    COLLAPSE: { actions: "clearExpanded" },
+  },
   initial: "idle",
   states: {
     idle: {

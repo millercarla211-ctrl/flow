@@ -8,3 +8,8 @@ export type PillStatePayload = {
 export type AudioSpectrumPayload = {
     bins: number[];
 };
+
+export type PillModePayload = {
+    expanded: boolean;
+    text?: string;
+};

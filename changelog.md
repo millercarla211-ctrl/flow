@@ -1,3 +1,17 @@
+0.7.4
+
+### Features
+- Added remove recordings to automation, you can select how long to wait to remove them.
+
+### Changes
+- Small UI tweaks.
+- The retry recording button will no longer show, if the recording audio has been removed.
+- Improved JSON removal from LLM cleanup (looking at you Mistral)
+
+### Fixes
+- Sometimes auto music pausing would not work.
+- Text was cut off in some drop down menus.
+---
 0.7.3
 
 ### Features
@@ -11,7 +25,7 @@
 - Shrunk the caret size in personalization.
 - Added blank spaces in preset personalization.
 
-
+---
 0.7.2
 
 ### Changes

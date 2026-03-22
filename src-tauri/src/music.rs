@@ -47,7 +47,12 @@ function playbackRate(infoDict) {
 function loadMediaRemote() {
     const mediaRemote = $.NSBundle.bundleWithPath('/System/Library/PrivateFrameworks/MediaRemote.framework/');
     if (!mediaRemote) return false;
-    if (!mediaRemote.load || !mediaRemote.load()) return false;
+    const loader = mediaRemote.load;
+    if (typeof loader === 'function') {
+        if (!loader.call(mediaRemote)) return false;
+    } else if (!loader) {
+        return false;
+    }
     ObjC.bindFunction('MRMediaRemoteSendCommand', ['bool', ['int', 'id']]);
     return true;
 }
@@ -144,10 +149,6 @@ function run(argv) {
             let bundle_id = (!payload.bundle_id.trim().is_empty()).then_some(payload.bundle_id);
             let display_name =
                 (!payload.display_name.trim().is_empty()).then_some(payload.display_name);
-
-            if bundle_id.is_none() && display_name.is_none() {
-                return None;
-            }
 
             Some(Self {
                 bundle_id,

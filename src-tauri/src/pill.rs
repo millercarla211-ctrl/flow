@@ -148,6 +148,7 @@ pub struct PillController {
     paused_media_session: Mutex<Option<music::PauseSession>>,
     recorder: Arc<RecorderManager>,
     audio_spectrum_emitter: Mutex<Option<AudioSpectrumEmitter>>,
+    is_expanded: Mutex<bool>,
 }
 
 impl PillController {
@@ -162,11 +163,20 @@ impl PillController {
             paused_media_session: Mutex::new(None),
             recorder,
             audio_spectrum_emitter: Mutex::new(None),
+            is_expanded: Mutex::new(false),
         }
     }
 
     pub fn status(&self) -> PillStatus {
         *self.status.lock()
+    }
+
+    pub fn set_expanded(&self, expanded: bool) {
+        *self.is_expanded.lock() = expanded;
+    }
+
+    pub fn is_expanded(&self) -> bool {
+        *self.is_expanded.lock()
     }
 
     pub fn recorder(&self) -> &RecorderManager {
@@ -830,9 +840,12 @@ pub fn hide_overlay(app: &AppHandle<AppRuntime>) {
 fn position_overlay(window: &WebviewWindow<AppRuntime>) {
     if let Ok(Some(monitor)) = window.current_monitor() {
         if let Ok(size) = window.outer_size() {
+            let scale_factor = monitor.scale_factor();
             let screen = monitor.size();
-            let x = (screen.width.saturating_sub(size.width) / 2) as i32;
-            let y = ((screen.height as f64) * 0.88) as i32;
+            let mon_pos = monitor.position();
+            let x = mon_pos.x + (screen.width.saturating_sub(size.width) / 2) as i32;
+            let bottom_padding_physical = (85.0 * scale_factor) as i32;
+            let y = mon_pos.y + screen.height as i32 - size.height as i32 - bottom_padding_physical;
             let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
         }
     }
@@ -873,10 +886,12 @@ fn position_overlay_on_cursor_screen(window: &WebviewWindow<AppRuntime>) {
     };
 
     if let Ok(size) = window.outer_size() {
+        let scale_factor = monitor.scale_factor();
         let mon_pos = monitor.position();
         let mon_size = monitor.size();
         let x = mon_pos.x + ((mon_size.width.saturating_sub(size.width)) / 2) as i32;
-        let y = mon_pos.y + ((mon_size.height as f64) * 0.88) as i32;
+        let bottom_padding_physical = (85.0 * scale_factor) as i32;
+        let y = mon_pos.y + mon_size.height as i32 - size.height as i32 - bottom_padding_physical;
         let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
     }
 }
@@ -907,4 +922,27 @@ fn simplify_recording_error(message: &str) -> String {
     }
 
     "Recording failed".to_string()
+}
+
+/// Toggle the pill between basic (collapsed) and dynamic (expanded) mode.
+#[tauri::command]
+pub fn set_pill_expanded(app: AppHandle<AppRuntime>, expanded: bool) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        // Show the overlay if it isn't visible
+        platform::overlay::show(&app, &window);
+    }
+
+    let state = app.state::<AppState>();
+    state.pill().set_expanded(expanded);
+
+    let text = if expanded {
+        "Cloud transcription streaming will appear here in real-time. This is a preview of the dynamic pill mode."
+    } else {
+        ""
+    };
+    app.emit(
+        "pill:mode",
+        serde_json::json!({ "expanded": expanded, "text": text }),
+    )
+    .map_err(|e| e.to_string())
 }

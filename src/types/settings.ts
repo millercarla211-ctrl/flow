@@ -1,6 +1,14 @@
 export type TranscriptionMode = "cloud" | "local";
 export type TextSizeMode = "small" | "default" | "large";
 export type UpdateChannel = "stable" | "prerelease";
+export type RecordingPrunePolicy =
+    | "never"
+    | "immediately"
+    | "day"
+    | "week"
+    | "month"
+    | "three_months"
+    | "year";
 
 export type LlmProvider =
     | "none"
@@ -61,6 +69,7 @@ export type StoredSettings = {
     edit_mode_enabled: boolean;
     media_control_enabled: boolean;
     auto_update_enabled: boolean;
+    recording_prune_policy: RecordingPrunePolicy;
     analytics_enabled: boolean;
     analytics_install_id: string;
 };

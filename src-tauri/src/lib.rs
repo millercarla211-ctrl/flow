@@ -29,7 +29,8 @@ mod tray;
 mod update_checker;
 
 use std::collections::{HashMap, VecDeque};
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -38,6 +39,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::core::hotkeys::HotkeyProvider;
 use anyhow::{Context, Result};
+use chrono::{DateTime, Days, Local, Months};
 use pill::PillController;
 use recorder::{
     validate_recording, CompletedRecording, RecorderManager, RecordingRejectionReason,
@@ -45,7 +47,10 @@ use recorder::{
 };
 use reqwest::Client;
 use serde::Serialize;
-use settings::{default_local_model, LlmProvider, SettingsStore, TranscriptionMode, UserSettings};
+use settings::{
+    default_local_model, LlmProvider, RecordingPrunePolicy, SettingsStore, TranscriptionMode,
+    UserSettings,
+};
 use tauri::async_runtime;
 use tauri::tray::TrayIcon;
 use tauri::Emitter;
@@ -381,6 +386,7 @@ pub fn run() {
             open_ffmpeg_install,
             complete_onboarding,
             cancel_recording,
+            pill::set_pill_expanded,
             reset_onboarding,
             toast::debug_show_toast,
             fetch_llm_models,
@@ -1246,6 +1252,140 @@ fn recordings_root(app: &AppHandle<AppRuntime>) -> GlimpseResult<PathBuf> {
         .context("App data directory not found")?;
     data_dir.push("recordings");
     Ok(data_dir)
+}
+
+pub(crate) fn schedule_recording_prune(app: AppHandle<AppRuntime>, settings: UserSettings) {
+    if matches!(settings.recording_prune_policy, RecordingPrunePolicy::Never) {
+        return;
+    }
+
+    async_runtime::spawn(async move {
+        let app_handle = app.clone();
+        match async_runtime::spawn_blocking(move || {
+            prune_recordings_for_settings(&app_handle, &settings)
+        })
+        .await
+        {
+            Ok(Ok(count)) => {
+                if count > 0 {
+                    let _ = app.emit(
+                        EVENT_TRANSCRIPTION_COMPLETE,
+                        TranscriptionCompletePayload {
+                            transcript: String::new(),
+                            auto_paste: false,
+                        },
+                    );
+                }
+            }
+            Ok(Err(err)) => eprintln!("Failed to prune recordings: {err}"),
+            Err(err) => eprintln!("Recording prune task failed: {err}"),
+        }
+    });
+}
+
+fn prune_recordings_for_settings(
+    app: &AppHandle<AppRuntime>,
+    settings: &UserSettings,
+) -> GlimpseResult<u32> {
+    let root = recordings_root(app)?;
+    if !root.exists() {
+        return Ok(0);
+    }
+
+    let cutoff = recording_prune_cutoff(settings.recording_prune_policy, Local::now());
+    let (deleted_count, _) = prune_recording_tree(&root, settings.recording_prune_policy, cutoff)?;
+    Ok(deleted_count)
+}
+
+fn recording_prune_cutoff(
+    policy: RecordingPrunePolicy,
+    now: DateTime<Local>,
+) -> Option<DateTime<Local>> {
+    match policy {
+        RecordingPrunePolicy::Never => None,
+        RecordingPrunePolicy::Immediately => Some(now),
+        RecordingPrunePolicy::Day => now.checked_sub_days(Days::new(1)),
+        RecordingPrunePolicy::Week => now.checked_sub_days(Days::new(7)),
+        RecordingPrunePolicy::Month => now.checked_sub_months(Months::new(1)),
+        RecordingPrunePolicy::ThreeMonths => now.checked_sub_months(Months::new(3)),
+        RecordingPrunePolicy::Year => now.checked_sub_months(Months::new(12)),
+    }
+}
+
+fn prune_recording_tree(
+    path: &Path,
+    policy: RecordingPrunePolicy,
+    cutoff: Option<DateTime<Local>>,
+) -> GlimpseResult<(u32, bool)> {
+    let mut deleted_count = 0;
+    let mut is_empty = true;
+
+    for entry in fs::read_dir(path)
+        .with_context(|| format!("Failed to read recordings directory {}", path.display()))?
+    {
+        let entry = entry?;
+        let child_path = entry.path();
+        let metadata = entry.metadata()?;
+
+        if metadata.is_dir() {
+            let (child_deleted, child_empty) = prune_recording_tree(&child_path, policy, cutoff)?;
+            deleted_count += child_deleted;
+            if child_empty {
+                fs::remove_dir(&child_path).with_context(|| {
+                    format!(
+                        "Failed to remove empty recordings directory {}",
+                        child_path.display()
+                    )
+                })?;
+            } else {
+                is_empty = false;
+            }
+            continue;
+        }
+
+        if should_prune_recording_file(&child_path, &metadata, policy, cutoff) {
+            fs::remove_file(&child_path)
+                .with_context(|| format!("Failed to remove recording {}", child_path.display()))?;
+            deleted_count += 1;
+        } else {
+            is_empty = false;
+        }
+    }
+
+    Ok((deleted_count, is_empty))
+}
+
+fn should_prune_recording_file(
+    path: &Path,
+    metadata: &fs::Metadata,
+    policy: RecordingPrunePolicy,
+    cutoff: Option<DateTime<Local>>,
+) -> bool {
+    if !metadata.is_file() {
+        return false;
+    }
+
+    let is_wav = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("wav"));
+    if !is_wav {
+        return false;
+    }
+
+    if matches!(policy, RecordingPrunePolicy::Immediately) {
+        return true;
+    }
+
+    let Some(cutoff) = cutoff else {
+        return false;
+    };
+
+    metadata
+        .modified()
+        .ok()
+        .map(|modified| DateTime::<Local>::from(modified) <= cutoff)
+        .unwrap_or(false)
 }
 
 #[derive(Serialize, Clone)]
