@@ -6,6 +6,7 @@
 ### Changes
 - Small UI tweaks.
 - The retry recording button will no longer show, if the recording audio has been removed.
+- Improved JSON removal from LLM cleanup (looking at you Mistral)
 
 ### Fixes
 - Sometimes auto music pausing would not work.

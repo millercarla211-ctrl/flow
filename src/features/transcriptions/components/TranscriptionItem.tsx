@@ -19,6 +19,17 @@ import {
 import type { TranscriptionRecord } from "../../../types";
 import DotMatrix from "../../../shared/ui/DotMatrix";
 
+const JSON_PREFIX = '{"text":"';
+function stripJsonWrapper(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith(JSON_PREFIX) || !trimmed.endsWith("}")) return text;
+  try {
+    const parsed = JSON.parse(trimmed);
+    return typeof parsed.text === "string" ? parsed.text : text;
+  } catch {}
+  return text;
+}
+
 const markdownComponents: Components = {
   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
   strong: ({ children }) => (
@@ -189,7 +200,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   const isError = record.status === "error";
   const canRetryFromAudio = record.audio_available;
   const errorMessage = record.error_message || "Transcription failed";
-  const displayText = isError ? null : record.text;
+  const displayText = isError ? null : stripJsonWrapper(record.text);
   const speechModelLabel = record.speech_model?.trim()
     ? record.speech_model.startsWith("cloud-")
       ? record.speech_model.slice(6)
@@ -383,7 +394,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
           ) : (
             <div
               ref={textRef}
-              className={`ui-text-body ui-color-secondary leading-relaxed select-text cursor-text ${!isExpanded ? "line-clamp-6" : ""}`}
+              className={`ui-text-body ui-color-secondary leading-relaxed select-text cursor-text overflow-hidden break-words ${!isExpanded ? "line-clamp-6" : ""}`}
               onMouseUp={() => setSelectionText(captureSelectionText())}
               onKeyUp={() => setSelectionText(captureSelectionText())}
             >
