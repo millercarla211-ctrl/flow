@@ -621,13 +621,14 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                       >
                         <Undo2 size={12} className="text-warning" />
                         <span>Restore original transcript</span>
-                  {(canRetryFromAudio || (!isError && onRetryLlm)) && (
-                    <div className="h-px bg-border-secondary mx-2" />
-                  )}
-                  <button
-                    onClick={handleDelete}
+                      </button>
                     )}
 
+                  {(canRetryFromAudio ||
+                    (!isError && onRetryLlm && showLlmButtons && !isCloudModel) ||
+                    (!isError && record.llm_cleaned && record.raw_text && onUndoLlm && showLlmButtons && !isCloudModel)) && (
+                    <div className="h-px bg-border-secondary mx-2" />
+                  )}
                   <button
                     onClick={handleDelete}
                     disabled={isDeleting}
