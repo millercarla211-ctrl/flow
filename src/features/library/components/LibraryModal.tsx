@@ -31,6 +31,7 @@ import {
     sanitizeFileName,
     shouldShowImportProgress,
 } from "./library-utils";
+import { useClickOutside } from "../../../shared/hooks/useClickOutside";
 import type {
     ExportFormat,
     LibraryItem,
@@ -71,7 +72,9 @@ const LibraryModal = ({
     const [transcriptDraft, setTranscriptDraft] = useState(item.transcript ?? "");
     const [tagInput, setTagInput] = useState("");
     const [tagMenuOpen, setTagMenuOpen] = useState(false);
-    const [showTimestamps, setShowTimestamps] = useState(item.show_timestamps);
+    const [showTimestamps, setShowTimestamps] = useState(
+        item.show_timestamps && Boolean(item.segments?.length),
+    );
     const [exportOpen, setExportOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -92,14 +95,13 @@ const LibraryModal = ({
     const howlRef = useRef<Howl | null>(null);
     const tagMenuRef = useRef<HTMLDivElement>(null);
     const playbackRateRef = useRef(1);
-    const streamTranscriptRef = useRef("");
+    const streamTranscriptRef = useRef(item.transcript ?? "");
     const scrubWasPlayingRef = useRef(false);
     const scrubValueRef = useRef<number | null>(null);
     const rafRef = useRef<number | null>(null);
     const isScrubbingRef = useRef(false);
     const isPlayingRef = useRef(false);
     const lastTimestampNavRef = useRef(0);
-    const searchInputRef = useRef<HTMLInputElement | null>(null);
     const transcriptAreaRef = useRef<HTMLTextAreaElement | null>(null);
     const segmentsVirtuosoRef = useRef<VirtuosoHandle | null>(null);
     const streamVirtuosoRef = useRef<VirtuosoHandle | null>(null);
@@ -122,6 +124,22 @@ const LibraryModal = ({
             cancelAnimationFrame(rafRef.current);
             rafRef.current = null;
         }
+    }, []);
+
+    const updateIsPlaying = useCallback((value: boolean) => {
+        isPlayingRef.current = value;
+        setIsPlaying(value);
+    }, []);
+
+    const updateIsScrubbing = useCallback((value: boolean) => {
+        isScrubbingRef.current = value;
+        setIsScrubbing(value);
+    }, []);
+
+    const setPlaybackRateValue = useCallback((value: number) => {
+        playbackRateRef.current = value;
+        setPlaybackRate(value);
+        howlRef.current?.rate(value);
     }, []);
 
     const startSeekLoop = useCallback(() => {
@@ -147,39 +165,14 @@ const LibraryModal = ({
     }, [stopSeekLoop]);
 
     useEffect(() => {
-        isScrubbingRef.current = isScrubbing;
-    }, [isScrubbing]);
-
-    useEffect(() => {
-        isPlayingRef.current = isPlaying;
-    }, [isPlaying]);
-
-    useEffect(() => {
-        playbackRateRef.current = playbackRate;
-        const sound = howlRef.current;
-        if (sound) {
-            sound.rate(playbackRate);
+        if (!isEditingName) {
+            setNameDraft(item.name);
         }
-    }, [playbackRate]);
+    }, [isEditingName, item.name]);
 
     useEffect(() => {
-        setNameDraft(item.name);
-        const nextShowTimestamps = item.show_timestamps && canShowTimestamps;
-        setShowTimestamps(nextShowTimestamps);
-        setExportOpen(false);
-        setCopyConfirmed(false);
-        setShowRetranscribe(false);
-        setSearchQuery("");
-        setActiveSearchIndex(0);
-        setAudioDuration(item.duration_seconds || 0);
-        setAudioCurrentTime(0);
-        setIsPlaying(false);
-        setAudioReady(false);
-        setAudioError(null);
-        setIsScrubbing(false);
-        scrubWasPlayingRef.current = false;
-        scrubValueRef.current = null;
-    }, [item.id, item.name, item.show_timestamps, item.duration_seconds, canShowTimestamps]);
+        setShowTimestamps(item.show_timestamps && canShowTimestamps);
+    }, [item.show_timestamps, canShowTimestamps]);
 
     useEffect(() => {
         stopSeekLoop();
@@ -187,6 +180,14 @@ const LibraryModal = ({
             howlRef.current.unload();
             howlRef.current = null;
         }
+        updateIsPlaying(false);
+        updateIsScrubbing(false);
+        setAudioReady(false);
+        setAudioError(null);
+        setAudioCurrentTime(0);
+        setAudioDuration(item.duration_seconds || 0);
+        scrubWasPlayingRef.current = false;
+        scrubValueRef.current = null;
 
         const sound = new Howl({
             src: [audioUrl],
@@ -206,23 +207,23 @@ const LibraryModal = ({
                 console.error("Audio play error:", err);
                 setAudioError("Audio unavailable");
                 setAudioReady(false);
-                setIsPlaying(false);
+                updateIsPlaying(false);
                 stopSeekLoop();
             },
             onplay: () => {
-                setIsPlaying(true);
+                updateIsPlaying(true);
                 startSeekLoop();
             },
             onpause: () => {
-                setIsPlaying(false);
+                updateIsPlaying(false);
                 stopSeekLoop();
             },
             onstop: () => {
-                setIsPlaying(false);
+                updateIsPlaying(false);
                 stopSeekLoop();
             },
             onend: () => {
-                setIsPlaying(false);
+                updateIsPlaying(false);
                 stopSeekLoop();
                 const duration = sound.duration();
                 if (Number.isFinite(duration)) {
@@ -245,28 +246,21 @@ const LibraryModal = ({
             stopSeekLoop();
             sound.unload();
         };
-    }, [audioUrl, item.id, startSeekLoop, stopSeekLoop]);
+    }, [audioUrl, item.duration_seconds, startSeekLoop, stopSeekLoop, updateIsPlaying, updateIsScrubbing]);
 
     const handlePlaybackRateStep = useCallback((direction: -1 | 1) => {
-        setPlaybackRate((prev) => {
-            const currentIndex = PLAYBACK_RATES.indexOf(prev);
-            const safeIndex = currentIndex === -1 ? PLAYBACK_RATES.indexOf(1) : currentIndex;
-            const nextIndex = Math.min(
-                PLAYBACK_RATES.length - 1,
-                Math.max(0, safeIndex + direction),
-            );
-            return PLAYBACK_RATES[nextIndex];
-        });
-    }, []);
+        const currentIndex = PLAYBACK_RATES.indexOf(playbackRate);
+        const safeIndex = currentIndex === -1 ? PLAYBACK_RATES.indexOf(1) : currentIndex;
+        const nextIndex = Math.min(
+            PLAYBACK_RATES.length - 1,
+            Math.max(0, safeIndex + direction),
+        );
+        setPlaybackRateValue(PLAYBACK_RATES[nextIndex]);
+    }, [playbackRate, setPlaybackRateValue]);
 
     useEffect(() => {
         setTranscriptDraft(item.transcript ?? "");
-    }, [item.id, item.transcript]);
-
-    useEffect(() => {
-        setStreamChunks([]);
-        streamTranscriptRef.current = item.transcript ?? "";
-    }, [item.id]);
+    }, [item.transcript]);
 
     useEffect(() => {
         if (item.status.type !== "transcribing") {
@@ -302,20 +296,6 @@ const LibraryModal = ({
     }, []);
 
     useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== "Escape") return;
-            event.preventDefault();
-            if (showDeleteConfirm) {
-                setShowDeleteConfirm(false);
-            } else {
-                onClose();
-            }
-        };
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [onClose, showDeleteConfirm]);
-
-    useEffect(() => {
         if (!transcriptAvailable) return;
         if (transcriptTimer.current) clearTimeout(transcriptTimer.current);
         transcriptTimer.current = setTimeout(() => {
@@ -327,19 +307,7 @@ const LibraryModal = ({
             if (transcriptTimer.current) clearTimeout(transcriptTimer.current);
         };
     }, [transcriptDraft, transcriptAvailable, item.transcript, onUpdate]);
-
-    useEffect(() => {
-        if (!tagMenuOpen) return;
-
-        const handleClickOutside = (event: MouseEvent) => {
-            if (tagMenuRef.current && !tagMenuRef.current.contains(event.target as Node)) {
-                setTagMenuOpen(false);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [tagMenuOpen]);
+    useClickOutside(tagMenuRef, () => setTagMenuOpen(false), tagMenuOpen);
 
     const handleNameCommit = async () => {
         const value = nameDraft.trim();
@@ -439,22 +407,6 @@ const LibraryModal = ({
         }
     }, [audioError, audioReady]);
 
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== " ") return;
-            const target = event.target as HTMLElement | null;
-            if (!target) return;
-            const tag = target.tagName.toLowerCase();
-            if (tag === "input" || tag === "textarea" || target.isContentEditable) {
-                return;
-            }
-            event.preventDefault();
-            handleTogglePlayback();
-        };
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [handleTogglePlayback]);
-
     const handleScrubChange = (nextValue: string) => {
         const sound = howlRef.current;
         if (!sound || audioError || !audioReady) return;
@@ -474,14 +426,14 @@ const LibraryModal = ({
         const sound = howlRef.current;
         if (!sound || audioError || !audioReady) return;
         scrubWasPlayingRef.current = sound.playing();
-        setIsScrubbing(true);
+        updateIsScrubbing(true);
         sound.pause();
     };
 
-    const handleScrubEnd = async () => {
+    const handleScrubEnd = () => {
         const sound = howlRef.current;
         if (!sound || audioError || !audioReady) return;
-        setIsScrubbing(false);
+        updateIsScrubbing(false);
         if (typeof scrubValueRef.current === "number" && Number.isFinite(scrubValueRef.current)) {
             sound.seek(scrubValueRef.current);
             setAudioCurrentTime(scrubValueRef.current);
@@ -612,13 +564,10 @@ const LibraryModal = ({
         [normalizedSearchQuery]
     );
 
-    useEffect(() => {
-        if (!normalizedSearchQuery) {
-            setActiveSearchIndex(0);
-            return;
-        }
+    const handleSearchChange = (value: string) => {
+        setSearchQuery(value);
         setActiveSearchIndex(0);
-    }, [normalizedSearchQuery]);
+    };
 
     const handleSearchNavigate = useCallback(
         (direction: number) => {
@@ -658,23 +607,42 @@ const LibraryModal = ({
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-            if (!showSegmentView) return;
+            if (event.defaultPrevented) return;
+
             const target = event.target as HTMLElement | null;
-            if (!target) return;
-            const tag = target.tagName.toLowerCase();
-            if (tag === "input" || tag === "textarea" || target.isContentEditable) {
+            const tag = target?.tagName.toLowerCase();
+            const isTextInput =
+                tag === "input" || tag === "textarea" || target?.isContentEditable;
+
+            if (event.key === "Escape") {
+                event.preventDefault();
+                if (showDeleteConfirm) {
+                    setShowDeleteConfirm(false);
+                } else {
+                    onClose();
+                }
                 return;
             }
+
+            if (event.key === " ") {
+                if (isTextInput) return;
+                event.preventDefault();
+                handleTogglePlayback();
+                return;
+            }
+
+            if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+            if (!showSegmentView || isTextInput) return;
             const now = performance.now();
             if (now - lastTimestampNavRef.current < 140) return;
             lastTimestampNavRef.current = now;
             event.preventDefault();
             handleTimestampStep(event.key === "ArrowDown" ? 1 : -1);
         };
+
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [handleTimestampStep, showSegmentView]);
+    }, [handleTimestampStep, handleTogglePlayback, onClose, showDeleteConfirm, showSegmentView]);
 
     useEffect(() => {
         if (!normalizedSearchQuery) return;
@@ -1054,10 +1022,9 @@ const LibraryModal = ({
                             <div className="relative flex items-center gap-2 bg-surface-secondary border border-border-primary rounded-lg px-2.5 py-1.5 focus-within:border-border-secondary transition-colors">
                                 <Search size={12} className="text-content-disabled shrink-0" aria-hidden="true" />
                                 <input
-                                    ref={searchInputRef}
                                     type="text"
                                     value={searchQuery}
-                                    onChange={(event) => setSearchQuery(event.target.value)}
+                                    onChange={(event) => handleSearchChange(event.target.value)}
                                     onKeyDown={(event) => {
                                         if (event.key === "Enter") {
                                             event.preventDefault();
@@ -1065,7 +1032,7 @@ const LibraryModal = ({
                                         }
                                         if (event.key === "Escape") {
                                             event.preventDefault();
-                                            setSearchQuery("");
+                                            handleSearchChange("");
                                         }
                                     }}
                                     placeholder="Search transcript..."
@@ -1075,7 +1042,7 @@ const LibraryModal = ({
                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
                                     {searchQuery && (
                                         <button
-                                            onClick={() => setSearchQuery("")}
+                                            onClick={() => handleSearchChange("")}
                                             aria-label="Clear search"
                                             className="text-content-disabled hover:text-content-muted transition-colors"
                                         >

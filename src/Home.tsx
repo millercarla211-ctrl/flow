@@ -18,6 +18,7 @@ import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import SettingsModal from "./features/settings/components/SettingsModal";
 import FAQModal from "./shared/ui/FAQModal";
 import DotMatrix from "./shared/ui/DotMatrix";
+import { useClickOutside } from "./shared/hooks/useClickOutside";
 import TranscriptionList from "./features/transcriptions/components/TranscriptionList";
 import DictionaryView from "./features/dictionary/components/DictionaryView";
 import PersonalizationView from "./features/personalization/components/PersonalizationView";
@@ -76,8 +77,7 @@ const Home = () => {
   const { user: currentUser, refresh: refreshUser } = useCurrentUser();
   const [showSupportPopup, setShowSupportPopup] = useState(false);
   const [showFAQ, setShowFAQ] = useState(false);
-  const popupRef = useRef<HTMLDivElement>(null);
-  const supportButtonRef = useRef<HTMLButtonElement>(null);
+  const supportMenuRef = useRef<HTMLDivElement>(null);
 
   const [dragActive, setDragActive] = useState(false);
   const [pendingImportPaths, setPendingImportPaths] = useState<string[] | null>(
@@ -195,24 +195,11 @@ const Home = () => {
   }, []);
 
   // Update status now comes from useUpdateStatus() query hook
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        popupRef.current &&
-        !popupRef.current.contains(event.target as Node) &&
-        !supportButtonRef.current?.contains(event.target as Node)
-      ) {
-        setShowSupportPopup(false);
-      }
-    };
-
-    if (showSupportPopup) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [showSupportPopup]);
+  useClickOutside(
+    supportMenuRef,
+    () => setShowSupportPopup(false),
+    showSupportPopup,
+  );
 
   useEffect(() => {
     const handleCopy = (event: KeyboardEvent) => {
@@ -342,9 +329,8 @@ const Home = () => {
             </div>
           </button>
 
-          <div className="relative">
+          <div className="relative" ref={supportMenuRef}>
             <button
-              ref={supportButtonRef}
               onClick={() => setShowSupportPopup(!showSupportPopup)}
               className={`group flex w-full items-center rounded-lg h-9 pl-[17px] pr-3 text-content-muted hover:bg-surface-overlay hover:text-content-secondary ${
                 isSidebarCollapsed ? "gap-0" : "gap-3"
@@ -370,7 +356,6 @@ const Home = () => {
             <AnimatePresence>
               {showSupportPopup && (
                 <motion.div
-                  ref={popupRef}
                   initial={{ opacity: 0, y: 8, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.95 }}

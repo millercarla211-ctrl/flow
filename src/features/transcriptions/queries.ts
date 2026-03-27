@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import * as transcriptionsApi from "./api";
 
@@ -12,38 +12,6 @@ export function useTranscriptionList(
   searchQuery: string = "",
   enabled: boolean = true,
 ) {
-  const queryClient = useQueryClient();
-
-  useEffect(() => {
-    if (!enabled) return;
-
-    let cancelled = false;
-    const unlisteners: UnlistenFn[] = [];
-
-    const invalidate = () => {
-      queryClient.invalidateQueries({ queryKey: transcriptionKeys.all });
-    };
-
-    listen("transcription:complete", () => {
-      if (!cancelled) invalidate();
-    }).then((fn) => {
-      if (cancelled) fn();
-      else unlisteners.push(fn);
-    });
-
-    listen("transcription:error", () => {
-      if (!cancelled) invalidate();
-    }).then((fn) => {
-      if (cancelled) fn();
-      else unlisteners.push(fn);
-    });
-
-    return () => {
-      cancelled = true;
-      unlisteners.forEach((fn) => fn());
-    };
-  }, [enabled, queryClient]);
-
   return useQuery({
     queryKey: transcriptionKeys.list(searchQuery),
     queryFn: () =>
@@ -66,13 +34,8 @@ export function useDeleteTranscription() {
 
 export function useRetryTranscription(enabled: boolean = true) {
   const [retryingIds, setRetryingIds] = useState<string[]>([]);
-  const retryingIdsRef = useRef<string[]>([]);
   const queryClient = useQueryClient();
   const shouldListen = enabled || retryingIds.length > 0;
-
-  useEffect(() => {
-    retryingIdsRef.current = retryingIds;
-  }, [retryingIds]);
 
   useEffect(() => {
     if (!shouldListen) return;
@@ -81,9 +44,7 @@ export function useRetryTranscription(enabled: boolean = true) {
     const unlisteners: UnlistenFn[] = [];
 
     const clearRetrying = () => {
-      if (retryingIdsRef.current.length > 0) {
-        setRetryingIds([]);
-      }
+      setRetryingIds((current) => (current.length > 0 ? [] : current));
     };
 
     listen("transcription:complete", () => {

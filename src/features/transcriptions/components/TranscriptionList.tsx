@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+    useState,
+    useCallback,
+} from "react";
 import { motion } from "framer-motion";
 import { Search, X } from "lucide-react";
 import { Virtuoso } from "react-virtuoso";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
     useTranscriptionList,
     useDeleteTranscription,
@@ -14,6 +15,8 @@ import {
 } from "../queries";
 import TranscriptionItem from "./TranscriptionItem";
 import DotMatrix from "../../../shared/ui/DotMatrix";
+import { useDebouncedValue } from "../../../shared/hooks/useDebouncedValue";
+import { useShiftHeld } from "../../../shared/hooks/useShiftHeld";
 
 interface TranscriptionListProps {
     showLlmButtons?: boolean;
@@ -25,14 +28,17 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
     isActive = true,
 }) => {
     const [searchQuery, setSearchQuery] = useState("");
-    const [debouncedQuery, setDebouncedQuery] = useState("");
     const [isClearing, setIsClearing] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
-    const [shiftHeld, setShiftHeld] = useState(false);
-    const hasLoadedOnce = useRef(false);
+    const debouncedSearchQuery = useDebouncedValue(searchQuery, 300);
+    const shiftHeld = useShiftHeld(isActive);
 
     // TanStack Query hooks
-    const { data: transcriptions = [], isLoading } = useTranscriptionList(debouncedQuery, isActive);
+    const {
+        data: transcriptions = [],
+        isLoading,
+        isFetched,
+    } = useTranscriptionList(debouncedSearchQuery, isActive);
     const totalCount = transcriptions.length;
     const deleteMutation = useDeleteTranscription();
     const { retry: retryMutation, cancelRetry: cancelRetryMutation, retryingIds } = useRetryTranscription(isActive);
@@ -59,66 +65,6 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
     const undoLlmCleanup = useCallback(async (id: string) => {
         await undoLlmMutation.mutateAsync(id);
     }, [undoLlmMutation]);
-    useEffect(() => {
-        if (!isActive) return;
-
-        let cancelled = false;
-        let unlistenFocus: UnlistenFn | null = null;
-
-        const handleKeyChange = (e: KeyboardEvent) => {
-            setShiftHeld(e.shiftKey);
-        };
-        const resetShift = () => setShiftHeld(false);
-        const handleVisibilityChange = () => {
-            if (document.visibilityState !== "visible") {
-                setShiftHeld(false);
-            }
-        };
-
-        getCurrentWindow()
-            .onFocusChanged(() => {
-                setShiftHeld(false);
-            })
-            .then((unlisten) => {
-                if (cancelled) {
-                    unlisten();
-                } else {
-                    unlistenFocus = unlisten;
-                }
-            })
-            .catch(() => {});
-
-        document.addEventListener("keydown", handleKeyChange);
-        document.addEventListener("keyup", handleKeyChange);
-        document.addEventListener("visibilitychange", handleVisibilityChange);
-        window.addEventListener("blur", resetShift);
-        window.addEventListener("focus", resetShift);
-
-        return () => {
-            cancelled = true;
-            document.removeEventListener("keydown", handleKeyChange);
-            document.removeEventListener("keyup", handleKeyChange);
-            document.removeEventListener("visibilitychange", handleVisibilityChange);
-            window.removeEventListener("blur", resetShift);
-            window.removeEventListener("focus", resetShift);
-            unlistenFocus?.();
-        };
-    }, [isActive]);
-
-    useEffect(() => {
-        if (transcriptions.length > 0 && !hasLoadedOnce.current) {
-            hasLoadedOnce.current = true;
-        }
-    }, [transcriptions.length]);
-
-    // Debounce search
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedQuery(searchQuery);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
-
     const confirmClearAll = async () => {
         setIsClearing(true);
         try {
@@ -131,7 +77,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
         }
     };
 
-    if (isLoading && transcriptions.length === 0 && !debouncedQuery && !hasLoadedOnce.current) {
+    if (isLoading && transcriptions.length === 0 && !debouncedSearchQuery && !isFetched) {
         return (
             <div className="flex items-center justify-center py-12">
                 <DotMatrix
@@ -148,7 +94,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
         );
     }
 
-    const showEmptyState = totalCount === 0 && !debouncedQuery && !isLoading;
+    const showEmptyState = totalCount === 0 && !debouncedSearchQuery && !isLoading;
 
     return (
         <motion.div
@@ -242,7 +188,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
                                             onRetryLlm={retryLlmCleanup}
                                             onUndoLlm={undoLlmCleanup}
                                             showLlmButtons={showLlmButtons}
-                                            skipAnimation={!!debouncedQuery}
+                                            skipAnimation={!!debouncedSearchQuery}
                                             shiftHeld={shiftHeld}
                                         />
                                     </div>

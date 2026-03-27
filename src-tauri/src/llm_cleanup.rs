@@ -148,6 +148,12 @@ fn strip_code_fence(text: &str) -> Option<&str> {
     Some(body.trim())
 }
 
+fn parse_output_tags(text: &str) -> Option<String> {
+    let start = text.find("<output>")?;
+    let end = text.find("</output>")?;
+    (start < end).then(|| text[(start + 8)..end].trim().to_string())
+}
+
 fn strip_json_wrapper(text: &str) -> Option<String> {
     #[derive(Deserialize)]
     struct TextWrapper {
@@ -166,6 +172,10 @@ fn extract_plain_text(response: &str) -> Option<String> {
     let trimmed = response.trim();
     if trimmed.is_empty() {
         return None;
+    }
+
+    if let Some(output) = parse_output_tags(trimmed) {
+        return extract_plain_text(&output).or(Some(output));
     }
 
     if let Some(inner) = strip_code_fence(trimmed) {
@@ -441,6 +451,25 @@ fn cleanup_result_looks_safe(source: &str, candidate: &str, has_style_guidance: 
     overlap >= 0.5 && candidate_words <= max_words
 }
 
+fn edit_result_looks_safe(source: &str, candidate: &str) -> bool {
+    let source = source.trim();
+    let candidate = candidate.trim();
+    if source.is_empty() || candidate.is_empty() {
+        return false;
+    }
+    if source == candidate {
+        return true;
+    }
+    if looks_like_assistant_reply(candidate) && !looks_like_assistant_reply(source) {
+        return false;
+    }
+
+    let lowered = candidate.to_ascii_lowercase();
+    !lowered.starts_with("edited text:")
+        && !lowered.starts_with("revised text:")
+        && !lowered.starts_with("cleaned transcript:")
+}
+
 pub async fn cleanup_transcription(
     client: &Client,
     text: &str,
@@ -519,6 +548,11 @@ pub async fn edit_transcription(
         selected_text,
     )
     .await?;
+
+    if !edit_result_looks_safe(selected_text, &result) {
+        eprintln!("[LLM Edit] Candidate rejected by safety checks, keeping selected text");
+        return Ok(selected_text.to_string());
+    }
 
     eprintln!("[LLM Edit] Final output: {} chars", result.len());
 
@@ -713,6 +747,15 @@ mod tests {
     }
 
     #[test]
+    fn strips_output_tags_from_response() {
+        let response = "<output>{\"text\":\"Refined transcript\"}</output>";
+        assert_eq!(
+            extract_plain_text(response).as_deref(),
+            Some("Refined transcript")
+        );
+    }
+
+    #[test]
     fn returns_none_for_empty() {
         assert_eq!(extract_plain_text(""), None);
         assert_eq!(extract_plain_text("   "), None);
@@ -733,6 +776,14 @@ mod tests {
             "Schedule the review for tomorrow afternoon.",
             "Here is a polished rewrite with action items and added context.",
             false
+        ));
+    }
+
+    #[test]
+    fn edit_safety_rejects_assistant_preamble() {
+        assert!(!edit_result_looks_safe(
+            "Ship the build today.",
+            "Sure, here's the edited text: Ship the build today."
         ));
     }
 

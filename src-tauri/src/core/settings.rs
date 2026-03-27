@@ -135,19 +135,32 @@ pub(crate) fn complete_onboarding(
 ) -> Result<(), String> {
     let mut settings = state.current_settings();
     settings.onboarding_completed = true;
-    state
+    let next = state
         .persist_settings(settings)
         .map_err(|err| err.to_string())?;
+
+    if let Err(err) = app.emit(EVENT_SETTINGS_CHANGED, &next) {
+        eprintln!("Failed to emit settings change: {err}");
+    }
+
     analytics::track_onboarding_completed(app);
     Ok(())
 }
 
-pub(crate) fn reset_onboarding(state: &AppState) -> Result<(), String> {
+pub(crate) fn reset_onboarding(
+    app: &AppHandle<AppRuntime>,
+    state: &AppState,
+) -> Result<(), String> {
     let mut settings = state.current_settings();
     settings.onboarding_completed = false;
-    state
+    let next = state
         .persist_settings(settings)
         .map_err(|err| err.to_string())?;
+
+    if let Err(err) = app.emit(EVENT_SETTINGS_CHANGED, &next) {
+        eprintln!("Failed to emit settings change: {err}");
+    }
+
     Ok(())
 }
 

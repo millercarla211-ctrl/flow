@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
+import React, { useState, useRef, useLayoutEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown, { Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type { TranscriptionRecord } from "../../../types";
 import DotMatrix from "../../../shared/ui/DotMatrix";
+import { useClickOutside } from "../../../shared/hooks/useClickOutside";
 
 const markdownComponents: Components = {
   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
@@ -79,6 +80,15 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
+  useClickOutside(
+    menuRef,
+    () => {
+      setMenuOpen(false);
+      setSelectionText("");
+    },
+    menuOpen,
+  );
+
   useLayoutEffect(() => {
     if (textRef.current && !isExpanded) {
       setIsOverflowing(
@@ -86,20 +96,6 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
       );
     }
   }, [record.text, isExpanded]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false);
-        setSelectionText("");
-      }
-    };
-
-    if (menuOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [menuOpen]);
 
   const handleCopy = async () => {
     try {

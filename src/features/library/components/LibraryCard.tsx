@@ -18,6 +18,7 @@ import {
     shouldShowImportProgress,
     statusLabel,
 } from "./library-utils";
+import { useClickOutside } from "../../../shared/hooks/useClickOutside";
 import type { LibraryItem } from "../../../types";
 
 const LibraryCard = ({
@@ -86,6 +87,9 @@ const LibraryCard = ({
         return tagLower.includes(normalizedDraft);
     });
 
+    useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
+    useClickOutside(tagMenuRef, () => setTagMenuOpen(false), tagMenuOpen);
+
     const handleDelete = async () => {
         setMenuOpen(false);
         try {
@@ -138,37 +142,10 @@ const LibraryCard = ({
     );
 
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setMenuOpen(false);
-            }
-        };
-
-        if (menuOpen) {
-            document.addEventListener("mousedown", handleClickOutside);
-        }
-
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [menuOpen]);
-
-    useEffect(() => {
         if (!isAddingTag) {
             setTagMenuOpen(false);
         }
     }, [isAddingTag]);
-
-    useEffect(() => {
-        if (!tagMenuOpen) return;
-
-        const handleClickOutside = (event: MouseEvent) => {
-            if (tagMenuRef.current && !tagMenuRef.current.contains(event.target as Node)) {
-                setTagMenuOpen(false);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [tagMenuOpen]);
 
     return (
         <div

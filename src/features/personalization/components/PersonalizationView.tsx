@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Plus } from "lucide-react";
+import { useShiftHeld } from "../../../shared/hooks/useShiftHeld";
 import ToggleSwitch from "../../../shared/ui/ToggleSwitch";
 import DotMatrix from "../../../shared/ui/DotMatrix";
 import type { Personality } from "../../../types";
@@ -31,12 +31,12 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   const [activePersonalityId, setActivePersonalityId] = useState<string | null>(
     null,
   );
-  const [shiftHeld, setShiftHeld] = useState(false);
   const [pendingDeletePersonality, setPendingDeletePersonality] =
     useState<PendingDeletePersonality | null>(null);
   const hasRequestedIconRefreshRef = useRef(false);
   const websiteIconRefreshKeyRef = useRef<string | null>(null);
   const persistVersionRef = useRef(0);
+  const shiftHeld = useShiftHeld(isActive);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -163,57 +163,6 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
       window.clearTimeout(timer);
     };
   }, [isActive, installedApps, loading]);
-
-  useEffect(() => {
-    if (!isActive) return;
-
-    let cancelled = false;
-    let unlistenFocus: (() => void) | null = null;
-
-    const handleKeyChange = (event: KeyboardEvent) => {
-      setShiftHeld(event.shiftKey);
-    };
-    const handlePointerDown = (event: PointerEvent) => {
-      setShiftHeld(event.shiftKey);
-    };
-    const resetShift = () => setShiftHeld(false);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") {
-        setShiftHeld(false);
-      }
-    };
-
-    getCurrentWindow()
-      .onFocusChanged(() => {
-        setShiftHeld(false);
-      })
-      .then((unlisten) => {
-        if (cancelled) {
-          unlisten();
-        } else {
-          unlistenFocus = unlisten;
-        }
-      })
-      .catch(() => {});
-
-    document.addEventListener("keydown", handleKeyChange);
-    document.addEventListener("keyup", handleKeyChange);
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("blur", resetShift);
-    window.addEventListener("focus", resetShift);
-
-    return () => {
-      cancelled = true;
-      document.removeEventListener("keydown", handleKeyChange);
-      document.removeEventListener("keyup", handleKeyChange);
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", resetShift);
-      window.removeEventListener("focus", resetShift);
-      unlistenFocus?.();
-    };
-  }, [isActive]);
 
   const persistPersonalities = useCallback(async (next: Personality[]) => {
     const persistVersion = persistVersionRef.current + 1;

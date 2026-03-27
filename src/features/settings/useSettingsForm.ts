@@ -13,6 +13,7 @@ import {
   checkMicrophonePermission,
 } from "tauri-plugin-macos-permissions-api";
 import { getProviderPreset } from "../../shared/lib/llmProviders";
+import { useModelDownloadEvents } from "../../shared/hooks/useModelDownloadEvents";
 import { logout, type User as AuthUser } from "../auth/api";
 import {
   buildTranscriptionLanguageView,
@@ -21,21 +22,14 @@ import {
   getInstalledTranscriptionEngines,
   type TranscriptionEngineId,
 } from "../../shared/lib/transcriptionLanguages";
-import {
-  buildShortcutPreviewString,
-  buildShortcutString,
-  formatShortcutForDisplay,
-  normalizeShortcutModifier,
-} from "../../shared/lib/shortcuts";
+import { useShortcutCapture } from "../../shared/hooks/useShortcutCapture";
+import { useAppInfo, useInputDevices, useSettings } from "./queries";
+import { useModelCatalog } from "./models-queries";
 import type {
   TranscriptionMode,
   TextSizeMode,
   StoredSettings,
-  AppInfo,
-  ModelInfo,
   ModelStatus,
-  DownloadProgressPayload,
-  DeviceInfo,
   DownloadEvent,
   LlmProvider,
   RecordingPrunePolicy,
@@ -79,27 +73,20 @@ export function useSettingsForm({
   const [localModel, setLocalModel] = useState("");
   const [microphoneDevice, setMicrophoneDevice] = useState<string | null>(null);
   const [language, setLanguage] = useState("en");
-  const [inputDevices, setInputDevices] = useState<DeviceInfo[]>([]);
-
-  const [modelCatalog, setModelCatalog] = useState<ModelInfo[]>([]);
   const [modelStatus, setModelStatus] = useState<Record<string, ModelStatus>>(
     {},
   );
   const [downloadState, setDownloadState] = useState<
     Record<string, DownloadEvent>
   >({});
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorCopied, setErrorCopied] = useState(false);
   const [captureActive, setCaptureActive] = useState<
     "smart" | "hold" | "toggle" | null
   >(null);
   const [capturePreview, setCapturePreview] = useState<string>("");
-  const pressedModifiers = useRef<Set<string>>(new Set());
-  const primaryKey = useRef<string | null>(null);
   const captureActiveRef = useRef<"smart" | "hold" | "toggle" | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("general");
-  const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [llmEnabled, setLlmEnabledRaw] = useState(false);
   const [cleanupEnabled, setCleanupEnabled] = useState(false);
   const [llmProvider, setLlmProviderRaw] = useState<LlmProvider>("none");
@@ -124,6 +111,19 @@ export function useSettingsForm({
   >(null);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const didHydrateRef = useRef(false);
+  const settingsQuery = useSettings(undefined, isOpen);
+  const appInfoQuery = useAppInfo(isOpen);
+  const inputDevicesQuery = useInputDevices(isOpen);
+  const modelCatalogQuery = useModelCatalog(isOpen);
+  const inputDevices = inputDevicesQuery.data ?? [];
+  const modelCatalog = modelCatalogQuery.data ?? [];
+  const appInfo = appInfoQuery.data ?? null;
+  const loading =
+    isOpen &&
+    (settingsQuery.isLoading ||
+      modelCatalogQuery.isLoading ||
+      inputDevicesQuery.isLoading ||
+      appInfoQuery.isLoading);
 
   const [cloudSyncEnabled, setCloudSyncEnabledRaw] = useState(() => {
     const stored = localStorage.getItem("glimpse_cloud_sync_enabled");
@@ -257,6 +257,34 @@ export function useSettingsForm({
   );
   const aiFeaturesReady = llmEnabled && llmConfigReady;
 
+  const finalizeCapture = useCallback(() => {
+    invoke("set_shortcut_capture_active", { active: false }).catch(() => {});
+    captureActiveRef.current = null;
+    setCaptureActive(null);
+  }, []);
+
+  const { resetCaptureState } = useShortcutCapture({
+    active: captureActive !== null,
+    onCancel: finalizeCapture,
+    onPreviewChange: setCapturePreview,
+    onShortcutCaptured: (combo) => {
+      if (captureActive === "smart") {
+        setSmartShortcut(combo);
+      } else if (captureActive === "hold") {
+        setHoldShortcut(combo);
+      } else if (captureActive === "toggle") {
+        setToggleShortcut(combo);
+      }
+      setError(null);
+    },
+    onInvalidShortcut: () => {
+      setError(
+        "Shortcut must include a non-modifier key (for example, Control+Space).",
+      );
+    },
+    onCaptureInput: () => setError(null),
+  });
+
   // Guard: non-subscribers can't have cloud sync
   useEffect(() => {
     if (currentUser && !isSubscriber && cloudSyncEnabled) {
@@ -280,21 +308,11 @@ export function useSettingsForm({
     if (!isOpen) {
       didHydrateRef.current = false;
       if (captureActive) {
-        invoke("set_shortcut_capture_active", { active: false }).catch(
-          () => {},
-        );
-        setCaptureActive(null);
-        captureActiveRef.current = null;
-        setCapturePreview("");
-        pressedModifiers.current.clear();
-        primaryKey.current = null;
+        finalizeCapture();
+        resetCaptureState();
       }
     }
-  }, [isOpen, captureActive]);
-
-  useEffect(() => {
-    captureActiveRef.current = captureActive;
-  }, [captureActive]);
+  }, [captureActive, finalizeCapture, isOpen, resetCaptureState]);
 
   useEffect(() => {
     return () => {
@@ -387,20 +405,18 @@ export function useSettingsForm({
   }, [activeTab, isOpen]);
 
   useEffect(() => {
-    const unlistenPromise = listen<StoredSettings>(
-      "settings:changed",
-      (event) => {
-        const s = event.payload;
-        if (!s) return;
-        // Skip the echo if we're in the middle of an auto-save
-        if (isSavingRef.current) return;
-        hydrateFromSettings(s);
-      },
-    );
-    return () => {
-      unlistenPromise.then((unlisten) => unlisten()).catch(() => {});
-    };
-  }, [hydrateFromSettings]);
+    if (!isOpen) return;
+
+    if (settingsQuery.error) {
+      console.error("Failed to load settings:", settingsQuery.error);
+      setError("Failed to load settings");
+      return;
+    }
+
+    if (!settingsQuery.data || isSavingRef.current) return;
+
+    hydrateFromSettings(settingsQuery.data);
+  }, [hydrateFromSettings, isOpen, settingsQuery.data, settingsQuery.error]);
 
   const refreshModelStatus = useCallback((modelKey: string) => {
     invoke<ModelStatus>("check_model_status", { model: modelKey })
@@ -423,238 +439,59 @@ export function useSettingsForm({
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const settings = await invoke<StoredSettings>("get_settings");
-        hydrateFromSettings(settings);
-      } catch (err) {
-        console.error("Failed to load settings:", err);
-        setError("Failed to load settings");
-      }
+    if (!isOpen || modelCatalog.length === 0) return;
 
-      try {
-        const devices = await invoke<DeviceInfo[]>("list_input_devices");
-        setInputDevices(devices);
-      } catch (err) {
-        console.error("Failed to list input devices:", err);
-      }
-
-      try {
-        const models = await invoke<ModelInfo[]>("list_models");
-        setModelCatalog(models);
-        for (const model of models) {
-          void refreshModelStatus(model.key);
-        }
-        setLocalModel((current) =>
-          models.some((model) => model.key === current)
-            ? current
-            : (models[0]?.key ?? ""),
-        );
-      } catch (err) {
-        console.error("Failed to list models:", err);
-      }
-
-      try {
-        const info = await invoke<AppInfo>("get_app_info");
-        setAppInfo(info);
-      } catch (err) {
-        console.error("Failed to get app info:", err);
-      }
-
-      setLoading(false);
-    };
-    loadData();
-  }, [isOpen, refreshModelStatus, hydrateFromSettings]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let cancelled = false;
-    let unlistenProgress: UnlistenFn | null = null;
-    let unlistenComplete: UnlistenFn | null = null;
-    let unlistenError: UnlistenFn | null = null;
-
-    const setup = async () => {
-      const progressUnlisten = await listen<DownloadProgressPayload>(
-        "download:progress",
-        (event) => {
-          const payload = event.payload;
-          setDownloadState((prev) => ({
-            ...prev,
-            [payload.model]: {
-              status: "downloading",
-              percent: Math.min(100, payload.percent),
-              downloaded: payload.downloaded,
-              total: payload.total,
-              file: payload.file,
-            },
-          }));
-        },
-      );
-      if (cancelled) {
-        progressUnlisten();
-        return;
-      }
-      unlistenProgress = progressUnlisten;
-
-      const completeUnlisten = await listen<{ model: string }>(
-        "download:complete",
-        (event) => {
-          const model = event.payload.model;
-          setDownloadState((prev) => ({
-            ...prev,
-            [model]: {
-              status: "complete",
-              percent: 100,
-              downloaded: prev[model]?.downloaded ?? 0,
-              total: prev[model]?.total ?? 0,
-            },
-          }));
-          refreshModelStatus(model);
-        },
-      );
-      if (cancelled) {
-        completeUnlisten();
-        return;
-      }
-      unlistenComplete = completeUnlisten;
-
-      const errorUnlisten = await listen<{ model: string; error: string }>(
-        "download:error",
-        (event) => {
-          const { model, error } = event.payload;
-          if (error.toLowerCase().includes("cancelled")) return;
-          setDownloadState((prev) => ({
-            ...prev,
-            [model]: {
-              status: "error",
-              message: error,
-              percent: prev[model]?.percent ?? 0,
-              downloaded: prev[model]?.downloaded ?? 0,
-              total: prev[model]?.total ?? 0,
-            },
-          }));
-        },
-      );
-      if (cancelled) {
-        errorUnlisten();
-        return;
-      }
-      unlistenError = errorUnlisten;
-    };
-
-    void setup().catch((err) => {
-      console.error("Failed to register download listeners:", err);
-    });
-
-    return () => {
-      cancelled = true;
-      unlistenProgress?.();
-      unlistenComplete?.();
-      unlistenError?.();
-    };
-  }, [isOpen, refreshModelStatus]);
-
-  const finalizeCapture = useCallback(() => {
-    invoke("set_shortcut_capture_active", { active: false }).catch(() => {});
-    captureActiveRef.current = null;
-    setCaptureActive(null);
-    pressedModifiers.current.clear();
-    primaryKey.current = null;
-  }, []);
-
-  useEffect(() => {
-    if (!captureActive) {
-      setCapturePreview("");
-      return;
+    for (const model of modelCatalog) {
+      void refreshModelStatus(model.key);
     }
 
-    const updatePreview = () => {
-      const preview = buildShortcutPreviewString(
-        pressedModifiers.current,
-        primaryKey.current,
-      );
-      setCapturePreview(preview ? formatShortcutForDisplay(preview) : "");
-    };
+    setLocalModel((current) =>
+      modelCatalog.some((model) => model.key === current)
+        ? current
+        : (modelCatalog[0]?.key ?? ""),
+    );
+  }, [isOpen, modelCatalog, refreshModelStatus]);
 
-    const captureCurrentCombo = () => {
-      const combo = buildShortcutString(
-        pressedModifiers.current,
-        primaryKey.current,
-      );
-      if (!combo) {
-        setError(
-          "Shortcut must include a non-modifier key (for example, Control+Space).",
-        );
-        pressedModifiers.current.clear();
-        primaryKey.current = null;
-        setCapturePreview("");
-        return;
-      }
-
-      if (captureActive === "smart") {
-        setSmartShortcut(combo);
-      } else if (captureActive === "hold") {
-        setHoldShortcut(combo);
-      } else if (captureActive === "toggle") {
-        setToggleShortcut(combo);
-      }
-      setError(null);
-      finalizeCapture();
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") return;
-      event.preventDefault();
-      setError(null);
-      const modifier = normalizeShortcutModifier(event);
-      if (modifier) {
-        pressedModifiers.current.add(modifier);
-        updatePreview();
-        return;
-      }
-      if (event.code) {
-        primaryKey.current = event.code;
-        updatePreview();
-        captureCurrentCombo();
-      }
-    };
-
-    const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.key === "Escape") return;
-      event.preventDefault();
-      const modifier = normalizeShortcutModifier(event);
-      if (modifier) {
-        pressedModifiers.current.delete(modifier);
-        updatePreview();
-        return;
-      }
-      if (event.code && !primaryKey.current) {
-        primaryKey.current = event.code;
-        updatePreview();
-        captureCurrentCombo();
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        finalizeCapture();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown, true);
-    window.addEventListener("keyup", handleKeyUp, true);
-    window.addEventListener("keydown", handleEscape, true);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown, true);
-      window.removeEventListener("keyup", handleKeyUp, true);
-      window.removeEventListener("keydown", handleEscape, true);
-    };
-  }, [captureActive, finalizeCapture]);
+  useModelDownloadEvents({
+    enabled: isOpen,
+    onProgress: (payload) => {
+      setDownloadState((prev) => ({
+        ...prev,
+        [payload.model]: {
+          status: "downloading",
+          percent: Math.min(100, payload.percent),
+          downloaded: payload.downloaded,
+          total: payload.total,
+          file: payload.file,
+        },
+      }));
+    },
+    onComplete: ({ model }) => {
+      setDownloadState((prev) => ({
+        ...prev,
+        [model]: {
+          status: "complete",
+          percent: 100,
+          downloaded: prev[model]?.downloaded ?? 0,
+          total: prev[model]?.total ?? 0,
+        },
+      }));
+      refreshModelStatus(model);
+    },
+    onError: ({ model, error }) => {
+      if (error.toLowerCase().includes("cancelled")) return;
+      setDownloadState((prev) => ({
+        ...prev,
+        [model]: {
+          status: "error",
+          message: error,
+          percent: prev[model]?.percent ?? 0,
+          downloaded: prev[model]?.downloaded ?? 0,
+          total: prev[model]?.total ?? 0,
+        },
+      }));
+    },
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -664,13 +501,14 @@ export function useSettingsForm({
       if (captureActiveRef.current) {
         e.preventDefault();
         finalizeCapture();
+        resetCaptureState();
         return;
       }
       onClose();
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [isOpen, onClose, finalizeCapture]);
+  }, [finalizeCapture, isOpen, onClose, resetCaptureState]);
 
   const isSavingRef = useRef(false);
 
@@ -762,12 +600,11 @@ export function useSettingsForm({
     (mode: "smart" | "hold" | "toggle") => {
       if (captureActive === mode) {
         finalizeCapture();
+        resetCaptureState();
         setError(null);
         return;
       }
-      pressedModifiers.current.clear();
-      primaryKey.current = null;
-      setCapturePreview("");
+      resetCaptureState();
       captureActiveRef.current = mode;
       setCaptureActive(mode);
       setError(null);
@@ -775,7 +612,7 @@ export function useSettingsForm({
         console.error("Failed to disable shortcuts for capture", err);
       });
     },
-    [captureActive, finalizeCapture],
+    [captureActive, finalizeCapture, resetCaptureState],
   );
 
   const handleSignOut = useCallback(async () => {

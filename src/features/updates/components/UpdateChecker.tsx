@@ -3,21 +3,18 @@ import { invoke } from "@tauri-apps/api/core"
 import { getVersion } from "@tauri-apps/api/app"
 import { relaunch } from "@tauri-apps/plugin-process"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
+import { useQueryClient } from "@tanstack/react-query"
 import { Download, RefreshCw, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import WhatsNewModal from "./WhatsNewModal"
 import DotMatrix from "../../../shared/ui/DotMatrix"
+import { updateKeys, useUpdateStatus } from "../queries"
 
 
 interface UpdateCheckerProps {
     autoCheck?: boolean
 }
 
-
-interface UpdateStatusPayload {
-    available: boolean
-    version: string | null
-}
 
 interface UpdateDownloadProgressPayload {
     downloaded: number
@@ -44,8 +41,8 @@ const formatError = (err: unknown): string => {
 export function UpdateChecker({
     autoCheck = true,
 }: UpdateCheckerProps) {
-
-    const [availableVersion, setAvailableVersion] = useState<string | null>(null)
+    const queryClient = useQueryClient()
+    const { data: updateStatus } = useUpdateStatus()
     const [checking, setChecking] = useState(false)
     const [downloading, setDownloading] = useState(false)
     const [progress, setProgress] = useState(0)
@@ -53,6 +50,8 @@ export function UpdateChecker({
     const [downloadError, setDownloadError] = useState<string | null>(null)
     const [installed, setInstalled] = useState(false)
     const [whatsNewOpen, setWhatsNewOpen] = useState(false)
+    const availableVersion =
+        installed || !updateStatus?.available ? null : updateStatus.version
 
     useEffect(() => {
         const pendingVersion = localStorage.getItem(PENDING_RESTART_KEY)
@@ -77,29 +76,26 @@ export function UpdateChecker({
         setError(null)
         setDownloadError(null)
         try {
-            const result = await invoke<UpdateStatusPayload>("check_for_updates")
-            setAvailableVersion(result.available ? result.version : null)
+            await invoke("check_for_updates")
+            await queryClient.invalidateQueries({ queryKey: updateKeys.status() })
         } catch (err) {
             console.error("Update check failed:", err)
             setError(formatError(err))
         } finally {
             setChecking(false)
         }
-    }, [])
-
-
-    useEffect(() => {
-        if (autoCheck) {
-            checkForUpdates()
-        }
-    }, [autoCheck, checkForUpdates])
+    }, [queryClient])
 
 
     useEffect(() => {
         let unlistenCheck: UnlistenFn | undefined
 
+        if (autoCheck) {
+            void checkForUpdates()
+        }
+
         listen("updater:check", () => {
-            checkForUpdates()
+            void checkForUpdates()
         }).then((fn) => {
             unlistenCheck = fn
         })
@@ -112,8 +108,6 @@ export function UpdateChecker({
 
     useEffect(() => {
         let unlistenProgress: UnlistenFn | undefined
-        let unlistenAvailable: UnlistenFn | undefined
-        let unlistenCleared: UnlistenFn | undefined
 
         listen<UpdateDownloadProgressPayload>("update:download-progress", (event) => {
             const payload = event.payload
@@ -132,22 +126,8 @@ export function UpdateChecker({
             unlistenProgress = fn
         })
 
-        listen<string>("update:available", (event) => {
-            setAvailableVersion(event.payload)
-        }).then((fn) => {
-            unlistenAvailable = fn
-        })
-
-        listen("update:cleared", () => {
-            setAvailableVersion(null)
-        }).then((fn) => {
-            unlistenCleared = fn
-        })
-
         return () => {
             unlistenProgress?.()
-            unlistenAvailable?.()
-            unlistenCleared?.()
         }
     }, [])
 
@@ -162,7 +142,10 @@ export function UpdateChecker({
             await invoke("download_and_install_update")
 
             setInstalled(true)
-            setAvailableVersion(null)
+            queryClient.setQueryData(updateKeys.status(), {
+                available: false,
+                version: null,
+            })
             if (pendingVersion) {
                 localStorage.setItem(PENDING_RESTART_KEY, pendingVersion)
             }
