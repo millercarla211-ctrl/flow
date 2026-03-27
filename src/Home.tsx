@@ -9,7 +9,7 @@ import {
   User,
   Info,
   HelpCircle,
-  Github,
+  Bug,
   X,
   ArrowUpCircle,
   Library,
@@ -418,7 +418,7 @@ const Home = () => {
                       onClick={() => setShowSupportPopup(false)}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-elevated transition-colors group"
                     >
-                      <Github size={16} className="text-content-secondary" />
+                      <Bug size={16} className="text-content-secondary" />
                       <div>
                         <div className="ui-text-body-sm-strong ui-color-primary">
                           GitHub Issues
@@ -562,7 +562,7 @@ const Home = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-xs"
           >
             <motion.div
               initial={{ scale: 0.96, y: 12 }}

@@ -75,7 +75,7 @@ const SettingsModal = ({
           exit="hidden"
         >
           <motion.div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs"
             variants={backdropVariants}
             onClick={onClose}
           />

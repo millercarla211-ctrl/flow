@@ -47,7 +47,7 @@ const ToggleSwitch = ({
       } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
     >
       <motion.div
-        className={`absolute ${config.thumb} rounded-full bg-white shadow-sm`}
+        className={`absolute ${config.thumb} rounded-full bg-white shadow-xs`}
         initial={false}
         animate={{ left: enabled ? config.onLeft : config.offLeft }}
         transition={{ type: "spring", stiffness: 500, damping: 30 }}

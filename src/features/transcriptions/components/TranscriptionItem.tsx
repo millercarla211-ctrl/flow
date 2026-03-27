@@ -26,7 +26,7 @@ const markdownComponents: Components = {
   ),
   em: ({ children }) => <em className="italic">{children}</em>,
   code: ({ children }) => (
-    <code className="px-1 py-0.5 rounded bg-surface-elevated ui-text-body-sm font-mono ui-color-primary">
+    <code className="px-1 py-0.5 rounded-sm bg-surface-elevated ui-text-body-sm font-mono ui-color-primary">
       {children}
     </code>
   ),

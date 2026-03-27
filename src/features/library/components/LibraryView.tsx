@@ -390,7 +390,7 @@ const LibraryView = ({ pendingImportPaths, onSetImportPaths, sidebarWidth }: Lib
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search library..."
                                 aria-label="Search library"
-                                className="w-full min-w-0 bg-transparent ui-text-input-sm ui-color-secondary placeholder-content-disabled outline-none"
+                                className="w-full min-w-0 bg-transparent ui-text-input-sm ui-color-secondary placeholder-content-disabled outline-hidden"
                             />
                         </div>
                     </div>

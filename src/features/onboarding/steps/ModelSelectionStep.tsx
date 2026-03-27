@@ -137,7 +137,7 @@ export function ModelSelectionStep({
                     {model.tags.map((tag) => (
                       <span
                         key={tag}
-                        className={`px-1.5 py-0.5 rounded ui-text-nano font-semibold uppercase tracking-wider border ${
+                        className={`px-1.5 py-0.5 rounded-sm ui-text-nano font-semibold uppercase tracking-wider border ${
                           tag.toLowerCase() === "recommended"
                             ? "bg-emerald-500/15 ui-color-success-subtle border-emerald-500/30"
                             : accentFillClass
@@ -227,7 +227,7 @@ export function ModelSelectionStep({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-6"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs px-6"
             onClick={() => onShowConfirm(false)}
           >
             <motion.div

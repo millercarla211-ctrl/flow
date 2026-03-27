@@ -153,7 +153,7 @@ export function Dropdown<T extends string | number>({
                 onClick={() => setIsOpen(!isOpen)}
                 aria-haspopup="listbox"
                 aria-expanded={isOpen}
-                className={`w-full flex items-center justify-between rounded-lg bg-surface-surface border border-border-primary text-left hover:border-border-secondary focus:border-border-hover focus:outline-none transition-colors ${buttonClassName || "py-2 px-3 ui-text-body-sm"}`}
+                className={`w-full flex items-center justify-between rounded-lg bg-surface-surface border border-border-primary text-left hover:border-border-secondary focus:border-border-hover focus:outline-hidden transition-colors ${buttonClassName || "py-2 px-3 ui-text-body-sm"}`}
             >
                 <div className="flex items-center gap-2 min-w-0">
                     {icon && <span className="text-content-muted shrink-0" aria-hidden="true">{icon}</span>}
@@ -192,7 +192,7 @@ export function Dropdown<T extends string | number>({
                                         placeholder={searchPlaceholder}
                                         aria-label="Search options"
                                         autoFocus
-                                        className="w-full rounded-md bg-surface-elevated border border-border-secondary py-1.5 pl-7 pr-2.5 ui-text-body-sm ui-color-primary placeholder-content-disabled focus:border-content-disabled focus:outline-none transition-colors"
+                                        className="w-full rounded-md bg-surface-elevated border border-border-secondary py-1.5 pl-7 pr-2.5 ui-text-body-sm ui-color-primary placeholder-content-disabled focus:border-content-disabled focus:outline-hidden transition-colors"
                                         onClick={(e) => e.stopPropagation()}
                                     />
                                 </div>

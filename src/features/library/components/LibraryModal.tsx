@@ -741,7 +741,7 @@ const LibraryModal = ({
                                         handleNameCommit();
                                     }
                                 }}
-                                className="flex-1 min-w-0 bg-surface-surface border border-border-primary rounded px-1.5 py-0.5 ui-text-body text-content-primary focus:border-border-hover outline-none"
+                                className="flex-1 min-w-0 bg-surface-surface border border-border-primary rounded-sm px-1.5 py-0.5 ui-text-body text-content-primary focus:border-border-hover outline-hidden"
                                 autoFocus
                             />
                             <button onClick={handleNameCommit} className="text-content-muted hover:text-content-primary">
@@ -790,7 +790,7 @@ const LibraryModal = ({
                                             onClick={() => handlePlaybackRateStep(-1)}
                                             disabled={!audioReady || !!audioError || !canDecreasePlaybackRate}
                                             aria-label="Decrease playback speed"
-                                            className={`flex h-3 w-3 items-center justify-center rounded transition-colors ${
+                                            className={`flex h-3 w-3 items-center justify-center rounded-sm transition-colors ${
                                                 !audioReady || audioError || !canDecreasePlaybackRate
                                                     ? "text-content-disabled"
                                                     : "text-content-muted hover:text-content-primary"
@@ -815,7 +815,7 @@ const LibraryModal = ({
                                             onClick={() => handlePlaybackRateStep(1)}
                                             disabled={!audioReady || !!audioError || !canIncreasePlaybackRate}
                                             aria-label="Increase playback speed"
-                                            className={`flex h-3 w-3 items-center justify-center rounded transition-colors ${
+                                            className={`flex h-3 w-3 items-center justify-center rounded-sm transition-colors ${
                                                 !audioReady || audioError || !canIncreasePlaybackRate
                                                     ? "text-content-disabled"
                                                     : "text-content-muted hover:text-content-primary"
@@ -875,7 +875,7 @@ const LibraryModal = ({
                                 disabled={!canShowTimestamps}
                             >
                                 <motion.div
-                                    className="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm"
+                                    className="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-xs"
                                     initial={false}
                                     animate={{ left: showTimestamps ? "calc(100% - 14px)" : "2px" }}
                                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -902,7 +902,7 @@ const LibraryModal = ({
                                 disabled={!showSegmentView}
                             >
                                 <motion.div
-                                    className="absolute top-[1px] w-2.5 h-2.5 rounded-full bg-white shadow-sm"
+                                    className="absolute top-[1px] w-2.5 h-2.5 rounded-full bg-white shadow-xs"
                                     initial={false}
                                     animate={{ left: followTimestampsActive ? "calc(100% - 10px)" : "2px" }}
                                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -924,7 +924,7 @@ const LibraryModal = ({
                                             handleRemoveTag(tag);
                                         }
                                     }}
-                                    className={`inline-flex items-center pl-3 pr-1.5 py-1.5 rounded ui-text-meta bg-white/5 border transition-colors leading-none text-content-secondary border-white/10 ${
+                                    className={`inline-flex items-center pl-3 pr-1.5 py-1.5 rounded-sm ui-text-meta bg-white/5 border transition-colors leading-none text-content-secondary border-white/10 ${
                                         shiftHeld ? "cursor-pointer ui-hover-error-tint hover:border-red-500/60" : ""
                                     }`}
                                 >
@@ -948,7 +948,7 @@ const LibraryModal = ({
                                     type="button"
                                     onMouseDown={(event) => event.preventDefault()}
                                     onClick={() => setTagMenuOpen((prev) => !prev)}
-                                    className="flex items-center justify-center w-6 h-6 rounded text-content-muted hover:text-content-secondary hover:bg-surface-elevated transition-colors"
+                                    className="flex items-center justify-center w-6 h-6 rounded-sm text-content-muted hover:text-content-secondary hover:bg-surface-elevated transition-colors"
                                     aria-label="Select existing tag"
                                     title="Select existing tag"
                                 >
@@ -1002,7 +1002,7 @@ const LibraryModal = ({
                                     }
                                 }}
                                 placeholder="New tag..."
-                                className="flex-1 min-w-0 h-6 bg-transparent border-b border-border-primary px-0.5 py-0 ui-text-meta text-content-secondary outline-none focus:border-border-hover placeholder:text-content-disabled"
+                                className="flex-1 min-w-0 h-6 bg-transparent border-b border-border-primary px-0.5 py-0 ui-text-meta text-content-secondary outline-hidden focus:border-border-hover placeholder:text-content-disabled"
                             />
                         </div>
                     </div>
@@ -1070,7 +1070,7 @@ const LibraryModal = ({
                                     }}
                                     placeholder="Search transcript..."
                                     aria-label="Search transcript"
-                                    className="bg-transparent ui-text-label text-content-secondary placeholder-content-disabled outline-none w-full"
+                                    className="bg-transparent ui-text-label text-content-secondary placeholder-content-disabled outline-hidden w-full"
                                 />
                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
                                     {searchQuery && (
@@ -1272,7 +1272,7 @@ const LibraryModal = ({
                                     placeholder={item.status.type === "importing" || item.status.type === "pending"
                                         ? ""
                                         : "Transcript will appear here."}
-                                    className="h-full w-full resize-none bg-transparent ui-text-body text-content-secondary leading-relaxed outline-none disabled:opacity-60 custom-scrollbar select-text pr-4 pt-3 pb-3"
+                                    className="h-full w-full resize-none bg-transparent ui-text-body text-content-secondary leading-relaxed outline-hidden disabled:opacity-60 custom-scrollbar select-text pr-4 pt-3 pb-3"
                                 />
                             )}
                             <div className="scroll-fade-top" style={{ zIndex: 5 }} aria-hidden="true" />
@@ -1288,7 +1288,7 @@ const LibraryModal = ({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm px-6"
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-xs px-6"
                         onClick={(event) => {
                             event.stopPropagation();
                             setShowDeleteConfirm(false);

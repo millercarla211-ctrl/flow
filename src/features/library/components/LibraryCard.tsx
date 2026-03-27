@@ -195,7 +195,7 @@ const LibraryCard = ({
             }}
             role="button"
             tabIndex={0}
-            className="group text-left rounded-xl border border-border-primary bg-surface-secondary p-4 hover:bg-surface-surface transition-colors outline-none focus-visible:ring-2 focus-visible:ring-border-hover"
+            className="group text-left rounded-xl border border-border-primary bg-surface-secondary p-4 hover:bg-surface-surface transition-colors outline-hidden focus-visible:ring-2 focus-visible:ring-border-hover"
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -216,7 +216,7 @@ const LibraryCard = ({
                                 }}
                                 onBlur={onCommitNameEdit}
                                 onClick={(event) => event.stopPropagation()}
-                                className="w-full min-w-0 rounded-md border border-border-primary bg-surface-surface px-2 py-1 ui-text-body font-medium ui-color-primary outline-none focus:border-border-hover"
+                                className="w-full min-w-0 rounded-md border border-border-primary bg-surface-surface px-2 py-1 ui-text-body font-medium ui-color-primary outline-hidden focus:border-border-hover"
                                 autoFocus
                             />
                         ) : (
@@ -329,7 +329,7 @@ const LibraryCard = ({
                                 type="button"
                                 onMouseDown={(event) => event.preventDefault()}
                                 onClick={() => setTagMenuOpen((prev) => !prev)}
-                                className="flex items-center justify-center w-6 h-6 rounded text-content-muted hover:text-content-secondary hover:bg-surface-elevated transition-colors"
+                                className="flex items-center justify-center w-6 h-6 rounded-sm text-content-muted hover:text-content-secondary hover:bg-surface-elevated transition-colors"
                                 aria-label="Select existing tag"
                                 title="Select existing tag"
                             >
@@ -388,7 +388,7 @@ const LibraryCard = ({
                             }}
                             onBlur={onCancelTagEdit}
                             placeholder="New tag..."
-                            className="tag-input-intro flex-1 min-w-0 h-6 box-border bg-transparent border-b border-border-primary px-0.5 py-0 ui-text-meta leading-none ui-color-secondary outline-none focus:border-border-hover placeholder:text-content-disabled"
+                            className="tag-input-intro flex-1 min-w-0 h-6 box-border bg-transparent border-b border-border-primary px-0.5 py-0 ui-text-meta leading-none ui-color-secondary outline-hidden focus:border-border-hover placeholder:text-content-disabled"
                             autoFocus
                         />
                     </div>
@@ -402,7 +402,7 @@ const LibraryCard = ({
                                     event.stopPropagation();
                                     void onRemoveTag(tag);
                                 }}
-                                className={`inline-flex items-center px-2 py-1 rounded ui-text-meta ui-color-muted bg-white/5 border border-white/10 leading-none ${
+                                className={`inline-flex items-center px-2 py-1 rounded-sm ui-text-meta ui-color-muted bg-white/5 border border-white/10 leading-none ${
                                     shiftHeld ? "cursor-pointer hover:border-red-500/60 ui-hover-error-tint" : ""
                                 }`}
                                 title={shiftHeld ? `Remove ${tag}` : undefined}
@@ -419,7 +419,7 @@ const LibraryCard = ({
                                 event.stopPropagation();
                                 onStartTagEdit();
                             }}
-                            className="flex items-center justify-center w-6 h-6 rounded-md bg-transparent ui-text-body-lg ui-color-disabled hover:text-content-muted hover:bg-surface-elevated transition-colors border-0 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-hover focus-visible:ring-offset-0"
+                            className="flex items-center justify-center w-6 h-6 rounded-md bg-transparent ui-text-body-lg ui-color-disabled hover:text-content-muted hover:bg-surface-elevated transition-colors border-0 outline-hidden focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-border-hover focus-visible:ring-offset-0"
                         >
                             +
                         </button>

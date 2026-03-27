@@ -177,7 +177,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({ showLlmButtons = 
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search..."
                             aria-label="Search transcriptions"
-                            className="bg-transparent ui-text-input-sm ui-color-secondary placeholder-content-disabled outline-none w-28 focus:w-36 transition-all pr-4"
+                            className="bg-transparent ui-text-input-sm ui-color-secondary placeholder-content-disabled outline-hidden w-28 focus:w-36 transition-all pr-4"
                         />
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
                             {searchQuery && (

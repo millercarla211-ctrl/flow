@@ -37,7 +37,7 @@ function DebugSection() {
             <div className="flex items-center gap-2 pb-3 border-b border-border-primary">
                 <Bug size={16} className="ui-color-error-strong" />
                 <h3 className="ui-text-body-lg font-semibold text-content-primary">Developer Tools</h3>
-                <span className="ml-auto ui-text-meta px-2 py-0.5 rounded bg-red-500/20 ui-color-error-strong font-mono">
+                <span className="ml-auto ui-text-meta px-2 py-0.5 rounded-sm bg-red-500/20 ui-color-error-strong font-mono">
                     DEV ONLY
                 </span>
             </div>

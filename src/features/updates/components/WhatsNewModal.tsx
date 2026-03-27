@@ -175,7 +175,7 @@ function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs"
                     onClick={onClose}
                 >
                     <motion.div
@@ -186,7 +186,7 @@ function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                         onClick={(e) => e.stopPropagation()}
                         className="relative w-full max-w-md max-h-[70vh] bg-surface-secondary border border-border-primary rounded-2xl shadow-2xl overflow-hidden"
                     >
-                        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 bg-surface-secondary backdrop-blur-sm border-b border-border-primary">
+                        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 bg-surface-secondary backdrop-blur-xs border-b border-border-primary">
                             <h2 className="ui-text-title-strong ui-color-primary">What's New</h2>
                             <button
                                 onClick={onClose}
@@ -254,7 +254,7 @@ function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
                         {releases.length > 0 && (
 
-                            <div className="sticky bottom-0 px-5 py-3 bg-surface-secondary backdrop-blur-sm border-t border-border-primary">
+                            <div className="sticky bottom-0 px-5 py-3 bg-surface-secondary backdrop-blur-xs border-t border-border-primary">
                                 <button
                                     onClick={() => openUrl("https://github.com/LegendarySpy/Glimpse/releases")}
                                     className="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-lg bg-surface-elevated border border-border-secondary ui-text-button ui-color-secondary hover:text-content-primary hover:border-border-hover transition-colors"

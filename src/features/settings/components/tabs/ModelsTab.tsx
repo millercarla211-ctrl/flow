@@ -322,7 +322,7 @@ const ModelRow = ({
               <span className="ui-text-meta ui-color-local">Recommended</span>
             )}
             {isActive && (
-              <span className="px-1.5 py-0.5 rounded ui-text-nano font-semibold uppercase tracking-wider bg-cloud/20 ui-color-cloud">
+              <span className="px-1.5 py-0.5 rounded-sm ui-text-nano font-semibold uppercase tracking-wider bg-cloud/20 ui-color-cloud">
                 Active
               </span>
             )}
