@@ -160,7 +160,8 @@ export function getInstalledTranscriptionEngines(
 export function buildTranscriptionLanguageView(
     modelCatalog: ModelInfo[],
     activeEngine: TranscriptionEngineId | null,
-    visibleEngines: TranscriptionEngineId[]
+    visibleEngines: TranscriptionEngineId[],
+    autoLabel: string
 ): TranscriptionLanguageView {
     const engineSupport = collectEngineSupport(modelCatalog);
     const orderedVisibleEngines = visibleEngines.filter((engineId) => engineSupport.has(engineId));
@@ -178,6 +179,9 @@ export function buildTranscriptionLanguageView(
         if (!languages) continue;
 
         for (const [code, name] of languages.entries()) {
+            if (!code.trim()) {
+                continue;
+            }
             if (!languageNames.has(code)) {
                 languageNames.set(code, name);
                 orderedCodes.push(code);
@@ -198,7 +202,7 @@ export function buildTranscriptionLanguageView(
     }));
 
     return {
-        options: [{ code: "", name: "Auto", badges: [] }, ...options],
+        options: [{ code: "", name: autoLabel, badges: [] }, ...options],
         badgeColumns,
     };
 }

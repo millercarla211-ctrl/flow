@@ -1,9 +1,14 @@
 import { z } from "zod";
+import { DEFAULT_APP_LOCALE, isSupportedAppLocale } from "../lib/appLocales";
 
 // --- Settings ---
 
 export const TranscriptionModeSchema = z.enum(["cloud", "local"]);
 export const TextSizeModeSchema = z.enum(["small", "default", "large"]);
+export const AppLocaleSettingSchema = z.string().refine(
+  (value) => value === DEFAULT_APP_LOCALE || isSupportedAppLocale(value),
+  { message: "Unsupported app locale" },
+);
 
 export const RecordingPrunePolicySchema = z.enum([
   "never",
@@ -61,6 +66,7 @@ export const StoredSettingsSchema = z.object({
   local_model: z.string(),
   microphone_device: z.string().nullable(),
   language: z.string(),
+  app_locale: AppLocaleSettingSchema,
   llm_enabled: z.boolean(),
 
   cleanup_enabled: z.boolean(),
