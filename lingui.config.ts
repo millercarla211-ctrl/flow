@@ -28,6 +28,14 @@ if (
   throw new Error("supported-app-locales.json must use lowercase, trimmed locale codes");
 }
 
+const seenLocales = new Set<string>();
+for (const locale of SUPPORTED_APP_LOCALES) {
+  if (seenLocales.has(locale)) {
+    throw new Error(`supported-app-locales.json contains duplicate locale: ${locale}`);
+  }
+  seenLocales.add(locale);
+}
+
 export default defineConfig({
   locales: SUPPORTED_APP_LOCALES,
   sourceLocale: "en",

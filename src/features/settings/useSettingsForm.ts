@@ -231,14 +231,26 @@ export function useSettingsForm({
     catalogTranscriptionEngines,
   ]);
   const showLanguageSupportBadges = installedTranscriptionEngines.length > 1;
+  const autoTranscriptionLanguageLabel = i18n._(
+    msg({
+      id: "transcription.language.auto",
+      message: "Auto",
+    }),
+  );
   const languageView = useMemo(
     () =>
       buildTranscriptionLanguageView(
         modelCatalog,
         activeTranscriptionEngine,
         visibleTranscriptionEngines,
+        autoTranscriptionLanguageLabel,
       ),
-    [modelCatalog, activeTranscriptionEngine, visibleTranscriptionEngines],
+    [
+      modelCatalog,
+      activeTranscriptionEngine,
+      visibleTranscriptionEngines,
+      autoTranscriptionLanguageLabel,
+    ],
   );
   const languageForcedAuto = activeTranscriptionEngine === "parakeet_v3";
   const displayedLanguage = languageForcedAuto ? "" : language;

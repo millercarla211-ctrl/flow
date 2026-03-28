@@ -45,7 +45,6 @@ function QuerySyncBridge() {
 
     register<StoredSettings>("settings:changed", (settings) => {
       queryClient.setQueryData(settingsKeys.detail(), settings);
-      activateLocale(settings.app_locale);
     });
 
     if (isSettingsWindow) {
