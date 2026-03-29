@@ -297,9 +297,9 @@ const LibraryView = ({
 
     return (
         <div className="relative flex flex-1 flex-col min-h-0 h-full">
-            <div className="w-full max-w-6xl mx-auto flex flex-col gap-4 pb-4 px-4 text-left">
-                <header className="flex flex-col gap-4 mb-4 mt-4">
-                    <div className="flex items-center gap-4">
+            <div className="w-full text-left max-w-7xl mx-auto pl-2 pr-6 flex flex-col gap-4 pb-4">
+                <header className="flex flex-col gap-4 mb-4 mt-2 md:-mt-6">
+                    <div className="flex items-start gap-3">
                         <DotMatrix
                             rows={2}
                             cols={3}
@@ -308,9 +308,17 @@ const LibraryView = ({
                             gap={3}
                             color="var(--color-accent)"
                         />
-                        <h2 className="ui-text-screen-title ui-color-primary">
-                            {t({ id: "library.view.title", message: "Library" })}
-                        </h2>
+                        <div className="flex-1">
+                            <h2 className="ui-text-screen-title ui-color-primary tracking-tight">
+                                {t({ id: "library.view.title", message: "Library" })}
+                            </h2>
+                            <p className="mt-1 ui-text-body-sm ui-color-secondary">
+                                {t({
+                                    id: "library.view.description",
+                                    message: "Manage and search your transcribed audio and documents.",
+                                })}
+                            </p>
+                        </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
