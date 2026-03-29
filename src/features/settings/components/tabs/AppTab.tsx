@@ -9,6 +9,7 @@ import { requestAccessibilityPermission } from "tauri-plugin-macos-permissions-a
 import { buildAppLocaleOptions } from "../../../../shared/lib/appLocales";
 import { Dropdown } from "../../../../shared/ui/Dropdown";
 import { ACTION_CARD_BUTTON_ACCENTS } from "../../../../shared/ui/ActionCardButton";
+import SegmentedControl from "../../../../shared/ui/SegmentedControl";
 import type {
   AppLocaleSetting,
   RecordingPrunePolicy,
@@ -17,62 +18,6 @@ import type {
 
 const LOCAL_ACTION_SHADOW =
   "0 3px 0 -1px rgba(0, 0, 0, 0.5)";
-
-type SegmentedControlProps<T extends string> = {
-  value: T;
-  options: Array<{ id: T; label: string }>;
-  onChange: (value: T) => void;
-};
-
-const SegmentedControl = <T extends string>({
-  value,
-  options,
-  onChange,
-}: SegmentedControlProps<T>) => {
-  const activeIndex = Math.max(
-    0,
-    options.findIndex((option) => option.id === value),
-  );
-  const segmentCount = Math.max(1, options.length);
-  const segmentWidth = 100 / segmentCount;
-
-  return (
-    <div className="relative h-9 rounded-lg border border-border-primary bg-surface-surface p-0.5">
-      <div className="absolute inset-0.5" aria-hidden="true">
-        <div
-          className="absolute top-0 bottom-0 rounded-md border border-border-secondary bg-surface-elevated shadow-xs motion-reduce:transition-none"
-          style={{
-            width: `${segmentWidth}%`,
-            left: `${activeIndex * segmentWidth}%`,
-            transition: "left 140ms cubic-bezier(0.2, 0, 0, 1)",
-            willChange: "left",
-          }}
-        />
-      </div>
-      <div
-        className="relative grid h-full"
-        style={{
-          gridTemplateColumns: `repeat(${segmentCount}, minmax(0, 1fr))`,
-        }}
-      >
-        {options.map((option) => (
-          <button
-            type="button"
-            key={option.id}
-            onClick={() => onChange(option.id)}
-            aria-pressed={value === option.id}
-            className={`h-full rounded-md ui-text-body-sm transition-colors ${value === option.id
-              ? "ui-color-primary"
-              : "ui-color-muted hover:text-content-secondary"
-              }`}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 const PermissionStatus = ({ granted }: { granted: boolean | null }) => {
   const { t } = useLingui();
@@ -150,10 +95,10 @@ const AppTab = ({
   const { t } = useLingui();
   const [draftPolicy, setDraftPolicy] = useState<RecordingPrunePolicy>(recordingPrunePolicy);
 
-  const textSizeOptions: Array<{ id: TextSizeMode; label: string }> = [
-    { id: "small", label: t({ id: "settings.app.text_size.small", message: "Small" }) },
-    { id: "default", label: t({ id: "settings.app.text_size.default", message: "Default" }) },
-    { id: "large", label: t({ id: "settings.app.text_size.large", message: "Large" }) },
+  const textSizeOptions: Array<{ value: TextSizeMode; label: string }> = [
+    { value: "small", label: t({ id: "settings.app.text_size.small", message: "Small" }) },
+    { value: "default", label: t({ id: "settings.app.text_size.default", message: "Default" }) },
+    { value: "large", label: t({ id: "settings.app.text_size.large", message: "Large" }) },
   ];
 
   const recordingPruneOptions: Array<{
@@ -221,6 +166,16 @@ const AppTab = ({
               value={textSizeMode}
               options={textSizeOptions}
               onChange={onTextSizeModeChange}
+              ariaLabel={t({
+                id: "settings.app.text_size.aria_label",
+                message: "Choose text size",
+              })}
+              className="flex items-center bg-surface-surface p-1 rounded-lg border border-border-primary relative"
+              buttonClassName="relative min-w-0 flex-1 px-3 py-1 rounded-md ui-text-body-sm-strong transition-colors duration-200 z-10"
+              activeButtonClassName="ui-color-primary"
+              inactiveButtonClassName="ui-color-muted hover:text-content-secondary"
+              activeIndicatorClassName="absolute inset-0 rounded-md border border-border-secondary bg-surface-elevated shadow-xs z-[-1]"
+              activeIndicatorLayoutId="settings-text-size"
             />
           </div>
           <div className="space-y-1.5">

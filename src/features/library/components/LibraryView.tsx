@@ -5,7 +5,7 @@ import {
     useMemo,
     useState,
 } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
@@ -42,6 +42,7 @@ import {
     SUPPORTED_EXTENSIONS,
     uniquePaths,
 } from "./library-utils";
+import SegmentedControl from "../../../shared/ui/SegmentedControl";
 import type {
     LibraryFilter,
     LibraryItem,
@@ -279,6 +280,20 @@ const LibraryView = ({
     };
 
     const selectedModel = installedModels.find((model) => model.key === defaultModelKey) ?? installedModels[0];
+    const statusFilterValue = useMemo(() => {
+        if (["transcribing", "importing", "pending"].includes(statusFilter)) {
+            return "active";
+        }
+        if (statusFilter === "complete") return "complete";
+        if (statusFilter === "error") return "error";
+        return "all";
+    }, [statusFilter]);
+    const statusFilterOptions = useMemo(() => [
+        { value: "all", label: t({ id: "library.filter.all", message: "All" }) },
+        { value: "active", label: t({ id: "library.filter.active", message: "Active" }) },
+        { value: "complete", label: t({ id: "library.filter.done", message: "Done" }) },
+        { value: "error", label: t({ id: "library.filter.failed", message: "Failed" }) },
+    ], [t]);
 
     return (
         <div className="relative flex flex-1 flex-col min-h-0 h-full">
@@ -321,43 +336,18 @@ const LibraryView = ({
                             />
                         </div>
 
-                        <div className="flex items-center bg-[var(--color-bg-secondary)] p-1 rounded-lg border border-[var(--color-border-primary)] relative">
-                            {[
-                                { value: "all", label: t({ id: "library.filter.all", message: "All" }) },
-                                { value: "active", label: t({ id: "library.filter.active", message: "Active" }) },
-                                { value: "complete", label: t({ id: "library.filter.done", message: "Done" }) },
-                                { value: "error", label: t({ id: "library.filter.failed", message: "Failed" }) },
-                            ].map((f) => {
-                                const isActive =
-                                    (f.value === "all" && statusFilter === "all") ||
-                                    (f.value === "active" &&
-                                        ["transcribing", "importing", "pending"].includes(statusFilter)) ||
-                                    (f.value === "complete" && statusFilter === "complete") ||
-                                    (f.value === "error" && statusFilter === "error");
-                                return (
-                                    <button
-                                        key={f.value}
-                                        onClick={() =>
-                                            setStatusFilter(f.value === "active" ? "transcribing" : f.value)
-                                        }
-                                        className={`relative px-3 py-1 rounded-md ui-text-body-sm-strong capitalize transition-colors duration-200 z-10 ${
-                                            isActive
-                                                ? "ui-color-primary"
-                                                : "ui-color-secondary hover:text-[var(--color-text-primary)]"
-                                        }`}
-                                    >
-                                        {isActive && (
-                                            <motion.div
-                                                layoutId="activeFilter"
-                                                className="absolute inset-0 bg-[var(--color-bg-elevated)] shadow-sm border border-[var(--color-border-primary)] rounded-md z-[-1]"
-                                                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                                            />
-                                        )}
-                                        <span className="relative z-10">{f.label}</span>
-                                    </button>
-                                );
+                        <SegmentedControl
+                            value={statusFilterValue}
+                            options={statusFilterOptions}
+                            onChange={(value) =>
+                                setStatusFilter(value === "active" ? "transcribing" : value)
+                            }
+                            ariaLabel={t({
+                                id: "library.filter.aria_label",
+                                message: "Filter library by status",
                             })}
-                        </div>
+                            activeIndicatorLayoutId="library-status-filter"
+                        />
 
                     </div>
                 </header>
