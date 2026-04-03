@@ -2001,8 +2001,8 @@ dependencies = [
 
 [[package]]
 name = "glimpse-speech"
-version = "1.0.3"
-source = "git+https://github.com/LegendarySpy/Glimpse-Speech.git?tag=1.0.3#b758ebae52ad406d10da4b3d755793bdf18bd5bb"
+version = "1.1.0"
+source = "git+https://github.com/LegendarySpy/Glimpse-Speech.git?tag=1.1.0#efa0717defb1c7d1b2cd455928ab09dcb226ee76"
 dependencies = [
  "hound",
  "parakeet-rs",

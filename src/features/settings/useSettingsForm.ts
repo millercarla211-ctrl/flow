@@ -252,7 +252,9 @@ export function useSettingsForm({
       autoTranscriptionLanguageLabel,
     ],
   );
-  const languageForcedAuto = activeTranscriptionEngine === "parakeet_v3";
+  const languageForcedAuto =
+    activeTranscriptionEngine === "parakeet_v3" ||
+    activeTranscriptionEngine === "nvidia";
   const displayedLanguage = languageForcedAuto ? "" : language;
   const displayedLanguageOptions = useMemo(
     () =>

@@ -1,11 +1,15 @@
 0.8.0
 
+### Features
+- Added Nvidia nemotron a new streaming model with a new UI!
+
 ### Changes
 - Library views have had a small redesign.
 - Dictionary & Replacements have been merged into one view.
 - Edit mode is now signifcantly more consistant.
 - Further refined UI elements
 - Media is now unpaused after recording rather than after recording + processing.
+- Models tab now as a new system models catagory.
 ---
 0.7.5
 

@@ -22,6 +22,7 @@ mod recent_transcriptions;
 mod recorder;
 mod settings;
 mod storage;
+mod streaming_transcription;
 mod toast;
 mod transcribe;
 mod transcription_api;
@@ -479,6 +480,7 @@ pub struct AppState {
     preflight_notify: Arc<Notify>,
     session_started_at: Instant,
     session_counters: parking_lot::Mutex<SessionCounters>,
+    streaming_session: parking_lot::Mutex<Option<streaming_transcription::StreamingSession>>,
 }
 
 #[derive(Clone, Copy)]
@@ -540,7 +542,27 @@ impl AppState {
             session_counters: parking_lot::Mutex::new(SessionCounters {
                 transcription_count: 0,
             }),
+            streaming_session: parking_lot::Mutex::new(None),
         }
+    }
+
+    pub fn start_streaming_session(
+        &self,
+        app: &AppHandle<AppRuntime>,
+        model: &model_manager::ReadyModel,
+    ) {
+        let _ = self.stop_streaming_session(app);
+        let session = streaming_transcription::StreamingSession::start(app, model);
+        *self.streaming_session.lock() = Some(session);
+    }
+
+    pub fn stop_streaming_session(&self, app: &AppHandle<AppRuntime>) -> Option<String> {
+        let session = self.streaming_session.lock().take()?;
+        Some(session.stop(app))
+    }
+
+    pub fn has_streaming_session(&self) -> bool {
+        self.streaming_session.lock().is_some()
     }
 
     /// Read analytics state from the in-memory cache (single lock acquisition).

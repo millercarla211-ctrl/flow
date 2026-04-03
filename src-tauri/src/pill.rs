@@ -22,6 +22,7 @@ const SMART_MODE_TAP_THRESHOLD_MS: i64 = 200;
 const SHORTCUT_PRESS_DEBOUNCE_MS: u64 = 180;
 
 pub const EVENT_PILL_STATE: &str = "pill:state";
+pub const EVENT_PILL_MODE: &str = "pill:mode";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -222,6 +223,16 @@ impl PillController {
         });
     }
 
+    fn start_streaming_session_if_supported(&self, app: &AppHandle<AppRuntime>, local_model: &str) {
+        if !model_manager::is_streaming_model(local_model) {
+            return;
+        }
+
+        if let Ok(ready) = model_manager::ensure_model_ready(app, local_model) {
+            app.state::<AppState>().start_streaming_session(app, &ready);
+        }
+    }
+
     fn emit_state(&self, app: &AppHandle<AppRuntime>) {
         let status = *self.status.lock();
         let mode = self.recording_mode.lock().map(|m| match m {
@@ -280,7 +291,13 @@ impl PillController {
         next: PillStatus,
     ) {
         if next == PillStatus::Idle {
-            hide_overlay(app);
+            let app_handle = app.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(32));
+                if app_handle.state::<AppState>().pill().status() == PillStatus::Idle {
+                    hide_overlay(&app_handle);
+                }
+            });
             return;
         }
 
@@ -428,6 +445,8 @@ impl PillController {
                 self.transition_to(app, PillStatus::Listening);
                 self.start_audio_spectrum_emitter(app);
                 self.pause_media_if_playing(app);
+                self.start_streaming_session_if_supported(app, &settings.local_model);
+
                 emit_event(
                     app,
                     crate::EVENT_RECORDING_START,
@@ -498,6 +517,8 @@ impl PillController {
                     self.transition_to(app, PillStatus::Listening);
                     self.start_audio_spectrum_emitter(app);
                     self.pause_media_if_playing(app);
+                    self.start_streaming_session_if_supported(app, &settings.local_model);
+
                     emit_event(
                         app,
                         crate::EVENT_RECORDING_START,
@@ -575,38 +596,99 @@ impl PillController {
     fn stop_and_process(&self, app: &AppHandle<AppRuntime>) {
         self.stop_audio_spectrum_emitter();
         *self.recording_mode.lock() = None;
-        self.transition_to(app, PillStatus::Processing);
         self.capture_selected_text_if_enabled(app);
 
-        let recorder = Arc::clone(&self.recorder);
-        let app_handle = app.clone();
-        std::thread::spawn(move || match recorder.stop() {
-            Ok(Some(recording)) => {
-                app_handle.state::<AppState>().pill().resume_paused_media();
-                let duration_ms = (recording.ended_at - recording.started_at).num_milliseconds();
-                if duration_ms < MIN_RECORDING_DURATION_MS {
-                    app_handle.state::<AppState>().pill().reset(&app_handle);
-                    return;
-                }
+        let state = app.state::<AppState>();
+        let has_streaming = state.has_streaming_session();
 
-                crate::persist_recording_async(app_handle, recording);
-            }
-            Ok(None) => {
-                app_handle.state::<AppState>().pill().resume_paused_media();
-                app_handle.state::<AppState>().pill().reset(&app_handle);
-            }
-            Err(err) => {
-                app_handle.state::<AppState>().pill().resume_paused_media();
-                app_handle
-                    .state::<AppState>()
-                    .pill()
-                    .transition_to_error(&app_handle, &format!("Unable to stop recording: {err}"));
-            }
-        });
+        if has_streaming {
+            state.clear_cancellation();
+            self.transition_to(app, PillStatus::Processing);
+            let recorder = Arc::clone(&self.recorder);
+            let app_handle = app.clone();
+            std::thread::spawn(move || match recorder.stop() {
+                Ok(Some(recording)) => {
+                    app_handle.state::<AppState>().pill().resume_paused_media();
+                    let duration_ms =
+                        (recording.ended_at - recording.started_at).num_milliseconds();
+                    let streaming_transcript = app_handle
+                        .state::<AppState>()
+                        .stop_streaming_session(&app_handle)
+                        .unwrap_or_default();
+
+                    if duration_ms < MIN_RECORDING_DURATION_MS {
+                        collapse_expanded_pill(&app_handle);
+                        app_handle.state::<AppState>().pill().reset(&app_handle);
+                        return;
+                    }
+
+                    if streaming_transcript.trim().is_empty() {
+                        collapse_expanded_pill(&app_handle);
+                        app_handle.state::<AppState>().pill().reset(&app_handle);
+                        return;
+                    }
+
+                    crate::transcribe::finalize_streaming_transcription(
+                        &app_handle,
+                        streaming_transcript,
+                        (duration_ms.max(0) as f32) / 1000.0,
+                    );
+                }
+                Ok(None) => {
+                    let _ = app_handle
+                        .state::<AppState>()
+                        .stop_streaming_session(&app_handle);
+                    collapse_expanded_pill(&app_handle);
+                    app_handle.state::<AppState>().pill().resume_paused_media();
+                    app_handle.state::<AppState>().pill().reset(&app_handle);
+                }
+                Err(err) => {
+                    let _ = app_handle
+                        .state::<AppState>()
+                        .stop_streaming_session(&app_handle);
+                    collapse_expanded_pill(&app_handle);
+                    app_handle.state::<AppState>().pill().resume_paused_media();
+                    app_handle.state::<AppState>().pill().transition_to_error(
+                        &app_handle,
+                        &format!("Unable to stop recording: {err}"),
+                    );
+                }
+            });
+        } else {
+            self.transition_to(app, PillStatus::Processing);
+            let recorder = Arc::clone(&self.recorder);
+            let app_handle = app.clone();
+            std::thread::spawn(move || match recorder.stop() {
+                Ok(Some(recording)) => {
+                    app_handle.state::<AppState>().pill().resume_paused_media();
+                    let duration_ms =
+                        (recording.ended_at - recording.started_at).num_milliseconds();
+                    if duration_ms < MIN_RECORDING_DURATION_MS {
+                        app_handle.state::<AppState>().pill().reset(&app_handle);
+                        return;
+                    }
+
+                    crate::persist_recording_async(app_handle, recording);
+                }
+                Ok(None) => {
+                    app_handle.state::<AppState>().pill().resume_paused_media();
+                    app_handle.state::<AppState>().pill().reset(&app_handle);
+                }
+                Err(err) => {
+                    app_handle.state::<AppState>().pill().resume_paused_media();
+                    app_handle.state::<AppState>().pill().transition_to_error(
+                        &app_handle,
+                        &format!("Unable to stop recording: {err}"),
+                    );
+                }
+            });
+        }
     }
 
     pub fn cancel(&self, app: &AppHandle<AppRuntime>) {
         self.stop_audio_spectrum_emitter();
+        let _ = app.state::<AppState>().stop_streaming_session(app);
+        collapse_expanded_pill(app);
         if let Err(err) = self.recorder.stop() {
             eprintln!("Failed to stop recorder: {err}");
         }
@@ -621,6 +703,8 @@ impl PillController {
 
         self.stop_audio_spectrum_emitter();
         let state = app.state::<AppState>();
+        let _ = state.stop_streaming_session(app);
+        collapse_expanded_pill(app);
         state.request_cancellation();
         let _ = self.recorder.stop();
 
@@ -631,6 +715,25 @@ impl PillController {
         toast::show(app, "info", None, "Transcription cancelled");
         self.reset(app);
     }
+}
+
+pub(crate) fn emit_pill_mode(app: &AppHandle<AppRuntime>, expanded: bool, text: &str) {
+    app.state::<AppState>().pill().set_expanded(expanded);
+
+    if let Err(err) = app.emit(
+        EVENT_PILL_MODE,
+        serde_json::json!({ "expanded": expanded, "text": text }),
+    ) {
+        eprintln!("Failed to emit pill mode: {err}");
+    }
+}
+
+pub(crate) fn show_expanded_pill_text(app: &AppHandle<AppRuntime>, text: &str) {
+    emit_pill_mode(app, true, text);
+}
+
+pub(crate) fn collapse_expanded_pill(app: &AppHandle<AppRuntime>) {
+    emit_pill_mode(app, false, "");
 }
 
 fn check_mic_permission(app: &AppHandle<AppRuntime>) -> bool {
@@ -829,6 +932,9 @@ pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
 
 pub fn show_overlay(app: &AppHandle<AppRuntime>) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        if !app.state::<AppState>().pill().is_expanded() {
+            collapse_expanded_pill(app);
+        }
         position_overlay_on_cursor_screen(&window);
         platform::overlay::show(app, &window);
     }
@@ -935,17 +1041,11 @@ pub fn set_pill_expanded(app: AppHandle<AppRuntime>, expanded: bool) -> Result<(
         platform::overlay::show(&app, &window);
     }
 
-    let state = app.state::<AppState>();
-    state.pill().set_expanded(expanded);
-
     let text = if expanded {
         "Cloud transcription streaming will appear here in real-time. This is a preview of the dynamic pill mode."
     } else {
         ""
     };
-    app.emit(
-        "pill:mode",
-        serde_json::json!({ "expanded": expanded, "text": text }),
-    )
-    .map_err(|e| e.to_string())
+    emit_pill_mode(&app, expanded, text);
+    Ok(())
 }
