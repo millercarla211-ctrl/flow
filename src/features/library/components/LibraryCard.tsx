@@ -17,6 +17,7 @@ import {
     shouldShowImportProgress,
 } from "./library-utils";
 import { useClickOutside } from "../../../shared/hooks/useClickOutside";
+import { IntelligencePixel } from "../../../shared/ui/IntelligencePixel";
 import type { LibraryItem } from "../../../types";
 
 const formatBytes = (bytes: number) => {
@@ -25,38 +26,6 @@ const formatBytes = (bytes: number) => {
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-};
-
-const IntelligencePixel = ({ active, statusType }: { active: boolean; statusType: string }) => {
-    const isError = statusType === "error";
-    const isComplete = statusType === "complete";
-
-    return (
-        <div className="grid grid-cols-2 gap-[2px] w-[10px] h-[10px] shrink-0 mt-[2px]">
-            {[0, 1, 2, 3].map((i) => (
-                <motion.div
-                    key={i}
-                    animate={
-                        active
-                            ? { opacity: [0.4, 1, 0.4], scale: [0.9, 1.1, 0.9] }
-                            : { opacity: isComplete ? 0.8 : 0.3, scale: 1 }
-                    }
-                    transition={
-                        active
-                            ? { duration: 1.5, repeat: Infinity, delay: i * 0.2, ease: "easeInOut" }
-                            : { duration: 0.3 }
-                    }
-                    className={`w-[4px] h-[4px] rounded-[1px] ${
-                        isError
-                            ? "bg-[var(--color-error)]"
-                            : active
-                              ? "bg-[var(--color-accent)] shadow-[0_0_8px_var(--color-accent-30)]"
-                              : "bg-[var(--color-text-muted)]"
-                    }`}
-                />
-            ))}
-        </div>
-    );
 };
 
 const LibraryCard = ({

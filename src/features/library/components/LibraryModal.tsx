@@ -33,6 +33,7 @@ import {
     shouldShowImportProgress,
 } from "./library-utils";
 import { useClickOutside } from "../../../shared/hooks/useClickOutside";
+import { IntelligencePixel } from "../../../shared/ui/IntelligencePixel";
 import type {
     ExportFormat,
     LibraryItem,
@@ -1289,11 +1290,6 @@ const LibraryModal = ({
 
                 {/* Transcript area */}
                 <div className="flex-1 min-h-0 overflow-hidden px-4 pb-0 pt-0 flex flex-col gap-3">
-                    {(item.status.type === "importing" || item.status.type === "pending") && (
-                        <div className="ui-text-label text-content-muted tabular-nums">
-                            {importStatusText}
-                        </div>
-                    )}
                     {item.status.type === "error" ? (
                         <div className="flex-1 min-h-0 flex items-center justify-center">
                             {(() => {
@@ -1382,14 +1378,15 @@ const LibraryModal = ({
                                 />
                             ) : showStreaming ? (
                                 streamChunks.length === 0 ? (
-                                    item.status.type === "transcribing" ? (
-                                        <div className="text-content-disabled ui-text-body-sm">
+                                    <div className="flex flex-col h-full w-full items-center justify-center gap-5">
+                                        <IntelligencePixel active size="md" />
+                                        <div className="ui-text-label font-medium uppercase tracking-[0.2em] text-content-disabled">
                                             {t({
                                                 id: "library.modal.transcribing",
                                                 message: "Transcribing...",
                                             })}
                                         </div>
-                                    ) : null
+                                    </div>
                                 ) : (
                                     <Virtuoso
                                     ref={streamVirtuosoRef}
@@ -1416,6 +1413,13 @@ const LibraryModal = ({
                                         )}
                                     />
                                 )
+                            ) : (item.status.type === "importing" || item.status.type === "pending") ? (
+                                <div className="flex flex-col h-full w-full items-center justify-center gap-5">
+                                    <IntelligencePixel active size="md" />
+                                    <div className="ui-text-label font-medium uppercase tracking-[0.2em] text-content-disabled">
+                                        {importStatusText}
+                                    </div>
+                                </div>
                             ) : (
                                 <textarea
                                     ref={transcriptAreaRef}
