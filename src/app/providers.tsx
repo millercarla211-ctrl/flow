@@ -1,15 +1,16 @@
 import { I18nProvider } from "@lingui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, type ReactNode } from "react";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { authKeys } from "../features/auth/queries";
 import { activateLocale, i18n } from "../i18n";
 import { settingsKeys, useSettings } from "../features/settings/queries";
 import { transcriptionKeys } from "../features/transcriptions/queries";
 import { updateKeys } from "../features/updates/queries";
-import { getCurrentWindow, typedListen, type UnlistenFn } from "../shared/tauri";
 import type { StoredSettings } from "../types";
 
-export const queryClient = new QueryClient({
+const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
@@ -30,9 +31,9 @@ function QuerySyncBridge() {
       event: string,
       handler: (payload: TPayload) => void,
     ) => {
-      typedListen<TPayload>(event, (payload) => {
+      listen<TPayload>(event, (eventPayload) => {
         if (!cancelled) {
-          handler(payload);
+          handler(eventPayload.payload);
         }
       }).then((fn) => {
         if (cancelled) {

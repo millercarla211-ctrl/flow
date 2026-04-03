@@ -89,7 +89,7 @@ export function normalizeShortcutModifier(event: KeyboardEvent): string | null {
     return null;
 }
 
-export function formatShortcutKey(code: string): string | null {
+function formatShortcutKey(code: string): string | null {
     if (!code) return null;
     if (code.startsWith("Key") && code.length > 3) return code.slice(3).toUpperCase();
     if (code.startsWith("Digit") && code.length > 5) return code.slice(5);

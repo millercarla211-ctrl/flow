@@ -1,6 +1,5 @@
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../../../i18n";
-import type { LibraryItemStatus } from "../../../types";
 
 export const SUPPORTED_EXTENSIONS = ["wav", "mp3", "m4a", "aac", "ogg", "flac", "mp4", "mov", "webm", "mkv"];
 export const PLAYBACK_RATES = [0.5, 1, 1.5, 2, 2.5, 3, 4];
@@ -10,54 +9,6 @@ export const clampProgress = (value: number) => Math.min(Math.max(value, 0), 1);
 export const shouldShowImportProgress = (value: number) => {
     const clamped = clampProgress(value);
     return clamped >= 0.02 && clamped < 0.98;
-};
-
-export const buildProgressDots = (progress: number, cols: number, rows: number) => {
-    const totalDots = cols * rows;
-    const activeCount = Math.round(clampProgress(progress) * totalDots);
-    return Array.from({ length: Math.min(activeCount, totalDots) }, (_, i) => i);
-};
-
-export type LibraryProgressDotsProps = {
-    progress: number;
-    status: "importing" | "transcribing";
-};
-
-export const statusLabel = (status: LibraryItemStatus) => {
-    switch (status.type) {
-        case "pending":
-            return i18n._(msg({ id: "library.status.queued", message: "Queued" }));
-        case "importing":
-            if (!shouldShowImportProgress(status.progress)) {
-                return i18n._(msg({ id: "library.status.converting", message: "Converting" }));
-            }
-            return i18n._(
-                msg({
-                    id: "library.status.converting_progress",
-                    message: `Converting ${Math.round(clampProgress(status.progress) * 100)}%`,
-                })
-            );
-        case "transcribing":
-            if (status.progress < 0.01) {
-                return i18n._(msg({ id: "library.status.starting", message: "Starting..." }));
-            }
-            return i18n._(
-                msg({
-                    id: "library.status.transcribing_progress",
-                    message: `Transcribing ${Math.round(clampProgress(status.progress) * 100)}%`,
-                })
-            );
-        case "complete":
-            return i18n._(msg({ id: "library.status.done", message: "Done" }));
-        case "cancelling":
-            return i18n._(msg({ id: "library.status.canceling", message: "Canceling..." }));
-        case "cancelled":
-            return i18n._(msg({ id: "library.status.canceled", message: "Canceled" }));
-        case "error":
-            return i18n._(msg({ id: "library.status.failed", message: "Failed" }));
-        default:
-            return i18n._(msg({ id: "library.status.queued_fallback", message: "Queued" }));
-    }
 };
 
 export const formatDuration = (seconds: number) => {

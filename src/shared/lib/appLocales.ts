@@ -48,11 +48,6 @@ function normalizeLocaleCode(locale?: string | null): string | null {
   return trimmed.replace(/_/g, "-").toLowerCase();
 }
 
-export function isSupportedAppLocale(locale?: string | null): boolean {
-  const normalized = normalizeLocaleCode(locale);
-  return normalized !== null && supportedAppLocaleSet.has(normalized);
-}
-
 export function normalizeSupportedAppLocale(locale?: string | null): string {
   const normalized = normalizeLocaleCode(locale);
   if (!normalized) {
