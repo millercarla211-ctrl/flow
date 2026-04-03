@@ -290,7 +290,6 @@ impl PillController {
     }
 
     pub fn reset(&self, app: &AppHandle<AppRuntime>) {
-        self.resume_paused_media();
         self.reset_recording_state();
         *self.hold_key_down.lock() = false;
         self.transition_to(app, PillStatus::Idle);
@@ -583,6 +582,7 @@ impl PillController {
         let app_handle = app.clone();
         std::thread::spawn(move || match recorder.stop() {
             Ok(Some(recording)) => {
+                app_handle.state::<AppState>().pill().resume_paused_media();
                 let duration_ms = (recording.ended_at - recording.started_at).num_milliseconds();
                 if duration_ms < MIN_RECORDING_DURATION_MS {
                     app_handle.state::<AppState>().pill().reset(&app_handle);
@@ -592,9 +592,11 @@ impl PillController {
                 crate::persist_recording_async(app_handle, recording);
             }
             Ok(None) => {
+                app_handle.state::<AppState>().pill().resume_paused_media();
                 app_handle.state::<AppState>().pill().reset(&app_handle);
             }
             Err(err) => {
+                app_handle.state::<AppState>().pill().resume_paused_media();
                 app_handle
                     .state::<AppState>()
                     .pill()
@@ -608,6 +610,7 @@ impl PillController {
         if let Err(err) = self.recorder.stop() {
             eprintln!("Failed to stop recorder: {err}");
         }
+        self.resume_paused_media();
         self.reset(app);
     }
 

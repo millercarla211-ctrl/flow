@@ -3,8 +3,9 @@
 ### Changes
 - Library views have had a small redesign.
 - Dictionary & Replacements have been merged into one view.
-- Edit mode is now signifcantly more consistant in working.
+- Edit mode is now signifcantly more consistant.
 - Further refined UI elements
+- Media is now unpaused after recording rather than after recording + processing.
 ---
 0.7.5
 
