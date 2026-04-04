@@ -1426,12 +1426,10 @@ const LibraryModal = ({
                                     value={transcriptDraft}
                                     onChange={(event) => setTranscriptDraft(event.target.value)}
                                     disabled={!transcriptAvailable}
-                                    placeholder={item.status.type === "importing" || item.status.type === "pending"
-                                        ? ""
-                                        : t({
-                                            id: "library.modal.transcript_placeholder",
-                                            message: "Transcript will appear here.",
-                                        })}
+                                    placeholder={t({
+                                        id: "library.modal.transcript_placeholder",
+                                        message: "Transcript will appear here.",
+                                    })}
                                     className="h-full w-full resize-none bg-transparent ui-text-body text-content-secondary leading-relaxed outline-hidden disabled:opacity-60 custom-scrollbar select-text pr-4 pt-3 pb-3"
                                 />
                             )}

@@ -13,8 +13,7 @@ use std::{thread, time::Duration};
 
 #[cfg(target_os = "macos")]
 pub fn get_selected_text_ax() -> Option<String> {
-    let mut clipboard =
-        Clipboard::new().ok()?;
+    let mut clipboard = Clipboard::new().ok()?;
 
     let backup = ClipboardBackup::capture(&mut clipboard);
 
