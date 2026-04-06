@@ -585,7 +585,11 @@ export function useSettingsForm({
       }
     };
 
-    saveSettings();
+    const timeoutId = setTimeout(() => {
+      saveSettings();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
   }, [
     loading,
     smartShortcut,

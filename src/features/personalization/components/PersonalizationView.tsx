@@ -38,6 +38,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   const hasRequestedIconRefreshRef = useRef(false);
   const websiteIconRefreshKeyRef = useRef<string | null>(null);
   const persistVersionRef = useRef(0);
+  const saveTimeoutRef = useRef<number | null>(null);
   const shiftHeld = useShiftHeld(isActive);
 
   const load = useCallback(async () => {
@@ -166,25 +167,40 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
     };
   }, [isActive, installedApps, loading]);
 
-  const persistPersonalities = useCallback(async (next: Personality[]) => {
+  const persistPersonalities = useCallback((next: Personality[]) => {
     const persistVersion = persistVersionRef.current + 1;
     persistVersionRef.current = persistVersion;
-    setError(null);
-    try {
-      const cleaned = await invoke<Personality[]>("set_personalities", {
-        personalities: next,
-      });
-      if (persistVersion !== persistVersionRef.current) {
-        return;
-      }
-      setPersonalities(cleaned ?? next);
-    } catch (err) {
-      if (persistVersion !== persistVersionRef.current) {
-        return;
-      }
-      console.error(err);
-      setError(err instanceof Error ? err.message : String(err));
+    
+    if (saveTimeoutRef.current !== null) {
+      window.clearTimeout(saveTimeoutRef.current);
     }
+    
+    saveTimeoutRef.current = window.setTimeout(async () => {
+      setError(null);
+      try {
+        const cleaned = await invoke<Personality[]>("set_personalities", {
+          personalities: next,
+        });
+        if (persistVersion !== persistVersionRef.current) {
+          return;
+        }
+        setPersonalities(cleaned ?? next);
+      } catch (err) {
+        if (persistVersion !== persistVersionRef.current) {
+          return;
+        }
+        console.error(err);
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }, 500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current !== null) {
+        window.clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, []);
 
   const updatePersonalities = useCallback(

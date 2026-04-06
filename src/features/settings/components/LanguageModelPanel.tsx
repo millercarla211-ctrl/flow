@@ -78,11 +78,14 @@ const LanguageModelPanel = ({
         <AnimatePresence initial={false}>
           {llmEnabled && (
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
+              initial={{ height: 0, opacity: 0, overflow: "hidden" }}
+              animate={{
+                height: "auto",
+                opacity: 1,
+                transitionEnd: { overflow: "visible" },
+              }}
+              exit={{ height: 0, opacity: 0, overflow: "hidden" }}
               transition={{ type: "spring", stiffness: 400, damping: 35 }}
-              style={{ overflow: "visible" }}
             >
               <div className="pt-3 border-t border-border-primary space-y-3">
                 <div className="space-y-1.5">
