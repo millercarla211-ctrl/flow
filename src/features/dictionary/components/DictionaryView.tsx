@@ -246,8 +246,11 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
         });
   const panelBodyClassName =
     "mt-4 min-h-[16rem] max-h-[calc(100vh-330px)] overflow-x-hidden overflow-y-auto custom-scrollbar";
+  const panelBodyFadeClassName =
+    "pb-20";
   const itemRowClassName =
     "group flex min-h-[42px] items-center gap-3 rounded-lg px-2.5 py-2 transition-colors hover:bg-surface-surface";
+  const FADE_ITEM_THRESHOLD = 6;
 
   return (
     <div className="w-full min-w-0 max-w-7xl mx-auto pl-2 pr-6 text-left">
@@ -353,150 +356,161 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
             )}
           </div>
 
-          <div className={panelBodyClassName}>
-            {loading ? (
-              <div className="flex items-center justify-center py-10">
-                <DotMatrix
-                  rows={2}
-                  cols={6}
-                  activeDots={[0, 1, 2, 3, 4, 5]}
-                  dotSize={3}
-                  gap={3}
-                  color="var(--color-content-muted)"
-                  animated
-                  className="opacity-60"
-                />
-              </div>
-            ) : filteredEntries.length === 0 ? (
-              <div className="flex flex-col items-start gap-2 py-6 text-content-muted">
-                {isSearching ? (
-                  <>
-                    <p className="ui-text-body-lg-strong">
-                      {t({
-                        id: "dictionary.no_matches",
-                        message: "No matches found",
-                      })}
-                    </p>
-                    <p className="ui-text-body-sm ui-color-muted">
-                      {t({
-                        id: "dictionary.add_prompt",
-                        message: `Press Enter to add "${newEntry.trim()}" as a new entry.`,
-                      })}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="ui-text-body-lg-strong">
-                      {t({
-                        id: "dictionary.no_entries",
-                        message: "No entries yet",
-                      })}
-                    </p>
-                    <p className="ui-text-body-sm ui-color-muted text-pretty">
-                      {t({
-                        id: "dictionary.no_entries.description",
-                        message:
-                          "Add words, phrases, or names above and press Enter to save them here.",
-                      })}
-                    </p>
-                  </>
-                )}
-              </div>
-            ) : (
-              <>
-                {filteredEntries.map((entry, filteredIndex) => {
-                  const originalIndex = entries.indexOf(entry);
-                  return (
-                    <div
-                      key={`${entry}-${originalIndex}-${filteredIndex}`}
-                      className={itemRowClassName}
-                    >
-                      {editingIndex === originalIndex ? (
-                        <input
-                          value={editingValue}
-                          onChange={(e) => setEditingValue(e.target.value)}
-                          autoFocus
-                          onFocus={(e) => e.target.select()}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleEditCommit();
-                            }
-                            if (e.key === "Escape") {
-                              setEditingIndex(null);
-                              setEditingValue("");
-                            }
-                          }}
-                          onBlur={() => handleEditCommit()}
-                          className="flex-1 min-w-0 bg-transparent leading-tight border-0 border-b border-[var(--color-accent)] px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
-                        />
-                      ) : (
-                        <button
-                          onClick={() => startEditing(originalIndex)}
-                          className="flex-1 min-w-0 text-left"
-                        >
-                          <div className="flex flex-col">
-                            <p className="ui-text-body-lg ui-color-primary leading-tight font-medium truncate">
-                              {entry}
-                            </p>
-                          </div>
-                        </button>
-                      )}
-
-                      <div className="flex items-center gap-1">
+          <div className="relative">
+            <div className={`${panelBodyClassName}${filteredEntries.length > FADE_ITEM_THRESHOLD ? ` ${panelBodyFadeClassName}` : ""}`}>
+              {loading ? (
+                <div className="flex items-center justify-center py-10">
+                  <DotMatrix
+                    rows={2}
+                    cols={6}
+                    activeDots={[0, 1, 2, 3, 4, 5]}
+                    dotSize={3}
+                    gap={3}
+                    color="var(--color-content-muted)"
+                    animated
+                    className="opacity-60"
+                  />
+                </div>
+              ) : filteredEntries.length === 0 ? (
+                <div className="flex flex-col items-start gap-2 py-6 text-content-muted">
+                  {isSearching ? (
+                    <>
+                      <p className="ui-text-body-lg-strong">
+                        {t({
+                          id: "dictionary.no_matches",
+                          message: "No matches found",
+                        })}
+                      </p>
+                      <p className="ui-text-body-sm ui-color-muted">
+                        {t({
+                          id: "dictionary.add_prompt",
+                          message: `Press Enter to add "${newEntry.trim()}" as a new entry.`,
+                        })}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="ui-text-body-lg-strong">
+                        {t({
+                          id: "dictionary.no_entries",
+                          message: "No entries yet",
+                        })}
+                      </p>
+                      <p className="ui-text-body-sm ui-color-muted text-pretty">
+                        {t({
+                          id: "dictionary.no_entries.description",
+                          message:
+                            "Add words, phrases, or names above and press Enter to save them here.",
+                        })}
+                      </p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {filteredEntries.map((entry, filteredIndex) => {
+                    const originalIndex = entries.indexOf(entry);
+                    return (
+                      <div
+                        key={`${entry}-${originalIndex}-${filteredIndex}`}
+                        className={itemRowClassName}
+                      >
                         {editingIndex === originalIndex ? (
-                          <div className="ui-text-nano ui-color-muted pr-1">
-                            {t({
-                              id: "dictionary.press_enter_to_save",
-                              message: "Press Enter to save",
-                            })}
-                          </div>
+                          <input
+                            value={editingValue}
+                            onChange={(e) => setEditingValue(e.target.value)}
+                            autoFocus
+                            onFocus={(e) => e.target.select()}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleEditCommit();
+                              }
+                              if (e.key === "Escape") {
+                                setEditingIndex(null);
+                                setEditingValue("");
+                              }
+                            }}
+                            onBlur={() => handleEditCommit()}
+                            className="flex-1 min-w-0 bg-transparent leading-tight border-0 border-b border-[var(--color-accent)] px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
+                          />
                         ) : (
-                          <>
-                            <div
-                              className="ui-text-nano ui-color-muted opacity-0 transition-opacity duration-150 group-hover:opacity-100 pr-1"
-                              aria-hidden="true"
-                            >
+                          <button
+                            onClick={() => startEditing(originalIndex)}
+                            className="flex-1 min-w-0 text-left"
+                          >
+                            <div className="flex flex-col">
+                              <p className="ui-text-body-lg ui-color-primary leading-tight font-medium truncate">
+                                {entry}
+                              </p>
+                            </div>
+                          </button>
+                        )}
+
+                        <div className="flex items-center gap-1">
+                          {editingIndex === originalIndex ? (
+                            <div className="ui-text-nano ui-color-muted pr-1">
                               {t({
-                                id: "dictionary.click_to_edit",
-                                message: "Click to edit",
+                                id: "dictionary.press_enter_to_save",
+                                message: "Press Enter to save",
                               })}
                             </div>
-                            <button
-                              onClick={() => startEditing(originalIndex)}
-                              className="rounded bg-transparent p-1 text-content-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-[var(--color-bg-elevated)] hover:text-content-primary"
-                              title={t({
-                                id: "dictionary.edit",
-                                message: "Edit",
-                              })}
-                              aria-label={t({
-                                id: "dictionary.edit_entry",
-                                message: `Edit ${entry}`,
-                              })}
-                            >
-                              <Edit3 size={14} aria-hidden="true" />
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={() => handleDelete(originalIndex)}
-                          className="rounded bg-transparent p-1 text-content-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-red-500/10 hover:text-error"
-                          title={t({
-                            id: "dictionary.delete",
-                            message: "Delete",
-                          })}
-                          aria-label={t({
-                            id: "dictionary.delete_entry",
-                            message: `Delete ${entry}`,
-                          })}
-                        >
-                          <Trash2 size={14} aria-hidden="true" />
-                        </button>
+                          ) : (
+                            <>
+                              <div
+                                className="ui-text-nano ui-color-muted opacity-0 transition-opacity duration-150 group-hover:opacity-100 pr-1"
+                                aria-hidden="true"
+                              >
+                                {t({
+                                  id: "dictionary.click_to_edit",
+                                  message: "Click to edit",
+                                })}
+                              </div>
+                              <button
+                                onClick={() => startEditing(originalIndex)}
+                                className="rounded bg-transparent p-1 text-content-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-[var(--color-bg-elevated)] hover:text-content-primary"
+                                title={t({
+                                  id: "dictionary.edit",
+                                  message: "Edit",
+                                })}
+                                aria-label={t({
+                                  id: "dictionary.edit_entry",
+                                  message: `Edit ${entry}`,
+                                })}
+                              >
+                                <Edit3 size={14} aria-hidden="true" />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => handleDelete(originalIndex)}
+                            className="rounded bg-transparent p-1 text-content-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-red-500/10 hover:text-error"
+                            title={t({
+                              id: "dictionary.delete",
+                              message: "Delete",
+                            })}
+                            aria-label={t({
+                              id: "dictionary.delete_entry",
+                              message: `Delete ${entry}`,
+                            })}
+                          >
+                            <Trash2 size={14} aria-hidden="true" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+            {filteredEntries.length > FADE_ITEM_THRESHOLD && (
+              <div
+                className="pointer-events-none absolute bottom-0 left-0 right-0 h-20"
+                style={{
+                  background:
+                    "linear-gradient(to bottom, transparent, var(--color-bg-tertiary))",
+                }}
+              />
             )}
           </div>
 
@@ -603,185 +617,200 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
             )}
           </div>
 
-          <div className={panelBodyClassName}>
-            {loading ? (
-              <div className="flex items-center justify-center py-10">
-                <DotMatrix
-                  rows={2}
-                  cols={6}
-                  activeDots={[0, 1, 2, 3, 4, 5]}
-                  dotSize={3}
-                  gap={3}
-                  color="var(--color-content-muted)"
-                  animated
-                  className="opacity-60"
-                />
-              </div>
-            ) : replacements.length === 0 ? (
-              <div className="flex flex-col items-start gap-2 py-6 text-content-muted">
-                <p className="ui-text-body-lg-strong">
-                  {t({
-                    id: "dictionary.replacements.none",
-                    message: "No replacements yet",
-                  })}
-                </p>
-                <p className="ui-text-body-sm ui-color-muted text-pretty">
-                  {t({
-                    id: "dictionary.replacements.none_description",
-                    message:
-                      "Add a find and replace pair above, then press Enter to save it here.",
-                  })}
-                </p>
-              </div>
-            ) : (
-              <>
-                {replacements.map((replacement, idx) => (
-                  <div
-                    key={`${replacement.from}-${idx}`}
-                    className={itemRowClassName}
-                  >
-                    {editingReplacementIndex === idx ? (
-                      <div
-                        className="flex flex-1 items-center"
-                        data-replacement-edit
-                      >
-                        <input
-                          value={editingFrom}
-                          onChange={(e) => setEditingFrom(e.target.value)}
-                          autoFocus
-                          onFocus={(e) => e.target.select()}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleEditReplacementCommit();
-                            }
-                            if (e.key === "Escape") {
-                              setEditingReplacementIndex(null);
-                              setEditingFrom("");
-                              setEditingTo("");
-                            }
-                          }}
-                          onBlur={(e) => {
-                            const container = e.currentTarget.closest(
-                              "[data-replacement-edit]",
-                            );
-                            if (!container?.contains(e.relatedTarget as Node)) {
-                              handleEditReplacementCommit();
-                            }
-                          }}
-                          className="flex-1 min-w-0 bg-transparent border-0 border-b border-[var(--color-accent)] px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
-                        />
-                        <ArrowRight
-                          size={14}
-                          className="text-content-disabled shrink-0 mx-2"
-                        />
-                        <input
-                          value={editingTo}
-                          onChange={(e) => setEditingTo(e.target.value)}
-                          onFocus={(e) => e.target.select()}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleEditReplacementCommit();
-                            }
-                            if (e.key === "Escape") {
-                              setEditingReplacementIndex(null);
-                              setEditingFrom("");
-                              setEditingTo("");
-                            }
-                          }}
-                          onBlur={(e) => {
-                            const container = e.currentTarget.closest(
-                              "[data-replacement-edit]",
-                            );
-                            if (!container?.contains(e.relatedTarget as Node)) {
-                              handleEditReplacementCommit();
-                            }
-                          }}
-                          className="flex-1 min-w-0 bg-transparent border-0 border-b border-[var(--color-accent)] px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
-                        />
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => startEditingReplacement(idx)}
-                        className="flex flex-1 items-center text-left min-w-0"
-                      >
-                        <span className="ui-text-body-lg ui-color-primary font-medium truncate">
-                          {replacement.from}
-                        </span>
-                        <ArrowRight
-                          size={14}
-                          className="text-content-muted shrink-0 mx-2"
-                        />
-                        <span
-                          className="ui-text-body-lg truncate"
-                          style={{ color: "var(--color-accent)" }}
-                        >
-                          {replacement.to || (
-                            <span className="text-content-muted italic">
-                              {t({
-                                id: "dictionary.replacements.remove_value",
-                                message: "remove",
-                              })}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    )}
-
-                    <div className="flex items-center gap-1">
+          <div className="relative">
+            <div className={`${panelBodyClassName}${replacements.length > FADE_ITEM_THRESHOLD ? ` ${panelBodyFadeClassName}` : ""}`}>
+              {loading ? (
+                <div className="flex items-center justify-center py-10">
+                  <DotMatrix
+                    rows={2}
+                    cols={6}
+                    activeDots={[0, 1, 2, 3, 4, 5]}
+                    dotSize={3}
+                    gap={3}
+                    color="var(--color-content-muted)"
+                    animated
+                    className="opacity-60"
+                  />
+                </div>
+              ) : replacements.length === 0 ? (
+                <div className="flex flex-col items-start gap-2 py-6 text-content-muted">
+                  <p className="ui-text-body-lg-strong">
+                    {t({
+                      id: "dictionary.replacements.none",
+                      message: "No replacements yet",
+                    })}
+                  </p>
+                  <p className="ui-text-body-sm ui-color-muted text-pretty">
+                    {t({
+                      id: "dictionary.replacements.none_description",
+                      message:
+                        "Add a find and replace pair above, then press Enter to save it here.",
+                    })}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {replacements.map((replacement, idx) => (
+                    <div
+                      key={`${replacement.from}-${idx}`}
+                      className={itemRowClassName}
+                    >
                       {editingReplacementIndex === idx ? (
-                        <div className="ui-text-nano ui-color-muted pr-1">
-                          {t({
-                            id: "dictionary.press_enter_to_save",
-                            message: "Press Enter to save",
-                          })}
+                        <div
+                          className="flex flex-1 items-center"
+                          data-replacement-edit
+                        >
+                          <input
+                            value={editingFrom}
+                            onChange={(e) => setEditingFrom(e.target.value)}
+                            autoFocus
+                            onFocus={(e) => e.target.select()}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleEditReplacementCommit();
+                              }
+                              if (e.key === "Escape") {
+                                setEditingReplacementIndex(null);
+                                setEditingFrom("");
+                                setEditingTo("");
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const container = e.currentTarget.closest(
+                                "[data-replacement-edit]",
+                              );
+                              if (
+                                !container?.contains(e.relatedTarget as Node)
+                              ) {
+                                handleEditReplacementCommit();
+                              }
+                            }}
+                            className="flex-1 min-w-0 bg-transparent border-0 border-b border-[var(--color-accent)] px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
+                          />
+                          <ArrowRight
+                            size={14}
+                            className="text-content-disabled shrink-0 mx-2"
+                          />
+                          <input
+                            value={editingTo}
+                            onChange={(e) => setEditingTo(e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleEditReplacementCommit();
+                              }
+                              if (e.key === "Escape") {
+                                setEditingReplacementIndex(null);
+                                setEditingFrom("");
+                                setEditingTo("");
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const container = e.currentTarget.closest(
+                                "[data-replacement-edit]",
+                              );
+                              if (
+                                !container?.contains(e.relatedTarget as Node)
+                              ) {
+                                handleEditReplacementCommit();
+                              }
+                            }}
+                            className="flex-1 min-w-0 bg-transparent border-0 border-b border-[var(--color-accent)] px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
+                          />
                         </div>
                       ) : (
-                        <>
-                          <div
-                            className="ui-text-nano ui-color-muted opacity-0 transition-opacity duration-150 group-hover:opacity-100 pr-1"
-                            aria-hidden="true"
+                        <button
+                          onClick={() => startEditingReplacement(idx)}
+                          className="flex flex-1 items-center text-left min-w-0"
+                        >
+                          <span className="ui-text-body-lg ui-color-primary font-medium truncate">
+                            {replacement.from}
+                          </span>
+                          <ArrowRight
+                            size={14}
+                            className="text-content-muted shrink-0 mx-2"
+                          />
+                          <span
+                            className="ui-text-body-lg truncate"
+                            style={{ color: "var(--color-accent)" }}
                           >
+                            {replacement.to || (
+                              <span className="text-content-muted italic">
+                                {t({
+                                  id: "dictionary.replacements.remove_value",
+                                  message: "remove",
+                                })}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      )}
+
+                      <div className="flex items-center gap-1">
+                        {editingReplacementIndex === idx ? (
+                          <div className="ui-text-nano ui-color-muted pr-1">
                             {t({
-                              id: "dictionary.click_to_edit",
-                              message: "Click to edit",
+                              id: "dictionary.press_enter_to_save",
+                              message: "Press Enter to save",
                             })}
                           </div>
-                          <button
-                            onClick={() => startEditingReplacement(idx)}
-                            className="rounded bg-transparent p-1 text-content-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-[var(--color-bg-elevated)] hover:text-content-primary"
-                            title={t({
-                              id: "dictionary.edit",
-                              message: "Edit",
-                            })}
-                            aria-label={t({
-                              id: "dictionary.replacements.edit",
-                              message: `Edit replacement for ${replacement.from}`,
-                            })}
-                          >
-                            <Edit3 size={14} aria-hidden="true" />
-                          </button>
-                        </>
-                      )}
-                      <button
-                        onClick={() => handleDeleteReplacement(idx)}
-                        className="rounded bg-transparent p-1 text-content-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-red-500/10 hover:text-error"
-                        title={t({
-                          id: "dictionary.delete",
-                          message: "Delete",
-                        })}
-                        aria-label={t({
-                          id: "dictionary.replacements.delete",
-                          message: `Delete replacement for ${replacement.from}`,
-                        })}
-                      >
-                        <Trash2 size={14} aria-hidden="true" />
-                      </button>
+                        ) : (
+                          <>
+                            <div
+                              className="ui-text-nano ui-color-muted opacity-0 transition-opacity duration-150 group-hover:opacity-100 pr-1"
+                              aria-hidden="true"
+                            >
+                              {t({
+                                id: "dictionary.click_to_edit",
+                                message: "Click to edit",
+                              })}
+                            </div>
+                            <button
+                              onClick={() => startEditingReplacement(idx)}
+                              className="rounded bg-transparent p-1 text-content-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-[var(--color-bg-elevated)] hover:text-content-primary"
+                              title={t({
+                                id: "dictionary.edit",
+                                message: "Edit",
+                              })}
+                              aria-label={t({
+                                id: "dictionary.replacements.edit",
+                                message: `Edit replacement for ${replacement.from}`,
+                              })}
+                            >
+                              <Edit3 size={14} aria-hidden="true" />
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => handleDeleteReplacement(idx)}
+                          className="rounded bg-transparent p-1 text-content-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-red-500/10 hover:text-error"
+                          title={t({
+                            id: "dictionary.delete",
+                            message: "Delete",
+                          })}
+                          aria-label={t({
+                            id: "dictionary.replacements.delete",
+                            message: `Delete replacement for ${replacement.from}`,
+                          })}
+                        >
+                          <Trash2 size={14} aria-hidden="true" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </>
+                  ))}
+                </>
+              )}
+            </div>
+            {replacements.length > FADE_ITEM_THRESHOLD && (
+              <div
+                className="pointer-events-none absolute bottom-0 left-0 right-0 h-20"
+                style={{
+                  background:
+                    "linear-gradient(to bottom, transparent, var(--color-bg-tertiary))",
+                }}
+              />
             )}
           </div>
 
