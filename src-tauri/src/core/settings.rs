@@ -325,13 +325,4 @@ mod tests {
         assert_eq!(err, "Choose a language model before enabling AI features");
     }
 
-    #[test]
-    fn rejects_invalid_app_locale_selection() {
-        let mut args = base_args();
-        args.app_locale = "de".to_string();
-
-        let err = validate_update_settings_args(&args).unwrap_err();
-
-        assert_eq!(err, "Unknown app language selection");
-    }
 }

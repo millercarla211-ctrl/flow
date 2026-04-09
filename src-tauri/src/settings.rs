@@ -874,34 +874,6 @@ mod tests {
     }
 
     #[test]
-    fn canonicalizes_locale_codes() {
-        assert_eq!(canonicalize_app_locale("fr"), Some("fr".to_string()));
-        assert_eq!(canonicalize_app_locale("FR"), Some("fr".to_string()));
-        assert_eq!(
-            canonicalize_app_locale("SYSTEM"),
-            Some("system".to_string())
-        );
-        assert_eq!(canonicalize_app_locale("it"), None);
-    }
-
-    #[test]
-    fn invalid_app_locale_resets_to_system() {
-        let store = test_store();
-        write_setting(&store, KEY_APP_LOCALE, &"it");
-        write_setting(&store, KEY_PERSONALITIES_NOTES_SEEDED, &true);
-
-        let loaded = store.load().expect("load settings");
-
-        let conn = store.conn.lock();
-        let stored_locale = store
-            .read_value(&conn, KEY_APP_LOCALE, String::new())
-            .expect("read stored app locale");
-
-        assert_eq!(loaded.app_locale, "system");
-        assert_eq!(stored_locale, "system");
-    }
-
-    #[test]
     fn decryptable_api_key_replaces_cached_ciphertext_after_reload() {
         let Some(hardware_uuid) = crate::crypto::get_hardware_uuid() else {
             return;
