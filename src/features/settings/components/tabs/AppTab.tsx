@@ -13,11 +13,11 @@ import {
 import { buildAppLocaleOptions } from "../../../../shared/lib/appLocales";
 import { Dropdown } from "../../../../shared/ui/Dropdown";
 import { ACTION_CARD_BUTTON_ACCENTS } from "../../../../shared/ui/ActionCardButton";
-import SegmentedControl from "../../../../shared/ui/SegmentedControl";
 import type {
   AppLocaleSetting,
   RecordingPrunePolicy,
   TextSizeMode,
+  ThemeMode,
 } from "../../../../types";
 
 const LOCAL_ACTION_SHADOW =
@@ -69,6 +69,8 @@ type AppTabProps = {
   onRequestMicrophonePermission: () => Promise<void>;
   textSizeMode: TextSizeMode;
   onTextSizeModeChange: (mode: TextSizeMode) => void;
+  themeMode: ThemeMode;
+  onThemeModeChange: (mode: ThemeMode) => void;
   appLocale: AppLocaleSetting;
   onAppLocaleChange: (locale: AppLocaleSetting) => void;
   mediaControlEnabled: boolean;
@@ -89,6 +91,8 @@ const AppTab = ({
   onRequestMicrophonePermission,
   textSizeMode,
   onTextSizeModeChange,
+  themeMode,
+  onThemeModeChange,
   appLocale,
   onAppLocaleChange,
   mediaControlEnabled,
@@ -107,6 +111,12 @@ const AppTab = ({
     { value: "small", label: t({ id: "settings.app.text_size.small", message: "Small" }) },
     { value: "default", label: t({ id: "settings.app.text_size.default", message: "Default" }) },
     { value: "large", label: t({ id: "settings.app.text_size.large", message: "Large" }) },
+  ];
+
+  const themeOptions: Array<{ value: ThemeMode; label: string }> = [
+    { value: "system", label: t({ id: "settings.app.theme.system", message: "System" }) },
+    { value: "light", label: t({ id: "settings.app.theme.light", message: "Light" }) },
+    { value: "dark", label: t({ id: "settings.app.theme.dark", message: "Dark" }) },
   ];
 
   const recordingPruneOptions: Array<{
@@ -160,41 +170,40 @@ const AppTab = ({
           })}
         </h2>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="ui-text-label-strong ui-color-primary">
-                {t({
-                  id: "settings.app.text_size.label",
-                  message: "Text Size",
-                })}
-              </span>
-            </div>
-            <SegmentedControl
-              value={textSizeMode}
-              options={textSizeOptions}
-              onChange={onTextSizeModeChange}
-              ariaLabel={t({
-                id: "settings.app.text_size.aria_label",
-                message: "Choose text size",
+            <span className="ui-text-label-strong ui-color-primary">
+              {t({
+                id: "settings.app.text_size.label",
+                message: "Text Size",
               })}
-              className="flex items-center bg-surface-surface p-1 rounded-lg border border-border-primary relative"
-              buttonClassName="relative min-w-0 flex-1 px-3 py-1 rounded-md ui-text-body-sm-strong transition-colors duration-200 z-10"
-              activeButtonClassName="ui-color-primary"
-              inactiveButtonClassName="ui-color-muted hover:text-content-secondary"
-              activeIndicatorClassName="absolute inset-0 rounded-md border border-border-secondary bg-surface-elevated shadow-xs z-[-1]"
-              activeIndicatorLayoutId="settings-text-size"
+            </span>
+            <Dropdown
+              value={textSizeMode}
+              onChange={onTextSizeModeChange}
+              options={textSizeOptions}
             />
           </div>
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="ui-text-label-strong ui-color-primary">
-                {t({
-                  id: "settings.app.language.label",
-                  message: "Language",
-                })}
-              </span>
-            </div>
+            <span className="ui-text-label-strong ui-color-primary">
+              {t({
+                id: "settings.app.theme.label",
+                message: "Theme",
+              })}
+            </span>
+            <Dropdown
+              value={themeMode}
+              onChange={onThemeModeChange}
+              options={themeOptions}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <span className="ui-text-label-strong ui-color-primary">
+              {t({
+                id: "settings.app.language.label",
+                message: "Language",
+              })}
+            </span>
             <Dropdown
               value={appLocale}
               onChange={(value) => onAppLocaleChange(value)}

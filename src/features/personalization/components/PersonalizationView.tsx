@@ -304,7 +304,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
           activeDots={[0, 1, 4, 5]}
           dotSize={3}
           gap={3}
-          color="var(--color-accent)"
+          color="var(--color-section-marker-alt)"
         />
         <div className="flex-1 flex items-start justify-between gap-4">
           <div>
@@ -322,18 +322,19 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
             </p>
           </div>
           <button
+            type="button"
             onClick={handleAddMode}
             aria-label={t({
               id: "personalization.new_mode",
               message: "New mode",
             })}
-            title={t({
-              id: "personalization.new_mode",
-              message: "New mode",
-            })}
-            className="flex items-center gap-2 rounded-lg border border-border-primary bg-surface-surface px-2.5 py-1.5 ui-text-button ui-color-primary hover:bg-surface-elevated transition-colors"
+            className="group inline-flex shrink-0 self-start items-center gap-1.5 rounded-lg border border-border-primary bg-surface-secondary px-3 py-1.5 ui-text-button ui-color-secondary transition-colors hover:border-border-hover hover:bg-surface-elevated hover:text-content-primary"
           >
-            <Plus size={12} />
+            <Plus
+              size={13}
+              aria-hidden="true"
+              className="text-content-muted transition-colors group-hover:text-content-primary"
+            />
             {t({
               id: "personalization.new_mode",
               message: "New mode",
@@ -405,10 +406,10 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
                 }}
                 role="button"
                 tabIndex={0}
-                className={`group relative rounded-xl border bg-surface-secondary p-2.5 text-left transition-colors cursor-pointer ${
+                className={`ui-card-liftable group relative p-2.5 text-left ${
                   shiftHeld
-                    ? "border-red-500/30 hover:border-red-500/60 hover:bg-red-500/5"
-                    : "border-border-primary hover:bg-surface-tertiary"
+                    ? "!border-red-500/30 hover:!border-red-500/60 hover:!bg-red-500/5"
+                    : ""
                 }`}
               >
                 <div className="relative space-y-2">

@@ -68,7 +68,6 @@ const LibraryView = ({
 
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
-    // dateFilter was removed in redesign
     const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
     const [modelStatus, setModelStatus] = useState<Record<string, ModelStatus>>({});
     const [editingNameId, setEditingNameId] = useState<string | null>(null);
@@ -306,7 +305,7 @@ const LibraryView = ({
                             activeDots={[0, 1, 2, 4]}
                             dotSize={3}
                             gap={3}
-                            color="var(--color-accent)"
+                            color="var(--color-section-marker-alt)"
                         />
                         <div className="min-w-0 flex-1">
                             <h2 className="ui-text-screen-title ui-color-primary tracking-tight">

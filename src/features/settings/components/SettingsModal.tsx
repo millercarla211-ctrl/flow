@@ -295,6 +295,8 @@ const SettingsModal = ({
                       }
                       textSizeMode={form.textSizeMode}
                       onTextSizeModeChange={form.setTextSizeMode}
+                      themeMode={form.themeMode}
+                      onThemeModeChange={form.setThemeMode}
                       appLocale={form.appLocale}
                       onAppLocaleChange={form.setAppLocale}
                       mediaControlEnabled={form.mediaControlEnabled}

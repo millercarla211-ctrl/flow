@@ -1,19 +1,21 @@
 import { useLingui } from "@lingui/react/macro";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { AlertTriangle, ArrowRight, Edit3, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Trash2 } from "lucide-react";
 import DotMatrix from "../../../shared/ui/DotMatrix";
 import {
   hasModelCapability,
   MODEL_CAPABILITY_DICTIONARY,
 } from "../../../shared/lib/modelCapabilities";
+import { useShiftHeld } from "../../../shared/hooks/useShiftHeld";
 import type { StoredSettings, ModelInfo, Replacement } from "../../../types";
 
 const normalizeEntry = (value: string) => value.trim();
 
 const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
   const { t } = useLingui();
+  const shiftHeld = useShiftHeld(isActive);
 
   const [entries, setEntries] = useState<string[]>([]);
   const [newEntry, setNewEntry] = useState("");
@@ -30,7 +32,6 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
   const [editingTo, setEditingTo] = useState("");
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<StoredSettings | null>(null);
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -92,7 +93,6 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
   }, [isActive]);
 
   const persistEntries = useCallback(async (next: string[]) => {
-    setSaving(true);
     setError(null);
     try {
       const cleaned = await invoke<string[]>("set_dictionary", {
@@ -105,13 +105,10 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
     }
   }, []);
 
   const persistReplacements = useCallback(async (next: Replacement[]) => {
-    setSaving(true);
     setError(null);
     try {
       const cleaned = await invoke<Replacement[]>("set_replacements", {
@@ -126,8 +123,6 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
     }
   }, []);
 
@@ -234,8 +229,15 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
           message: `${filteredEntries.length} of ${entries.length} matches`,
         })
       : entryCountLabel;
-  const dictionaryHintLabel =
-    isSearching && entries.length > 0
+  const isEditingDictionary = editingIndex !== null;
+  const isEditingReplacement = editingReplacementIndex !== null;
+  const editHintLabel = t({
+    id: "dictionary.edit_hint",
+    message: "Press Enter to save · Esc to cancel",
+  });
+  const dictionaryHintLabel = isEditingDictionary
+    ? editHintLabel
+    : isSearching && entries.length > 0
       ? t({
           id: "dictionary.press_enter_to_add_match",
           message: "Press Enter to add this word",
@@ -244,12 +246,28 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
           id: "dictionary.press_enter_to_add",
           message: "Press Enter to add",
         });
+  const replacementHintLabel = isEditingReplacement
+    ? editHintLabel
+    : t({
+        id: "dictionary.replacements.press_enter_to_add",
+        message: "Press Enter in either field to add",
+      });
   const panelBodyClassName =
     "mt-4 min-h-[16rem] max-h-[calc(100vh-330px)] overflow-x-hidden overflow-y-auto custom-scrollbar";
   const panelBodyFadeClassName =
     "pb-20";
   const itemRowClassName =
-    "group flex min-h-[42px] items-center gap-3 rounded-lg px-2.5 py-2 transition-colors hover:bg-surface-surface";
+    "group relative flex min-h-[42px] items-center overflow-hidden rounded-lg transition-colors hover:bg-[var(--surface-interactive)]";
+  const editRowClassName =
+    "group relative flex min-h-[42px] items-center rounded-lg bg-[var(--surface-interactive)]";
+  const actionGradientStyle: CSSProperties = {
+    backgroundImage:
+      "linear-gradient(to left, var(--color-row-action-fade) 62%, transparent)",
+  };
+  const deleteButtonClassName =
+    "rounded p-1 text-content-muted transition-colors hover:bg-[color-mix(in_srgb,var(--color-error)_16%,transparent)] hover:text-error";
+  const deleteButtonActiveClassName =
+    "rounded p-1 text-error bg-[color-mix(in_srgb,var(--color-error)_16%,transparent)] transition-colors";
   const FADE_ITEM_THRESHOLD = 6;
 
   return (
@@ -261,7 +279,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
           activeDots={[0, 1, 2, 3]}
           dotSize={3}
           gap={3}
-          color="var(--color-cloud)"
+          color="var(--color-section-marker)"
         />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -326,13 +344,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
             </p>
           </div>
 
-          <div className="mt-4 border-b border-border-primary pb-3 transition-colors focus-within:border-border-hover">
-            <div className="ui-text-section-label-sm ui-color-muted">
-              {t({
-                id: "dictionary.search_or_add_label",
-                message: "Search Or Add",
-              })}
-            </div>
+          <div className="mt-4 border-b border-border-primary pb-2 transition-colors focus-within:border-border-hover">
             <input
               value={newEntry}
               onChange={(e) => setNewEntry(e.target.value)}
@@ -350,7 +362,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                 id: "dictionary.search_or_add_aria",
                 message: "Add or search dictionary entry",
               })}
-              className="mt-2 h-7 w-full min-w-0 bg-transparent ui-text-body-lg ui-color-primary placeholder-content-disabled outline-hidden"
+              className="h-8 w-full min-w-0 bg-transparent ui-text-body-lg ui-color-primary placeholder-content-disabled outline-hidden"
             />
           </div>
 
@@ -362,14 +374,6 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
               {dictionaryMetaLabel}
             </span>
             <span>{dictionaryHintLabel}</span>
-            {saving && (
-              <span className="ui-color-secondary">
-                {t({
-                  id: "dictionary.saving",
-                  message: "Saving...",
-                })}
-              </span>
-            )}
           </div>
 
           <div className="relative">
@@ -426,12 +430,13 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                 <>
                   {filteredEntries.map((entry, filteredIndex) => {
                     const originalIndex = entries.indexOf(entry);
-                    return (
-                      <div
-                        key={`${entry}-${originalIndex}-${filteredIndex}`}
-                        className={itemRowClassName}
-                      >
-                        {editingIndex === originalIndex ? (
+                    const isEditing = editingIndex === originalIndex;
+                    if (isEditing) {
+                      return (
+                        <div
+                          key={`${entry}-${originalIndex}-${filteredIndex}`}
+                          className={`${editRowClassName} px-2.5`}
+                        >
                           <input
                             value={editingValue}
                             onChange={(e) => setEditingValue(e.target.value)}
@@ -448,59 +453,60 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                               }
                             }}
                             onBlur={() => handleEditCommit()}
-                            className="flex-1 min-w-0 bg-transparent leading-tight border-0 border-b border-[var(--color-accent)] px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
+                            className="flex-1 min-w-0 bg-transparent border-0 px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
+                            style={{
+                              boxShadow:
+                                "inset 0 -1px 0 var(--color-border-hover)",
+                            }}
                           />
-                        ) : (
-                          <button
-                            onClick={() => startEditing(originalIndex)}
-                            className="flex-1 min-w-0 text-left"
+                        </div>
+                      );
+                    }
+                    return (
+                      <div
+                        key={`${entry}-${originalIndex}-${filteredIndex}`}
+                        className={itemRowClassName}
+                      >
+                        <button
+                          onClick={() =>
+                            shiftHeld
+                              ? handleDelete(originalIndex)
+                              : startEditing(originalIndex)
+                          }
+                          className="flex-1 min-w-0 text-left px-2.5 py-2"
+                          title={
+                            shiftHeld
+                              ? t({
+                                  id: "dictionary.delete_entry",
+                                  message: `Delete ${entry}`,
+                                })
+                              : undefined
+                          }
+                        >
+                          <p
+                            className={`ui-text-body-lg ui-color-primary leading-tight font-medium truncate transition-colors duration-100 ease-out ${
+                              shiftHeld
+                                ? "group-hover:!text-error group-hover:line-through"
+                                : ""
+                            }`}
                           >
-                            <div className="flex flex-col">
-                              <p className="ui-text-body-lg ui-color-primary leading-tight font-medium truncate">
-                                {entry}
-                              </p>
-                            </div>
-                          </button>
-                        )}
-
-                        <div className="flex items-center gap-1">
-                          {editingIndex === originalIndex ? (
-                            <div className="ui-text-nano ui-color-muted pr-1">
-                              {t({
-                                id: "dictionary.press_enter_to_save",
-                                message: "Press Enter to save",
-                              })}
-                            </div>
-                          ) : (
-                            <>
-                              <div
-                                className="ui-text-nano ui-color-muted opacity-0 transition-opacity duration-150 group-hover:opacity-100 pr-1"
-                                aria-hidden="true"
-                              >
-                                {t({
-                                  id: "dictionary.click_to_edit",
-                                  message: "Click to edit",
-                                })}
-                              </div>
-                              <button
-                                onClick={() => startEditing(originalIndex)}
-                                className="rounded bg-transparent p-1 text-content-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-[var(--color-bg-elevated)] hover:text-content-primary"
-                                title={t({
-                                  id: "dictionary.edit",
-                                  message: "Edit",
-                                })}
-                                aria-label={t({
-                                  id: "dictionary.edit_entry",
-                                  message: `Edit ${entry}`,
-                                })}
-                              >
-                                <Edit3 size={14} aria-hidden="true" />
-                              </button>
-                            </>
-                          )}
+                            {entry}
+                          </p>
+                        </button>
+                        <div
+                          className="absolute inset-y-0 right-0 flex items-center gap-1 pl-6 pr-2 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
+                          style={{
+                            ...actionGradientStyle,
+                            willChange: "opacity",
+                          }}
+                        >
                           <button
                             onClick={() => handleDelete(originalIndex)}
-                            className="rounded bg-transparent p-1 text-content-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-red-500/10 hover:text-error"
+                            className={
+                              shiftHeld
+                                ? deleteButtonActiveClassName
+                                : deleteButtonClassName
+                            }
                             title={t({
                               id: "dictionary.delete",
                               message: "Delete",
@@ -556,13 +562,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-end">
-            <div className="border-b border-border-primary pb-3 transition-colors focus-within:border-border-hover">
-              <div className="ui-text-section-label-sm ui-color-muted">
-                {t({
-                  id: "dictionary.replacements.find_label",
-                  message: "Find",
-                })}
-              </div>
+            <div className="border-b border-border-primary pb-2 transition-colors focus-within:border-border-hover">
               <input
                 value={newFrom}
                 onChange={(e) => setNewFrom(e.target.value)}
@@ -580,19 +580,13 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                   id: "dictionary.replacements.find_aria",
                   message: "Find word to replace",
                 })}
-                className="mt-2 h-7 w-full min-w-0 bg-transparent ui-text-body-lg ui-color-primary placeholder-content-disabled outline-hidden"
+                className="h-8 w-full min-w-0 bg-transparent ui-text-body-lg ui-color-primary placeholder-content-disabled outline-hidden"
               />
             </div>
-            <div className="hidden sm:flex items-center justify-center pb-3 text-content-muted">
+            <div className="hidden sm:flex items-center justify-center pb-2 text-content-muted">
               <ArrowRight size={14} aria-hidden="true" />
             </div>
-            <div className="border-b border-border-primary pb-3 transition-colors focus-within:border-border-hover">
-              <div className="ui-text-section-label-sm ui-color-muted">
-                {t({
-                  id: "dictionary.replacements.replace_with_label",
-                  message: "Replace With",
-                })}
-              </div>
+            <div className="border-b border-border-primary pb-2 transition-colors focus-within:border-border-hover">
               <input
                 value={newTo}
                 onChange={(e) => setNewTo(e.target.value)}
@@ -610,27 +604,14 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                   id: "dictionary.replacements.replace_with_aria",
                   message: "Replace with",
                 })}
-                className="mt-2 h-7 w-full min-w-0 bg-transparent ui-text-body-lg ui-color-primary placeholder-content-disabled outline-hidden"
+                className="h-8 w-full min-w-0 bg-transparent ui-text-body-lg ui-color-primary placeholder-content-disabled outline-hidden"
               />
             </div>
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 ui-text-meta ui-color-muted">
             <span className="tabular-nums">{replacementCountLabel}</span>
-            <span>
-              {t({
-                id: "dictionary.replacements.press_enter_to_add",
-                message: "Press Enter in either field to add",
-              })}
-            </span>
-            {saving && (
-              <span className="ui-color-secondary">
-                {t({
-                  id: "dictionary.saving",
-                  message: "Saving...",
-                })}
-              </span>
-            )}
+            <span>{replacementHintLabel}</span>
           </div>
 
           <div className="relative">
@@ -666,14 +647,13 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                 </div>
               ) : (
                 <>
-                  {replacements.map((replacement, idx) => (
-                    <div
-                      key={`${replacement.from}-${idx}`}
-                      className={itemRowClassName}
-                    >
-                      {editingReplacementIndex === idx ? (
+                  {replacements.map((replacement, idx) => {
+                    const isEditing = editingReplacementIndex === idx;
+                    if (isEditing) {
+                      return (
                         <div
-                          className="flex flex-1 items-center"
+                          key={`${replacement.from}-${idx}`}
+                          className={`${editRowClassName} gap-2 px-2.5 py-2`}
                           data-replacement-edit
                         >
                           <input
@@ -702,11 +682,16 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                                 handleEditReplacementCommit();
                               }
                             }}
-                            className="flex-1 min-w-0 bg-transparent border-0 border-b border-[var(--color-accent)] px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
+                            className="min-w-0 flex-1 basis-0 bg-transparent border-0 px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
+                            style={{
+                              boxShadow:
+                                "inset 0 -1px 0 var(--color-border-hover)",
+                            }}
                           />
                           <ArrowRight
                             size={14}
-                            className="text-content-disabled shrink-0 mx-2"
+                            className="text-content-muted shrink-0"
+                            aria-hidden="true"
                           />
                           <input
                             value={editingTo}
@@ -733,24 +718,62 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                                 handleEditReplacementCommit();
                               }
                             }}
-                            className="flex-1 min-w-0 bg-transparent border-0 border-b border-[var(--color-accent)] px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
+                            placeholder={t({
+                              id: "dictionary.replacements.replace_with",
+                              message: "Replace with...",
+                            })}
+                            className="min-w-0 flex-1 basis-0 bg-transparent border-0 px-0 py-0 rounded-none ui-text-body-lg ui-color-primary placeholder-content-disabled outline-hidden focus:ring-0"
+                            style={{
+                              boxShadow:
+                                "inset 0 -1px 0 var(--color-border-hover)",
+                            }}
                           />
                         </div>
-                      ) : (
+                      );
+                    }
+                    return (
+                      <div
+                        key={`${replacement.from}-${idx}`}
+                        className={itemRowClassName}
+                      >
                         <button
-                          onClick={() => startEditingReplacement(idx)}
-                          className="flex flex-1 items-center text-left min-w-0"
+                          onClick={() =>
+                            shiftHeld
+                              ? handleDeleteReplacement(idx)
+                              : startEditingReplacement(idx)
+                          }
+                          className="flex flex-1 items-center text-left min-w-0 gap-2 px-2.5 py-2"
+                          title={
+                            shiftHeld
+                              ? t({
+                                  id: "dictionary.replacements.delete",
+                                  message: `Delete replacement for ${replacement.from}`,
+                                })
+                              : undefined
+                          }
                         >
-                          <span className="ui-text-body-lg ui-color-primary font-medium truncate">
+                          <span
+                            className={`ui-text-body-lg ui-color-primary font-medium truncate min-w-0 flex-1 basis-0 transition-colors duration-100 ease-out ${
+                              shiftHeld
+                                ? "group-hover:!text-error group-hover:line-through"
+                                : ""
+                            }`}
+                          >
                             {replacement.from}
                           </span>
                           <ArrowRight
                             size={14}
-                            className="text-content-muted shrink-0 mx-2"
+                            className={`shrink-0 text-content-muted transition-colors duration-100 ease-out ${
+                              shiftHeld ? "group-hover:!text-error" : ""
+                            }`}
+                            aria-hidden="true"
                           />
                           <span
-                            className="ui-text-body-lg truncate"
-                            style={{ color: "var(--color-accent)" }}
+                            className={`ui-text-body-lg ui-color-primary truncate min-w-0 flex-1 basis-0 transition-colors duration-100 ease-out ${
+                              shiftHeld
+                                ? "group-hover:!text-error group-hover:line-through"
+                                : ""
+                            }`}
                           >
                             {replacement.to || (
                               <span className="text-content-muted italic">
@@ -762,60 +785,35 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                             )}
                           </span>
                         </button>
-                      )}
-
-                      <div className="flex items-center gap-1">
-                        {editingReplacementIndex === idx ? (
-                          <div className="ui-text-nano ui-color-muted pr-1">
-                            {t({
-                              id: "dictionary.press_enter_to_save",
-                              message: "Press Enter to save",
-                            })}
-                          </div>
-                        ) : (
-                          <>
-                            <div
-                              className="ui-text-nano ui-color-muted opacity-0 transition-opacity duration-150 group-hover:opacity-100 pr-1"
-                              aria-hidden="true"
-                            >
-                              {t({
-                                id: "dictionary.click_to_edit",
-                                message: "Click to edit",
-                              })}
-                            </div>
-                            <button
-                              onClick={() => startEditingReplacement(idx)}
-                              className="rounded bg-transparent p-1 text-content-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-[var(--color-bg-elevated)] hover:text-content-primary"
-                              title={t({
-                                id: "dictionary.edit",
-                                message: "Edit",
-                              })}
-                              aria-label={t({
-                                id: "dictionary.replacements.edit",
-                                message: `Edit replacement for ${replacement.from}`,
-                              })}
-                            >
-                              <Edit3 size={14} aria-hidden="true" />
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={() => handleDeleteReplacement(idx)}
-                          className="rounded bg-transparent p-1 text-content-muted opacity-0 transition-all group-hover:opacity-100 hover:bg-red-500/10 hover:text-error"
-                          title={t({
-                            id: "dictionary.delete",
-                            message: "Delete",
-                          })}
-                          aria-label={t({
-                            id: "dictionary.replacements.delete",
-                            message: `Delete replacement for ${replacement.from}`,
-                          })}
+                        <div
+                          className="absolute inset-y-0 right-0 flex items-center gap-1 pl-6 pr-2 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
+                          style={{
+                            ...actionGradientStyle,
+                            willChange: "opacity",
+                          }}
                         >
-                          <Trash2 size={14} aria-hidden="true" />
-                        </button>
+                          <button
+                            onClick={() => handleDeleteReplacement(idx)}
+                            className={
+                              shiftHeld
+                                ? deleteButtonActiveClassName
+                                : deleteButtonClassName
+                            }
+                            title={t({
+                              id: "dictionary.delete",
+                              message: "Delete",
+                            })}
+                            aria-label={t({
+                              id: "dictionary.replacements.delete",
+                              message: `Delete replacement for ${replacement.from}`,
+                            })}
+                          >
+                            <Trash2 size={14} aria-hidden="true" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </>
               )}
             </div>

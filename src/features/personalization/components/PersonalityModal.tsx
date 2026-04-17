@@ -357,7 +357,7 @@ const PersonalityModal = ({
                 activeDots={[0, 2, 3]}
                 dotSize={3}
                 gap={3}
-                color="var(--color-cloud)"
+                color="var(--color-section-marker-alt)"
                 aria-hidden="true"
               />
               <div>

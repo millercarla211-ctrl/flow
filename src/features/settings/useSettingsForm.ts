@@ -30,6 +30,7 @@ import { useModelCatalog } from "./models-queries";
 import type {
   TranscriptionMode,
   TextSizeMode,
+  ThemeMode,
   StoredSettings,
   ModelStatus,
   DownloadEvent,
@@ -40,11 +41,17 @@ import type {
 
 
 const TEXT_SIZE_MODE_STORAGE_KEY = "glimpse_text_size_mode";
+const THEME_MODE_STORAGE_KEY = "glimpse_theme_mode";
 
 const parseTextSizeMode = (value: string | null): TextSizeMode =>
   value === "small" || value === "default" || value === "large"
     ? value
     : "default";
+
+const parseThemeMode = (value: string | null): ThemeMode =>
+  value === "light" || value === "dark" || value === "system"
+    ? value
+    : "system";
 
 type ActiveTab = "general" | "models" | "about" | "account" | "app";
 
@@ -107,6 +114,9 @@ export function useSettingsForm({
   const [textSizeMode, setTextSizeModeRaw] = useState<TextSizeMode>(() =>
     parseTextSizeMode(localStorage.getItem(TEXT_SIZE_MODE_STORAGE_KEY)),
   );
+  const [themeMode, setThemeModeRaw] = useState<ThemeMode>(() =>
+    parseThemeMode(localStorage.getItem(THEME_MODE_STORAGE_KEY)),
+  );
   const [authLoading, setAuthLoading] = useState(false);
   const [showFAQModal, setShowFAQModal] = useState(false);
   const [micPermission, setMicPermission] = useState<boolean | null>(null);
@@ -166,6 +176,12 @@ export function useSettingsForm({
     setTextSizeModeRaw(mode);
     localStorage.setItem(TEXT_SIZE_MODE_STORAGE_KEY, mode);
     emit("ui:text_size_changed", { mode }).catch(() => {});
+  }, []);
+
+  const setThemeMode = useCallback((mode: ThemeMode) => {
+    setThemeModeRaw(mode);
+    localStorage.setItem(THEME_MODE_STORAGE_KEY, mode);
+    emit("ui:theme_changed", { mode }).catch(() => {});
   }, []);
 
   const setLlmProvider = useCallback((value: LlmProvider) => {
@@ -881,6 +897,8 @@ export function useSettingsForm({
     handleRequestMicrophonePermission,
     textSizeMode,
     setTextSizeMode,
+    themeMode,
+    setThemeMode,
 
     showFAQModal,
     setShowFAQModal,

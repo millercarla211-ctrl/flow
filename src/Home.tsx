@@ -34,7 +34,7 @@ const SidebarItem = ({
   label,
   active = false,
   collapsed,
-  activeColor,
+  activeColor: _activeColor,
   onClick,
 }: {
   icon: React.ReactNode;
@@ -46,34 +46,17 @@ const SidebarItem = ({
 }) => (
   <button
     onClick={onClick}
-    className={`group relative flex w-full items-center h-9 pl-[17px] pr-3 transition-colors rounded-lg mb-[2px] ${
+    data-active={active ? "true" : "false"}
+    className={`ui-nav-item group h-9 pl-[17px] pr-3 mb-[2px] ${
       collapsed ? "gap-0" : "gap-3"
-    } ${
-      active
-        ? "text-content-primary"
-        : "text-content-muted hover:text-content-secondary hover:bg-surface-overlay/40"
     }`}
   >
-    {active && (
-      <motion.div
-        layoutId="activeSidebarIndicator"
-        className="absolute -left-[7.5px] top-[6px] bottom-[6px] w-[3px] rounded-r-[1.5px] pointer-events-none"
-        style={{
-          backgroundColor: activeColor || "var(--color-content-primary)",
-        }}
-        transition={{ type: "spring", stiffness: 450, damping: 40 }}
-      />
-    )}
-    <div
-      className={`relative z-10 flex items-center justify-center w-[18px] shrink-0 transition-colors ${
-        active ? "text-content-primary" : "group-hover:text-content-secondary"
-      }`}
-    >
+    <div className="flex items-center justify-center w-[18px] shrink-0">
       {icon}
     </div>
     <span
       style={{ width: collapsed ? 0 : "auto", opacity: collapsed ? 0 : 1 }}
-      className={`relative z-10 ui-text-nav-item whitespace-nowrap overflow-hidden transition-[width,opacity] duration-200 ease-out ${
+      className={`ui-text-nav-item whitespace-nowrap overflow-hidden transition-[width,opacity] duration-200 ease-out ${
         active ? "font-medium" : "font-normal"
       }`}
     >
@@ -102,7 +85,6 @@ const Home = () => {
     null,
   );
 
-  // Query-based state
   const { data: settings } = useSettings();
   const { data: updateStatus } = useUpdateStatus();
   const { data: appInfoData } = useAppInfo();
@@ -118,7 +100,6 @@ const Home = () => {
       ? currentUser.prefs.avatar
       : null;
 
-  // Navigation + drag-drop event listeners (settings data now comes from useSettings query)
   useEffect(() => {
     let cancelled = false;
     let unlistenNavigate: UnlistenFn | null = null;
@@ -212,7 +193,6 @@ const Home = () => {
     };
   }, []);
 
-  // Update status now comes from useUpdateStatus() query hook
   useClickOutside(
     supportMenuRef,
     () => setShowSupportPopup(false),
@@ -284,11 +264,11 @@ const Home = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-surface-tertiary font-sans ui-color-on-solid select-none">
+    <div className="flex h-screen w-screen overflow-hidden bg-transparent font-sans ui-color-on-solid select-none">
       <aside
         data-app-sidebar
         style={{ width: sidebarWidth }}
-        className="relative flex flex-col border-r border-border-primary bg-surface-secondary shrink-0 transition-[width] duration-200 ease-out will-change-[width]"
+        className="relative z-30 flex flex-col border-r border-border-primary bg-[var(--color-bg-primary)]/85 backdrop-blur-2xl shrink-0 transition-[width] duration-200 ease-out will-change-[width]"
       >
         <div data-tauri-drag-region className="h-8 w-full shrink-0" />
 
@@ -397,7 +377,7 @@ const Home = () => {
           <div className="relative" ref={supportMenuRef}>
             <button
               onClick={() => setShowSupportPopup(!showSupportPopup)}
-              className={`group flex w-full items-center rounded-lg h-9 pl-[17px] pr-3 text-content-muted hover:bg-surface-overlay hover:text-content-secondary ${
+              className={`group flex w-full items-center rounded-lg h-9 pl-[17px] pr-3 text-content-muted hover:bg-[var(--surface-interactive)] hover:text-content-secondary ${
                 isSidebarCollapsed ? "gap-0" : "gap-3"
               }`}
               aria-expanded={showSupportPopup}
@@ -431,7 +411,7 @@ const Home = () => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.95 }}
                   transition={{ duration: 0.15, ease: "easeOut" }}
-                  className="absolute bottom-full left-2 mb-2 w-56 bg-surface-surface border border-border-secondary rounded-xl shadow-xl overflow-hidden z-50"
+                  className="ui-surface-menu absolute bottom-full left-2 mb-2 w-56 z-[60]"
                 >
                   <div className="p-3 border-b border-border-primary">
                     <div className="flex items-center justify-between">
@@ -459,7 +439,7 @@ const Home = () => {
                     >
                       <HelpCircle
                         size={16}
-                        className="ui-color-warning-strong"
+                        style={{ color: "var(--color-support-help)" }}
                       />
                       <div>
                         <div className="ui-text-body-sm-strong ui-color-primary">
@@ -483,7 +463,7 @@ const Home = () => {
                       onClick={() => setShowSupportPopup(false)}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-elevated transition-colors group"
                     >
-                      <Bug size={16} className="text-content-secondary" />
+                      <Bug size={16} className="ui-color-secondary" />
                       <div>
                         <div className="ui-text-body-sm-strong ui-color-primary">
                           {t({
@@ -507,7 +487,10 @@ const Home = () => {
                       }}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-elevated transition-colors group w-full text-left"
                     >
-                      <Info size={16} className="ui-color-brand" />
+                      <Info
+                        size={16}
+                        style={{ color: "var(--color-support-info)" }}
+                      />
                       <div>
                         <div className="ui-text-body-sm-strong ui-color-primary">
                           {t({
@@ -535,7 +518,7 @@ const Home = () => {
                 setSettingsTab("about");
                 setIsSettingsOpen(true);
               }}
-              className={`group flex w-full items-center rounded-lg h-9 pl-[17px] pr-3 ${isSidebarCollapsed ? "gap-0" : "gap-3"} hover:bg-surface-overlay transition-colors`}
+              className={`group flex w-full items-center rounded-lg h-9 pl-[17px] pr-3 ${isSidebarCollapsed ? "gap-0" : "gap-3"} hover:bg-[var(--surface-interactive)] transition-colors`}
               style={{ color: "var(--color-accent)" }}
             >
               <div className="flex items-center justify-center w-[18px] shrink-0">
@@ -577,7 +560,7 @@ const Home = () => {
               setSettingsTab("account");
               setIsSettingsOpen(true);
             }}
-            className="fixed top-10 right-6 flex items-center gap-2 px-3 py-1.5 rounded-full border border-border-primary bg-surface-surface hover:bg-surface-overlay hover:border-border-secondary transition-colors z-10"
+            className="fixed top-10 right-6 flex items-center gap-2 px-3 py-1.5 rounded-full border border-border-primary bg-surface-surface hover:bg-[var(--surface-interactive)] hover:border-border-secondary transition-colors z-10 shadow-[var(--shadow-sm)]"
           >
             <div className="w-6 h-6 rounded-full bg-surface-elevated border border-border-secondary flex items-center justify-center overflow-hidden">
               {currentUserAvatar ? (
@@ -601,21 +584,13 @@ const Home = () => {
           </button>
         )}
 
-        <div className="flex-1 flex flex-col px-8 pb-16 min-h-0">
+        <div className="flex-1 flex flex-col px-8 pb-6 min-h-0">
           <div
-            className={`w-full max-w-[700px] mx-auto pt-8 ${activeView === "home" ? "" : "hidden"}`}
+            className={`w-full max-w-[680px] mx-auto pt-12 flex-1 flex flex-col min-h-0 ${activeView === "home" ? "" : "hidden"}`}
           >
-            <div className="mb-8">
-              <h1 className="ui-text-display ui-color-primary tracking-tight">
-                {getGreeting()}
-              </h1>
-              <p className="mt-2 ui-text-title ui-color-muted pl-[2px]">
-                {t({
-                  id: "home.ready_subtitle",
-                  message: "Ready when you are",
-                })}
-              </p>
-            </div>
+            <h1 className="ui-text-display font-normal ui-color-primary tracking-tight mb-8 shrink-0">
+              {getGreeting()}
+            </h1>
 
             <TranscriptionList
               showLlmButtons={showCleanupButtons}
