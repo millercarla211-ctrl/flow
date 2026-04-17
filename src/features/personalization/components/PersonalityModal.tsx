@@ -385,6 +385,8 @@ const PersonalityModal = ({
                             handleSaveName();
                           }
                           if (event.key === "Escape") {
+                            event.preventDefault();
+                            event.stopPropagation();
                             setNameDraft(personality.name);
                             setIsEditingName(false);
                           }

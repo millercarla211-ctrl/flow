@@ -202,7 +202,7 @@ export function Dropdown<T extends string | number>({
                                             message: "Search options",
                                         })}
                                         autoFocus
-                                        className="w-full rounded-md bg-surface-elevated border border-border-secondary py-1.5 pl-7 pr-2.5 ui-text-body-sm ui-color-primary placeholder-content-disabled focus:border-content-disabled focus:outline-hidden transition-colors"
+                                        className="w-full rounded-md bg-surface-secondary/50 border border-border-primary py-1.5 pl-7 pr-2.5 ui-text-body-sm text-content-primary placeholder-content-disabled hover:border-border-secondary focus:border-border-hover focus:outline-hidden transition-colors"
                                         onClick={(e) => e.stopPropagation()}
                                     />
                                 </div>

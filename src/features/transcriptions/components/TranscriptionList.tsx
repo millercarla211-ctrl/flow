@@ -71,6 +71,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
     const { retry: retryMutation, cancelRetry: cancelRetryMutation, retryingIds } = useRetryTranscription(isActive);
     const retryLlmMutation = useRetryLlmCleanup();
     const undoLlmMutation = useUndoLlmCleanup();
+    const retryingIdSet = useMemo(() => new Set(retryingIds), [retryingIds]);
 
     const sortedTranscriptions = useMemo(() => {
         if (sortKey === "recent") return transcriptions;
@@ -202,6 +203,61 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
             }),
         },
     ];
+
+    const renderEntry = useCallback(
+        (_index: number, entry: ListEntry) => {
+            if (entry.type === "header") {
+                return (
+                    <div className="transcription-entry-fade flex items-center gap-3 pt-6 pb-2 px-1 first:pt-1">
+                        <span className="ui-text-body-sm-strong ui-color-secondary shrink-0">
+                            {entry.label}
+                        </span>
+                        <div
+                            className="ui-divider-trailing flex-1"
+                            aria-hidden="true"
+                        />
+                    </div>
+                );
+            }
+
+            const record = entry.record;
+            return (
+                <div className="transcription-entry-fade">
+                    <TranscriptionItem
+                        record={record}
+                        isRetrying={retryingIdSet.has(record.id)}
+                        onDelete={deleteTranscription}
+                        onRetry={retryTranscription}
+                        onCancelRetry={cancelRetryTranscription}
+                        onRetryLlm={retryLlmCleanup}
+                        onUndoLlm={undoLlmCleanup}
+                        showLlmButtons={showLlmButtons}
+                        shiftHeld={shiftHeld}
+                        showDate={!isTimeSorted}
+                    />
+                </div>
+            );
+        },
+        [
+            retryingIdSet,
+            deleteTranscription,
+            retryTranscription,
+            cancelRetryTranscription,
+            retryLlmCleanup,
+            undoLlmCleanup,
+            showLlmButtons,
+            shiftHeld,
+            isTimeSorted,
+        ],
+    );
+
+    const virtuosoComponents = useMemo(
+        () => ({
+            Header: () => <div className="h-1" />,
+            Footer: () => <div className="h-6" />,
+        }),
+        [],
+    );
 
     const closeSearch = () => {
         setSearchOpen(false);
@@ -403,49 +459,16 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
                     <Virtuoso
                         style={{ height: "100%" }}
                         data={entries}
-                        overscan={200}
+                        defaultItemHeight={120}
+                        overscan={400}
+                        increaseViewportBy={200}
                         computeItemKey={(_index, entry) =>
                             entry.type === "header"
                                 ? entry.id
                                 : entry.record.id
                         }
-                        components={{
-                            Header: () => <div className="h-1" />,
-                            Footer: () => <div className="h-6" />,
-                        }}
-                        itemContent={(_index, entry) => {
-                            if (entry.type === "header") {
-                                return (
-                                    <div className="flex items-center gap-3 pt-6 pb-2 px-1 first:pt-1">
-                                        <span className="ui-text-body-sm-strong ui-color-secondary shrink-0">
-                                            {entry.label}
-                                        </span>
-                                        <div
-                                            className="ui-divider-trailing flex-1"
-                                            aria-hidden="true"
-                                        />
-                                    </div>
-                                );
-                            }
-                            const record = entry.record;
-                            const isRetrying = retryingIds.includes(record.id);
-                            return (
-                                <TranscriptionItem
-                                    key={record.id}
-                                    record={record}
-                                    isRetrying={isRetrying}
-                                    onDelete={deleteTranscription}
-                                    onRetry={retryTranscription}
-                                    onCancelRetry={cancelRetryTranscription}
-                                    onRetryLlm={retryLlmCleanup}
-                                    onUndoLlm={undoLlmCleanup}
-                                    showLlmButtons={showLlmButtons}
-                                    skipAnimation={!!debouncedSearchQuery}
-                                    shiftHeld={shiftHeld}
-                                    showDate={!isTimeSorted}
-                                />
-                            );
-                        }}
+                        components={virtuosoComponents}
+                        itemContent={renderEntry}
                         className="custom-scrollbar scrollbar-gutter"
                     />
                 ) : (

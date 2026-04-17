@@ -203,7 +203,7 @@
     0 24px 56px rgba(0, 0, 0, 0.55),
     0 6px 12px rgba(0, 0, 0, 0.32);
 
-  --focus-ring: 0 0 0 2px var(--color-accent-30);
+  --focus-ring: 0 0 0 2px color-mix(in srgb, var(--color-border-hover) 70%, transparent);
 
   --radius-xs: 3px;
   --radius-sm: 4px;
@@ -1494,6 +1494,33 @@ body {
 
 .tag-input-intro {
   animation: tag-input-intro 0.12s ease-out;
+}
+
+@keyframes transcription-entry-fade {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.transcription-entry-fade {
+  animation: transcription-entry-fade 180ms ease-out both;
+  position: relative;
+}
+
+.transcription-entry-fade:has([aria-expanded="true"]) {
+  z-index: 20;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transcription-entry-fade {
+    animation: none;
+  }
 }
 
 @keyframes shake {

@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import React, { useState, useRef, useLayoutEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown, { Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
@@ -52,7 +52,6 @@ interface TranscriptionItemProps {
   onUndoLlm?: (id: string) => Promise<void>;
   isRetrying?: boolean;
   showLlmButtons?: boolean;
-  skipAnimation?: boolean;
   shiftHeld?: boolean;
   showDate?: boolean;
 }
@@ -66,7 +65,6 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   onUndoLlm,
   isRetrying = false,
   showLlmButtons = false,
-  skipAnimation = false,
   shiftHeld = false,
   showDate = false,
 }) => {
@@ -91,12 +89,33 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
     menuOpen,
   );
 
-  useLayoutEffect(() => {
-    if (textRef.current && !isExpanded) {
-      setIsOverflowing(
-        textRef.current.scrollHeight > textRef.current.clientHeight,
-      );
+  useEffect(() => {
+    if (isExpanded) {
+      setIsOverflowing(true);
+      return;
     }
+
+    const element = textRef.current;
+    if (!element) return;
+
+    let frameId = 0;
+    const updateOverflow = () => {
+      frameId = window.requestAnimationFrame(() => {
+        setIsOverflowing(element.scrollHeight > element.clientHeight);
+      });
+    };
+
+    updateOverflow();
+
+    const observer = new ResizeObserver(updateOverflow);
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
   }, [record.text, isExpanded]);
 
   const handleCopy = async () => {
@@ -225,12 +244,8 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   };
 
   return (
-    <motion.div
-      initial={skipAnimation ? false : { opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
-      transition={{ duration: 0.2 }}
-      className="group relative snap-start"
+    <div
+      className="group relative"
       onContextMenu={(event) => {
         if (!allowContextMenu) return;
         event.preventDefault();
@@ -491,16 +506,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -4 }}
                   transition={{ duration: 0.12 }}
-                  className="ui-surface-menu fixed z-[100] min-w-[200px]"
-                  style={{
-                    top: menuRef.current
-                      ? menuRef.current.getBoundingClientRect().bottom + 4
-                      : 0,
-                    right: menuRef.current
-                      ? window.innerWidth -
-                        menuRef.current.getBoundingClientRect().right
-                      : 0,
-                  }}
+                  className="ui-surface-menu absolute right-0 top-full mt-1 z-[100] min-w-[200px] origin-top-right"
                 >
                   {(speechModelLabel || modeLabel || llmModelLabel) && (
                     <>
@@ -654,7 +660,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 };
 

@@ -295,6 +295,32 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
     }
   }, [activePersonalityId, activePersonality]);
 
+  useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.key !== "Escape") {
+        return;
+      }
+
+      if (pendingDeletePersonality) {
+        event.preventDefault();
+        setPendingDeletePersonality(null);
+        return;
+      }
+
+      if (activePersonalityId) {
+        event.preventDefault();
+        setActivePersonalityId(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activePersonalityId, isActive, pendingDeletePersonality]);
+
   return (
     <div className="w-full text-left max-w-7xl mx-auto px-0">
       <div className="flex items-start gap-3 mb-6 mt-2 md:-mt-6">

@@ -340,7 +340,7 @@ const LibraryCard = ({
                             }}
                             onBlur={onCommitNameEdit}
                             onClick={(event) => event.stopPropagation()}
-                            className="w-full min-w-0 rounded-md border border-[var(--color-border-hover)] bg-[var(--color-bg-surface)] px-2 py-1 ui-text-title-lg ui-color-primary outline-hidden focus:border-[var(--color-accent)]"
+                            className="w-full min-w-0 rounded-md border border-[var(--color-border-hover)] bg-[var(--color-bg-surface)] px-2 py-1 ui-text-title-lg ui-color-primary outline-hidden focus:border-[var(--color-border-hover)]"
                             autoFocus
                         />
                     ) : (

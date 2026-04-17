@@ -47,6 +47,8 @@ function App() {
     undefined,
     isSettingsWindow,
   );
+  const showOnboarding =
+    isSettingsWindow && !!settings && !settings.onboarding_completed;
 
   useEffect(() => {
     const handleContextMenu = (event: MouseEvent) => {
@@ -88,7 +90,9 @@ function App() {
 
     // Pill & toast overlays always render in dark: they're transparent
     // floating chrome that lives on top of the user's workspace, not app UI.
-    if (windowLabel !== "settings") {
+    // The settings window also boots dark until onboarding state is known, and
+    // onboarding itself stays dark regardless of the user's saved theme.
+    if (windowLabel !== "settings" || settingsLoading || showOnboarding) {
       root.dataset.theme = "dark";
       return;
     }
@@ -121,7 +125,7 @@ function App() {
       mediaQuery.removeEventListener("change", handleSystemChange);
       unlistenPromise.then((unlisten) => unlisten()).catch(() => {});
     };
-  }, [windowLabel]);
+  }, [settingsLoading, showOnboarding, windowLabel]);
 
   useEffect(() => {
     const body = document.body;
@@ -138,9 +142,6 @@ function App() {
       body.style.backgroundColor = "";
     };
   }, [windowLabel]);
-
-  const showOnboarding =
-    isSettingsWindow && !!settings && !settings.onboarding_completed;
 
   if (windowLabel === "settings") {
     if (settingsLoading) {
