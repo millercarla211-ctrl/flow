@@ -350,6 +350,7 @@ pub fn run() {
             get_settings,
             set_shortcut_capture_active,
             update_settings,
+            preview_recording_prune,
             set_user_name,
             dictionary::set_dictionary,
             dictionary::get_replacements,
@@ -954,6 +955,26 @@ fn update_settings(
     core::settings::update_settings(args, &app, &state)
 }
 
+#[derive(Serialize)]
+struct RecordingPrunePreview {
+    candidate_count: u32,
+}
+
+#[tauri::command]
+async fn preview_recording_prune(
+    policy: RecordingPrunePolicy,
+    app: AppHandle<AppRuntime>,
+) -> Result<RecordingPrunePreview, String> {
+    let candidate_count = async_runtime::spawn_blocking(move || {
+        preview_recording_prune_for_policy(&app, policy)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+    .map_err(|err| err.to_string())?;
+
+    Ok(RecordingPrunePreview { candidate_count })
+}
+
 #[tauri::command]
 fn set_user_name(
     name: String,
@@ -1330,14 +1351,43 @@ fn prune_recordings_for_settings(
     app: &AppHandle<AppRuntime>,
     settings: &UserSettings,
 ) -> GlimpseResult<u32> {
+    count_or_prune_recordings(
+        app,
+        settings.recording_prune_policy,
+        Local::now(),
+        RecordingPruneAction::Delete,
+    )
+}
+
+fn preview_recording_prune_for_policy(
+    app: &AppHandle<AppRuntime>,
+    policy: RecordingPrunePolicy,
+) -> GlimpseResult<u32> {
+    count_or_prune_recordings(app, policy, Local::now(), RecordingPruneAction::Count)
+}
+
+enum RecordingPruneAction {
+    Count,
+    Delete,
+}
+
+fn count_or_prune_recordings(
+    app: &AppHandle<AppRuntime>,
+    policy: RecordingPrunePolicy,
+    now: DateTime<Local>,
+    action: RecordingPruneAction,
+) -> GlimpseResult<u32> {
     let root = recordings_root(app)?;
-    if !root.exists() {
+    if !root.exists() || matches!(policy, RecordingPrunePolicy::Never) {
         return Ok(0);
     }
 
-    let cutoff = recording_prune_cutoff(settings.recording_prune_policy, Local::now());
-    let (deleted_count, _) = prune_recording_tree(&root, settings.recording_prune_policy, cutoff)?;
-    Ok(deleted_count)
+    let cutoff = recording_prune_cutoff(policy, now);
+    let (count, _) = match action {
+        RecordingPruneAction::Count => count_prunable_recording_tree(&root, policy, cutoff)?,
+        RecordingPruneAction::Delete => prune_recording_tree(&root, policy, cutoff)?,
+    };
+    Ok(count)
 }
 
 fn recording_prune_cutoff(
@@ -1396,6 +1446,41 @@ fn prune_recording_tree(
     }
 
     Ok((deleted_count, is_empty))
+}
+
+fn count_prunable_recording_tree(
+    path: &Path,
+    policy: RecordingPrunePolicy,
+    cutoff: Option<DateTime<Local>>,
+) -> GlimpseResult<(u32, bool)> {
+    let mut candidate_count = 0;
+    let mut is_empty = true;
+
+    for entry in fs::read_dir(path)
+        .with_context(|| format!("Failed to read recordings directory {}", path.display()))?
+    {
+        let entry = entry?;
+        let child_path = entry.path();
+        let metadata = entry.metadata()?;
+
+        if metadata.is_dir() {
+            let (child_count, child_empty) =
+                count_prunable_recording_tree(&child_path, policy, cutoff)?;
+            candidate_count += child_count;
+            if !child_empty {
+                is_empty = false;
+            }
+            continue;
+        }
+
+        if should_prune_recording_file(&child_path, &metadata, policy, cutoff) {
+            candidate_count += 1;
+        } else {
+            is_empty = false;
+        }
+    }
+
+    Ok((candidate_count, is_empty))
 }
 
 fn should_prune_recording_file(

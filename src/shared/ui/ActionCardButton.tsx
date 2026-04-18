@@ -65,6 +65,12 @@ type ActionCardButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 const joinClasses = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(" ");
 
+const BASE_SHADOW =
+  "0 3px 0 -1px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.06)";
+
+const HOVER_SHADOW =
+  "0 3px 0 -1px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.12)";
+
 const ActionCardButton = ({
   title,
   description,
@@ -88,9 +94,9 @@ const ActionCardButton = ({
     "--action-card-border": resolvedAccent.borderColor,
     "--action-card-background": resolvedAccent.backgroundColor,
     "--action-card-hover-shadow": fullWidth
-      ? `var(--shadow-md), 0 0 0 3px ${resolvedAccent.shadowColor}`
+      ? HOVER_SHADOW
       : "var(--shadow-sm)",
-    "--action-card-rest-shadow": fullWidth ? "var(--shadow-sm)" : "none",
+    "--action-card-rest-shadow": fullWidth ? BASE_SHADOW : "none",
     ...style,
   } as CSSProperties;
 
@@ -98,9 +104,9 @@ const ActionCardButton = ({
     <button
       type={type}
       className={joinClasses(
-        "group rounded-lg border border-border-primary bg-surface-surface text-left [box-shadow:var(--action-card-rest-shadow)] outline-hidden transition-[transform,box-shadow,border-color,background-color] duration-150 ease-out hover:border-[var(--action-card-border)] hover:bg-[var(--action-card-background)] hover:[box-shadow:var(--action-card-hover-shadow)] active:[box-shadow:var(--action-card-rest-shadow)] focus-visible:ring-2 focus-visible:ring-border-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:border-border-primary disabled:hover:bg-surface-surface disabled:hover:[box-shadow:var(--action-card-rest-shadow)]",
+        "group rounded-lg border border-border-primary bg-surface-surface text-left [box-shadow:var(--action-card-rest-shadow)] outline-hidden transition-[transform,box-shadow,border-color,background-color] duration-100 ease-out hover:border-[var(--action-card-border)] hover:bg-[var(--action-card-background)] hover:[box-shadow:var(--action-card-hover-shadow)] active:[box-shadow:none] focus-visible:ring-2 focus-visible:ring-border-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:border-border-primary disabled:hover:bg-surface-surface disabled:hover:[box-shadow:var(--action-card-rest-shadow)]",
         fullWidth
-          ? "w-full px-3 py-2.5 hover:-translate-y-[1px] active:translate-y-0"
+          ? "w-full px-3 py-2.5 active:translate-y-[2px]"
           : "inline-flex w-auto px-2.5 py-1",
         className,
       )}
