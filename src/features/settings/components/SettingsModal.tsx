@@ -129,6 +129,7 @@ const SettingsModal = ({
                       message: "Account",
                     })}
                     active={form.activeTab === "account"}
+                    disabled
                     onClick={() => form.setActiveTab("account")}
                   />
                 </div>
@@ -349,23 +350,28 @@ const ModalNavItem = ({
   icon,
   label,
   active,
+  disabled = false,
   onClick,
 }: {
   icon: ReactNode;
   label: string;
   active: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) => (
   <motion.button
     onClick={onClick}
+    disabled={disabled}
     className={`group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 ui-text-body-sm-strong transition-colors ${
-      active
-        ? "bg-surface-elevated ui-color-primary"
-        : "ui-color-muted hover:bg-surface-elevated hover:text-content-secondary"
+      disabled
+        ? "cursor-not-allowed text-content-disabled/60"
+        : active
+          ? "bg-surface-elevated ui-color-primary"
+          : "ui-color-muted hover:bg-surface-elevated hover:text-content-secondary"
     }`}
-    whileTap={{ scale: 0.98 }}
+    whileTap={disabled ? undefined : { scale: 0.98 }}
   >
-    <div className={active ? "text-cloud/80" : "text-content-disabled"}>
+    <div className={disabled ? "text-content-disabled/50" : active ? "text-cloud/80" : "text-content-disabled"}>
       {icon}
     </div>
     {label}

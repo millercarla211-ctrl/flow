@@ -161,7 +161,8 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
     setSelectionText("");
     try {
       await onRetry(record.id);
-    } catch {
+    } catch (err) {
+      console.error("Failed to retry:", err);
     }
   };
 

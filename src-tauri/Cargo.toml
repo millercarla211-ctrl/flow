@@ -41,7 +41,7 @@ dotenvy_macro = "0.15"
 posthog-rs = "0.5.1"
 arboard = "3"
 mime_guess = "2"
-glimpse-speech = { git = "https://github.com/LegendarySpy/Glimpse-Speech.git", tag = "1.2.0", features = ["whisper", "nvidia"] }
+glimpse-speech = { git = "https://github.com/LegendarySpy/Glimpse-Speech.git", tag = "1.2.5", features = ["whisper", "nvidia"] }
 uuid = { version = "1.23.1", features = ["v4"] }
 aes-gcm = "0.10"
 pbkdf2 = { version = "0.12", features = ["simple"] }
