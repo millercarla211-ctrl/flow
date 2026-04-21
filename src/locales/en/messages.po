@@ -821,14 +821,14 @@ msgid "settings.account.cancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/tabs/ModelsTab.tsx:545
-msgid "settings.models.cancel"
-msgstr "Cancel"
-
-#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx:731
 #: src/features/settings/components/tabs/AppTab.tsx:811
 msgid "settings.app.cancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx:545
+msgid "settings.models.cancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
@@ -993,7 +993,7 @@ msgid "toast.close"
 msgstr "Close notification"
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:333
+#: src/features/transcriptions/components/TranscriptionList.tsx:352
 msgid "transcriptions.list.search.close"
 msgstr "Close search"
 
@@ -1098,13 +1098,13 @@ msgid "onboarding.signin.continue"
 msgstr "Continue"
 
 #. js-lingui-explicit-id
-#: src/features/onboarding/steps/AccessibilityStep.tsx:81
-msgid "onboarding.accessibility.continue"
+#: src/features/onboarding/steps/MicrophoneStep.tsx:69
+msgid "onboarding.microphone.continue"
 msgstr "Continue"
 
 #. js-lingui-explicit-id
-#: src/features/onboarding/steps/MicrophoneStep.tsx:69
-msgid "onboarding.microphone.continue"
+#: src/features/onboarding/steps/AccessibilityStep.tsx:81
+msgid "onboarding.accessibility.continue"
 msgstr "Continue"
 
 #. js-lingui-explicit-id
@@ -1248,7 +1248,7 @@ msgid "library.modal.export.item_not_found"
 msgstr "Couldn't find this library item. Try reopening it."
 
 #. js-lingui-explicit-id
-#: src/features/updates/components/WhatsNewModal.tsx:225
+#: src/features/updates/components/WhatsNewModal.tsx:248
 msgid "updates.whats_new.couldnt_load"
 msgstr "Couldn't load releases"
 
@@ -1739,7 +1739,7 @@ msgid "home.support.github.title"
 msgstr "GitHub Issues"
 
 #. js-lingui-explicit-id
-#: src/features/updates/components/WhatsNewModal.tsx:231
+#: src/features/updates/components/WhatsNewModal.tsx:254
 msgid "updates.whats_new.github_unavailable"
 msgstr "GitHub may be temporarily unavailable. Check your connection and try again."
 
@@ -2050,13 +2050,13 @@ msgid "home.mode.local"
 msgstr "Local"
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/SettingsModal.tsx:182
-msgid "settings.modal.section.local"
+#: src/features/settings/components/LanguageModelPanel.tsx:118
+msgid "settings.language_model.provider.local"
 msgstr "Local"
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/LanguageModelPanel.tsx:118
-msgid "settings.language_model.provider.local"
+#: src/features/settings/components/SettingsModal.tsx:182
+msgid "settings.modal.section.local"
 msgstr "Local"
 
 #. js-lingui-explicit-id
@@ -2070,9 +2070,14 @@ msgid "onboarding.welcome.local.feature.models"
 msgstr "Local models"
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:193
+#: src/features/transcriptions/components/TranscriptionList.tsx:211
 msgid "transcriptions.sort.longest"
 msgstr "Longest"
+
+#. js-lingui-explicit-id
+#: src/features/updates/components/WhatsNewModal.tsx:285
+msgid "updates.whats_new.major_release"
+msgstr "Major Release"
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryView.tsx:315
@@ -2141,14 +2146,14 @@ msgid "settings.modal.tab.models"
 msgstr "Models"
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/tabs/ModelsTab.tsx:185
-msgid "settings.models.title"
-msgstr "Models"
-
-#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx:522
 #: src/features/settings/components/tabs/GeneralTab.tsx:635
 msgid "settings.general.models_tab"
+msgstr "Models"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx:185
+msgid "settings.models.title"
 msgstr "Models"
 
 #. js-lingui-explicit-id
@@ -2225,7 +2230,7 @@ msgid "library.modal.tags.new_tag"
 msgstr "New tag..."
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:179
+#: src/features/transcriptions/components/TranscriptionList.tsx:197
 msgid "transcriptions.sort.recent"
 msgstr "Newest first"
 
@@ -2315,7 +2320,7 @@ msgid "dictionary.replacements.none"
 msgstr "No replacements yet"
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:482
+#: src/features/transcriptions/components/TranscriptionList.tsx:493
 msgid "transcriptions.list.no_results"
 msgstr "No results for \"{searchQuery}\""
 
@@ -2400,7 +2405,7 @@ msgid "settings.app.permission.off"
 msgstr "off"
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:186
+#: src/features/transcriptions/components/TranscriptionList.tsx:204
 msgid "transcriptions.sort.oldest"
 msgstr "Oldest first"
 
@@ -2732,13 +2737,13 @@ msgid "library.retranscribe.loading"
 msgstr "Retranscribing..."
 
 #. js-lingui-explicit-id
-#: src/features/updates/components/UpdateChecker.tsx:293
-msgid "updates.retry"
+#: src/features/updates/components/WhatsNewModal.tsx:265
+msgid "updates.whats_new.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
-#: src/features/updates/components/WhatsNewModal.tsx:242
-msgid "updates.whats_new.retry"
+#: src/features/updates/components/UpdateChecker.tsx:293
+msgid "updates.retry"
 msgstr "Retry"
 
 #. js-lingui-explicit-id
@@ -2827,7 +2832,7 @@ msgid "onboarding.ready.saving"
 msgstr "Saving..."
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:321
+#: src/features/transcriptions/components/TranscriptionList.tsx:340
 msgid "transcriptions.list.search.placeholder_short"
 msgstr "Search"
 
@@ -2892,13 +2897,13 @@ msgid "library.modal.search.placeholder"
 msgstr "Search transcript..."
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:350
-msgid "transcriptions.list.search.open"
+#: src/features/transcriptions/components/TranscriptionList.tsx:344
+msgid "transcriptions.list.search.aria"
 msgstr "Search transcriptions"
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:325
-msgid "transcriptions.list.search.aria"
+#: src/features/transcriptions/components/TranscriptionList.tsx:369
+msgid "transcriptions.list.search.open"
 msgstr "Search transcriptions"
 
 #. js-lingui-explicit-id
@@ -3000,7 +3005,7 @@ msgid "settings.general.shortcuts"
 msgstr "Shortcuts"
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:200
+#: src/features/transcriptions/components/TranscriptionList.tsx:218
 msgid "transcriptions.sort.shortest"
 msgstr "Shortest"
 
@@ -3023,11 +3028,6 @@ msgid "settings.account.password.show"
 msgstr "Show password"
 
 #. js-lingui-explicit-id
-#: src/features/library/components/LibraryImportModal.tsx:213
-msgid "library.import.show_timestamps.aria"
-msgstr "Show timestamps"
-
-#. js-lingui-explicit-id
 #: src/features/library/components/LibraryRetranscribeModal.tsx:146
 #: src/features/library/components/LibraryRetranscribeModal.tsx:166
 msgid "library.retranscribe.show_timestamps"
@@ -3036,6 +3036,11 @@ msgstr "Show timestamps"
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryImportModal.tsx:193
 msgid "library.import.show_timestamps"
+msgstr "Show timestamps"
+
+#. js-lingui-explicit-id
+#: src/features/library/components/LibraryImportModal.tsx:213
+msgid "library.import.show_timestamps.aria"
 msgstr "Show timestamps"
 
 #. js-lingui-explicit-id
@@ -3054,13 +3059,13 @@ msgid "settings.account.cloud.disabled"
 msgstr "Sign-in is disabled."
 
 #. js-lingui-explicit-id
-#: src/features/onboarding/steps/AccessibilityStep.tsx:93
-msgid "onboarding.accessibility.skip"
+#: src/features/onboarding/steps/MicrophoneStep.tsx:81
+msgid "onboarding.microphone.skip"
 msgstr "Skip"
 
 #. js-lingui-explicit-id
-#: src/features/onboarding/steps/MicrophoneStep.tsx:81
-msgid "onboarding.microphone.skip"
+#: src/features/onboarding/steps/AccessibilityStep.tsx:93
+msgid "onboarding.accessibility.skip"
 msgstr "Skip"
 
 #. js-lingui-explicit-id
@@ -3089,7 +3094,7 @@ msgid "onboarding.welcome.cloud.feature.tools"
 msgstr "Smarter writing tools & delivery"
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:367
+#: src/features/transcriptions/components/TranscriptionList.tsx:386
 msgid "transcriptions.list.sort.aria"
 msgstr "Sort transcriptions"
 
@@ -3176,13 +3181,13 @@ msgid "settings.app.theme.system"
 msgstr "System"
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/tabs/ModelsTab.tsx:169
-msgid "settings.models.category.system"
+#: src/features/settings/components/tabs/AppTab.tsx:179
+msgid "settings.app.language.system"
 msgstr "System"
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/tabs/AppTab.tsx:179
-msgid "settings.app.language.system"
+#: src/features/settings/components/tabs/ModelsTab.tsx:169
+msgid "settings.models.category.system"
 msgstr "System"
 
 #. js-lingui-explicit-id
@@ -3282,7 +3287,7 @@ msgid "settings.general.to_use_local"
 msgstr "to use local."
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:108
+#: src/features/transcriptions/components/TranscriptionList.tsx:111
 msgid "transcriptions.group.today"
 msgstr "Today"
 
@@ -3452,7 +3457,7 @@ msgid "settings.about.version"
 msgstr "Version"
 
 #. js-lingui-explicit-id
-#: src/features/updates/components/WhatsNewModal.tsx:289
+#: src/features/updates/components/WhatsNewModal.tsx:209
 msgid "updates.whats_new.view_all"
 msgstr "View all releases on GitHub"
 
@@ -3492,7 +3497,7 @@ msgid "faq.cloud.question"
 msgstr "What's Glimpse Cloud?"
 
 #. js-lingui-explicit-id
-#: src/features/updates/components/WhatsNewModal.tsx:199
+#: src/features/updates/components/WhatsNewModal.tsx:200
 msgid "updates.whats_new.title"
 msgstr "What's New"
 
@@ -3507,7 +3512,7 @@ msgid "faq.privacy.answer"
 msgstr "Yes. In local mode, all your audio and transcriptions stay on your device. We never collect or transmit your recordings. Cloud sync is optional."
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:110
+#: src/features/transcriptions/components/TranscriptionList.tsx:113
 msgid "transcriptions.group.yesterday"
 msgstr "Yesterday"
 
@@ -3537,6 +3542,6 @@ msgid "faq.data_use.answer"
 msgstr "Your data is your data. Not ours to share. We will never sell or share your data with third parties."
 
 #. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx:451
+#: src/features/transcriptions/components/TranscriptionList.tsx:465
 msgid "transcriptions.list.empty"
 msgstr "Your recent transcriptions will appear here"
