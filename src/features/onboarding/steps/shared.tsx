@@ -18,40 +18,84 @@ export const GlimpseLogo = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => {
     "var(--color-cloud)",
   ];
 
-  const gridSize = sizes.dot * 2 + sizes.gap;
-  const dotAnimations = [
-    { opacity: [1, 0.15, 1], scale: [1, 0.85, 1] },
-    { opacity: [0.15, 1, 1], scale: [0.85, 1, 1] },
-    { opacity: [0.15, 1, 1], scale: [0.85, 1, 1] },
-    { opacity: [1, 0.15, 1], scale: [1, 0.85, 1] },
+  const D = sizes.dot + sizes.gap;
+  const r = sizes.dot / 2;
+
+  const coords = [
+    { cx: r, cy: r },             // 0: TL
+    { cx: r + D, cy: r },         // 1: TR
+    { cx: r, cy: r + D },         // 2: BL
+    { cx: r + D, cy: r + D },     // 3: BR
   ];
 
-  return (
-    <div className="relative" style={{ width: gridSize, height: gridSize }}>
-      {[0, 1, 2, 3].map((i) => {
-        const row = Math.floor(i / 2);
-        const col = i % 2;
+  const cloudConnectorAnim = {
+    cx: [coords[0].cx, coords[3].cx, coords[3].cx, coords[0].cx, coords[0].cx],
+    cy: [coords[0].cy, coords[3].cy, coords[3].cy, coords[0].cy, coords[0].cy],
+  };
 
-        return (
-          <motion.div
-            key={i}
-            className="absolute rounded-full"
-            style={{
-              width: sizes.dot,
-              height: sizes.dot,
-              left: col * (sizes.dot + sizes.gap),
-              top: row * (sizes.dot + sizes.gap),
-              backgroundColor: dotColors[i],
-            }}
-            animate={dotAnimations[i]}
+  const localConnectorAnim = {
+    cx: [coords[1].cx, coords[1].cx, coords[2].cx, coords[2].cx, coords[1].cx],
+    cy: [coords[1].cy, coords[1].cy, coords[2].cy, coords[2].cy, coords[1].cy],
+  };
+
+  const gridSize = sizes.dot * 2 + sizes.gap;
+  const stdDev = sizes.dot * 0.35; 
+  const colorMatrixValues = `1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7`;
+
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: gridSize, height: gridSize }}>
+      <svg
+        width={gridSize}
+        height={gridSize}
+        viewBox={`0 0 ${gridSize} ${gridSize}`}
+        style={{ overflow: "visible" }}
+      >
+        <defs>
+          <filter id={`goo-${size}`} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation={stdDev} result="blur" />
+            <feColorMatrix in="blur" mode="matrix" values={colorMatrixValues} result="goo" />
+            <feBlend in="SourceGraphic" in2="goo" />
+          </filter>
+        </defs>
+        <g filter={`url(#goo-${size})`}>
+          {/* Static dots */}
+          {coords.map((coord, i) => (
+            <circle
+              key={`static-${i}`}
+              cx={coord.cx}
+              cy={coord.cy}
+              r={r}
+              fill={dotColors[i]}
+            />
+          ))}
+
+          {/* Cloud connector (moves TL <-> BR) */}
+          <motion.circle
+            r={r}
+            fill="var(--color-cloud)"
+            animate={cloudConnectorAnim}
             transition={{
-              duration: 2.1,
-              ease: "easeOut",
+              duration: 4,
+              ease: "easeInOut",
+              times: [0, 0.25, 0.5, 0.75, 1],
               repeat: Infinity,
             }}
           />
-        );
-      })}
+
+          {/* Local connector (moves TR <-> BL) */}
+          <motion.circle
+            r={r}
+            fill="var(--color-local)"
+            animate={localConnectorAnim}
+            transition={{
+              duration: 4,
+              ease: "easeInOut",
+              times: [0, 0.25, 0.5, 0.75, 1],
+              repeat: Infinity,
+            }}
+          />
+        </g>
+      </svg>
     </div>
   );
 };
