@@ -1,3 +1,8 @@
+0.8.2
+
+## Improvements
+  - Cleaned up some smaller UI interactions
+
 0.8.1
 
 ### New Features
