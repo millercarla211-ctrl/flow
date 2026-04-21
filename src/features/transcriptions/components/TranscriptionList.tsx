@@ -459,7 +459,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
                     <Virtuoso
                         style={{ height: "100%" }}
                         data={entries}
-                        defaultItemHeight={120}
+                        defaultItemHeight={90}
                         overscan={400}
                         increaseViewportBy={200}
                         computeItemKey={(_index, entry) =>

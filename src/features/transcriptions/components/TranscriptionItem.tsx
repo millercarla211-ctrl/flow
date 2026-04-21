@@ -281,7 +281,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
         className={`flex items-start gap-2 py-2.5 px-3 rounded-lg transition-colors ${isError ? "bg-red-500/[0.03]" : "hover:bg-[var(--surface-interactive)]"}`}
       >
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-x-2 mb-1 ui-text-meta ui-color-disabled">
+          <div className="flex items-center gap-x-2 mb-1 ui-text-meta ui-color-disabled whitespace-nowrap overflow-hidden">
             {showDate && (
               <>
                 <span>{dateStr}</span>
@@ -362,7 +362,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
             <>
               <div
                 ref={textRef}
-                className={`ui-text-body ui-color-primary leading-relaxed select-text cursor-text overflow-hidden break-words ${!isExpanded ? "line-clamp-6" : ""}`}
+                className={`ui-text-body ui-color-primary leading-relaxed select-text cursor-text overflow-hidden break-words ${!isExpanded ? "line-clamp-3" : ""}`}
                 onMouseUp={() => setSelectionText(captureSelectionText())}
                 onKeyUp={() => setSelectionText(captureSelectionText())}
               >
@@ -635,8 +635,16 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                     )}
 
                   {(canRetryFromAudio ||
-                    (!isError && onRetryLlm && showLlmButtons && !isCloudModel) ||
-                    (!isError && record.llm_cleaned && record.raw_text && onUndoLlm && showLlmButtons && !isCloudModel)) && (
+                    (!isError &&
+                      onRetryLlm &&
+                      showLlmButtons &&
+                      !isCloudModel) ||
+                    (!isError &&
+                      record.llm_cleaned &&
+                      record.raw_text &&
+                      onUndoLlm &&
+                      showLlmButtons &&
+                      !isCloudModel)) && (
                     <div className="h-px bg-border-secondary mx-2" />
                   )}
                   <button
