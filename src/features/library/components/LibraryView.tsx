@@ -369,7 +369,7 @@ const LibraryView = ({
             <div className="flex-1 min-h-0 overflow-y-scroll overflow-x-hidden custom-scrollbar scrollbar-gutter pb-6 pr-3 pt-1">
                 <div key="library-list" className="flex flex-col gap-6 w-full">
                     <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-6">
-                        <div className="grid min-w-0 gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,180px),1fr))]">
+                        <div className="grid min-w-0 gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,180px),1fr))]">
                         {isLoading && items.length === 0 && (
                             <div className="col-span-full py-12 flex items-center justify-center">
                                 <DotMatrix

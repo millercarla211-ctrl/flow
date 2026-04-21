@@ -34,14 +34,12 @@ const SidebarItem = ({
   label,
   active = false,
   collapsed,
-  activeColor: _activeColor,
   onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   active?: boolean;
   collapsed: boolean;
-  activeColor?: string;
   onClick?: () => void;
 }) => (
   <button
@@ -308,7 +306,6 @@ const Home = () => {
               })}
               active={activeView === "home"}
               collapsed={isSidebarCollapsed}
-              activeColor={logoColor}
               onClick={() => setActiveView("home")}
             />
             <SidebarItem
@@ -319,7 +316,6 @@ const Home = () => {
               })}
               active={activeView === "dictionary"}
               collapsed={isSidebarCollapsed}
-              activeColor={logoColor}
               onClick={() => setActiveView("dictionary")}
             />
             <SidebarItem
@@ -330,7 +326,6 @@ const Home = () => {
               })}
               active={activeView === "brain"}
               collapsed={isSidebarCollapsed}
-              activeColor={logoColor}
               onClick={() => setActiveView("brain")}
             />
             <SidebarItem
@@ -341,7 +336,6 @@ const Home = () => {
               })}
               active={activeView === "library"}
               collapsed={isSidebarCollapsed}
-              activeColor={logoColor}
               onClick={() => setActiveView("library")}
             />
           </div>

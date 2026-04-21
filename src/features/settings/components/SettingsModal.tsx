@@ -83,7 +83,7 @@ const SettingsModal = ({
           />
 
           <motion.div
-            className="relative flex max-h-[80vh] h-[625px] w-[850px] overflow-hidden rounded-2xl border border-border-secondary bg-surface-overlay shadow-2xl shadow-black/50"
+            className="relative flex h-[625px] w-[850px] max-h-[calc(100vh-32px)] max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-border-secondary bg-surface-overlay shadow-2xl shadow-black/50"
             variants={modalVariants}
             onClick={(e) => e.stopPropagation()}
             role="dialog"

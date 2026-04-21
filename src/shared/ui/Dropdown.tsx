@@ -31,6 +31,7 @@ interface DropdownProps<T extends string | number> {
     buttonClassName?: string;
     menuClassName?: string;
     onOpen?: () => void;
+    disabled?: boolean;
 }
 
 export function Dropdown<T extends string | number>({
@@ -46,6 +47,7 @@ export function Dropdown<T extends string | number>({
     buttonClassName,
     menuClassName = "",
     onOpen,
+    disabled = false,
 }: DropdownProps<T>) {
     const { t } = useLingui();
     const [isOpen, setIsOpen] = useState(false);
@@ -68,6 +70,12 @@ export function Dropdown<T extends string | number>({
     }, []);
 
     useClickOutside(containerRef, closeDropdown, isOpen);
+
+    useEffect(() => {
+        if (disabled) {
+            closeDropdown();
+        }
+    }, [closeDropdown, disabled]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -150,7 +158,9 @@ export function Dropdown<T extends string | number>({
         <div className={`relative ${className}`} ref={containerRef}>
             <button
                 type="button"
+                disabled={disabled}
                 onClick={() => {
+                    if (disabled) return;
                     if (isOpen) {
                         closeDropdown();
                     } else {
@@ -160,7 +170,8 @@ export function Dropdown<T extends string | number>({
                 }}
                 aria-haspopup="listbox"
                 aria-expanded={isOpen}
-                className={`w-full flex items-center justify-between rounded-lg bg-surface-surface border border-border-primary text-left hover:border-border-secondary focus:border-border-hover focus:outline-hidden transition-colors ${buttonClassName || "py-2 px-3 ui-text-body-sm"}`}
+                aria-disabled={disabled}
+                className={`w-full flex items-center justify-between rounded-lg bg-surface-surface border border-border-primary text-left hover:border-border-secondary focus:border-border-hover focus:outline-hidden transition-colors disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border-primary ${buttonClassName || "py-2 px-3 ui-text-body-sm"}`}
             >
                 <div className="flex items-center gap-2 min-w-0">
                     {icon && <span className="text-content-muted shrink-0" aria-hidden="true">{icon}</span>}

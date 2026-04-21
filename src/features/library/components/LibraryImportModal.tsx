@@ -180,7 +180,7 @@ const LibraryImportModal = ({
                             enabled={storeOriginal}
                             onToggle={() => setStoreOriginal(!storeOriginal)}
                             ariaLabel={t({
-                                id: "library.import.store_original",
+                                id: "library.import.store_original.aria",
                                 message: "Store original",
                             })}
                             size="md"
@@ -211,7 +211,7 @@ const LibraryImportModal = ({
                             enabled={showTimestamps}
                             onToggle={() => timestampsSupported && setShowTimestamps(!showTimestamps)}
                             ariaLabel={t({
-                                id: "library.import.show_timestamps",
+                                id: "library.import.show_timestamps.aria",
                                 message: "Show timestamps",
                             })}
                             disabled={!timestampsSupported}

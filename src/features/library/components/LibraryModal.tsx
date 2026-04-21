@@ -1440,8 +1440,6 @@ const LibraryModal = ({
                                     className="h-full w-full resize-none bg-transparent ui-text-body text-content-secondary leading-relaxed outline-hidden disabled:opacity-60 custom-scrollbar select-text pr-4 pt-3 pb-3"
                                 />
                             )}
-                            <div className="absolute left-0 right-0 top-0 h-[18px] pointer-events-none z-[5]" style={{ background: 'linear-gradient(180deg, var(--color-bg-overlay), transparent)' }} aria-hidden="true" />
-                            <div className="absolute left-0 right-0 bottom-0 h-[18px] pointer-events-none z-[5]" style={{ background: 'linear-gradient(180deg, transparent, var(--color-bg-overlay))' }} aria-hidden="true" />
                         </div>
                     )}
                 </div>

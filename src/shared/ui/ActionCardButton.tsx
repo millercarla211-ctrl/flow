@@ -7,46 +7,32 @@ import type {
 export type ActionCardAccent = {
   borderColor: string;
   backgroundColor: string;
-  shadowColor: string;
-  insetColor: string;
 };
 
 export const ACTION_CARD_BUTTON_ACCENTS = {
   interactive: {
     borderColor: "var(--color-interactive-30)",
     backgroundColor: "var(--color-interactive-10)",
-    shadowColor: "var(--color-interactive-20)",
-    insetColor: "var(--color-interactive-10)",
   },
   amber: {
     borderColor: "var(--color-cloud-30)",
     backgroundColor: "var(--color-cloud-10)",
-    shadowColor: "var(--color-cloud-20)",
-    insetColor: "var(--color-cloud-10)",
   },
   cloud: {
     borderColor: "var(--color-cloud-30)",
     backgroundColor: "var(--color-cloud-10)",
-    shadowColor: "var(--color-cloud-20)",
-    insetColor: "var(--color-cloud-10)",
   },
   local: {
     borderColor: "var(--color-local-30)",
     backgroundColor: "var(--color-local-10)",
-    shadowColor: "var(--color-local-20)",
-    insetColor: "var(--color-local-10)",
   },
   accent: {
     borderColor: "var(--color-accent-30)",
     backgroundColor: "var(--color-accent-10)",
-    shadowColor: "var(--color-accent-20)",
-    insetColor: "var(--color-accent-10)",
   },
   error: {
     borderColor: "rgba(239, 68, 68, 0.3)",
     backgroundColor: "rgba(239, 68, 68, 0.08)",
-    shadowColor: "rgba(239, 68, 68, 0.2)",
-    insetColor: "rgba(239, 68, 68, 0.1)",
   },
 } satisfies Record<string, ActionCardAccent>;
 
@@ -64,12 +50,6 @@ type ActionCardButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const joinClasses = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(" ");
-
-const BASE_SHADOW =
-  "0 3px 0 -1px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.06)";
-
-const HOVER_SHADOW =
-  "0 3px 0 -1px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.12)";
 
 const ActionCardButton = ({
   title,
@@ -94,9 +74,11 @@ const ActionCardButton = ({
     "--action-card-border": resolvedAccent.borderColor,
     "--action-card-background": resolvedAccent.backgroundColor,
     "--action-card-hover-shadow": fullWidth
-      ? HOVER_SHADOW
+      ? "var(--ui-action-card-hover-shadow)"
       : "var(--shadow-sm)",
-    "--action-card-rest-shadow": fullWidth ? BASE_SHADOW : "none",
+    "--action-card-rest-shadow": fullWidth
+      ? "var(--ui-action-card-rest-shadow)"
+      : "none",
     ...style,
   } as CSSProperties;
 

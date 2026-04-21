@@ -289,28 +289,29 @@ const AppTab = ({
       return;
     }
 
+    const previewedPolicy = draftPolicy;
     setIsPreviewingPrune(true);
     try {
       const preview = await invoke<RecordingPrunePreview>(
         "preview_recording_prune",
         {
-          policy: draftPolicy,
+          policy: previewedPolicy,
         },
       );
 
       if (preview.candidate_count <= 0) {
-        onRecordingPrunePolicyChange(draftPolicy);
+        onRecordingPrunePolicyChange(previewedPolicy);
         return;
       }
 
       setPendingPruneConfirmation({
-        policy: draftPolicy,
+        policy: previewedPolicy,
         candidateCount: preview.candidate_count,
       });
     } catch (error) {
       console.error("Failed to preview recording prune impact", error);
       setPendingPruneConfirmation({
-        policy: draftPolicy,
+        policy: previewedPolicy,
         candidateCount: null,
       });
     } finally {
@@ -700,9 +701,14 @@ const AppTab = ({
                   <div className="w-[110px] shrink-0 relative z-20">
                     <Dropdown
                       value={draftPolicy}
-                      onChange={setDraftPolicy}
+                      onChange={(value) => {
+                        if (!isPreviewingPrune) {
+                          setDraftPolicy(value);
+                        }
+                      }}
                       options={recordingPruneOptions}
                       buttonClassName="py-0.5 px-2 ui-text-meta h-[24px]"
+                      disabled={isPreviewingPrune}
                     />
                   </div>
                 </div>

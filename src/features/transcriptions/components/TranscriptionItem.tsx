@@ -71,6 +71,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   const { t } = useLingui();
   const [copied, setCopied] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCancellingRetry, setIsCancellingRetry] = useState(false);
   const [isRetryingLlm, setIsRetryingLlm] = useState(false);
   const [isUndoingLlm, setIsUndoingLlm] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -163,6 +164,21 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
       await onRetry(record.id);
     } catch (err) {
       console.error("Failed to retry:", err);
+    }
+  };
+
+  const handleCancelRetry = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.stopPropagation();
+    if (isCancellingRetry || !onCancelRetry) return;
+    setIsCancellingRetry(true);
+    try {
+      await onCancelRetry(record.id);
+    } catch (err) {
+      console.error("Failed to stop retry:", err);
+    } finally {
+      setIsCancellingRetry(false);
     }
   };
 
@@ -296,9 +312,9 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                 </span>
                 <button
                   onClick={(event) => {
-                    event.stopPropagation();
-                    onCancelRetry?.(record.id);
+                    void handleCancelRetry(event);
                   }}
+                  disabled={isCancellingRetry || !onCancelRetry}
                   className="flex items-center gap-1 ui-color-cloud font-medium group/stop hover:text-cloud-hover transition-colors"
                   aria-label={t({
                     id: "transcriptions.item.stop_retry",

@@ -221,12 +221,22 @@ pub(crate) fn update_settings(
     if launch_changed {
         crate::sync_launch_at_login(app, next.auto_launch_enabled)?;
     }
+    let requested_auto_launch_enabled = next.auto_launch_enabled;
 
     let next = match state.persist_settings(next) {
         Ok(next) => next,
         Err(err) => {
             if launch_changed {
-                let _ = crate::sync_launch_at_login(app, prev.auto_launch_enabled);
+                if let Err(rollback_err) = crate::sync_launch_at_login(app, prev.auto_launch_enabled)
+                {
+                    return Err(format!(
+                        "{} (also failed to roll back launch at login from {} back to {}: {})",
+                        err,
+                        requested_auto_launch_enabled,
+                        prev.auto_launch_enabled,
+                        rollback_err
+                    ));
+                }
             }
             return Err(err.to_string());
         }

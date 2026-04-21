@@ -1,7 +1,14 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useLingui } from "@lingui/react/macro";
-import { useEffect, useState, useCallback, type CSSProperties } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import {
+  useState,
+  useCallback,
+  useId,
+  useRef,
+  type Dispatch,
+  type CSSProperties,
+  type SetStateAction,
+} from "react";
 import { AlertTriangle, ArrowRight, Trash2 } from "lucide-react";
 import DotMatrix from "../../../shared/ui/DotMatrix";
 import {
@@ -9,20 +16,95 @@ import {
   MODEL_CAPABILITY_DICTIONARY,
 } from "../../../shared/lib/modelCapabilities";
 import { useShiftHeld } from "../../../shared/hooks/useShiftHeld";
-import type { StoredSettings, ModelInfo, Replacement } from "../../../types";
+import { useModelCatalog } from "../../settings/models-queries";
+import { useSettings } from "../../settings/queries";
+import * as dictionaryApi from "../api";
+import {
+  setDictionaryEntriesCache,
+  setDictionaryReplacementsCache,
+  useReplacements,
+} from "../queries";
+import type { Replacement } from "../../../types";
 
 const normalizeEntry = (value: string) => value.trim();
+const toErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
+type QueuedPersistOptions<T> = {
+  value: T;
+  persist: (next: T) => Promise<T>;
+  setError: Dispatch<SetStateAction<string | null>>;
+  setValue: (next: T) => void;
+};
+
+function useQueuedPersist<T>({
+  value,
+  persist,
+  setError,
+  setValue,
+}: QueuedPersistOptions<T>) {
+  const [pending, setPending] = useState(false);
+  const currentRef = useRef(value);
+  const persistedRef = useRef(value);
+  const queuedRef = useRef<T | null>(null);
+  const isPersistingRef = useRef(false);
+
+  currentRef.current = value;
+  if (!isPersistingRef.current && queuedRef.current === null) {
+    persistedRef.current = value;
+  }
+
+  const persistNext = useCallback(
+    async (next: T) => {
+      queuedRef.current = next;
+      currentRef.current = next;
+      setValue(next);
+
+      if (isPersistingRef.current) return;
+
+      isPersistingRef.current = true;
+      setPending(true);
+      setError(null);
+
+      try {
+        while (queuedRef.current !== null) {
+          const queuedValue = queuedRef.current;
+          queuedRef.current = null;
+          const cleaned = await persist(queuedValue);
+          currentRef.current = cleaned;
+          persistedRef.current = cleaned;
+          setValue(cleaned);
+        }
+      } catch (error) {
+        console.error(error);
+        queuedRef.current = null;
+        const fallbackValue = persistedRef.current;
+        currentRef.current = fallbackValue;
+        setValue(fallbackValue);
+        setError(toErrorMessage(error));
+      } finally {
+        isPersistingRef.current = false;
+        setPending(false);
+      }
+    },
+    [persist, setError, setValue],
+  );
+
+  return { currentRef, pending, persistNext };
+}
 
 const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
   const { t } = useLingui();
+  const queryClient = useQueryClient();
   const shiftHeld = useShiftHeld(isActive);
+  const settingsQuery = useSettings(undefined, isActive);
+  const modelsQuery = useModelCatalog(isActive);
+  const replacementsQuery = useReplacements(isActive);
 
-  const [entries, setEntries] = useState<string[]>([]);
   const [newEntry, setNewEntry] = useState("");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState("");
 
-  const [replacements, setReplacements] = useState<Replacement[]>([]);
   const [newFrom, setNewFrom] = useState("");
   const [newTo, setNewTo] = useState("");
   const [editingReplacementIndex, setEditingReplacementIndex] = useState<
@@ -31,10 +113,39 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
   const [editingFrom, setEditingFrom] = useState("");
   const [editingTo, setEditingTo] = useState("");
 
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [settings, setSettings] = useState<StoredSettings | null>(null);
-  const [models, setModels] = useState<ModelInfo[]>([]);
+  const warningTooltipId = useId();
+
+  const settings = settingsQuery.data ?? null;
+  const models = modelsQuery.data ?? [];
+  const entries = settings?.dictionary ?? [];
+  const replacements = replacementsQuery.data ?? [];
+  const bootstrapError =
+    settingsQuery.error ?? modelsQuery.error ?? replacementsQuery.error;
+  const loading =
+    isActive &&
+    (settingsQuery.isLoading || modelsQuery.isLoading || replacementsQuery.isLoading);
+
+  const {
+    currentRef: entriesRef,
+    pending: entriesPending,
+    persistNext: persistEntriesNext,
+  } = useQueuedPersist({
+    value: entries,
+    persist: dictionaryApi.setDictionary,
+    setError,
+    setValue: (next) => setDictionaryEntriesCache(queryClient, next),
+  });
+  const {
+    currentRef: replacementsRef,
+    pending: replacementsPending,
+    persistNext: persistReplacementsNext,
+  } = useQueuedPersist({
+    value: replacements,
+    persist: dictionaryApi.setReplacements,
+    setError,
+    setValue: (next) => setDictionaryReplacementsCache(queryClient, next),
+  });
 
   const searchQuery = newEntry.trim().toLowerCase();
   const filteredEntries = searchQuery
@@ -42,157 +153,95 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     : entries;
   const isSearching = searchQuery.length > 0;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [settingsResp, modelsResp, replacementsResp] = await Promise.all([
-        invoke<StoredSettings>("get_settings"),
-        invoke<ModelInfo[]>("list_models"),
-        invoke<Replacement[]>("get_replacements"),
-      ]);
-      setSettings(settingsResp);
-      setEntries(settingsResp.dictionary ?? []);
-      setModels(modelsResp ?? []);
-      setReplacements(replacementsResp ?? []);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isActive) return;
-    load();
-  }, [isActive, load]);
-
-  useEffect(() => {
-    if (!isActive) return;
-
-    let cancelled = false;
-    let unlistenSettings: UnlistenFn | null = null;
-
-    listen<StoredSettings>("settings:changed", (event) => {
-      const nextSettings = event.payload;
-      if (!nextSettings) return;
-      setSettings(nextSettings);
-    }).then((fn) => {
-      if (cancelled) {
-        fn();
-      } else {
-        unlistenSettings = fn;
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      unlistenSettings?.();
-    };
-  }, [isActive]);
-
   const persistEntries = useCallback(async (next: string[]) => {
-    setError(null);
-    try {
-      const cleaned = await invoke<string[]>("set_dictionary", {
-        entries: next,
-      });
-      setEntries(cleaned);
-      setEditingIndex(null);
-      setEditingValue("");
-      setNewEntry("");
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, []);
+    setEditingIndex(null);
+    setEditingValue("");
+    setNewEntry("");
+    await persistEntriesNext(next);
+  }, [persistEntriesNext]);
 
   const persistReplacements = useCallback(async (next: Replacement[]) => {
-    setError(null);
-    try {
-      const cleaned = await invoke<Replacement[]>("set_replacements", {
-        replacements: next,
-      });
-      setReplacements(cleaned);
-      setEditingReplacementIndex(null);
-      setEditingFrom("");
-      setEditingTo("");
-      setNewFrom("");
-      setNewTo("");
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, []);
+    setEditingReplacementIndex(null);
+    setEditingFrom("");
+    setEditingTo("");
+    setNewFrom("");
+    setNewTo("");
+    await persistReplacementsNext(next);
+  }, [persistReplacementsNext]);
 
   const handleAdd = async () => {
     const value = normalizeEntry(newEntry);
-    if (!value || entries.includes(value)) return;
-    await persistEntries([...entries, value]);
+    const currentEntries = entriesRef.current;
+    if (!value || currentEntries.includes(value)) return;
+    await persistEntries([...currentEntries, value]);
   };
 
   const handleEditCommit = async () => {
     if (editingIndex === null) return;
+    const currentEntries = entriesRef.current;
     const value = normalizeEntry(editingValue);
     if (!value) {
-      const next = entries.filter((_, idx) => idx !== editingIndex);
+      const next = currentEntries.filter((_, idx) => idx !== editingIndex);
       await persistEntries(next);
       return;
     }
-    const next = entries.map((entry, idx) =>
+    const next = currentEntries.map((entry, idx) =>
       idx === editingIndex ? value : entry,
     );
     await persistEntries(next);
   };
 
   const handleDelete = async (idx: number) => {
-    const next = entries.filter((_, i) => i !== idx);
+    const next = entriesRef.current.filter((_, i) => i !== idx);
     await persistEntries(next);
   };
 
   const startEditing = (idx: number) => {
+    const currentEntries = entriesRef.current;
     setEditingIndex(idx);
-    setEditingValue(entries[idx]);
+    setEditingValue(currentEntries[idx] ?? "");
   };
 
   const handleAddReplacement = async () => {
+    const currentReplacements = replacementsRef.current;
     const from = normalizeEntry(newFrom);
     const to = normalizeEntry(newTo);
     if (!from) return;
-    const exists = replacements.some(
+    const exists = currentReplacements.some(
       (r) => r.from.toLowerCase() === from.toLowerCase(),
     );
     if (exists) return;
-    await persistReplacements([...replacements, { from, to }]);
+    await persistReplacements([...currentReplacements, { from, to }]);
   };
 
   const handleEditReplacementCommit = async () => {
     if (editingReplacementIndex === null) return;
+    const currentReplacements = replacementsRef.current;
     const from = normalizeEntry(editingFrom);
     const to = normalizeEntry(editingTo);
     if (!from) {
-      const next = replacements.filter(
+      const next = currentReplacements.filter(
         (_, idx) => idx !== editingReplacementIndex,
       );
       await persistReplacements(next);
       return;
     }
-    const next = replacements.map((r, idx) =>
+    const next = currentReplacements.map((r, idx) =>
       idx === editingReplacementIndex ? { from, to } : r,
     );
     await persistReplacements(next);
   };
 
   const handleDeleteReplacement = async (idx: number) => {
-    const next = replacements.filter((_, i) => i !== idx);
+    const next = replacementsRef.current.filter((_, i) => i !== idx);
     await persistReplacements(next);
   };
 
   const startEditingReplacement = (idx: number) => {
+    const currentReplacements = replacementsRef.current;
     setEditingReplacementIndex(idx);
-    setEditingFrom(replacements[idx].from);
-    setEditingTo(replacements[idx].to);
+    setEditingFrom(currentReplacements[idx]?.from ?? "");
+    setEditingTo(currentReplacements[idx]?.to ?? "");
   };
 
   const currentModel = models.find((m) => m.key === settings?.local_model);
@@ -264,6 +313,8 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     backgroundImage:
       "linear-gradient(to left, var(--color-row-action-fade) 62%, transparent)",
   };
+  const resolvedError =
+    error ?? (bootstrapError ? toErrorMessage(bootstrapError) : null);
   const deleteButtonClassName =
     "rounded p-1 text-content-muted transition-colors hover:bg-[color-mix(in_srgb,var(--color-error)_16%,transparent)] hover:text-error";
   const deleteButtonActiveClassName =
@@ -293,16 +344,22 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
               <span
                 className="group relative inline-flex shrink-0 items-center justify-center self-center translate-y-[3px]"
               >
-                <span
-                  title={t({
+                <button
+                  type="button"
+                  aria-describedby={warningTooltipId}
+                  aria-label={t({
                     id: "dictionary.warning_aria",
                     message: "Warning: model compatibility issue",
                   })}
-                  className="inline-flex items-center justify-center ui-color-warning opacity-90 hover:opacity-100 cursor-default"
+                  className="inline-flex items-center justify-center ui-color-warning opacity-90 hover:opacity-100 cursor-default outline-hidden"
                 >
                   <AlertTriangle size={18} aria-hidden="true" />
-                </span>
-                <span className="pointer-events-none absolute left-1/2 top-full z-50 hidden w-80 -translate-x-1/2 pt-2 text-left font-sans tracking-normal group-hover:block group-focus-within:block">
+                </button>
+                <span
+                  id={warningTooltipId}
+                  role="tooltip"
+                  className="pointer-events-none absolute left-1/2 top-full z-50 hidden w-80 -translate-x-1/2 pt-2 text-left font-sans tracking-normal group-hover:block group-focus-within:block"
+                >
                   <span
                     className="block rounded-lg border bg-surface-overlay p-3 ui-color-warning shadow-xl leading-relaxed ui-text-body-sm shadow-[0_8px_30px_rgb(0,0,0,0.12)]"
                     style={{ borderColor: "color-mix(in srgb, var(--color-warning) 30%, transparent)" }}
@@ -377,7 +434,10 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
           </div>
 
           <div className="relative">
-            <div className={`${panelBodyClassName}${filteredEntries.length > FADE_ITEM_THRESHOLD ? ` ${panelBodyFadeClassName}` : ""}`}>
+            <div
+              aria-busy={entriesPending}
+              className={`${panelBodyClassName}${filteredEntries.length > FADE_ITEM_THRESHOLD ? ` ${panelBodyFadeClassName}` : ""}`}
+            >
               {loading ? (
                 <div className="flex items-center justify-center py-10">
                   <DotMatrix
@@ -494,7 +554,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                           </p>
                         </button>
                         <div
-                          className="absolute inset-y-0 right-0 flex items-center gap-1 pl-6 pr-2 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
+                          className="absolute inset-y-0 right-0 flex items-center gap-1 pl-6 pr-2 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
                           style={{
                             ...actionGradientStyle,
                             willChange: "opacity",
@@ -536,11 +596,6 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
             )}
           </div>
 
-          {error && (
-            <div className="mt-3 border-t border-border-primary pt-3 ui-text-body-sm ui-color-error-soft">
-              {error}
-            </div>
-          )}
         </div>
 
         {/* Replacements Column */}
@@ -615,7 +670,10 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
           </div>
 
           <div className="relative">
-            <div className={`${panelBodyClassName}${replacements.length > FADE_ITEM_THRESHOLD ? ` ${panelBodyFadeClassName}` : ""}`}>
+            <div
+              aria-busy={replacementsPending}
+              className={`${panelBodyClassName}${replacements.length > FADE_ITEM_THRESHOLD ? ` ${panelBodyFadeClassName}` : ""}`}
+            >
               {loading ? (
                 <div className="flex items-center justify-center py-10">
                   <DotMatrix
@@ -786,7 +844,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                           </span>
                         </button>
                         <div
-                          className="absolute inset-y-0 right-0 flex items-center gap-1 pl-6 pr-2 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
+                          className="absolute inset-y-0 right-0 flex items-center gap-1 pl-6 pr-2 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
                           style={{
                             ...actionGradientStyle,
                             willChange: "opacity",
@@ -828,13 +886,14 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
             )}
           </div>
 
-          {error && (
-            <div className="mt-3 border-t border-border-primary pt-3 ui-text-body-sm ui-color-error-soft">
-              {error}
-            </div>
-          )}
         </div>
       </div>
+
+      {resolvedError && (
+        <div className="mt-3 border-t border-border-primary pt-3 ui-text-body-sm ui-color-error-soft">
+          {resolvedError}
+        </div>
+      )}
     </div>
   );
 };

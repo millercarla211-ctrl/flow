@@ -481,7 +481,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
                         <p className="ui-text-body-sm ui-color-muted">
                             {t({
                                 id: "transcriptions.list.no_results",
-                                message: `No results for "${searchQuery}"`,
+                                message: `No results for "${debouncedSearchQuery}"`,
                             })}
                         </p>
                     </div>
