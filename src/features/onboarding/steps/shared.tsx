@@ -132,8 +132,8 @@ export const ModelProgress = ({
   percent: number;
   status: string;
 }) => {
-  const cols = 50;
-  const rows = 3;
+  const cols = 40;
+  const rows = 2;
   const totalDots = cols * rows;
   const activeCount = Math.round((percent / 100) * totalDots);
 
@@ -157,10 +157,10 @@ export const ModelProgress = ({
       rows={rows}
       cols={cols}
       activeDots={activeDots}
-      dotSize={3}
+      dotSize={2}
       gap={2}
       color={color}
-      className={status === "downloading" ? "opacity-90" : "opacity-70"}
+      className={status === "downloading" ? "opacity-80" : "opacity-60"}
       morphOnActive={true}
       activeScale={1.0}
     />

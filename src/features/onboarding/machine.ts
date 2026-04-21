@@ -18,7 +18,6 @@ export type OnboardingContext = {
   platform: OnboardingPlatform;
   selectedMode: TranscriptionMode;
   localModelChoice: string;
-  downloadStatus: Record<string, LocalDownloadStatus>;
   showLocalConfirm: boolean;
   smartShortcut: string;
   captureActive: boolean;
@@ -35,7 +34,6 @@ export type OnboardingEvent =
   | { type: "BACK" }
   | { type: "SELECT_MODE"; mode: TranscriptionMode }
   | { type: "SELECT_MODEL"; key: string }
-  | { type: "SET_DOWNLOAD_STATUS"; key: string; status: LocalDownloadStatus }
   | { type: "SET_SHORTCUT"; shortcut: string }
   | { type: "CAPTURE_START" }
   | { type: "CAPTURE_END"; shortcut?: string }
@@ -71,7 +69,6 @@ export const onboardingMachine = setup({
     platform: getOnboardingPlatform(),
     selectedMode: "local",
     localModelChoice: "",
-    downloadStatus: {},
     showLocalConfirm: false,
     smartShortcut: "Control+Space",
     captureActive: false,
@@ -88,14 +85,6 @@ export const onboardingMachine = setup({
     },
     SELECT_MODEL: {
       actions: assign({ localModelChoice: ({ event }) => event.key }),
-    },
-    SET_DOWNLOAD_STATUS: {
-      actions: assign({
-        downloadStatus: ({ context, event }) => ({
-          ...context.downloadStatus,
-          [event.key]: event.status,
-        }),
-      }),
     },
     SET_SHORTCUT: {
       actions: assign({ smartShortcut: ({ event }) => event.shortcut }),

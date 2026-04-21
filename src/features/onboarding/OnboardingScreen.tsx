@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useMachine } from "@xstate/react";
 import {
   useMutation,
@@ -26,7 +26,7 @@ import { ReadyStep } from "./steps/ReadyStep";
 import { SigninStep } from "./steps/SigninStep";
 import { GlimpseLogo, StepIndicator } from "./steps/shared";
 import FAQModal from "../../shared/ui/FAQModal";
-import type { ModelInfo } from "../../types";
+import type { ModelInfo, ModelStatus } from "../../types";
 
 const hasRecommendedTag = (model: Pick<ModelInfo, "tags">) =>
   model.tags.some((tag) => tag.toLowerCase() === "recommended");
@@ -104,6 +104,9 @@ const stepTransitionVariants = {
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const { t } = useLingui();
   const [state, send] = useMachine(onboardingMachine);
+  const [downloadStatus, setDownloadStatus] = useState<
+    Record<string, LocalDownloadStatus>
+  >({});
   const ctx = state.context;
   const queryClient = useQueryClient();
 
@@ -194,91 +197,109 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     },
   });
 
+  const updateDownloadStatus = useCallback(
+    (modelKey: string, status: LocalDownloadStatus) => {
+      setDownloadStatus((prev) => {
+        const current = prev[modelKey];
+        if (
+          current?.status === status.status &&
+          current?.percent === status.percent &&
+          current?.file === status.file &&
+          current?.message === status.message
+        ) {
+          return prev;
+        }
+
+        return { ...prev, [modelKey]: status };
+      });
+    },
+    [],
+  );
+
   useModelDownloadEvents({
     onProgress: (payload) => {
-      send({
-        type: "SET_DOWNLOAD_STATUS",
-        key: payload.model,
-        status: {
-          status: "downloading",
-          percent: Math.min(100, payload.percent),
-          file: payload.file,
-        },
+      updateDownloadStatus(payload.model, {
+        status: "downloading",
+        percent: Math.min(100, Math.max(0, Math.round(payload.percent))),
+        file: payload.file,
       });
     },
     onComplete: ({ model }) => {
-      send({
-        type: "SET_DOWNLOAD_STATUS",
-        key: model,
-        status: { status: "complete", percent: 100 },
-      });
+      updateDownloadStatus(model, { status: "complete", percent: 100 });
       void refreshModelStatus(queryClient, model);
     },
     onError: ({ model, error }) => {
       if (error.toLowerCase().includes("cancelled")) return;
-      send({
-        type: "SET_DOWNLOAD_STATUS",
-        key: model,
-        status: { status: "error", percent: 0, message: error },
+      updateDownloadStatus(model, {
+        status: "error",
+        percent: 0,
+        message: error,
       });
     },
   });
 
-  const handleDownload = useCallback(async (modelKey: string) => {
-    send({
-      type: "SET_DOWNLOAD_STATUS",
-      key: modelKey,
-      status: {
+  const handleDownload = useCallback(
+    async (modelKey: string) => {
+      updateDownloadStatus(modelKey, {
         status: "downloading",
         percent: 0,
         file: t({
           id: "onboarding.download.starting",
           message: "starting...",
         }),
-      },
-    });
-    try {
-      await invoke("download_model", { model: modelKey });
-      void refreshModelStatus(queryClient, modelKey);
-    } catch (err) {
-      const errorMsg = String(err);
-      if (errorMsg.toLowerCase().includes("cancelled")) return;
-      send({
-        type: "SET_DOWNLOAD_STATUS",
-        key: modelKey,
-        status: {
+      });
+      try {
+        await invoke("download_model", { model: modelKey });
+        void refreshModelStatus(queryClient, modelKey);
+      } catch (err) {
+        const errorMsg = String(err);
+        if (errorMsg.toLowerCase().includes("cancelled")) return;
+        updateDownloadStatus(modelKey, {
           status: "error",
           percent: 0,
           message: t({
             id: "onboarding.download.failed",
             message: "Download failed",
           }),
-        },
-      });
-    }
-  }, [queryClient, send, t]);
+        });
+      }
+    },
+    [queryClient, t, updateDownloadStatus],
+  );
 
-  const handleDelete = useCallback(async (modelKey: string) => {
-    try {
-      await invoke("delete_model", { model: modelKey });
-      send({ type: "SET_DOWNLOAD_STATUS", key: modelKey, status: { status: "idle", percent: 0 } });
-      void refreshModelStatus(queryClient, modelKey);
-    } catch {
-      send({ type: "SET_DOWNLOAD_STATUS", key: modelKey, status: { status: "error", percent: 0, message: "Delete failed" } });
-    }
-  }, [queryClient, send]);
+  const handleDelete = useCallback(
+    async (modelKey: string) => {
+      try {
+        const status = await invoke<ModelStatus>("delete_model", {
+          model: modelKey,
+        });
+        queryClient.setQueryData(modelKeys.status(modelKey), status);
+        updateDownloadStatus(modelKey, { status: "idle", percent: 0 });
+      } catch {
+        updateDownloadStatus(modelKey, {
+          status: "error",
+          percent: 0,
+          message: "Delete failed",
+        });
+      }
+    },
+    [queryClient, updateDownloadStatus],
+  );
 
-  const handleCancelDownload = useCallback(async (modelKey: string) => {
-    try {
-      await invoke("cancel_download", { model: modelKey });
-      send({ type: "SET_DOWNLOAD_STATUS", key: modelKey, status: { status: "cancelled", percent: 0 } });
-      setTimeout(() => {
-        send({ type: "SET_DOWNLOAD_STATUS", key: modelKey, status: { status: "idle", percent: 0 } });
-      }, 1500);
-    } catch {
-      // ignore
-    }
-  }, [send]);
+  const handleCancelDownload = useCallback(
+    async (modelKey: string) => {
+      try {
+        await invoke("cancel_download", { model: modelKey });
+        updateDownloadStatus(modelKey, { status: "cancelled", percent: 0 });
+        setTimeout(() => {
+          updateDownloadStatus(modelKey, { status: "idle", percent: 0 });
+        }, 1500);
+      } catch {
+        // ignore
+      }
+    },
+    [updateDownloadStatus],
+  );
 
   const handleRequestMic = useCallback(() => {
     requestMicrophonePermission();
@@ -291,15 +312,26 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
   const displayStateByModel = useMemo(() => {
     const buildState = (key: string): LocalDownloadStatus => {
       const installed = modelStatus[key]?.installed;
-      const base = ctx.downloadStatus[key];
-      if (installed) return { status: "complete", percent: 100, file: base?.file, message: base?.message };
+      const base = downloadStatus[key];
+      if (base && base.status !== "complete") return base;
+      if (installed) {
+        return {
+          status: "complete",
+          percent: 100,
+          file: base?.file,
+          message: base?.message,
+        };
+      }
       return base ?? { status: "idle", percent: 0 };
     };
     return onboardingModelCatalog.reduce<Record<string, LocalDownloadStatus>>(
-      (acc, model) => { acc[model.key] = buildState(model.key); return acc; },
+      (acc, model) => {
+        acc[model.key] = buildState(model.key);
+        return acc;
+      },
       {},
     );
-  }, [ctx.downloadStatus, modelStatus, onboardingModelCatalog]);
+  }, [downloadStatus, modelStatus, onboardingModelCatalog]);
 
   const selectedModelReady = useMemo(() => {
     if (!selectedModel) return false;
