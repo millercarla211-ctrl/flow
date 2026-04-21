@@ -28,12 +28,30 @@ Have an idea? [Open an issue](https://github.com/LegendarySpy/Glimpse/issues/new
 ## Code Contributions
 
 1. Fork the repo and create a branch from `main`.
-2. Follow the [Building Locally](README.md#building-locally) steps to get set up.
+2. Follow the [Building Locally](CONTRIBUTING.md#building-locally) steps to get set up.
 3. Make your changes and test them.
 4. Open a pull request **targeting `main`** with a clear description of what you changed and why.
 
-All PRs should target `main` regardless of the current release version. If approved, your changes will be included in the next release.
+All PRs should target `main` regardless of the current release version.
 
 ## Spread the Word
 
 Star the repo, share Glimpse with others, or write about it. More visibility helps the project grow!
+
+
+## Building Locally
+
+**Prerequisites:** macOS 14+, [Rust](https://rustup.rs/) 1.74+, [Bun](https://bun.sh/) 1.3+, Xcode Command Line Tools
+```bash
+xcode-select --install
+git clone https://github.com/LegendarySpy/Glimpse.git
+cd Glimpse
+bun install
+```
+```bash
+bun tauri dev       # Development with hot reload
+bun tauri build     # Production build
+```
+
+> [!TIP]
+> After a production build, you may need to re-enable accessibility permissions in System Settings for text insertion to work.
