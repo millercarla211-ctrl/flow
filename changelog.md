@@ -1,6 +1,7 @@
 0.8.3
 
-
+### Improvements
+  - Some animations have been micro-adjusted to be better.
 ---
 0.8.2
 

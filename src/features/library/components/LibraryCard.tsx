@@ -222,7 +222,7 @@ const LibraryCard = ({
                     </div>
 
                     <div className="flex items-center -mr-1 -mt-1 overflow-visible h-6">
-                        <div ref={menuRef} className="flex relative items-center justify-center">
+                        <div ref={menuRef} data-no-press className="flex relative items-center justify-center">
                             <button
                                 data-no-press
                                 onPointerDown={(e) => {
@@ -246,7 +246,11 @@ const LibraryCard = ({
                                 }`}
                                 aria-label="More options"
                             >
-                                {shiftHeld ? <Trash2 size={14} /> : <MoreHorizontal size={14} />}
+                                {shiftHeld ? (
+                                    <Trash2 size={14} className="shrink-0 transform-gpu" />
+                                ) : (
+                                    <MoreHorizontal size={14} className="shrink-0 transform-gpu" />
+                                )}
                             </button>
                             <AnimatePresence>
                                 {menuOpen && (
