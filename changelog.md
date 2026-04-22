@@ -1,3 +1,15 @@
+0.8.2
+
+### New Features
+  - Added a microphone test button in general settings.
+
+### Improvements
+  - Major onboarding redesign.
+  - Cleaned up some smaller UI interactions.
+  - Connecting a new microphone will show up instantly.
+  - Update FAQ design & info.
+  - Update What's new design.
+---
 0.8.1
 
 ### New Features

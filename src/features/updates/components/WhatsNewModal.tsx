@@ -192,15 +192,31 @@ function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={{ type: "spring", stiffness: 400, damping: 30 }}
                         onClick={(e) => e.stopPropagation()}
-                        className="relative w-full max-w-md max-h-[70vh] bg-surface-secondary border border-border-primary rounded-2xl shadow-2xl overflow-hidden"
+                        className="relative w-full max-w-lg h-[75vh] bg-surface-tertiary rounded-2xl border border-border-secondary shadow-2xl shadow-black/50 overflow-hidden flex flex-col"
                     >
-                        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 bg-surface-secondary backdrop-blur-xs border-b border-border-primary">
-                            <h2 className="ui-text-title-strong ui-color-primary">
-                                {t({
-                                    id: "updates.whats_new.title",
-                                    message: "What's New",
-                                })}
-                            </h2>
+                        <div className="flex items-center justify-between px-7 pt-6 pb-2 shrink-0">
+                            <div>
+                                <h2 className="ui-text-display font-normal ui-color-primary tracking-tight">
+                                    {t({
+                                        id: "updates.whats_new.title",
+                                        message: "What's New",
+                                    })}
+                                </h2>
+                                <button
+                                    onClick={() => {
+                                        openUrl("https://github.com/LegendarySpy/Glimpse/releases").catch((err) => {
+                                            console.error("Failed to open releases:", err);
+                                        });
+                                    }}
+                                    className="flex items-center gap-1.5 mt-1 ui-text-meta ui-color-muted hover:ui-color-secondary transition-colors"
+                                >
+                                    <span>{t({
+                                        id: "updates.whats_new.view_all",
+                                        message: "View all releases on GitHub",
+                                    })}</span>
+                                    <ExternalLink size={11} />
+                                </button>
+                            </div>
                             <button
                                 onClick={onClose}
                                 className="p-1.5 rounded-lg text-content-muted hover:text-content-primary hover:bg-surface-elevated transition-colors"
@@ -209,16 +225,27 @@ function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                             </button>
                         </div>
 
-                        <div className="px-5 py-5 overflow-y-auto settings-scroll" style={{ maxHeight: 'calc(70vh - 140px)' }}>
+                        <div className="relative flex-1 min-h-0 overflow-hidden">
+                            <div
+                                className="pointer-events-none absolute left-0 right-3 top-0 h-6 z-10"
+                                style={{ background: "linear-gradient(to bottom, var(--color-bg-tertiary), transparent)" }}
+                                aria-hidden="true"
+                            />
+                            <div
+                                className="pointer-events-none absolute left-0 right-3 bottom-0 h-8 z-10"
+                                style={{ background: "linear-gradient(to top, var(--color-bg-tertiary), transparent)" }}
+                                aria-hidden="true"
+                            />
+                        <div className="h-full overflow-y-auto settings-scroll px-7 pt-5 pb-7">
                             {(loading || releases.length === 0) && !error && (
-                                <div className="flex items-center justify-center py-8">
+                                <div className="flex items-center justify-center py-12">
                                     <Loader2 size={20} className="animate-spin text-content-muted" />
                                 </div>
                             )}
 
                             {error && (
-                                <div className="flex flex-col items-center gap-3 py-6">
-                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 w-full">
+                                <div className="flex flex-col items-center gap-3 py-8">
+                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 w-full">
                                         <AlertCircle size={14} className="ui-color-error-strong shrink-0" />
                                         <div className="flex-1 min-w-0">
                                             <p className="ui-text-body ui-color-error-strong font-medium">
@@ -248,51 +275,40 @@ function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                             )}
 
                             {!loading && !error && releases.length > 0 && (
-
-                                <div className="space-y-6">
+                                <div className="space-y-8">
                                     {releases.map((release: ReleaseInfo, index: number) => {
-
                                         const isFeatured = isFeatureRelease(release.version);
                                         return (
-                                            <div key={release.version || `release-${index}`} className={isFeatured ? "pl-3 border-l-2 border-amber-400" : ""}>
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <h3 className={`font-semibold ${isFeatured ? "ui-text-title ui-color-warning-strong" : "ui-text-body-lg-strong ui-color-primary"}`}>
+                                            <div key={release.version || `release-${index}`}>
+                                                <div className="flex items-baseline gap-3 mb-1">
+                                                    <h3 className={`font-semibold tracking-tight ${isFeatured ? "ui-text-title ui-color-warning-strong" : "ui-text-body-lg-strong ui-color-primary"}`}>
                                                         {release.version}
                                                     </h3>
-                                                    <span className="ui-text-label ui-color-muted">
-                                                        {formatDate(release.publishedAt)}
-                                                    </span>
+                                                    {isFeatured && (
+                                                        <span className="ui-text-meta font-medium ui-color-warning">
+                                                            {t({
+                                                                id: "updates.whats_new.major_release",
+                                                                message: "Major Release",
+                                                            })}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <div className="pb-2">
+                                                <span className="ui-text-meta ui-color-disabled">
+                                                    {formatDate(release.publishedAt)}
+                                                </span>
+                                                <div className="mt-3">
                                                     {renderMarkdown(release.body)}
                                                 </div>
                                                 {index < releases.length - 1 && (
-
-                                                    <div className={`border-t border-border-primary mt-4 ${isFeatured ? "-ml-3" : ""}`} />
+                                                    <div className="border-t border-border-primary mt-6" />
                                                 )}
                                             </div>
                                         );
                                     })}
                                 </div>
                             )}
-
                         </div>
-
-                        {releases.length > 0 && (
-
-                            <div className="sticky bottom-0 px-5 py-3 bg-surface-secondary backdrop-blur-xs border-t border-border-primary">
-                                <button
-                                    onClick={() => openUrl("https://github.com/LegendarySpy/Glimpse/releases")}
-                                    className="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-lg bg-surface-elevated border border-border-secondary ui-text-button ui-color-secondary hover:text-content-primary hover:border-border-hover transition-colors"
-                                >
-                                    <ExternalLink size={12} />
-                                    {t({
-                                        id: "updates.whats_new.view_all",
-                                        message: "View all releases on GitHub",
-                                    })}
-                                </button>
-                            </div>
-                        )}
+                        </div>
                     </motion.div>
                 </motion.div>
             )}

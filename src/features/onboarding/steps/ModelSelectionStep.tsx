@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Download, Trash2, Square, AlertTriangle } from "lucide-react";
 import DotMatrix from "../../../shared/ui/DotMatrix";
 import { ModelProgress, type StepMotionProps } from "./shared";
-import type { ModelInfo, ModelStatus } from "../../../types";
+import type { ModelInfo } from "../../../types";
 import type { LocalDownloadStatus } from "../machine";
 
 interface ModelSelectionStepProps {
@@ -14,7 +14,6 @@ interface ModelSelectionStepProps {
   selectedModel: string;
   onSelectModel: (key: string) => void;
   displayStateByModel: Record<string, LocalDownloadStatus>;
-  modelStatus: Record<string, ModelStatus>;
   selectedModelReady: boolean;
   showLocalConfirm: boolean;
   onShowConfirm: (show: boolean) => void;
@@ -32,7 +31,6 @@ export function ModelSelectionStep({
   selectedModel,
   onSelectModel,
   displayStateByModel,
-  modelStatus: _modelStatus,
   selectedModelReady,
   showLocalConfirm,
   onShowConfirm,
@@ -122,6 +120,10 @@ export function ModelSelectionStep({
           {modelCatalog.map((model, index) => {
             const displayState = displayStateByModel[model.key] ?? { status: "idle", percent: 0 };
             const installed = displayState.status === "complete";
+            const isDownloading = displayState.status === "downloading";
+            const isCancelled = displayState.status === "cancelled";
+            const showError = displayState.status === "error";
+            const showProgress = isDownloading || showError || isCancelled;
             const isSelected = selectedModel === model.key;
             const isActive = isSelected && installed;
             const isWhisper = model.engine_id === "whisper";
@@ -192,86 +194,83 @@ export function ModelSelectionStep({
                   <p className="h-16 ui-text-label leading-relaxed text-content-muted text-pretty">{model.description}</p>
                 </div>
 
-                <div className="relative border-t border-border-primary bg-surface-surface/40 px-4 pt-2 pb-1 ui-text-meta text-content-tertiary leading-relaxed space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <button
-                      aria-label={
-                        displayState.status === "downloading"
-                          ? t({
-                              id: "onboarding.models.action.stop_download_aria",
-                              message: `Stop downloading ${model.label}`,
-                            })
-                          : displayState.status === "complete"
-                            ? t({
-                                id: "onboarding.models.action.delete_aria",
-                                message: `Delete ${model.label}`,
-                              })
-                            : t({
-                                id: "onboarding.models.action.download_aria",
-                                message: `Download ${model.label}`,
-                              })
-                      }
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        if (displayState.status === "downloading") {
-                          onCancelDownload(model.key);
-                        } else if (displayState.status === "complete") {
-                          onDelete(model.key);
-                        } else if (displayState.status !== "cancelled") {
-                          onDownload(model.key);
-                        }
-                      }}
-                      disabled={displayState.status === "cancelled"}
-                      className={`flex h-7 w-7 items-center justify-center rounded-md border border-border-secondary transition-colors ${
-                        displayState.status === "downloading" || displayState.status === "complete"
-                          ? "text-error hover:bg-surface-elevated"
-                          : displayState.status === "cancelled"
-                            ? "text-content-disabled cursor-default"
-                            : "text-content-primary hover:bg-surface-elevated"
-                      }`}
-                    >
-                      {displayState.status === "downloading" ? (
-                        <Square size={10} className="fill-current" />
-                      ) : displayState.status === "complete" ? (
-                        <Trash2 size={14} />
-                      ) : (
-                        <Download size={14} className={displayState.status === "cancelled" ? "" : accentTextClass} />
-                      )}
-                    </button>
-                    <span className="ui-text-label-strong text-content-secondary">
-                      {displayState.status === "complete"
+                <div className="relative flex items-center gap-3 px-4 pb-4 pt-1">
+                  <button
+                    aria-label={
+                      isDownloading
                         ? t({
-                            id: "onboarding.models.downloaded",
-                            message: "Downloaded",
+                            id: "onboarding.models.action.stop_download_aria",
+                            message: `Stop downloading ${model.label}`,
                           })
-                        : t({
-                            id: "onboarding.models.download",
-                            message: "Download",
+                        : installed
+                          ? t({
+                              id: "onboarding.models.action.delete_aria",
+                              message: `Delete ${model.label}`,
+                            })
+                          : t({
+                              id: "onboarding.models.action.download_aria",
+                              message: `Download ${model.label}`,
+                            })
+                    }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (isDownloading) {
+                        onCancelDownload(model.key);
+                      } else if (installed) {
+                        onDelete(model.key);
+                      } else {
+                        onDownload(model.key);
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      event.stopPropagation();
+                    }}
+                    className={`shrink-0 flex h-7 w-7 items-center justify-center rounded-md border border-border-secondary transition-colors ${
+                      isDownloading || installed
+                        ? "text-error hover:bg-surface-elevated"
+                        : "text-content-primary hover:bg-surface-elevated"
+                    }`}
+                  >
+                    {isDownloading ? (
+                      <Square size={10} className="fill-current" />
+                    ) : installed ? (
+                      <Trash2 size={14} />
+                    ) : (
+                      <Download size={14} className={isCancelled ? "" : accentTextClass} />
+                    )}
+                  </button>
+                  <div className={`flex-1 min-w-0 flex flex-col justify-center gap-0.5${showProgress ? " translate-y-[2px]" : ""}`}>
+                    {showProgress ? (
+                      <>
+                        <ModelProgress percent={displayState.percent} status={displayState.status} />
+                        <p className="ui-text-micro tabular-nums truncate text-content-muted">
+                          {isDownloading && <>{displayState.percent.toFixed(0)}% · {displayState.file ?? ""}</>}
+                          {showError && (
+                            <span className="text-error">
+                              {displayState.message || t({
+                                id: "onboarding.models.download_failed",
+                                message: "Download failed",
+                              })}
+                            </span>
+                          )}
+                          {isCancelled && t({
+                            id: "onboarding.models.cancelled",
+                            message: "Cancelled",
                           })}
-                    </span>
-                  </div>
-                  <ModelProgress percent={displayState.percent} status={displayState.status} />
-                  <div className="h-4 flex items-center">
-                    {displayState.status === "downloading" && (
-                      <p className="ui-text-meta leading-none text-content-muted tabular-nums truncate w-full">
-                        {displayState.percent.toFixed(0)}% · {displayState.file ?? ""}
-                      </p>
-                    )}
-                    {displayState.status === "error" && (
-                      <p className="ui-text-meta leading-none text-error truncate w-full">
-                        {displayState.message || t({
-                          id: "onboarding.models.download_failed",
-                          message: "Download failed",
-                        })}
-                      </p>
-                    )}
-                    {displayState.status === "cancelled" && (
-                      <p className="ui-text-meta leading-none text-content-muted">
-                        {t({
-                          id: "onboarding.models.cancelled",
-                          message: "Cancelled",
-                        })}
-                      </p>
+                        </p>
+                      </>
+                    ) : (
+                      <span className="ui-text-label-strong text-content-secondary">
+                        {installed
+                          ? t({
+                              id: "onboarding.models.downloaded",
+                              message: "Downloaded",
+                            })
+                          : t({
+                              id: "onboarding.models.download",
+                              message: "Download",
+                            })}
+                      </span>
                     )}
                   </div>
                 </div>

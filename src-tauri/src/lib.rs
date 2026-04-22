@@ -343,6 +343,9 @@ pub fn run() {
                 if let Err(err) = set_app_menu(handle, &settings) {
                     eprintln!("Failed to set app menu: {err}");
                 }
+                if let Err(err) = platform::macos::audio_devices::init(handle) {
+                    eprintln!("Failed to initialize input device watcher: {err}");
+                }
             }
 
             #[cfg(target_os = "windows")]
@@ -441,6 +444,7 @@ pub fn run() {
             audio::list_input_devices,
             toast::toast_dismissed,
             open_accessibility_settings,
+            check_accessibility_permission,
             check_microphone_permission,
             request_microphone_permission,
             open_microphone_settings,
@@ -939,6 +943,11 @@ fn set_shortcut_capture_active(active: bool, app: AppHandle<AppRuntime>) -> Resu
 #[tauri::command]
 fn open_accessibility_settings() -> Result<(), String> {
     permissions::open_accessibility_settings()
+}
+
+#[tauri::command]
+fn check_accessibility_permission() -> bool {
+    permissions::check_accessibility_permission()
 }
 
 #[tauri::command]

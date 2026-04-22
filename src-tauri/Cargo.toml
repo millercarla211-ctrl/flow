@@ -1,6 +1,6 @@
 [package]
 name = "Glimpse"
-version = "0.8.1"
+version = "0.8.2"
 description = "Open-source voice-to-text productivity app built with Tauri"
 authors = ["LegendarySpy"]
 edition = "2021"
@@ -47,7 +47,7 @@ aes-gcm = "0.10"
 pbkdf2 = { version = "0.12", features = ["simple"] }
 sha2 = "0.10"
 base64 = "0.22"
-rand = "0.8"
+rand = "0.9"
 rusqlite = { version = "0.38", features = ["bundled"] }
 regex = "1"
 fs2 = "0.4"
@@ -68,3 +68,4 @@ tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "da9c9a
 tauri-plugin-macos-permissions = "2.3.0"
 core-graphics = "0.25"
 core-foundation = "0.10"
+objc2-core-audio = "0.3.2"

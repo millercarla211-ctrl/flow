@@ -18,7 +18,6 @@ import {
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import SettingsModal from "./features/settings/components/SettingsModal";
 import FAQModal from "./shared/ui/FAQModal";
-import DotMatrix from "./shared/ui/DotMatrix";
 import { useClickOutside } from "./shared/hooks/useClickOutside";
 import TranscriptionList from "./features/transcriptions/components/TranscriptionList";
 import DictionaryView from "./features/dictionary/components/DictionaryView";
@@ -28,6 +27,55 @@ import { useCurrentUser } from "./features/auth/queries";
 import { useSettings, useAppInfo } from "./features/settings/queries";
 import { useUpdateStatus } from "./features/updates/queries";
 import type { TranscriptionMode } from "./types";
+
+const STATIC_LOGO_DOT_SIZE = 5;
+const STATIC_LOGO_GAP = 3;
+const STATIC_LOGO_DISTANCE = STATIC_LOGO_DOT_SIZE + STATIC_LOGO_GAP;
+const STATIC_LOGO_RADIUS = STATIC_LOGO_DOT_SIZE / 2;
+const STATIC_LOGO_GRID_SIZE = STATIC_LOGO_DOT_SIZE * 2 + STATIC_LOGO_GAP;
+const STATIC_LOGO_DOT_COLORS = [
+  "var(--color-cloud)",
+  "var(--color-local)",
+  "var(--color-local)",
+  "var(--color-cloud)",
+];
+const STATIC_LOGO_COORDS = [
+  { cx: STATIC_LOGO_RADIUS, cy: STATIC_LOGO_RADIUS },
+  { cx: STATIC_LOGO_RADIUS + STATIC_LOGO_DISTANCE, cy: STATIC_LOGO_RADIUS },
+  { cx: STATIC_LOGO_RADIUS, cy: STATIC_LOGO_RADIUS + STATIC_LOGO_DISTANCE },
+  {
+    cx: STATIC_LOGO_RADIUS + STATIC_LOGO_DISTANCE,
+    cy: STATIC_LOGO_RADIUS + STATIC_LOGO_DISTANCE,
+  },
+];
+
+const StaticGlimpseLogo = ({ isCloudMode }: { isCloudMode: boolean }) => {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      width={STATIC_LOGO_GRID_SIZE}
+      height={STATIC_LOGO_GRID_SIZE}
+      viewBox={`0 0 ${STATIC_LOGO_GRID_SIZE} ${STATIC_LOGO_GRID_SIZE}`}
+      style={{ overflow: "visible" }}
+    >
+      {STATIC_LOGO_COORDS.map((coord, i) => {
+        const isCloudDot = i === 0 || i === 3;
+        const isActive = isCloudMode ? isCloudDot : !isCloudDot;
+        return (
+          <circle
+            key={`dot-${i}`}
+            cx={coord.cx}
+            cy={coord.cy}
+            r={STATIC_LOGO_RADIUS}
+            fill={STATIC_LOGO_DOT_COLORS[i]}
+            opacity={isActive ? 1 : 0.15}
+          />
+        );
+      })}
+    </svg>
+  );
+};
 
 const SidebarItem = ({
   icon,
@@ -227,8 +275,6 @@ const Home = () => {
   }, []);
 
   const isCloudMode = transcriptionMode === "cloud";
-  const logoColor = isCloudMode ? "var(--color-cloud)" : "var(--color-local)";
-  const logoActiveDots = isCloudMode ? [0, 3] : [1, 2];
 
   const showCleanupButtons = isCloudMode || llmEnabled;
   const currentModeLabel = isCloudMode
@@ -275,14 +321,7 @@ const Home = () => {
             className={`flex items-center h-6 pl-[17px] pr-3 ${isSidebarCollapsed ? "gap-0" : "gap-3"}`}
           >
             <div className="flex items-center justify-center w-[18px] shrink-0">
-              <DotMatrix
-                rows={2}
-                cols={2}
-                activeDots={logoActiveDots}
-                dotSize={4.5}
-                gap={3.5}
-                color={logoColor}
-              />
+              <StaticGlimpseLogo isCloudMode={isCloudMode} />
             </div>
             <span
               style={{
