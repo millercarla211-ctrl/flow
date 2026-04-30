@@ -36,6 +36,25 @@ export function useShortcutCapture({
     let disposed = false;
     let unlisten: UnlistenFn | null = null;
 
+    const finishCapture = (shortcut: string) => {
+      if (disposed) return;
+      disposed = true;
+      unlisten?.();
+      unlisten = null;
+      onShortcutCaptured(shortcut);
+      onCancel();
+      resetCaptureState();
+    };
+
+    const cancelCapture = () => {
+      if (disposed) return;
+      disposed = true;
+      unlisten?.();
+      unlisten = null;
+      onCancel();
+      resetCaptureState();
+    };
+
     const handleCapturePayload = (payload: ShortcutCapturePayload) => {
       if (disposed) return;
 
@@ -47,15 +66,12 @@ export function useShortcutCapture({
 
       if (payload.kind === "captured") {
         onCaptureInput?.();
-        onShortcutCaptured(payload.shortcut);
-        onCancel();
-        resetCaptureState();
+        finishCapture(payload.shortcut);
         return;
       }
 
       onError?.(payload.message);
-      onCancel();
-      resetCaptureState();
+      cancelCapture();
     };
 
     listen<ShortcutCapturePayload>(SHORTCUT_CAPTURE_EVENT, (event) => {
@@ -71,33 +87,30 @@ export function useShortcutCapture({
       .catch((error) => {
         if (disposed) return;
         onError?.(String(error));
-        onCancel();
-        resetCaptureState();
+        cancelCapture();
       });
 
-    const swallowKeyboardEvent = (event: KeyboardEvent) => {
-      const hasModifier = event.metaKey || event.ctrlKey || event.altKey || event.shiftKey;
+    const handleKeyboardEvent = (event: KeyboardEvent) => {
+      if (disposed) return;
 
-      if (event.key === "Escape" && !hasModifier) {
-        event.preventDefault();
-        event.stopPropagation();
-        onCancel();
-        resetCaptureState();
-        return;
-      }
+      const hasModifier = event.metaKey || event.ctrlKey || event.altKey || event.shiftKey;
+      const shouldCancel = event.type === "keydown" && event.key === "Escape" && !hasModifier;
 
       event.preventDefault();
       event.stopPropagation();
+      if (shouldCancel) {
+        cancelCapture();
+      }
     };
 
-    window.addEventListener("keydown", swallowKeyboardEvent, true);
-    window.addEventListener("keyup", swallowKeyboardEvent, true);
+    window.addEventListener("keydown", handleKeyboardEvent, true);
+    window.addEventListener("keyup", handleKeyboardEvent, true);
 
     return () => {
       disposed = true;
       unlisten?.();
-      window.removeEventListener("keydown", swallowKeyboardEvent, true);
-      window.removeEventListener("keyup", swallowKeyboardEvent, true);
+      window.removeEventListener("keydown", handleKeyboardEvent, true);
+      window.removeEventListener("keyup", handleKeyboardEvent, true);
     };
   }, [
     active,

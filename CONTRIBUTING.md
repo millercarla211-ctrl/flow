@@ -70,5 +70,9 @@ bun tauri dev       # Development with hot reload
 bun tauri build     # Production build
 ```
 
+On Windows, `bun tauri ...` stores Cargo build artifacts in
+`C:\.glimpse-cargo-target` to avoid long native build paths. Override with
+`CARGO_TARGET_DIR` or `GLIMPSE_CARGO_TARGET_DIR` if needed in env.
+
 > [!TIP]
 > After a production build, you may need to re-enable accessibility permissions in System Settings for text insertion to work.

@@ -1,3 +1,18 @@
+0.8.3
+
+### New Features
+  - Windows support! 🎉
+
+### Improvements
+  - Significantly improved keybind registration, much more reliable across edge cases.
+  - Separated usage analytics so they can be toggled independently.
+  - Some animations have been micro-adjusted to be better.
+  - Multimonitor users should notice a more intuitive experience.
+
+### Bug Fixes
+  - Fixed hover states on library and personalization buttons.
+  - Fixed streaming warning cleanup on Intel macOS.
+---
 0.8.2
 
 ### New Features

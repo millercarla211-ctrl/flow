@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "@lingui/cli";
+import { formatter } from "@lingui/format-po";
 
 const SUPPORTED_APP_LOCALES_PATH = resolve(
   process.cwd(),
@@ -42,7 +43,7 @@ export default defineConfig({
   fallbackLocales: {
     default: "en",
   },
-  format: "po",
+  format: formatter({ lineNumbers: false }),
   catalogs: [
     {
       path: "src/locales/{locale}/messages",

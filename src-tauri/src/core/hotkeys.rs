@@ -3,9 +3,8 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use anyhow::{anyhow, Result};
-use handy_keys::{
-    Hotkey, HotkeyManager, HotkeyState as HandyHotkeyState, KeyboardListener, Modifiers,
-};
+use handy_keys::{Hotkey, KeyboardListener, Modifiers};
+use handy_keys::{HotkeyManager, HotkeyState as HandyHotkeyState};
 use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
@@ -112,7 +111,7 @@ impl HotkeyCoordinator {
         let app_handle = app.clone();
         let session = WorkerSession::spawn("shortcut-capture", move |stop_rx| {
             let listener = KeyboardListener::new()?;
-            let mut last_hotkey: Option<Hotkey> = None;
+            let mut captured_hotkey: Option<Hotkey> = None;
 
             loop {
                 if should_stop(&stop_rx) {
@@ -121,20 +120,12 @@ impl HotkeyCoordinator {
 
                 match listener.recv_timeout(CAPTURE_POLL_INTERVAL) {
                     Ok(event) => {
-                        if let Ok(hotkey) = event.as_hotkey() {
-                            last_hotkey = Some(hotkey);
-                            emit_capture_event(
-                                &app_handle,
-                                ShortcutCapturePayload::Preview {
-                                    shortcut: hotkey.to_string(),
-                                },
-                            );
-                        }
-
-                        if !event.is_key_down
-                            && (event.key.is_some() || event.changed_modifier.is_some())
-                        {
-                            if let Some(hotkey) = last_hotkey.take() {
+                        if !event.is_key_down {
+                            if captured_hotkey
+                                .as_ref()
+                                .is_some_and(|hotkey| hotkey.key.is_some())
+                            {
+                                let hotkey = captured_hotkey.take().expect("checked above");
                                 emit_capture_event(
                                     &app_handle,
                                     ShortcutCapturePayload::Captured {
@@ -143,6 +134,18 @@ impl HotkeyCoordinator {
                                 );
                                 break;
                             }
+                            continue;
+                        }
+
+                        if let Ok(hotkey) = event.as_hotkey() {
+                            let captured = merge_capture_hotkey(captured_hotkey, hotkey);
+                            captured_hotkey = Some(captured);
+                            emit_capture_event(
+                                &app_handle,
+                                ShortcutCapturePayload::Preview {
+                                    shortcut: captured.to_string(),
+                                },
+                            );
                         }
                     }
                     Err(handy_keys::Error::Timeout) => {}
@@ -167,6 +170,17 @@ impl HotkeyCoordinator {
 
     pub(crate) fn stop_capture(&self) {
         self.capture.lock().take();
+    }
+}
+
+fn merge_capture_hotkey(previous: Option<Hotkey>, current: Hotkey) -> Hotkey {
+    if let Some(previous) = previous {
+        Hotkey {
+            modifiers: previous.modifiers | current.modifiers,
+            key: current.key.or(previous.key),
+        }
+    } else {
+        current
     }
 }
 
@@ -223,8 +237,9 @@ pub(crate) fn parse_shortcut(shortcut: &str) -> Result<Hotkey> {
         .map_err(|err| anyhow!("Shortcut `{shortcut}` is invalid: {err}"))
 }
 
-pub(crate) fn normalize_shortcut(shortcut: &str) -> Result<String> {
-    Ok(parse_shortcut(shortcut)?.to_string())
+pub(crate) fn normalize_recording_shortcut(shortcut: &str) -> Result<String> {
+    let hotkey = parse_shortcut(shortcut)?;
+    Ok(hotkey.to_string())
 }
 
 fn normalize_legacy_shortcut_input(shortcut: &str) -> String {
@@ -238,6 +253,10 @@ fn normalize_legacy_shortcut_input(shortcut: &str) -> String {
                     "Ctrl".to_string()
                 }
             }
+            "command" | "cmd" | "meta" | "win" | "windows" => "Cmd".to_string(),
+            "control" | "ctrl" => "Ctrl".to_string(),
+            "alt" | "option" | "opt" => "Opt".to_string(),
+            "shift" => "Shift".to_string(),
             "leftcommand" => "CmdLeft".to_string(),
             "rightcommand" => "CmdRight".to_string(),
             "leftcontrol" => "CtrlLeft".to_string(),

@@ -445,8 +445,22 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
                         {personality.name}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div onClick={(event) => event.stopPropagation()}>
+                    <div className="flex items-start gap-2">
+                      <div
+                        data-no-press
+                        className="-mt-0.5"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === "Enter" ||
+                            event.key === " " ||
+                            event.key === "Spacebar"
+                          ) {
+                            event.stopPropagation();
+                          }
+                        }}
+                      >
                         <ToggleSwitch
                           enabled={personality.enabled}
                           onToggle={() =>

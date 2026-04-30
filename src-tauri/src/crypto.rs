@@ -4,7 +4,7 @@ use aes_gcm::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use pbkdf2::pbkdf2_hmac_array;
-use rand::RngCore;
+use rand::Rng;
 use sha2::Sha256;
 use std::process::Command;
 use std::sync::OnceLock;
@@ -48,6 +48,25 @@ pub fn get_hardware_uuid() -> Option<String> {
 
 #[cfg(target_os = "windows")]
 pub fn get_hardware_uuid() -> Option<String> {
+    let output = Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "(Get-CimInstance Win32_ComputerSystemProduct).UUID",
+        ])
+        .output()
+        .ok();
+
+    if let Some(output) = output {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if let Some(uuid) = stdout.lines().map(str::trim).find(|line| !line.is_empty()) {
+                return Some(uuid.to_string());
+            }
+        }
+    }
+
     let output = Command::new("wmic")
         .args(["csproduct", "get", "uuid"])
         .output()

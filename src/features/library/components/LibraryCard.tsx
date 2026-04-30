@@ -222,7 +222,7 @@ const LibraryCard = ({
                     </div>
 
                     <div className="flex items-center -mr-1 -mt-1 overflow-visible h-6">
-                        <div ref={menuRef} className="flex relative items-center justify-center">
+                        <div ref={menuRef} data-no-press className="flex relative items-center justify-center">
                             <button
                                 data-no-press
                                 onPointerDown={(e) => {
@@ -237,6 +237,19 @@ const LibraryCard = ({
                                         setMenuOpen((prev) => !prev);
                                     }
                                 }}
+                                onKeyDown={(e) => {
+                                    e.stopPropagation();
+                                    if (e.key === "Enter" || e.key === " ") {
+                                        e.preventDefault();
+                                        if (e.repeat) return;
+                                        if (shiftHeld) {
+                                            handleDelete();
+                                        } else {
+                                            setMenuOpen((prev) => !prev);
+                                        }
+                                    }
+                                }}
+                                onKeyUp={(e) => e.stopPropagation()}
                                 className={`p-1 ml-1 rounded transition-colors duration-200 outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-border-hover)] flex items-center justify-center ${
                                     shiftHeld
                                         ? "ui-color-error hover:bg-[var(--color-error)]/10"
@@ -246,7 +259,11 @@ const LibraryCard = ({
                                 }`}
                                 aria-label="More options"
                             >
-                                {shiftHeld ? <Trash2 size={14} /> : <MoreHorizontal size={14} />}
+                                {shiftHeld ? (
+                                    <Trash2 size={14} className="shrink-0 transform-gpu" />
+                                ) : (
+                                    <MoreHorizontal size={14} className="shrink-0 transform-gpu" />
+                                )}
                             </button>
                             <AnimatePresence>
                                 {menuOpen && (
@@ -468,9 +485,9 @@ const LibraryCard = ({
                                 >
                                     +
                                 </button>
-                                {item.tags.map((tag) => (
+                                {item.tags.map((tag, index) => (
                                     <span
-                                        key={tag}
+                                        key={`tag-${index}-${tag || "empty"}`}
                                         onClick={(event) => {
                                             event.stopPropagation();
                                             if (shiftHeld) {

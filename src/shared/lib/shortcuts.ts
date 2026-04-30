@@ -1,8 +1,6 @@
-const platform =
-  typeof navigator !== "undefined"
-    ? navigator.platform || navigator.userAgent || ""
-    : "";
-const isMacPlatform = /Mac|iPhone|iPad|iPod/i.test(platform);
+import { detectAppPlatform } from "../../platform/service";
+
+const isMacPlatform = detectAppPlatform() === "macos";
 
 const MODIFIER_ORDER = ["Fn", "Cmd", "Opt", "Ctrl", "Shift"] as const;
 
@@ -68,11 +66,15 @@ function humanizeKeyToken(token: string): string {
   return token.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
 }
 
-export function formatShortcutForDisplay(shortcut: string): string {
-  const tokens = shortcut
+function shortcutTokens(shortcut: string): string[] {
+  return shortcut
     .split("+")
     .map((token) => token.trim())
     .filter(Boolean);
+}
+
+export function formatShortcutForDisplay(shortcut: string): string {
+  const tokens = shortcutTokens(shortcut);
 
   const modifiers = tokens
     .filter(isModifierToken)

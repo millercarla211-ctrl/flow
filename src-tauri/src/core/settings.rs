@@ -38,8 +38,10 @@ pub(crate) struct UpdateSettingsArgs {
     pub analytics_enabled: bool,
 }
 
-fn canonicalize_shortcut_for_storage(shortcut: &str) -> String {
-    hotkeys::normalize_shortcut(shortcut).unwrap_or_else(|_| shortcut.trim().to_string())
+fn canonicalize_shortcut_for_storage(shortcut: &str) -> Result<String, String> {
+    hotkeys::normalize_recording_shortcut(shortcut)
+        .map(|shortcut| shortcut.trim().to_string())
+        .map_err(|err| err.to_string())
 }
 
 fn validate_update_settings_args(args: &UpdateSettingsArgs) -> Result<(), String> {
@@ -192,11 +194,23 @@ pub(crate) fn update_settings(
 
     let mut next = state.current_settings();
     let prev = next.clone();
-    next.smart_shortcut = canonicalize_shortcut_for_storage(&args.smart_shortcut);
+    next.smart_shortcut = if args.smart_enabled {
+        canonicalize_shortcut_for_storage(&args.smart_shortcut)?
+    } else {
+        args.smart_shortcut
+    };
     next.smart_enabled = args.smart_enabled;
-    next.hold_shortcut = canonicalize_shortcut_for_storage(&args.hold_shortcut);
+    next.hold_shortcut = if args.hold_enabled {
+        canonicalize_shortcut_for_storage(&args.hold_shortcut)?
+    } else {
+        args.hold_shortcut
+    };
     next.hold_enabled = args.hold_enabled;
-    next.toggle_shortcut = canonicalize_shortcut_for_storage(&args.toggle_shortcut);
+    next.toggle_shortcut = if args.toggle_enabled {
+        canonicalize_shortcut_for_storage(&args.toggle_shortcut)?
+    } else {
+        args.toggle_shortcut
+    };
     next.toggle_enabled = args.toggle_enabled;
     next.transcription_mode = args.transcription_mode;
     next.local_model = args.local_model;
@@ -227,14 +241,12 @@ pub(crate) fn update_settings(
         Ok(next) => next,
         Err(err) => {
             if launch_changed {
-                if let Err(rollback_err) = crate::sync_launch_at_login(app, prev.auto_launch_enabled)
+                if let Err(rollback_err) =
+                    crate::sync_launch_at_login(app, prev.auto_launch_enabled)
                 {
                     return Err(format!(
                         "{} (also failed to roll back launch at login from {} back to {}: {})",
-                        err,
-                        requested_auto_launch_enabled,
-                        prev.auto_launch_enabled,
-                        rollback_err
+                        err, requested_auto_launch_enabled, prev.auto_launch_enabled, rollback_err
                     ));
                 }
             }
@@ -336,6 +348,14 @@ mod tests {
         let err = validate_update_settings_args(&args).unwrap_err();
 
         assert_eq!(err, "Smart and Hold shortcuts cannot be the same");
+    }
+
+    #[test]
+    fn accepts_modifier_only_recording_shortcut() {
+        let mut args = base_args();
+        args.smart_shortcut = "Ctrl".to_string();
+
+        validate_update_settings_args(&args).unwrap();
     }
 
     #[test]

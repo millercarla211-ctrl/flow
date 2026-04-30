@@ -18,6 +18,7 @@ import {
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import SettingsModal from "./features/settings/components/SettingsModal";
 import FAQModal from "./shared/ui/FAQModal";
+import WindowControls from "./shared/ui/WindowControls";
 import { useClickOutside } from "./shared/hooks/useClickOutside";
 import TranscriptionList from "./features/transcriptions/components/TranscriptionList";
 import DictionaryView from "./features/dictionary/components/DictionaryView";
@@ -214,8 +215,12 @@ const Home = () => {
         setActiveView("library");
       }
     }).then((fn) => {
-      if (cancelled) fn();
-      else unlistenOpenImport = fn;
+      if (cancelled) {
+        fn();
+      } else {
+        unlistenOpenImport = fn;
+        emit("library:renderer_ready").catch(() => {});
+      }
     });
 
     listen("navigate:sign-in", () => {
@@ -309,6 +314,7 @@ const Home = () => {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-transparent font-sans ui-color-on-solid select-none">
+      <WindowControls />
       <aside
         data-app-sidebar
         style={{ width: sidebarWidth }}
@@ -534,7 +540,7 @@ const Home = () => {
                         <div className="ui-text-meta ui-color-muted">
                           {t({
                             id: "home.support.about.version_mode",
-                            message: `v${{ version: appVersion }} • ${{ mode: currentModeLabel }}`,
+                            message: `v${appVersion} • ${currentModeLabel}`,
                           })}
                         </div>
                       </div>
