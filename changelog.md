@@ -1,3 +1,12 @@
+0.8.4
+
+### New Features
+  - Windows support! 🎉🎉
+
+### Improvements
+- Improved many UI elements, improving readability and sizing.
+- Fixed an onboarding bug.
+
 0.8.3
 
 ### New Features
