@@ -83,15 +83,14 @@ fn collect_apps(
                 let icon_path = icon_cache_dir.and_then(|cache_dir| {
                     let cached_path = icon_cache_file_path(&path, cache_dir);
                     if cached_path.exists() {
-                        if pick_bundle_icon(&path, &name)
-                            .as_ref()
-                            .is_some_and(|source_icon| !should_refresh_icon(source_icon, &cached_path))
-                        {
-                            Some(cached_path.to_string_lossy().to_string())
-                        } else {
+                        let should_refresh = match pick_bundle_icon(&path, &name) {
+                            Some(source_icon) => should_refresh_icon(&source_icon, &cached_path),
+                            None => true,
+                        };
+                        if should_refresh {
                             pending_icon_warmup.push((path.clone(), name.clone()));
-                            None
                         }
+                        Some(cached_path.to_string_lossy().to_string())
                     } else {
                         pending_icon_warmup.push((path.clone(), name.clone()));
                         None

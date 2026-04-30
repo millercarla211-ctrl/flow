@@ -170,7 +170,11 @@ export function useShortcutCapture({
       event.stopPropagation();
 
       const shortcut = shortcutFromEvent(event);
-      if (!shortcut) return;
+      if (!shortcut) {
+        onCaptureInput?.();
+        onPreviewChange("");
+        return;
+      }
 
       onCaptureInput?.();
 

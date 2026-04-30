@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 
@@ -8,7 +9,7 @@ const args = process.argv.slice(2);
 
 if (process.platform === "win32" && !env.CARGO_TARGET_DIR) {
   env.CARGO_TARGET_DIR =
-    env.GLIMPSE_CARGO_TARGET_DIR ?? path.join(path.parse(process.cwd()).root, "g");
+    env.GLIMPSE_CARGO_TARGET_DIR ?? env.RUNNER_TEMP ?? path.join(os.tmpdir(), "g");
 }
 
 const tauriCli = path.join(

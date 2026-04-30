@@ -92,7 +92,7 @@ fn collect_windows_shortcuts(
             let icon_path = icon_cache_dir.and_then(|cache_dir| {
                 let cached_path = icon_cache_file_path(&path, cache_dir);
                 if cached_path.exists() {
-                    if should_refresh_icon(&path, &cached_path) {
+                    if shortcut_icon_cache_should_refresh(&path, &cached_path) {
                         pending_icon_warmup.push((path.clone(), name.to_string()));
                     }
                     Some(cached_path.to_string_lossy().to_string())
@@ -224,13 +224,44 @@ fn write_bgra_png(path: &Path, width: u32, height: u32, pixels: &[u8]) -> Option
         rgba.push(pixel[3]);
     }
 
-    let file = std::fs::File::create(path).ok()?;
-    let mut encoder = png::Encoder::new(file, width, height);
-    encoder.set_color(png::ColorType::Rgba);
-    encoder.set_depth(png::BitDepth::Eight);
-    let mut writer = encoder.write_header().ok()?;
-    writer.write_image_data(&rgba).ok()?;
-    Some(())
+    let parent = path.parent()?;
+    let file_name = path.file_name()?.to_string_lossy();
+    let suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_nanos();
+    let temp_path = parent.join(format!(
+        ".{file_name}.{}.{}.tmp",
+        std::process::id(),
+        suffix
+    ));
+
+    let result = (|| {
+        let file = std::fs::File::create(&temp_path).ok()?;
+        let mut encoder = png::Encoder::new(file, width, height);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().ok()?;
+        writer.write_image_data(&rgba).ok()?;
+        drop(writer);
+        let temp_wide = path_to_wide_null(&temp_path);
+        let path_wide = path_to_wide_null(path);
+        unsafe {
+            windows::Win32::Storage::FileSystem::MoveFileExW(
+                windows::core::PCWSTR(temp_wide.as_ptr()),
+                windows::core::PCWSTR(path_wide.as_ptr()),
+                windows::Win32::Storage::FileSystem::MOVEFILE_REPLACE_EXISTING
+                    | windows::Win32::Storage::FileSystem::MOVEFILE_WRITE_THROUGH,
+            )
+            .ok()?;
+        }
+        Some(())
+    })();
+
+    if result.is_none() {
+        let _ = std::fs::remove_file(&temp_path);
+    }
+    result
 }
 
 fn write_hicon_to_png(
@@ -384,14 +415,7 @@ fn extract_icon_handle(
     }
 }
 
-fn ensure_cached_icon(shortcut_path: &Path, _app_name: &str, cache_dir: &Path) -> Option<PathBuf> {
-    use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
-
-    let cached_icon = icon_cache_file_path(shortcut_path, cache_dir);
-    if !should_refresh_icon(shortcut_path, &cached_icon) {
-        return Some(cached_icon);
-    }
-
+fn shortcut_icon_source(shortcut_path: &Path) -> Option<(PathBuf, i32)> {
     let is_shortcut = shortcut_path
         .extension()
         .and_then(|ext| ext.to_str())
@@ -401,7 +425,25 @@ fn ensure_cached_icon(shortcut_path: &Path, _app_name: &str, cache_dir: &Path) -
         return None;
     }
 
-    let (source_path, icon_index) = resolve_shortcut_icon_source(shortcut_path)?;
+    resolve_shortcut_icon_source(shortcut_path)
+}
+
+fn shortcut_icon_cache_should_refresh(shortcut_path: &Path, cached_icon: &Path) -> bool {
+    let Some((source_path, _)) = shortcut_icon_source(shortcut_path) else {
+        return true;
+    };
+    should_refresh_icon(&source_path, cached_icon)
+}
+
+fn ensure_cached_icon(shortcut_path: &Path, _app_name: &str, cache_dir: &Path) -> Option<PathBuf> {
+    use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
+
+    let cached_icon = icon_cache_file_path(shortcut_path, cache_dir);
+    let (source_path, icon_index) = shortcut_icon_source(shortcut_path)?;
+    if !should_refresh_icon(&source_path, &cached_icon) {
+        return Some(cached_icon);
+    }
+
     let icon = extract_icon_handle(&source_path, icon_index)?;
     let wrote_icon = write_hicon_to_png(icon, &cached_icon).is_some();
     unsafe {
