@@ -623,7 +623,7 @@ const AppTab = ({
             )}
           </div>
 
-          <div className="space-y-2 flex flex-col">
+          <div className="space-y-2 flex flex-col pt-0.5">
             <h2 className="ui-text-section-label-sm ui-color-muted shrink-0">
               {t({
                 id: "settings.app.automation",
@@ -631,7 +631,7 @@ const AppTab = ({
               })}
             </h2>
 
-            <div className="space-y-3 rounded-lg bg-surface-surface p-2.5 flex-1">
+            <div className="flex-1 space-y-6 rounded-lg bg-surface-surface p-2.5">
               {platformCapabilities.supportsAutoPauseMedia && (
                 <div className="px-2 py-1.5">
                   <div className="flex items-center justify-between gap-2">
@@ -714,8 +714,7 @@ const AppTab = ({
                   })}
                 </span>
               </div>
-
-              <div className="px-2 py-1.5 flex flex-col justify-center">
+              <div className="relative px-2 py-1.5">
                 <div className="flex items-center justify-between gap-1">
                   <span className="ui-text-label-strong ui-color-primary whitespace-nowrap overflow-hidden text-ellipsis">
                     {t({
@@ -737,16 +736,15 @@ const AppTab = ({
                     />
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-1 mt-1 min-h-[22px]">
-                  <span className="ui-text-micro ui-color-disabled overflow-hidden text-ellipsis whitespace-nowrap">
-                    {t({
-                      id: "settings.app.auto_delete_recordings.body",
-                      message: "Auto deletes local audio files.",
-                    })}
-                  </span>
-                  <div
-                    className={`flex items-center gap-1.5 shrink-0 transition-opacity ${isDirty ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-                  >
+                <span className="ui-text-micro ui-color-disabled block mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
+                  {t({
+                    id: "settings.app.auto_delete_recordings.body",
+                    message: "Auto deletes local audio files.",
+                  })}
+                </span>
+                <div
+                  className={`absolute right-2 bottom-1.5 flex items-center gap-1.5 transition-opacity ${isDirty ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+                >
                     <button
                       type="button"
                       onClick={handleCancel}
@@ -775,7 +773,6 @@ const AppTab = ({
                       </span>
                     </button>
                   </div>
-                </div>
               </div>
             </div>
             <p className="ui-text-micro px-0.5 invisible" aria-hidden="true">

@@ -563,11 +563,7 @@ const GeneralTab = ({
         </h2>
 
         <div className="space-y-3">
-          <div
-            className={`rounded-lg transition-colors ${
-              editModeEnabled ? "bg-surface-overlay" : "bg-surface-surface"
-            }`}
-          >
+          <div className="rounded-lg bg-surface-surface">
             <div className="py-2 px-2.5">
               <div className="flex items-center justify-between">
                 <span className="ui-text-label-strong ui-color-primary">
@@ -676,11 +672,7 @@ const GeneralTab = ({
             </div>
           </div>
 
-          <div
-            className={`rounded-lg transition-colors ${
-              cleanupEnabled ? "bg-surface-overlay" : "bg-surface-surface"
-            }`}
-          >
+          <div className="rounded-lg bg-surface-surface">
             <div className="py-2 px-2.5">
               <div className="flex items-center justify-between">
                 <span className="ui-text-label-strong ui-color-primary">
