@@ -4,7 +4,7 @@ use aes_gcm::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use pbkdf2::pbkdf2_hmac_array;
-use rand::RngCore;
+use rand::Rng;
 use sha2::Sha256;
 use std::process::Command;
 use std::sync::OnceLock;
