@@ -100,6 +100,25 @@ export function useShortcutCapture({
     let disposed = false;
     let unlisten: UnlistenFn | null = null;
 
+    const finishCapture = (shortcut: string) => {
+      if (disposed) return;
+      disposed = true;
+      unlisten?.();
+      unlisten = null;
+      onShortcutCaptured(shortcut);
+      onCancel();
+      resetCaptureState();
+    };
+
+    const cancelCapture = () => {
+      if (disposed) return;
+      disposed = true;
+      unlisten?.();
+      unlisten = null;
+      onCancel();
+      resetCaptureState();
+    };
+
     const handleCapturePayload = (payload: ShortcutCapturePayload) => {
       if (disposed) return;
 
@@ -111,15 +130,12 @@ export function useShortcutCapture({
 
       if (payload.kind === "captured") {
         onCaptureInput?.();
-        onShortcutCaptured(payload.shortcut);
-        onCancel();
-        resetCaptureState();
+        finishCapture(payload.shortcut);
         return;
       }
 
       onError?.(payload.message);
-      onCancel();
-      resetCaptureState();
+      cancelCapture();
     };
 
     listen<ShortcutCapturePayload>(SHORTCUT_CAPTURE_EVENT, (event) => {
@@ -135,18 +151,18 @@ export function useShortcutCapture({
       .catch((error) => {
         if (disposed) return;
         onError?.(String(error));
-        onCancel();
-        resetCaptureState();
+        cancelCapture();
       });
 
     const handleKeyboardEvent = (event: KeyboardEvent) => {
+      if (disposed) return;
+
       const hasModifier = event.metaKey || event.ctrlKey || event.altKey || event.shiftKey;
 
       if (event.key === "Escape" && !hasModifier) {
         event.preventDefault();
         event.stopPropagation();
-        onCancel();
-        resetCaptureState();
+        cancelCapture();
         return;
       }
 
@@ -161,9 +177,7 @@ export function useShortcutCapture({
       onPreviewChange(formatShortcutForDisplay(shortcut));
 
       if (event.type === "keydown" && hasNonModifierKey(event)) {
-        onShortcutCaptured(shortcut);
-        onCancel();
-        resetCaptureState();
+        finishCapture(shortcut);
       }
     };
 

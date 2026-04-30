@@ -24,6 +24,11 @@ const child = spawn(process.execPath, [tauriCli, ...args], {
   stdio: "inherit",
 });
 
+child.on("error", (error) => {
+  console.error(`Failed to spawn Tauri CLI at ${tauriCli}: ${error.message}`);
+  process.exit(1);
+});
+
 function iconOutputDir() {
   const outputIndex = args.findIndex((arg) => arg === "--output" || arg === "-o");
   if (outputIndex >= 0 && args[outputIndex + 1]) {

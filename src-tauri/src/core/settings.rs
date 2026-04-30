@@ -38,8 +38,10 @@ pub(crate) struct UpdateSettingsArgs {
     pub analytics_enabled: bool,
 }
 
-fn canonicalize_shortcut_for_storage(shortcut: &str) -> String {
-    hotkeys::normalize_recording_shortcut(shortcut).unwrap_or_else(|_| shortcut.trim().to_string())
+fn canonicalize_shortcut_for_storage(shortcut: &str) -> Result<String, String> {
+    hotkeys::normalize_recording_shortcut(shortcut)
+        .map(|shortcut| shortcut.trim().to_string())
+        .map_err(|err| err.to_string())
 }
 
 fn validate_update_settings_args(args: &UpdateSettingsArgs) -> Result<(), String> {
@@ -209,11 +211,11 @@ pub(crate) fn update_settings(
 
     let mut next = state.current_settings();
     let prev = next.clone();
-    next.smart_shortcut = canonicalize_shortcut_for_storage(&args.smart_shortcut);
+    next.smart_shortcut = canonicalize_shortcut_for_storage(&args.smart_shortcut)?;
     next.smart_enabled = args.smart_enabled;
-    next.hold_shortcut = canonicalize_shortcut_for_storage(&args.hold_shortcut);
+    next.hold_shortcut = canonicalize_shortcut_for_storage(&args.hold_shortcut)?;
     next.hold_enabled = args.hold_enabled;
-    next.toggle_shortcut = canonicalize_shortcut_for_storage(&args.toggle_shortcut);
+    next.toggle_shortcut = canonicalize_shortcut_for_storage(&args.toggle_shortcut)?;
     next.toggle_enabled = args.toggle_enabled;
     next.transcription_mode = args.transcription_mode;
     next.local_model = args.local_model;

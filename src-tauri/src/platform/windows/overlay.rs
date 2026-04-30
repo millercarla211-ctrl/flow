@@ -1,7 +1,7 @@
 use crate::AppRuntime;
 use anyhow::{Context, Result};
 use tauri::WebviewWindow;
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{GetLastError, SetLastError, HWND, WIN32_ERROR};
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, HWND_TOPMOST,
     SWP_FRAMECHANGED, SWP_HIDEWINDOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
@@ -58,12 +58,33 @@ fn configure_overlay_window(overlay_window: &WebviewWindow<AppRuntime>) -> Resul
     let hwnd = native_hwnd(overlay_window)?;
 
     unsafe {
-        let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
+        SetLastError(WIN32_ERROR(0));
+        let current = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        if current == 0 {
+            let last_error = GetLastError();
+            if last_error.0 != 0 {
+                anyhow::bail!(
+                    "get Windows overlay extended styles failed with Win32 error {}",
+                    last_error.0
+                );
+            }
+        }
+        let current = current as u32;
         let next = (current | WS_EX_NOACTIVATE.0 | WS_EX_TOOLWINDOW.0 | WS_EX_TRANSPARENT.0)
             & !WS_EX_APPWINDOW.0;
 
         if next != current {
-            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, next as isize);
+            SetLastError(WIN32_ERROR(0));
+            let previous = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, next as isize);
+            if previous == 0 {
+                let last_error = GetLastError();
+                if last_error.0 != 0 {
+                    anyhow::bail!(
+                        "set Windows overlay extended styles failed with Win32 error {}",
+                        last_error.0
+                    );
+                }
+            }
             SetWindowPos(
                 hwnd,
                 None,

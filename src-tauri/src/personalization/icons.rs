@@ -32,6 +32,10 @@ fn normalize_website_domain(value: &str) -> Option<String> {
         trimmed = rest.to_string();
     } else if let Some(rest) = trimmed.strip_prefix("http://") {
         trimmed = rest.to_string();
+    } else if let Some(rest) = trimmed.strip_prefix("feed://") {
+        trimmed = rest.to_string();
+    } else if let Some(rest) = trimmed.strip_prefix("feed:") {
+        trimmed = rest.to_string();
     }
 
     if let Some(rest) = trimmed.strip_prefix("www.") {
@@ -95,17 +99,14 @@ pub(crate) fn should_refresh_icon(source: &Path, cached: &Path) -> bool {
 
     match (source_modified, cached_modified) {
         (Some(source_modified), Some(cached_modified)) => source_modified > cached_modified,
-        (Some(_), None) => true,
-        _ => false,
+        _ => true,
     }
 }
 
-fn fetch_and_cache_website_icon(
-    site: &str,
-    cache_dir: &Path,
+fn fetch_website_icon_bytes(
+    url: String,
     client: &reqwest::blocking::Client,
-) -> Option<PathBuf> {
-    let url = format!("https://{site}/favicon.ico");
+) -> Option<Vec<u8>> {
     let response = client.get(url).send().ok()?;
     if !response.status().is_success() {
         return None;
@@ -115,6 +116,17 @@ fn fetch_and_cache_website_icon(
     if bytes.is_empty() || bytes.len() > 512 * 1024 {
         return None;
     }
+
+    Some(bytes.to_vec())
+}
+
+fn fetch_and_cache_website_icon(
+    site: &str,
+    cache_dir: &Path,
+    client: &reqwest::blocking::Client,
+) -> Option<PathBuf> {
+    let bytes = fetch_website_icon_bytes(format!("https://{site}/favicon.ico"), client)
+        .or_else(|| fetch_website_icon_bytes(format!("http://{site}/favicon.ico"), client))?;
 
     let icon_path = website_icon_cache_file_path(site, cache_dir);
     std::fs::write(&icon_path, &bytes).ok()?;

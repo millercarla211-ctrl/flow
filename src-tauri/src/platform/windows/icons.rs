@@ -92,6 +92,9 @@ fn collect_windows_shortcuts(
             let icon_path = icon_cache_dir.and_then(|cache_dir| {
                 let cached_path = icon_cache_file_path(&path, cache_dir);
                 if cached_path.exists() {
+                    if should_refresh_icon(&path, &cached_path) {
+                        pending_icon_warmup.push((path.clone(), name.to_string()));
+                    }
                     Some(cached_path.to_string_lossy().to_string())
                 } else {
                     pending_icon_warmup.push((path.clone(), name.to_string()));
@@ -321,8 +324,10 @@ fn extract_icon_handle(
 ) -> Option<windows::Win32::UI::WindowsAndMessaging::HICON> {
     use windows::core::PCWSTR;
     use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
+    use windows::Win32::UI::Controls::{IImageList, ILD_TRANSPARENT};
     use windows::Win32::UI::Shell::{
-        ExtractIconExW, SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON,
+        ExtractIconExW, SHGetFileInfoW, SHGetImageList, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON,
+        SHGFI_SYSICONINDEX, SHIL_EXTRALARGE, SHIL_JUMBO,
     };
 
     let wide_path = path_to_wide_null(source_path);
@@ -338,6 +343,28 @@ fn extract_icon_handle(
     };
     if extracted > 0 && !large_icon.is_invalid() {
         return Some(large_icon);
+    }
+
+    let mut shell_info = SHFILEINFOW::default();
+    let result = unsafe {
+        SHGetFileInfoW(
+            PCWSTR(wide_path.as_ptr()),
+            FILE_FLAGS_AND_ATTRIBUTES(0),
+            Some(&mut shell_info),
+            std::mem::size_of::<SHFILEINFOW>() as u32,
+            SHGFI_SYSICONINDEX,
+        )
+    };
+    if result != 0 {
+        for image_list_size in [SHIL_JUMBO, SHIL_EXTRALARGE] {
+            if let Ok(image_list) = unsafe { SHGetImageList::<IImageList>(image_list_size as i32) } {
+                if let Ok(icon) = unsafe { image_list.GetIcon(shell_info.iIcon, ILD_TRANSPARENT.0) } {
+                    if !icon.is_invalid() {
+                        return Some(icon);
+                    }
+                }
+            }
+        }
     }
 
     let mut shell_info = SHFILEINFOW::default();
