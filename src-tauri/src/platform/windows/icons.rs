@@ -389,8 +389,10 @@ fn extract_icon_handle(
     };
     if result != 0 {
         for image_list_size in [SHIL_JUMBO, SHIL_EXTRALARGE] {
-            if let Ok(image_list) = unsafe { SHGetImageList::<IImageList>(image_list_size as i32) } {
-                if let Ok(icon) = unsafe { image_list.GetIcon(shell_info.iIcon, ILD_TRANSPARENT.0) } {
+            if let Ok(image_list) = unsafe { SHGetImageList::<IImageList>(image_list_size as i32) }
+            {
+                if let Ok(icon) = unsafe { image_list.GetIcon(shell_info.iIcon, ILD_TRANSPARENT.0) }
+                {
                     if !icon.is_invalid() {
                         return Some(icon);
                     }

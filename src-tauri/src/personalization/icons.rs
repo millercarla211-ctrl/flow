@@ -105,10 +105,7 @@ pub(crate) fn should_refresh_icon(source: &Path, cached: &Path) -> bool {
     }
 }
 
-fn fetch_website_icon_bytes(
-    url: String,
-    client: &reqwest::blocking::Client,
-) -> Option<Vec<u8>> {
+fn fetch_website_icon_bytes(url: String, client: &reqwest::blocking::Client) -> Option<Vec<u8>> {
     let response = client.get(url).send().ok()?;
     if !response.status().is_success() {
         return None;
