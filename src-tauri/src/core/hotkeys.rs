@@ -111,6 +111,7 @@ impl HotkeyCoordinator {
         let app_handle = app.clone();
         let session = WorkerSession::spawn("shortcut-capture", move |stop_rx| {
             let listener = KeyboardListener::new()?;
+            let mut captured_hotkey: Option<Hotkey> = None;
 
             loop {
                 if should_stop(&stop_rx) {
@@ -119,15 +120,8 @@ impl HotkeyCoordinator {
 
                 match listener.recv_timeout(CAPTURE_POLL_INTERVAL) {
                     Ok(event) => {
-                        if let Ok(hotkey) = event.as_hotkey() {
-                            emit_capture_event(
-                                &app_handle,
-                                ShortcutCapturePayload::Preview {
-                                    shortcut: hotkey.to_string(),
-                                },
-                            );
-
-                            if event.is_key_down && event.key.is_some() {
+                        if !event.is_key_down {
+                            if let Some(hotkey) = captured_hotkey.take() {
                                 emit_capture_event(
                                     &app_handle,
                                     ShortcutCapturePayload::Captured {
@@ -136,6 +130,18 @@ impl HotkeyCoordinator {
                                 );
                                 break;
                             }
+                            continue;
+                        }
+
+                        if let Ok(hotkey) = event.as_hotkey() {
+                            let captured = merge_capture_hotkey(captured_hotkey, hotkey);
+                            captured_hotkey = Some(captured);
+                            emit_capture_event(
+                                &app_handle,
+                                ShortcutCapturePayload::Preview {
+                                    shortcut: captured.to_string(),
+                                },
+                            );
                         }
                     }
                     Err(handy_keys::Error::Timeout) => {}
@@ -160,6 +166,17 @@ impl HotkeyCoordinator {
 
     pub(crate) fn stop_capture(&self) {
         self.capture.lock().take();
+    }
+}
+
+fn merge_capture_hotkey(previous: Option<Hotkey>, current: Hotkey) -> Hotkey {
+    if let Some(previous) = previous {
+        Hotkey {
+            modifiers: previous.modifiers | current.modifiers,
+            key: current.key.or(previous.key),
+        }
+    } else {
+        current
     }
 }
 
@@ -216,17 +233,8 @@ pub(crate) fn parse_shortcut(shortcut: &str) -> Result<Hotkey> {
         .map_err(|err| anyhow!("Shortcut `{shortcut}` is invalid: {err}"))
 }
 
-pub(crate) fn shortcut_has_non_modifier_key(shortcut: &Hotkey) -> bool {
-    shortcut.key.is_some()
-}
-
 pub(crate) fn normalize_recording_shortcut(shortcut: &str) -> Result<String> {
     let hotkey = parse_shortcut(shortcut)?;
-    if !shortcut_has_non_modifier_key(&hotkey) {
-        return Err(anyhow!(
-            "Shortcut `{shortcut}` must include a non-modifier key"
-        ));
-    }
     Ok(hotkey.to_string())
 }
 

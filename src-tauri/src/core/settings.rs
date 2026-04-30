@@ -66,35 +66,18 @@ fn validate_update_settings_args(args: &UpdateSettingsArgs) -> Result<(), String
         let raw = args.smart_shortcut.trim();
         let normalized = hotkeys::parse_shortcut(raw)
             .map_err(|err| format!("Smart shortcut is invalid: {err}"))?;
-        if !hotkeys::shortcut_has_non_modifier_key(&normalized) {
-            return Err(
-                "Smart shortcut must include a non-modifier key (for example, Control+Space)"
-                    .into(),
-            );
-        }
         enabled_shortcuts.push(("Smart", normalized));
     }
     if args.hold_enabled {
         let raw = args.hold_shortcut.trim();
         let normalized = hotkeys::parse_shortcut(raw)
             .map_err(|err| format!("Hold shortcut is invalid: {err}"))?;
-        if !hotkeys::shortcut_has_non_modifier_key(&normalized) {
-            return Err(
-                "Hold shortcut must include a non-modifier key (for example, Control+Space)".into(),
-            );
-        }
         enabled_shortcuts.push(("Hold", normalized));
     }
     if args.toggle_enabled {
         let raw = args.toggle_shortcut.trim();
         let normalized = hotkeys::parse_shortcut(raw)
             .map_err(|err| format!("Toggle shortcut is invalid: {err}"))?;
-        if !hotkeys::shortcut_has_non_modifier_key(&normalized) {
-            return Err(
-                "Toggle shortcut must include a non-modifier key (for example, Control+Space)"
-                    .into(),
-            );
-        }
         enabled_shortcuts.push(("Toggle", normalized));
     }
 
@@ -353,6 +336,14 @@ mod tests {
         let err = validate_update_settings_args(&args).unwrap_err();
 
         assert_eq!(err, "Smart and Hold shortcuts cannot be the same");
+    }
+
+    #[test]
+    fn accepts_modifier_only_recording_shortcut() {
+        let mut args = base_args();
+        args.smart_shortcut = "Ctrl".to_string();
+
+        validate_update_settings_args(&args).unwrap();
     }
 
     #[test]
