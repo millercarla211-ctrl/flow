@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 
@@ -9,7 +8,12 @@ const args = process.argv.slice(2);
 
 if (process.platform === "win32" && !env.CARGO_TARGET_DIR) {
   env.CARGO_TARGET_DIR =
-    env.GLIMPSE_CARGO_TARGET_DIR ?? env.RUNNER_TEMP ?? path.join(os.tmpdir(), "g");
+    env.GLIMPSE_CARGO_TARGET_DIR ??
+    (env.CI && env.RUNNER_TEMP ? env.RUNNER_TEMP : defaultWindowsCargoTargetDir());
+}
+
+function defaultWindowsCargoTargetDir() {
+  return path.join(path.parse(process.cwd()).root, ".glimpse-cargo-target");
 }
 
 const tauriCli = path.join(
