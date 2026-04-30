@@ -25,24 +25,17 @@ jobs:
             tauri-args: --target universal-apple-darwin
           - platform: windows-latest
             rust-targets: x86_64-pc-windows-msvc
-            tauri-args: --target x86_64-pc-windows-msvc
+            tauri-args: ""
 
     runs-on: ${{ matrix.platform }}
-
-    env:
-      MACOSX_DEPLOYMENT_TARGET: "14.0"
-      CMAKE_OSX_DEPLOYMENT_TARGET: "14.0"
-      DEVELOPER_DIR: /Applications/Xcode_16.3.app/Contents/Developer
-      # Apple Clang still defines __ARM_FEATURE_MATMUL_INT8 for ggml's +noi8mm build,
-      # which makes whisper-rs-sys compile the wrong ARM path on GitHub's arm64 runner.
-      CFLAGS_aarch64_apple_darwin: "-U__ARM_FEATURE_MATMUL_INT8"
-      CXXFLAGS_aarch64_apple_darwin: "-U__ARM_FEATURE_MATMUL_INT8"
 
     steps:
       - uses: actions/checkout@v4
 
       - name: verify Xcode
         if: matrix.platform == 'macos-15'
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_16.3.app/Contents/Developer
         run: xcodebuild -version
 
       - name: Setup Bun
@@ -111,12 +104,6 @@ jobs:
       - name: install frontend dependencies
         run: bun ci
 
-      - name: build frontend
-        run: bun run build
-
-      - name: cargo check
-        run: cargo check --locked --manifest-path src-tauri/Cargo.toml
-
       - name: import Apple Developer Certificate
         if: matrix.platform == 'macos-15'
         env:
@@ -141,7 +128,8 @@ jobs:
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
           echo "Certificate imported."
 
-      - name: build and publish
+      - name: build and publish macOS
+        if: matrix.platform == 'macos-15'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -153,6 +141,30 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          MACOSX_DEPLOYMENT_TARGET: "14.0"
+          CMAKE_OSX_DEPLOYMENT_TARGET: "14.0"
+          DEVELOPER_DIR: /Applications/Xcode_16.3.app/Contents/Developer
+          # Apple Clang still defines __ARM_FEATURE_MATMUL_INT8 for ggml's +noi8mm build,
+          # which makes whisper-rs-sys compile the wrong ARM path on GitHub's arm64 runner.
+          CFLAGS_aarch64_apple_darwin: "-U__ARM_FEATURE_MATMUL_INT8"
+          CXXFLAGS_aarch64_apple_darwin: "-U__ARM_FEATURE_MATMUL_INT8"
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "Glimpse v__VERSION__"
+          releaseBody: "See the assets to download this version and install."
+          releaseDraft: true
+          prerelease: ${{ env.IS_PRERELEASE == 'true' }}
+          args: ${{ matrix.tauri-args }}
+
+      - name: build and publish Windows
+        if: matrix.platform == 'windows-latest'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
         with:
