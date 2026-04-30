@@ -10,20 +10,20 @@
   <p>
     <a href="https://github.com/LegendarySpy/Glimpse/releases/latest">Download</a> ·
     <a href="#roadmap">Roadmap</a> ·
-    <a href="#privacy">Privacy</a>
+    <a href="https://github.com/LegendarySpy/Glimpse/wiki/Analytics">Privacy</a>
   </p>
-  <p><em>Currently in beta — macOS 14+ only</em></p>
+  <p>
+    <img src="https://img.shields.io/badge/Beta-FF8C42?style=for-the-badge&labelColor=2b2b2b" alt="Beta" />
+    <img src="https://img.shields.io/badge/macOS%2014%2B-1d1d1f?style=for-the-badge&logo=apple&logoColor=white" alt="macOS 14+" />
+    <img src="https://img.shields.io/badge/Windows%2010%2B-0078D6?style=for-the-badge&logo=windows11&logoColor=white" alt="Windows 10+" />
+  </p>
 </div>
 
 ---
 
-Glimpse is a local-first voice dictation app for Mac. No subscription, no cloud required. Core transcription runs entirely on-device, with optional AI cleanup and edit providers if you want them.
+Glimpse is a local-first voice dictation app. No subscription, no cloud required. Core transcription runs entirely on-device, with optional AI cleanup and edit providers if you want them.
 
 Built as an open-source alternative to Superwhisper and WisprFlow, for people who left (or never started) because of pricing or privacy concerns.
-
-## Download
-
-Grab the latest `.dmg` from the [Releases page](https://github.com/LegendarySpy/Glimpse/releases/latest) and drag Glimpse to your Applications folder.
 
 ## Screenshots
 
@@ -39,12 +39,12 @@ Grab the latest `.dmg` from the [Releases page](https://github.com/LegendarySpy/
 
 ## Features
 
-- **Local transcription** — Runs entirely on-device. Your audio and transcripts stay on-device.
-- **Edit mode** — Highlight any text, speak your changes, and Glimpse rewrites it in context.
-- **Personalization** — Set per-app writing styles so Glimpse can format and respond to emails or slack messages.
-- **Custom dictionary** — Add names, jargon, or domain-specific words for more accurate transcription.
-- **Replacements** — Define shortcuts that automatically change words ("my address" → 221B Baker Street )
-- **Library** — Import audio and video files with synced playback and multi-format exports.
+- **Local transcription.** Unplug your wifi. It still works.
+- **Edit mode.** Highlight a sentence, say *"make it less formal,"* watch it rewrite in place.
+- **Personalization.** Casual one-liners in Slack, full sentences in email. Different rules per app.
+- **Custom dictionary.** Teach it *Tauri*, *Groq*, or your coworker's hard-to-spell last name.
+- **Replacements.** Say *"my address"*, get `221B Baker Street`.
+- **Library.** Drop in an `.mp4`, scrub the synced transcript, export to `.srt`, `.txt`, or `.json`.
 
 ## Roadmap
 
@@ -60,7 +60,7 @@ Grab the latest `.dmg` from the [Releases page](https://github.com/LegendarySpy/
 - [x] Better customizable keybinds
 - [ ] Auto-dictionary
 - [ ] Personalization snippets
-- [ ] Windows support
+- [x] Windows support
 
 ## Contributing
 
@@ -81,15 +81,15 @@ Telemetry is tied to a random install ID (not your identity) and stored in the E
 
 ## License
 
-Glimpse is licensed under [AGPL-3.0](LICENSE). Free to self-host and modify — just keep changes open. An optional paid cloud tier is planned for users who want faster speeds or cloud-only features.
+Glimpse is licensed under [AGPL-3.0](LICENSE). Free to self-host and modify, as long as you keep changes open. An optional paid cloud tier is planned for users who want faster speeds or cloud-only features.
 
 ## Acknowledgments
 
-- <a href="https://lokalise.com/"><img src="./assets/readme/lokalise.png" width="16" alt="Lokalise" align="center" /></a> [Lokalise](https://lokalise.com/) — localization platform (OSS supporter)
-- [Tauri](https://v2.tauri.app/) — app framework
-- [Glimpse-Speech](https://github.com/LegendarySpy/Glimpse-Speech) (MIT) — local transcription engine
-- [whisper-rs](https://codeberg.org/tazz4843/whisper-rs) (Unlicense) — Rust bindings for Whisper
-- [parakeet-rs](https://github.com/altunenes/parakeet-rs) (MIT OR Apache-2.0) — ONNX Runtime bindings for Parakeet
+- <a href="https://lokalise.com/"><img src="./assets/readme/lokalise.png" width="16" alt="Lokalise" align="center" /></a> [Lokalise](https://lokalise.com/) (localization platform, OSS supporter)
+- [Tauri](https://v2.tauri.app/) (app framework)
+- [Glimpse-Speech](https://github.com/LegendarySpy/Glimpse-Speech) (MIT, local transcription engine)
+- [whisper-rs](https://codeberg.org/tazz4843/whisper-rs) (Unlicense, Rust bindings for Whisper)
+- [parakeet-rs](https://github.com/altunenes/parakeet-rs) (MIT OR Apache-2.0, ONNX Runtime bindings for Parakeet)
 
 **Bundled speech models** (downloaded in-app from Hugging Face):
 - Whisper GGML (MIT): `ggml-large-v3-turbo-q8_0.bin`, `ggml-small-q5_1.bin` via [`ggerganov/whisper.cpp`](https://huggingface.co/ggerganov/whisper.cpp)
