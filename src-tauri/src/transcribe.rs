@@ -12,8 +12,8 @@ use crate::{
     recorder::{speech_percentage_i16_with_mode, CompletedRecording, RecordingSaved},
     scratchpad,
     settings::{Personality, UserSettings},
-    storage, toast, transcription_api, transforms, update_checker, vibe_coding, AppRuntime,
-    AppState, TranscriptionCompletePayload, TranscriptionErrorPayload,
+    storage, toast, transcription_api, transforms, update_checker, vibe_coding, voice_commands,
+    AppRuntime, AppState, TranscriptionCompletePayload, TranscriptionErrorPayload,
     EVENT_TRANSCRIPTION_COMPLETE, EVENT_TRANSCRIPTION_ERROR,
 };
 
@@ -59,6 +59,17 @@ fn save_auto_paste_fallback(
     };
 
     emit_auto_paste_error(app, format!("{fallback_message} Reason: {paste_error}"));
+}
+
+fn press_enter_voice_command(app: &AppHandle<AppRuntime>) {
+    if let Err(err) = assistive::press_enter() {
+        toast::show(
+            app,
+            "error",
+            Some("Press Enter failed"),
+            &format!("Flow could not send Enter: {err}"),
+        );
+    }
 }
 
 struct TextExpansionResult {
@@ -396,8 +407,21 @@ pub(crate) fn queue_transcription(
                     active_mode.as_ref(),
                     expanded_transcript.dictionary_replaced,
                 );
+                let voice_command = voice_commands::extract_press_enter_command(&final_transcript);
+                let final_transcript = voice_command.text;
+                let press_enter_requested = voice_command.press_enter;
 
                 if count_words(&final_transcript) == 0 {
+                    if press_enter_requested {
+                        press_enter_voice_command(&app_handle);
+                        crate::pill::collapse_expanded_pill(&app_handle);
+                        app_handle
+                            .state::<AppState>()
+                            .pill()
+                            .safe_reset(&app_handle);
+                        app_handle.state::<AppState>().set_pending_path(None);
+                        return;
+                    }
                     handle_empty_transcription(&app_handle, &saved_for_task.path);
                     return;
                 }
@@ -419,6 +443,9 @@ pub(crate) fn queue_transcription(
                     pasted =
                         paste_transcript_or_save_fallback(&app_handle, &final_transcript, "local")
                             .await;
+                    if pasted && press_enter_requested {
+                        press_enter_voice_command(&app_handle);
+                    }
                     paste_elapsed_ms = Some(elapsed_ms(paste_started));
                 }
 
@@ -1475,8 +1502,20 @@ pub(crate) fn finalize_streaming_transcription(
             active_mode.as_ref(),
             expanded_transcript.dictionary_replaced,
         );
+        let voice_command = voice_commands::extract_press_enter_command(&final_transcript);
+        let final_transcript = voice_command.text;
+        let press_enter_requested = voice_command.press_enter;
 
         if count_words(&final_transcript) == 0 {
+            if press_enter_requested {
+                press_enter_voice_command(&app_handle);
+                crate::pill::collapse_expanded_pill(&app_handle);
+                app_handle
+                    .state::<AppState>()
+                    .pill()
+                    .safe_reset(&app_handle);
+                return;
+            }
             crate::pill::collapse_expanded_pill(&app_handle);
             app_handle
                 .state::<AppState>()
@@ -1496,6 +1535,9 @@ pub(crate) fn finalize_streaming_transcription(
             let paste_started = Instant::now();
             pasted = paste_transcript_or_save_fallback(&app_handle, &final_transcript, "streaming")
                 .await;
+            if pasted && press_enter_requested {
+                press_enter_voice_command(&app_handle);
+            }
             paste_elapsed_ms = Some(elapsed_ms(paste_started));
         }
 

@@ -17,7 +17,7 @@ use std::{thread, time::Duration};
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP,
-    VIRTUAL_KEY, VK_C, VK_CONTROL, VK_V,
+    VIRTUAL_KEY, VK_C, VK_CONTROL, VK_RETURN, VK_V,
 };
 
 #[cfg(target_os = "macos")]
@@ -113,6 +113,47 @@ fn send_copy_keystroke() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+pub fn press_enter() -> Result<()> {
+    const ENTER_KEY: CGKeyCode = 36;
+
+    let source = CGEventSource::new(CGEventSourceStateID::CombinedSessionState)
+        .map_err(|_| anyhow!("Failed to create CGEventSource"))?;
+    let key_down = CGEvent::new_keyboard_event(source.clone(), ENTER_KEY, true)
+        .map_err(|_| anyhow!("Failed to create Enter key-down event"))?;
+    key_down.post(CGEventTapLocation::HID);
+
+    thread::sleep(Duration::from_millis(5));
+
+    let key_up = CGEvent::new_keyboard_event(source, ENTER_KEY, false)
+        .map_err(|_| anyhow!("Failed to create Enter key-up event"))?;
+    key_up.post(CGEventTapLocation::HID);
+
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+pub fn press_enter() -> Result<()> {
+    let inputs = [
+        keyboard_input(VK_RETURN, KEYBD_EVENT_FLAGS(0)),
+        keyboard_input(VK_RETURN, KEYEVENTF_KEYUP),
+    ];
+
+    let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
+    if sent != inputs.len() as u32 {
+        return Err(anyhow!("Failed to send Enter keystroke"));
+    }
+
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+pub fn press_enter() -> Result<()> {
+    Err(anyhow!(
+        "Press Enter voice command is not supported on this platform"
+    ))
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]

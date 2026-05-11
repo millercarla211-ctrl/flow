@@ -35,6 +35,7 @@ mod transforms;
 mod tray;
 mod update_checker;
 mod vibe_coding;
+mod voice_commands;
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
