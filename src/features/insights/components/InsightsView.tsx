@@ -10,6 +10,7 @@ import {
   Gauge,
   Mic2,
   Pin,
+  ShieldOff,
   Sparkles,
   Timer,
   Zap,
@@ -201,9 +202,54 @@ function EmptyInsights() {
   );
 }
 
-export default function InsightsView({ isActive = true }: { isActive?: boolean }) {
+function DisabledInsights({ onOpenDataSettings }: { onOpenDataSettings?: () => void }) {
   const { t } = useLingui();
-  const insightsQuery = useInsights(30, isActive);
+
+  return (
+    <div className="flex h-72 flex-col items-center justify-center rounded-lg border border-border-primary bg-surface-surface px-6 text-center">
+      <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border-primary bg-surface-elevated">
+        <ShieldOff size={20} className="ui-color-muted" />
+      </div>
+      <div className="mt-4 ui-text-body-sm-strong ui-color-secondary">
+        {t({
+          id: "insights.disabled.title",
+          message: "Insights paused",
+        })}
+      </div>
+      <div className="mt-1 max-w-sm ui-text-meta ui-color-muted">
+        {t({
+          id: "insights.disabled.body",
+          message:
+            "Voice activity insights are hidden while Local Data Storage is set to Never store.",
+        })}
+      </div>
+      {onOpenDataSettings && (
+        <button
+          type="button"
+          onClick={onOpenDataSettings}
+          className="mt-4 rounded-full border border-border-primary bg-surface-secondary px-3 py-1.5 ui-text-body-sm font-medium ui-color-primary transition-colors hover:border-border-secondary hover:bg-surface-elevated"
+        >
+          {t({
+            id: "insights.disabled.open_settings",
+            message: "Change data storage",
+          })}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default function InsightsView({
+  isActive = true,
+  historyDisabled = false,
+  onOpenDataSettings,
+}: {
+  isActive?: boolean;
+  historyDisabled?: boolean;
+  onOpenDataSettings?: () => void;
+}) {
+  const { t } = useLingui();
+  const insightsQuery = useInsights(30, isActive && !historyDisabled);
   const summary = insightsQuery.data;
 
   const localDetail = summary ? `${Math.round(summary.local_percent)}% local engine usage` : "";
@@ -255,7 +301,9 @@ export default function InsightsView({ isActive = true }: { isActive?: boolean }
         </div>
       )}
 
-      {!summary || summary.total_transcriptions === 0 ? (
+      {historyDisabled ? (
+        <DisabledInsights onOpenDataSettings={onOpenDataSettings} />
+      ) : !summary || summary.total_transcriptions === 0 ? (
         <EmptyInsights />
       ) : (
         <div className="space-y-4">

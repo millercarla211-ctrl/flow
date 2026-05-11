@@ -825,7 +825,14 @@ const Home = () => {
           <div
             className={`w-full max-w-6xl mx-auto min-w-0 pt-8 flex-1 min-h-0 ${activeView === "insights" ? "" : "hidden"}`}
           >
-            <InsightsView isActive={activeView === "insights"} />
+            <InsightsView
+              isActive={activeView === "insights"}
+              historyDisabled={settings?.local_data_storage_policy === "never"}
+              onOpenDataSettings={() => {
+                setSettingsTab("app");
+                setIsSettingsOpen(true);
+              }}
+            />
           </div>
 
           <div
