@@ -3,9 +3,10 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Local, TimeZone};
 use parking_lot::Mutex;
+use regex::Regex;
 use rusqlite::{params, types::Type, Connection, OptionalExtension, Row, ToSql};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -71,6 +72,35 @@ impl TranscriptionStatus {
 
 pub struct StorageManager {
     connection: Arc<Mutex<Connection>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScratchpadEntry {
+    pub id: String,
+    pub title: String,
+    pub body: String,
+    pub source: String,
+    pub created_at: DateTime<Local>,
+    pub updated_at: DateTime<Local>,
+    pub version: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Snippet {
+    pub id: String,
+    pub trigger: String,
+    pub expansion: String,
+    pub created_at: DateTime<Local>,
+    pub updated_at: DateTime<Local>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FlowFetchLink {
+    pub id: String,
+    pub url: String,
+    pub label: String,
+    pub created_at: DateTime<Local>,
+    pub last_seen_at: DateTime<Local>,
 }
 
 #[derive(Debug, Clone)]
@@ -184,6 +214,293 @@ impl StorageManager {
         let conn = self.connection.lock();
         Self::insert_record(&conn, &record)?;
         Ok(record)
+    }
+
+    pub fn create_scratchpad_entry(&self, body: String, source: String) -> Result<ScratchpadEntry> {
+        let body = body.trim().to_string();
+        if body.is_empty() {
+            bail!("Scratchpad body cannot be empty");
+        }
+
+        let now = Local::now();
+        let now_ms = now.timestamp_millis();
+        let entry = ScratchpadEntry {
+            id: Uuid::new_v4().to_string(),
+            title: derive_scratchpad_title(&body),
+            body,
+            source: normalize_source(&source),
+            created_at: now,
+            updated_at: now,
+            version: 1,
+        };
+
+        let conn = self.connection.lock();
+        conn.execute(
+            "INSERT INTO scratchpad_entries (id, title, body, source, created_at, updated_at, version)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                &entry.id,
+                &entry.title,
+                &entry.body,
+                &entry.source,
+                now_ms,
+                now_ms,
+                entry.version as i64,
+            ],
+        )?;
+        conn.execute(
+            "INSERT INTO scratchpad_versions (id, entry_id, body, created_at, version)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                Uuid::new_v4().to_string(),
+                &entry.id,
+                &entry.body,
+                now_ms,
+                entry.version as i64,
+            ],
+        )?;
+
+        Ok(entry)
+    }
+
+    pub fn get_scratchpad_entries(
+        &self,
+        search_query: Option<&str>,
+    ) -> Result<Vec<ScratchpadEntry>> {
+        let conn = self.connection.lock();
+        let search_query = search_query
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+
+        if let Some(query) = search_query {
+            let needle = format!("%{query}%");
+            let mut stmt = conn.prepare(
+                "SELECT id, title, body, source, created_at, updated_at, version
+                 FROM scratchpad_entries
+                 WHERE title LIKE ?1 COLLATE NOCASE OR body LIKE ?1 COLLATE NOCASE
+                 ORDER BY updated_at DESC",
+            )?;
+            let rows = stmt.query_map(params![needle], Self::scratchpad_entry_from_row)?;
+            return rows
+                .collect::<rusqlite::Result<Vec<_>>>()
+                .map_err(Into::into);
+        }
+
+        let mut stmt = conn.prepare(
+            "SELECT id, title, body, source, created_at, updated_at, version
+             FROM scratchpad_entries
+             ORDER BY updated_at DESC",
+        )?;
+        let rows = stmt.query_map([], Self::scratchpad_entry_from_row)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
+    }
+
+    pub fn update_scratchpad_entry(
+        &self,
+        id: String,
+        title: Option<String>,
+        body: String,
+    ) -> Result<Option<ScratchpadEntry>> {
+        let body = body.trim().to_string();
+        if body.is_empty() {
+            bail!("Scratchpad body cannot be empty");
+        }
+
+        let conn = self.connection.lock();
+        let current = conn
+            .query_row(
+                "SELECT id, title, body, source, created_at, updated_at, version
+                 FROM scratchpad_entries WHERE id = ?1",
+                params![&id],
+                Self::scratchpad_entry_from_row,
+            )
+            .optional()?;
+
+        let Some(current) = current else {
+            return Ok(None);
+        };
+
+        let next_version = if current.body == body {
+            current.version
+        } else {
+            current.version.saturating_add(1)
+        };
+        let now = Local::now();
+        let now_ms = now.timestamp_millis();
+        let title = title
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| derive_scratchpad_title(&body));
+
+        conn.execute(
+            "UPDATE scratchpad_entries
+             SET title = ?1, body = ?2, updated_at = ?3, version = ?4
+             WHERE id = ?5",
+            params![&title, &body, now_ms, next_version as i64, &current.id],
+        )?;
+
+        if next_version != current.version {
+            conn.execute(
+                "INSERT INTO scratchpad_versions (id, entry_id, body, created_at, version)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    Uuid::new_v4().to_string(),
+                    &current.id,
+                    &body,
+                    now_ms,
+                    next_version as i64,
+                ],
+            )?;
+        }
+
+        Self::get_scratchpad_entry(&conn, &id)
+    }
+
+    pub fn delete_scratchpad_entry(&self, id: &str) -> Result<bool> {
+        let conn = self.connection.lock();
+        let affected = conn.execute("DELETE FROM scratchpad_entries WHERE id = ?1", params![id])?;
+        Ok(affected > 0)
+    }
+
+    pub fn get_snippets(&self) -> Result<Vec<Snippet>> {
+        let conn = self.connection.lock();
+        let mut stmt = conn.prepare(
+            "SELECT id, trigger, expansion, created_at, updated_at
+             FROM snippets
+             ORDER BY updated_at DESC",
+        )?;
+        let rows = stmt.query_map([], Self::snippet_from_row)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
+    }
+
+    pub fn create_snippet(&self, trigger: String, expansion: String) -> Result<Snippet> {
+        let trigger = normalize_snippet_trigger(trigger)?;
+        let expansion = normalize_snippet_expansion(expansion)?;
+        let now = Local::now();
+        let now_ms = now.timestamp_millis();
+        let snippet = Snippet {
+            id: Uuid::new_v4().to_string(),
+            trigger,
+            expansion,
+            created_at: now,
+            updated_at: now,
+        };
+
+        let conn = self.connection.lock();
+        conn.execute(
+            "INSERT INTO snippets (id, trigger, expansion, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                &snippet.id,
+                &snippet.trigger,
+                &snippet.expansion,
+                now_ms,
+                now_ms,
+            ],
+        )?;
+
+        Ok(snippet)
+    }
+
+    pub fn update_snippet(
+        &self,
+        id: String,
+        trigger: String,
+        expansion: String,
+    ) -> Result<Option<Snippet>> {
+        let trigger = normalize_snippet_trigger(trigger)?;
+        let expansion = normalize_snippet_expansion(expansion)?;
+        let now_ms = Local::now().timestamp_millis();
+        let conn = self.connection.lock();
+        let affected = conn.execute(
+            "UPDATE snippets
+             SET trigger = ?1, expansion = ?2, updated_at = ?3
+             WHERE id = ?4",
+            params![&trigger, &expansion, now_ms, &id],
+        )?;
+
+        if affected == 0 {
+            return Ok(None);
+        }
+
+        Self::get_snippet(&conn, &id)
+    }
+
+    pub fn delete_snippet(&self, id: &str) -> Result<bool> {
+        let conn = self.connection.lock();
+        let affected = conn.execute("DELETE FROM snippets WHERE id = ?1", params![id])?;
+        Ok(affected > 0)
+    }
+
+    pub fn upsert_flow_fetch_link(&self, url: String) -> Result<FlowFetchLink> {
+        let url = normalize_flow_fetch_url(url)?;
+        let label = derive_flow_fetch_label(&url);
+        let now = Local::now();
+        let now_ms = now.timestamp_millis();
+        let conn = self.connection.lock();
+
+        let existing_id = conn
+            .query_row(
+                "SELECT id FROM flow_fetch_links WHERE url = ?1",
+                params![&url],
+                |row| row.get::<_, String>("id"),
+            )
+            .optional()?;
+
+        if let Some(id) = existing_id {
+            conn.execute(
+                "UPDATE flow_fetch_links
+                 SET label = ?1, last_seen_at = ?2
+                 WHERE id = ?3",
+                params![&label, now_ms, &id],
+            )?;
+            return Self::get_flow_fetch_link(&conn, &id)
+                .and_then(|value| value.context("Flow Fetch link disappeared after update"));
+        }
+
+        let link = FlowFetchLink {
+            id: Uuid::new_v4().to_string(),
+            url,
+            label,
+            created_at: now,
+            last_seen_at: now,
+        };
+
+        conn.execute(
+            "INSERT INTO flow_fetch_links (id, url, label, created_at, last_seen_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![&link.id, &link.url, &link.label, now_ms, now_ms],
+        )?;
+        Ok(link)
+    }
+
+    pub fn get_flow_fetch_links(&self, limit: usize) -> Result<Vec<FlowFetchLink>> {
+        let limit = limit.clamp(1, 100) as i64;
+        let conn = self.connection.lock();
+        Self::prune_flow_fetch_links_inner(&conn)?;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, url, label, created_at, last_seen_at
+             FROM flow_fetch_links
+             ORDER BY last_seen_at DESC
+             LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(params![limit], Self::flow_fetch_link_from_row)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
+    }
+
+    pub fn delete_flow_fetch_link(&self, id: &str) -> Result<bool> {
+        let conn = self.connection.lock();
+        let affected = conn.execute("DELETE FROM flow_fetch_links WHERE id = ?1", params![id])?;
+        Ok(affected > 0)
+    }
+
+    pub fn prune_flow_fetch_links(&self) -> Result<usize> {
+        let conn = self.connection.lock();
+        Self::prune_flow_fetch_links_inner(&conn)
     }
 
     pub fn update_with_llm_cleanup(
@@ -452,21 +769,42 @@ impl StorageManager {
         .map_err(Into::into)
     }
 
+    fn get_scratchpad_entry(conn: &Connection, id: &str) -> Result<Option<ScratchpadEntry>> {
+        conn.query_row(
+            "SELECT id, title, body, source, created_at, updated_at, version
+             FROM scratchpad_entries WHERE id = ?1",
+            params![id],
+            Self::scratchpad_entry_from_row,
+        )
+        .optional()
+        .map_err(Into::into)
+    }
+
+    fn get_snippet(conn: &Connection, id: &str) -> Result<Option<Snippet>> {
+        conn.query_row(
+            "SELECT id, trigger, expansion, created_at, updated_at
+             FROM snippets WHERE id = ?1",
+            params![id],
+            Self::snippet_from_row,
+        )
+        .optional()
+        .map_err(Into::into)
+    }
+
+    fn get_flow_fetch_link(conn: &Connection, id: &str) -> Result<Option<FlowFetchLink>> {
+        conn.query_row(
+            "SELECT id, url, label, created_at, last_seen_at
+             FROM flow_fetch_links WHERE id = ?1",
+            params![id],
+            Self::flow_fetch_link_from_row,
+        )
+        .optional()
+        .map_err(Into::into)
+    }
+
     fn record_from_row(row: &Row<'_>) -> rusqlite::Result<TranscriptionRecord> {
         let timestamp_ms: i64 = row.get("timestamp")?;
-        let timestamp = Local
-            .timestamp_millis_opt(timestamp_ms)
-            .single()
-            .ok_or_else(|| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    0,
-                    Type::Integer,
-                    Box::new(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!("Invalid timestamp stored in database: {timestamp_ms}"),
-                    )) as Box<dyn std::error::Error + Send + Sync + 'static>,
-                )
-            })?;
+        let timestamp = local_datetime_from_millis(timestamp_ms, 0)?;
 
         let status_value: String = row.get("status")?;
         let status = TranscriptionStatus::from_str(&status_value).map_err(|err| {
@@ -502,6 +840,47 @@ impl StorageManager {
             synced: row.get::<_, i64>("synced").unwrap_or(0) == 1,
             mode_id: row.get("mode_id").unwrap_or(None),
             mode_name: row.get("mode_name").unwrap_or(None),
+        })
+    }
+
+    fn scratchpad_entry_from_row(row: &Row<'_>) -> rusqlite::Result<ScratchpadEntry> {
+        let created_ms: i64 = row.get("created_at")?;
+        let updated_ms: i64 = row.get("updated_at")?;
+
+        Ok(ScratchpadEntry {
+            id: row.get("id")?,
+            title: row.get("title")?,
+            body: row.get("body")?,
+            source: row.get("source")?,
+            created_at: local_datetime_from_millis(created_ms, 0)?,
+            updated_at: local_datetime_from_millis(updated_ms, 0)?,
+            version: row.get::<_, i64>("version")? as u32,
+        })
+    }
+
+    fn snippet_from_row(row: &Row<'_>) -> rusqlite::Result<Snippet> {
+        let created_ms: i64 = row.get("created_at")?;
+        let updated_ms: i64 = row.get("updated_at")?;
+
+        Ok(Snippet {
+            id: row.get("id")?,
+            trigger: row.get("trigger")?,
+            expansion: row.get("expansion")?,
+            created_at: local_datetime_from_millis(created_ms, 0)?,
+            updated_at: local_datetime_from_millis(updated_ms, 0)?,
+        })
+    }
+
+    fn flow_fetch_link_from_row(row: &Row<'_>) -> rusqlite::Result<FlowFetchLink> {
+        let created_ms: i64 = row.get("created_at")?;
+        let last_seen_ms: i64 = row.get("last_seen_at")?;
+
+        Ok(FlowFetchLink {
+            id: row.get("id")?,
+            url: row.get("url")?,
+            label: row.get("label")?,
+            created_at: local_datetime_from_millis(created_ms, 0)?,
+            last_seen_at: local_datetime_from_millis(last_seen_ms, 0)?,
         })
     }
 
@@ -557,7 +936,46 @@ impl StorageManager {
                 show_timestamps INTEGER NOT NULL DEFAULT 0
             );
             CREATE INDEX IF NOT EXISTS idx_library_items_created_at ON library_items(created_at DESC);
-            CREATE INDEX IF NOT EXISTS idx_library_items_status ON library_items(status);",
+            CREATE INDEX IF NOT EXISTS idx_library_items_status ON library_items(status);
+
+            CREATE TABLE IF NOT EXISTS scratchpad_entries (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT 'manual',
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                version INTEGER NOT NULL DEFAULT 1
+            );
+            CREATE INDEX IF NOT EXISTS idx_scratchpad_entries_updated_at ON scratchpad_entries(updated_at DESC);
+
+            CREATE TABLE IF NOT EXISTS scratchpad_versions (
+                id TEXT PRIMARY KEY,
+                entry_id TEXT NOT NULL,
+                body TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                version INTEGER NOT NULL,
+                FOREIGN KEY(entry_id) REFERENCES scratchpad_entries(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_scratchpad_versions_entry_id ON scratchpad_versions(entry_id);
+
+            CREATE TABLE IF NOT EXISTS snippets (
+                id TEXT PRIMARY KEY,
+                trigger TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                expansion TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_snippets_updated_at ON snippets(updated_at DESC);
+
+            CREATE TABLE IF NOT EXISTS flow_fetch_links (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL UNIQUE,
+                label TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                last_seen_at INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_flow_fetch_links_last_seen_at ON flow_fetch_links(last_seen_at DESC);",
         )?;
 
         Self::ensure_column(
@@ -621,6 +1039,15 @@ impl StorageManager {
             "ALTER TABLE library_items ADD COLUMN store_original INTEGER NOT NULL DEFAULT 0",
         )?;
         Ok(())
+    }
+
+    fn prune_flow_fetch_links_inner(conn: &Connection) -> Result<usize> {
+        let cutoff_ms = (Local::now() - chrono::Duration::days(14)).timestamp_millis();
+        conn.execute(
+            "DELETE FROM flow_fetch_links WHERE last_seen_at < ?1",
+            params![cutoff_ms],
+        )
+        .map_err(Into::into)
     }
 
     fn ensure_column(conn: &Connection, table: &str, column: &str, add_sql: &str) -> Result<()> {
@@ -692,4 +1119,239 @@ impl StorageManager {
 
 fn count_words(text: &str) -> u32 {
     crate::transcribe::count_words(text)
+}
+
+pub fn apply_snippets_to_text(text: &str, snippets: &[Snippet]) -> String {
+    if text.trim().is_empty() || snippets.is_empty() {
+        return text.to_string();
+    }
+
+    let normalized_text = normalize_phrase_for_match(text);
+    let mut ordered = snippets.to_vec();
+    ordered.sort_by(|a, b| b.trigger.len().cmp(&a.trigger.len()));
+
+    for snippet in &ordered {
+        if normalize_phrase_for_match(&snippet.trigger) == normalized_text {
+            return snippet.expansion.clone();
+        }
+    }
+
+    let mut result = text.to_string();
+    for snippet in ordered {
+        let pattern = snippet_phrase_pattern(&snippet.trigger);
+        if pattern.is_empty() {
+            continue;
+        }
+
+        let Ok(regex) = Regex::new(&format!(
+            r"(?i)(^|[^\p{{L}}\p{{N}}_])({pattern})($|[^\p{{L}}\p{{N}}_])"
+        )) else {
+            continue;
+        };
+        let expansion = snippet.expansion.clone();
+        result = regex
+            .replace_all(&result, |captures: &regex::Captures<'_>| {
+                let prefix = captures.get(1).map(|m| m.as_str()).unwrap_or("");
+                let suffix = captures.get(3).map(|m| m.as_str()).unwrap_or("");
+                format!("{prefix}{expansion}{suffix}")
+            })
+            .into_owned();
+    }
+
+    result
+}
+
+fn derive_scratchpad_title(body: &str) -> String {
+    let title = body
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .unwrap_or(body)
+        .split_whitespace()
+        .take(9)
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if title.is_empty() {
+        return "Untitled note".to_string();
+    }
+
+    let max_chars = 72;
+    if title.chars().count() <= max_chars {
+        return title;
+    }
+
+    let mut shortened = title
+        .chars()
+        .take(max_chars.saturating_sub(3))
+        .collect::<String>();
+    shortened.push_str("...");
+    shortened
+}
+
+fn normalize_source(source: &str) -> String {
+    let normalized = source.trim();
+    if normalized.is_empty() {
+        "manual".to_string()
+    } else {
+        normalized.chars().take(80).collect()
+    }
+}
+
+fn normalize_snippet_trigger(trigger: String) -> Result<String> {
+    let normalized = trigger.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.is_empty() {
+        bail!("Snippet trigger cannot be empty");
+    }
+    if normalized.chars().count() > 59 {
+        bail!("Snippet trigger must be 59 characters or fewer");
+    }
+    Ok(normalized)
+}
+
+fn normalize_snippet_expansion(expansion: String) -> Result<String> {
+    let normalized = expansion.trim().to_string();
+    if normalized.is_empty() {
+        bail!("Snippet expansion cannot be empty");
+    }
+    Ok(normalized)
+}
+
+fn normalize_phrase_for_match(value: &str) -> String {
+    value
+        .trim()
+        .trim_matches(|ch: char| ch.is_ascii_punctuation() || ch.is_whitespace())
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+fn snippet_phrase_pattern(trigger: &str) -> String {
+    trigger
+        .split_whitespace()
+        .map(regex::escape)
+        .collect::<Vec<_>>()
+        .join(r"\s+")
+}
+
+pub fn normalize_flow_fetch_url(url: String) -> Result<String> {
+    let mut normalized = url
+        .trim()
+        .trim_matches(|ch: char| matches!(ch, '"' | '\'' | '<' | '>' | '(' | ')' | '[' | ']'))
+        .trim_end_matches(|ch: char| matches!(ch, '.' | ',' | ';' | ':' | '!' | '?'))
+        .to_string();
+
+    if normalized.len() > 2048 {
+        bail!("URL is too long for Flow Fetch");
+    }
+
+    if normalized.starts_with("http://") || normalized.starts_with("https://") {
+        if normalized.contains(char::is_whitespace) {
+            bail!("URL cannot contain whitespace");
+        }
+        return Ok(normalized);
+    }
+
+    normalized.clear();
+    bail!("Flow Fetch only tracks http and https URLs")
+}
+
+fn derive_flow_fetch_label(url: &str) -> String {
+    let without_scheme = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .unwrap_or(url);
+    let host = without_scheme
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or(without_scheme)
+        .trim_start_matches("www.");
+    let path = without_scheme
+        .split_once('/')
+        .map(|(_, path)| path.split(['?', '#']).next().unwrap_or(""))
+        .unwrap_or("");
+
+    if path.is_empty() {
+        return host.to_string();
+    }
+
+    let slug = path
+        .rsplit('/')
+        .find(|part| !part.trim().is_empty())
+        .unwrap_or("")
+        .replace(['-', '_'], " ");
+    if slug.is_empty() {
+        host.to_string()
+    } else {
+        format!("{host} - {slug}")
+    }
+}
+
+fn local_datetime_from_millis(
+    timestamp_ms: i64,
+    column_index: usize,
+) -> rusqlite::Result<DateTime<Local>> {
+    Local
+        .timestamp_millis_opt(timestamp_ms)
+        .single()
+        .ok_or_else(|| {
+            rusqlite::Error::FromSqlConversionFailure(
+                column_index,
+                Type::Integer,
+                Box::new(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Invalid timestamp stored in database: {timestamp_ms}"),
+                )) as Box<dyn std::error::Error + Send + Sync + 'static>,
+            )
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn snippet(trigger: &str, expansion: &str) -> Snippet {
+        let now = Local::now();
+        Snippet {
+            id: trigger.to_string(),
+            trigger: trigger.to_string(),
+            expansion: expansion.to_string(),
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    #[test]
+    fn snippets_expand_a_full_trigger_with_punctuation() {
+        let text = apply_snippets_to_text(
+            "my email address.",
+            &[snippet("my email address", "me@example.com")],
+        );
+        assert_eq!(text, "me@example.com");
+    }
+
+    #[test]
+    fn snippets_expand_inside_a_sentence_case_insensitively() {
+        let text = apply_snippets_to_text(
+            "Send it to My Email Address please",
+            &[snippet("my email address", "me@example.com")],
+        );
+        assert_eq!(text, "Send it to me@example.com please");
+    }
+
+    #[test]
+    fn scratchpad_title_uses_the_first_meaningful_words() {
+        assert_eq!(
+            derive_scratchpad_title("\n\nHello who are you and why are you here today"),
+            "Hello who are you and why are you here today"
+        );
+    }
+
+    #[test]
+    fn flow_fetch_normalizes_simple_urls() {
+        assert_eq!(
+            normalize_flow_fetch_url(" https://example.com/path. ".to_string()).unwrap(),
+            "https://example.com/path"
+        );
+    }
 }

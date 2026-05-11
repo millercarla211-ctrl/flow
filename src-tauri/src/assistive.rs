@@ -128,14 +128,16 @@ pub fn paste_text(text: &str) -> Result<()> {
 
     let paste_result = send_paste_keystroke();
 
-    thread::spawn(move || {
-        thread::sleep(Duration::from_millis(1000));
-        if let Ok(mut clipboard) = Clipboard::new() {
-            if should_restore_after_paste(&mut clipboard, &inserted_text) {
-                backup.restore(&mut clipboard);
+    if paste_result.is_ok() {
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(1000));
+            if let Ok(mut clipboard) = Clipboard::new() {
+                if should_restore_after_paste(&mut clipboard, &inserted_text) {
+                    backup.restore(&mut clipboard);
+                }
             }
-        }
-    });
+        });
+    }
 
     paste_result
 }

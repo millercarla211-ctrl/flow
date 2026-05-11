@@ -13,6 +13,7 @@ dist
 dist-ssr
 *.local
 target/
+.flow-cargo-target/
 tmp/
 src-tauri/target/
 .env

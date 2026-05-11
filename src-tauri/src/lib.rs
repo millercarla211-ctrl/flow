@@ -7,6 +7,7 @@ mod core;
 mod crypto;
 mod dictionary;
 mod downloader;
+mod flow_fetch;
 mod library;
 mod llm_cleanup;
 mod local_transcription;
@@ -20,12 +21,15 @@ mod pill;
 mod platform;
 mod recent_transcriptions;
 mod recorder;
+mod scratchpad;
 mod settings;
+mod snippets;
 mod storage;
 mod streaming_transcription;
 mod toast;
 mod transcribe;
 mod transcription_api;
+mod transforms;
 mod tray;
 mod update_checker;
 
@@ -70,6 +74,11 @@ pub(crate) const EVENT_RECORDING_START: &str = "recording:start";
 pub(crate) const EVENT_AUDIO_SPECTRUM: &str = "audio:spectrum";
 pub(crate) const EVENT_TRANSCRIPTION_COMPLETE: &str = "transcription:complete";
 pub(crate) const EVENT_TRANSCRIPTION_ERROR: &str = "transcription:error";
+pub(crate) const EVENT_SCRATCHPAD_CHANGED: &str = "scratchpad:changed";
+pub(crate) const EVENT_SCRATCHPAD_ENTRY_CREATED: &str = "scratchpad:entry-created";
+pub(crate) const EVENT_SNIPPETS_CHANGED: &str = "snippets:changed";
+pub(crate) const EVENT_FLOW_FETCH_CHANGED: &str = "flow-fetch:changed";
+pub(crate) const EVENT_FLOW_FETCH_LINK_CAPTURED: &str = "flow-fetch:link-captured";
 pub(crate) const EVENT_SETTINGS_CHANGED: &str = "settings:changed";
 pub(crate) const FEEDBACK_URL: &str =
     "https://github.com/essencefromexistence/flow/issues/new/choose";
@@ -369,6 +378,8 @@ pub fn run() {
                 handle.state::<AppState>().store_tray(tray);
             }
 
+            flow_fetch::start_monitor(handle.clone());
+
             if let Err(err) = pill::register_shortcuts(handle) {
                 eprintln!("Failed to register shortcuts: {err}");
             }
@@ -424,6 +435,19 @@ pub fn run() {
             retry_llm_cleanup,
             undo_llm_cleanup,
             cancel_retry_transcription,
+            scratchpad::list_scratchpad_entries,
+            scratchpad::create_scratchpad_entry,
+            scratchpad::update_scratchpad_entry,
+            scratchpad::delete_scratchpad_entry,
+            snippets::list_snippets,
+            snippets::create_snippet,
+            snippets::update_snippet,
+            snippets::delete_snippet,
+            flow_fetch::list_flow_fetch_links,
+            flow_fetch::delete_flow_fetch_link,
+            flow_fetch::copy_flow_fetch_link,
+            transforms::get_transform_presets,
+            transforms::transform_text,
             library::commands::create_library_item,
             library::commands::get_library_items_page,
             library::commands::update_library_item,

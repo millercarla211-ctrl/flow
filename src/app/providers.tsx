@@ -7,6 +7,9 @@ import { authKeys } from "../features/auth/queries";
 import { activateLocale, i18n } from "../i18n";
 import { settingsKeys, useSettings } from "../features/settings/queries";
 import { transcriptionKeys } from "../features/transcriptions/queries";
+import { scratchpadKeys } from "../features/scratchpad/queries";
+import { snippetKeys } from "../features/snippets/queries";
+import { flowFetchKeys } from "../features/flow-fetch/queries";
 import { updateKeys } from "../features/updates/queries";
 import { isTauriRuntime } from "../platform/tauriRuntime";
 import type { StoredSettings } from "../types";
@@ -44,6 +47,21 @@ function QuerySyncBridge() {
 
     register<StoredSettings>("settings:changed", (settings) => {
       queryClient.setQueryData(settingsKeys.detail(), settings);
+    });
+    register("scratchpad:changed", () => {
+      queryClient.invalidateQueries({ queryKey: scratchpadKeys.all });
+    });
+    register("scratchpad:entry-created", () => {
+      queryClient.invalidateQueries({ queryKey: scratchpadKeys.all });
+    });
+    register("snippets:changed", () => {
+      queryClient.invalidateQueries({ queryKey: snippetKeys.all });
+    });
+    register("flow-fetch:changed", () => {
+      queryClient.invalidateQueries({ queryKey: flowFetchKeys.all });
+    });
+    register("flow-fetch:link-captured", () => {
+      queryClient.invalidateQueries({ queryKey: flowFetchKeys.all });
     });
 
     if (isSettingsWindow) {

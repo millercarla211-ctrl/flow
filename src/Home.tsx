@@ -14,6 +14,9 @@ import {
   X,
   ArrowUpCircle,
   Library,
+  Link2,
+  NotebookText,
+  TextQuote,
 } from "lucide-react";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import SettingsModal from "./features/settings/components/SettingsModal";
@@ -26,6 +29,10 @@ import TranscriptionList from "./features/transcriptions/components/Transcriptio
 import DictionaryView from "./features/dictionary/components/DictionaryView";
 import PersonalizationView from "./features/personalization/components/PersonalizationView";
 import LibraryView from "./features/library/components/LibraryView";
+import FlowFetchView from "./features/flow-fetch/components/FlowFetchView";
+import ScratchpadView from "./features/scratchpad/components/ScratchpadView";
+import SnippetsView from "./features/snippets/components/SnippetsView";
+import TransformsView from "./features/transforms/components/TransformsView";
 import { useCurrentUser } from "./features/auth/queries";
 import { useSettings, useAppInfo } from "./features/settings/queries";
 import { useUpdateStatus } from "./features/updates/queries";
@@ -68,7 +75,16 @@ const Home = () => {
     "general" | "account" | "models" | "about" | "app"
   >("general");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
-  const [activeView, setActiveView] = useState<"home" | "dictionary" | "brain" | "library">("home");
+  const [activeView, setActiveView] = useState<
+    | "home"
+    | "dictionary"
+    | "snippets"
+    | "scratchpad"
+    | "flowFetch"
+    | "transforms"
+    | "brain"
+    | "library"
+  >("home");
   const { user: currentUser, refresh: refreshUser } = useCurrentUser();
   const [showSupportPopup, setShowSupportPopup] = useState(false);
   const [showFAQ, setShowFAQ] = useState(false);
@@ -301,7 +317,47 @@ const Home = () => {
               onClick={() => setActiveView("dictionary")}
             />
             <SidebarItem
+              icon={<TextQuote size={18} />}
+              label={t({
+                id: "home.sidebar.snippets",
+                message: "Snippets",
+              })}
+              active={activeView === "snippets"}
+              collapsed={isSidebarCollapsed}
+              onClick={() => setActiveView("snippets")}
+            />
+            <SidebarItem
+              icon={<NotebookText size={18} />}
+              label={t({
+                id: "home.sidebar.scratchpad",
+                message: "Scratchpad",
+              })}
+              active={activeView === "scratchpad"}
+              collapsed={isSidebarCollapsed}
+              onClick={() => setActiveView("scratchpad")}
+            />
+            <SidebarItem
+              icon={<Link2 size={18} />}
+              label={t({
+                id: "home.sidebar.flow_fetch",
+                message: "Flow Fetch",
+              })}
+              active={activeView === "flowFetch"}
+              collapsed={isSidebarCollapsed}
+              onClick={() => setActiveView("flowFetch")}
+            />
+            <SidebarItem
               icon={<WandSparkles size={18} />}
+              label={t({
+                id: "home.sidebar.transforms",
+                message: "Transforms",
+              })}
+              active={activeView === "transforms"}
+              collapsed={isSidebarCollapsed}
+              onClick={() => setActiveView("transforms")}
+            />
+            <SidebarItem
+              icon={<User size={18} />}
               label={t({
                 id: "home.sidebar.personalization",
                 message: "Personalization",
@@ -570,6 +626,30 @@ const Home = () => {
             className={`w-full max-w-6xl mx-auto min-w-0 pt-8 ${activeView === "dictionary" ? "" : "hidden"}`}
           >
             <DictionaryView isActive={activeView === "dictionary"} />
+          </div>
+
+          <div
+            className={`w-full max-w-6xl mx-auto min-w-0 pt-8 flex-1 min-h-0 ${activeView === "snippets" ? "" : "hidden"}`}
+          >
+            <SnippetsView isActive={activeView === "snippets"} />
+          </div>
+
+          <div
+            className={`w-full max-w-6xl mx-auto min-w-0 pt-8 flex-1 min-h-0 ${activeView === "scratchpad" ? "" : "hidden"}`}
+          >
+            <ScratchpadView isActive={activeView === "scratchpad"} />
+          </div>
+
+          <div
+            className={`w-full max-w-5xl mx-auto min-w-0 pt-8 flex-1 min-h-0 ${activeView === "flowFetch" ? "" : "hidden"}`}
+          >
+            <FlowFetchView isActive={activeView === "flowFetch"} />
+          </div>
+
+          <div
+            className={`w-full max-w-6xl mx-auto min-w-0 pt-8 flex-1 min-h-0 ${activeView === "transforms" ? "" : "hidden"}`}
+          >
+            <TransformsView isActive={activeView === "transforms"} />
           </div>
 
           <div

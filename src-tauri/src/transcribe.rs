@@ -9,6 +9,7 @@ use crate::{
     accessibility_context, analytics, assistive, dictionary, llm_cleanup, mode_context,
     model_manager,
     recorder::{speech_percentage_i16_with_mode, CompletedRecording, RecordingSaved},
+    scratchpad,
     settings::{Personality, UserSettings},
     storage, toast, transcription_api, update_checker, AppRuntime, AppState,
     TranscriptionCompletePayload, TranscriptionErrorPayload, EVENT_TRANSCRIPTION_COMPLETE,
@@ -19,6 +20,60 @@ const WHISPER_CHUNK_SECONDS: f32 = 28.0;
 const WHISPER_CHUNK_OVERLAP_SECONDS: f32 = 2.0;
 const VAD_MIN_SPEECH_PERCENT_FILE: f32 = 2.0;
 const VAD_MIN_SPEECH_PERCENT_CHUNK: f32 = 5.0;
+
+async fn paste_transcript_or_save_fallback(
+    app: &AppHandle<AppRuntime>,
+    transcript: &str,
+    source: &str,
+) -> bool {
+    let text = transcript.to_string();
+    match async_runtime::spawn_blocking(move || assistive::paste_text(&text)).await {
+        Ok(Ok(())) => true,
+        Ok(Err(err)) => {
+            save_auto_paste_fallback(app, transcript, source, &err.to_string());
+            false
+        }
+        Err(err) => {
+            save_auto_paste_fallback(app, transcript, source, &err.to_string());
+            false
+        }
+    }
+}
+
+fn save_auto_paste_fallback(
+    app: &AppHandle<AppRuntime>,
+    transcript: &str,
+    source: &str,
+    paste_error: &str,
+) {
+    let fallback_message = match scratchpad::save_paste_fallback(app, transcript, source) {
+        Ok(_) => "Auto paste failed. Saved to Scratchpad and copied to clipboard.".to_string(),
+        Err(err) => {
+            eprintln!("{err}");
+            if let Err(copy_err) = assistive::copy_text_to_clipboard(transcript) {
+                eprintln!("Failed to copy transcript after paste fallback failed: {copy_err}");
+            }
+            "Auto paste failed. Copied transcript to clipboard.".to_string()
+        }
+    };
+
+    emit_auto_paste_error(app, format!("{fallback_message} Reason: {paste_error}"));
+}
+
+fn apply_dictionary_and_snippets(
+    app: &AppHandle<AppRuntime>,
+    transcript: &str,
+    settings: &UserSettings,
+) -> String {
+    let replaced = dictionary::apply_replacements(transcript, &settings.replacements);
+    match app.state::<AppState>().storage().get_snippets() {
+        Ok(snippets) => storage::apply_snippets_to_text(&replaced, &snippets),
+        Err(err) => {
+            eprintln!("Failed to load snippets for transcript expansion: {err}");
+            replaced
+        }
+    }
+}
 
 pub(crate) fn queue_transcription(
     app: &AppHandle<AppRuntime>,
@@ -207,7 +262,7 @@ pub(crate) fn queue_transcription(
                 };
 
                 let final_transcript =
-                    dictionary::apply_replacements(&final_transcript, &settings.replacements);
+                    apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
 
                 if count_words(&final_transcript) == 0 {
                     handle_empty_transcription(&app_handle, &saved_for_task.path);
@@ -225,20 +280,9 @@ pub(crate) fn queue_transcription(
 
                 let mut pasted = false;
                 if auto_paste && !final_transcript.trim().is_empty() {
-                    let text = final_transcript.clone();
-                    match async_runtime::spawn_blocking(move || assistive::paste_text(&text)).await
-                    {
-                        Ok(Ok(())) => pasted = true,
-                        Ok(Err(err)) => {
-                            emit_auto_paste_error(&app_handle, format!("Auto paste failed: {err}"));
-                        }
-                        Err(err) => {
-                            emit_auto_paste_error(
-                                &app_handle,
-                                format!("Auto paste task error: {err}"),
-                            );
-                        }
-                    }
+                    pasted =
+                        paste_transcript_or_save_fallback(&app_handle, &final_transcript, "local")
+                            .await;
                 }
 
                 let metadata = build_transcription_metadata(TranscriptionMetadataInput {
@@ -444,7 +488,7 @@ pub(crate) fn retry_transcription_async(
                 };
 
                 let final_transcript =
-                    dictionary::apply_replacements(&final_transcript, &settings.replacements);
+                    apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
 
                 if count_words(&final_transcript) == 0 {
                     handle_empty_transcription(&app_handle, &saved_for_task.path);
@@ -1197,7 +1241,7 @@ pub(crate) fn finalize_streaming_transcription(
         };
 
         let final_transcript =
-            dictionary::apply_replacements(&final_transcript, &settings.replacements);
+            apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
 
         if count_words(&final_transcript) == 0 {
             crate::pill::collapse_expanded_pill(&app_handle);
@@ -1214,12 +1258,8 @@ pub(crate) fn finalize_streaming_transcription(
 
         let mut pasted = false;
         if auto_paste && !final_transcript.trim().is_empty() {
-            let text = final_transcript.clone();
-            match tauri::async_runtime::spawn_blocking(move || assistive::paste_text(&text)).await {
-                Ok(Ok(())) => pasted = true,
-                Ok(Err(err)) => eprintln!("Auto paste failed (streaming): {err}"),
-                Err(err) => eprintln!("Auto paste task error (streaming): {err}"),
-            }
+            pasted = paste_transcript_or_save_fallback(&app_handle, &final_transcript, "streaming")
+                .await;
         }
 
         if is_cancelled() {
