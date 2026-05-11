@@ -460,6 +460,7 @@ pub fn run() {
             transforms::list_transform_history,
             transforms::delete_transform_history_entry,
             transforms::open_transforms_view,
+            transforms::paste_transform_result,
             transforms::transform_text,
             library::commands::create_library_item,
             library::commands::get_library_items_page,

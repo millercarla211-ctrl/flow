@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { invoke } from "@tauri-apps/api/core";
 import {
   Check,
   ClipboardPaste,
@@ -7,6 +8,7 @@ import {
   History,
   RefreshCw,
   Save,
+  SendHorizontal,
   SplitSquareHorizontal,
   Trash2,
   WandSparkles,
@@ -34,6 +36,12 @@ type DiffToken = {
 type TransformLoadPayload = {
   text?: string;
   source?: string;
+};
+
+type TransformPasteResult = {
+  pasted: boolean;
+  copied: boolean;
+  message: string;
 };
 
 const variantKey = (variant: TransformResult) => variant.history_id ?? variant.label;
@@ -122,6 +130,7 @@ export default function TransformsView({ isActive = true }: { isActive?: boolean
   const [activeVariant, setActiveVariant] = useState<"original" | string>("original");
   const [variants, setVariants] = useState<TransformResult[]>([]);
   const [copied, setCopied] = useState(false);
+  const [isPasting, setIsPasting] = useState(false);
   const [reviewMode, setReviewMode] = useState<"result" | "diff">("result");
   const [sourceHint, setSourceHint] = useState<string | null>(null);
   const presets = presetsQuery.data ?? [];
@@ -219,6 +228,22 @@ export default function TransformsView({ isActive = true }: { isActive?: boolean
       body: selectedText,
       source: "transform",
     });
+  };
+
+  const pasteSelected = async () => {
+    if (!selectedText.trim() || isPasting) return;
+    setIsPasting(true);
+    try {
+      const result = await invoke<TransformPasteResult>("paste_transform_result", {
+        text: selectedText,
+      });
+      if (result.copied) {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1400);
+      }
+    } finally {
+      setIsPasting(false);
+    }
   };
 
   const loadHistory = (entry: TransformHistoryEntry) => {
@@ -440,6 +465,16 @@ export default function TransformsView({ isActive = true }: { isActive?: boolean
                 aria-label={t({ id: "transforms.save", message: "Save selected variant" })}
               >
                 <Save size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={pasteSelected}
+                disabled={!selectedText.trim() || isPasting}
+                className="ui-button-ghost h-8 w-8 disabled:opacity-40"
+                aria-label={t({ id: "transforms.paste", message: "Paste selected variant" })}
+                title={t({ id: "transforms.paste", message: "Paste selected variant" })}
+              >
+                <SendHorizontal size={15} className={isPasting ? "animate-pulse" : undefined} />
               </button>
             </div>
           </div>
