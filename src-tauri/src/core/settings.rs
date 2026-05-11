@@ -43,6 +43,7 @@ pub(crate) struct UpdateSettingsArgs {
     pub auto_launch_enabled: bool,
     pub recording_prune_policy: RecordingPrunePolicy,
     pub local_data_storage_policy: LocalDataStoragePolicy,
+    pub context_awareness_enabled: bool,
     pub analytics_enabled: bool,
 }
 
@@ -253,6 +254,7 @@ pub(crate) fn update_settings(
     next.auto_launch_enabled = args.auto_launch_enabled;
     next.recording_prune_policy = args.recording_prune_policy;
     next.local_data_storage_policy = args.local_data_storage_policy;
+    next.context_awareness_enabled = args.context_awareness_enabled;
     next.analytics_enabled = args.analytics_enabled;
 
     let launch_changed = prev.auto_launch_enabled != next.auto_launch_enabled;
@@ -354,6 +356,7 @@ mod tests {
             auto_launch_enabled: false,
             recording_prune_policy: RecordingPrunePolicy::Never,
             local_data_storage_policy: LocalDataStoragePolicy::Store,
+            context_awareness_enabled: true,
             analytics_enabled: true,
         }
     }

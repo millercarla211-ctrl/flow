@@ -53,6 +53,7 @@ pub(crate) fn refresh_recent_files_from_active_context(
     if !settings.vibe_coding_enabled
         || !settings.vibe_coding_file_tagging
         || !settings.vibe_coding_include_window_context
+        || !settings.context_awareness_enabled
         || !mode.as_ref().is_some_and(|mode| {
             mode.id.eq_ignore_ascii_case("coding") || mode.name.eq_ignore_ascii_case("coding")
         })

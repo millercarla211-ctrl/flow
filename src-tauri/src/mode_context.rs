@@ -111,6 +111,10 @@ fn mode_matches(mode: &Personality, context: &accessibility_context::ActiveConte
 }
 
 fn resolve_mode_context(settings: &UserSettings) -> Option<Vec<ModeContextMode>> {
+    if !settings.context_awareness_enabled {
+        return None;
+    }
+
     if !permissions::check_accessibility_permission() {
         return None;
     }
@@ -181,6 +185,10 @@ pub fn format_cleanup_style_guidance_for_personality(personality: &Personality) 
 }
 
 pub fn resolve_active_personality(settings: &UserSettings) -> Option<Personality> {
+    if !settings.context_awareness_enabled {
+        return None;
+    }
+
     if !permissions::check_accessibility_permission() {
         return None;
     }
@@ -196,6 +204,17 @@ pub fn resolve_active_personality(settings: &UserSettings) -> Option<Personality
 }
 
 pub fn inspect_active_style_preview(settings: &UserSettings) -> ActiveStylePreview {
+    if !settings.context_awareness_enabled {
+        return ActiveStylePreview {
+            permission_granted: true,
+            context_available: false,
+            app_name: None,
+            window_title: None,
+            url: None,
+            matches: Vec::new(),
+        };
+    }
+
     if !permissions::check_accessibility_permission() {
         return ActiveStylePreview {
             permission_granted: false,

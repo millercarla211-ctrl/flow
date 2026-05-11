@@ -83,6 +83,7 @@ export type StoredSettings = {
   auto_launch_enabled: boolean;
   recording_prune_policy: RecordingPrunePolicy;
   local_data_storage_policy: LocalDataStoragePolicy;
+  context_awareness_enabled: boolean;
   analytics_enabled: boolean;
   analytics_install_id: string;
 };

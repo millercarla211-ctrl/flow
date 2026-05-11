@@ -46,6 +46,7 @@ const KEY_AUTO_UPDATE_ENABLED: &str = "auto_update_enabled";
 const KEY_AUTO_LAUNCH_ENABLED: &str = "auto_launch_enabled";
 const KEY_RECORDING_PRUNE_POLICY: &str = "recording_prune_policy";
 const KEY_LOCAL_DATA_STORAGE_POLICY: &str = "local_data_storage_policy";
+const KEY_CONTEXT_AWARENESS_ENABLED: &str = "context_awareness_enabled";
 const KEY_ANALYTICS_ENABLED: &str = "analytics_enabled";
 const KEY_ANALYTICS_INSTALL_ID: &str = "analytics_install_id";
 
@@ -146,6 +147,8 @@ pub struct UserSettings {
     pub recording_prune_policy: RecordingPrunePolicy,
     #[serde(default = "default_local_data_storage_policy")]
     pub local_data_storage_policy: LocalDataStoragePolicy,
+    #[serde(default = "default_true")]
+    pub context_awareness_enabled: bool,
     #[serde(default = "default_true")]
     pub analytics_enabled: bool,
     #[serde(default)]
@@ -398,6 +401,7 @@ impl Default for UserSettings {
             auto_launch_enabled: false,
             recording_prune_policy: default_recording_prune_policy(),
             local_data_storage_policy: default_local_data_storage_policy(),
+            context_awareness_enabled: true,
             analytics_enabled: true,
             analytics_install_id: String::new(),
         }
@@ -737,6 +741,11 @@ impl SettingsStore {
                 KEY_LOCAL_DATA_STORAGE_POLICY,
                 settings.local_data_storage_policy,
             )?;
+            settings.context_awareness_enabled = self.read_value(
+                &conn,
+                KEY_CONTEXT_AWARENESS_ENABLED,
+                settings.context_awareness_enabled,
+            )?;
             settings.analytics_enabled =
                 self.read_value(&conn, KEY_ANALYTICS_ENABLED, settings.analytics_enabled)?;
             settings.analytics_install_id = self.read_value(
@@ -946,6 +955,11 @@ impl SettingsStore {
             &conn,
             KEY_LOCAL_DATA_STORAGE_POLICY,
             &settings.local_data_storage_policy,
+        )?;
+        self.write_value(
+            &conn,
+            KEY_CONTEXT_AWARENESS_ENABLED,
+            &settings.context_awareness_enabled,
         )?;
         self.write_value(&conn, KEY_ANALYTICS_ENABLED, &settings.analytics_enabled)?;
         self.write_value(

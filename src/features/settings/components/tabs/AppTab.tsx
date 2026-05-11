@@ -112,6 +112,8 @@ type AppTabProps = {
   onRecordingPrunePolicyChange: (policy: RecordingPrunePolicy) => void;
   localDataStoragePolicy: LocalDataStoragePolicy;
   onLocalDataStoragePolicyChange: (policy: LocalDataStoragePolicy) => void;
+  contextAwarenessEnabled: boolean;
+  onContextAwarenessEnabledChange: (enabled: boolean) => void;
   analyticsEnabled: boolean;
   onAnalyticsEnabledChange: (enabled: boolean) => void;
   platformCapabilities: PlatformCapabilities;
@@ -139,6 +141,8 @@ const AppTab = ({
   onRecordingPrunePolicyChange,
   localDataStoragePolicy,
   onLocalDataStoragePolicyChange,
+  contextAwarenessEnabled,
+  onContextAwarenessEnabledChange,
   analyticsEnabled,
   onAnalyticsEnabledChange,
   platformCapabilities,
@@ -763,6 +767,34 @@ const AppTab = ({
                   {t({
                     id: "settings.app.local_data.body",
                     message: "controls transcript and transform history saved on this device.",
+                  })}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-surface-surface p-2.5">
+              <div className="px-2 py-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="ui-text-label-strong ui-color-primary">
+                    {t({
+                      id: "settings.app.context_awareness",
+                      message: "Context Awareness",
+                    })}
+                  </span>
+                  <ToggleSwitch
+                    enabled={contextAwarenessEnabled}
+                    onToggle={() => onContextAwarenessEnabledChange(!contextAwarenessEnabled)}
+                    ariaLabel={t({
+                      id: "settings.app.context_awareness.toggle_aria",
+                      message: "Toggle context awareness",
+                    })}
+                  />
+                </div>
+                <span className="ui-text-micro ui-color-disabled block mt-0.5">
+                  {t({
+                    id: "settings.app.context_awareness.body",
+                    message:
+                      "uses the active app and window title for local style matching and coding hints.",
                   })}
                 </span>
               </div>

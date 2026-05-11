@@ -213,13 +213,17 @@ pub(crate) fn queue_transcription(
             "[transcription] mode={:?} local_only=true",
             settings.transcription_mode,
         );
-        accessibility_context::log_active_context();
+        if settings.context_awareness_enabled {
+            accessibility_context::log_active_context();
+        }
 
         let active_mode = mode_context::resolve_active_personality(&settings);
-        if vibe_coding::refresh_recent_files_from_active_context(
-            &mut settings,
-            active_mode.as_ref(),
-        ) {
+        if settings.context_awareness_enabled
+            && vibe_coding::refresh_recent_files_from_active_context(
+                &mut settings,
+                active_mode.as_ref(),
+            )
+        {
             if let Err(err) = app_handle
                 .state::<AppState>()
                 .persist_settings(settings.clone())
@@ -1427,10 +1431,12 @@ pub(crate) fn finalize_streaming_transcription(
         let mut settings = app_handle.state::<AppState>().current_settings();
         let auto_paste = transcription_api::auto_paste_enabled();
         let active_mode = mode_context::resolve_active_personality(&settings);
-        if vibe_coding::refresh_recent_files_from_active_context(
-            &mut settings,
-            active_mode.as_ref(),
-        ) {
+        if settings.context_awareness_enabled
+            && vibe_coding::refresh_recent_files_from_active_context(
+                &mut settings,
+                active_mode.as_ref(),
+            )
+        {
             if let Err(err) = app_handle
                 .state::<AppState>()
                 .persist_settings(settings.clone())

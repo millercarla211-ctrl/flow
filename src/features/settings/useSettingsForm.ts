@@ -97,6 +97,7 @@ export function useSettingsForm({
   const [recordingPrunePolicy, setRecordingPrunePolicy] = useState<RecordingPrunePolicy>("never");
   const [localDataStoragePolicy, setLocalDataStoragePolicy] =
     useState<LocalDataStoragePolicy>("store");
+  const [contextAwarenessEnabled, setContextAwarenessEnabled] = useState(true);
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [textSizeMode, setTextSizeModeRaw] = useState<TextSizeMode>(() =>
     parseTextSizeMode(localStorage.getItem(TEXT_SIZE_MODE_STORAGE_KEY)),
@@ -210,6 +211,7 @@ export function useSettingsForm({
     setAutoLaunchEnabled(s.auto_launch_enabled ?? false);
     setRecordingPrunePolicy(s.recording_prune_policy ?? "never");
     setLocalDataStoragePolicy(s.local_data_storage_policy ?? "store");
+    setContextAwarenessEnabled(s.context_awareness_enabled ?? true);
     setAnalyticsEnabled(s.analytics_enabled ?? true);
     setThemeModeRaw(s.theme_mode ?? "system");
   }, []);
@@ -582,6 +584,7 @@ export function useSettingsForm({
             autoLaunchEnabled,
             recordingPrunePolicy,
             localDataStoragePolicy,
+            contextAwarenessEnabled,
             analyticsEnabled,
           },
         });
@@ -632,6 +635,7 @@ export function useSettingsForm({
     autoLaunchEnabled,
     recordingPrunePolicy,
     localDataStoragePolicy,
+    contextAwarenessEnabled,
     analyticsEnabled,
     aiFeaturesReady,
   ]);
@@ -890,6 +894,8 @@ export function useSettingsForm({
     setRecordingPrunePolicy,
     localDataStoragePolicy,
     setLocalDataStoragePolicy,
+    contextAwarenessEnabled,
+    setContextAwarenessEnabled,
     analyticsEnabled,
     setAnalyticsEnabled,
     platformCapabilities,
