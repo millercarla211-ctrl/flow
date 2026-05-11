@@ -1,7 +1,18 @@
 import type { ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { motion } from "framer-motion";
-import { Activity, BarChart3, Clock3, Flame, Gauge, Mic2, Sparkles } from "lucide-react";
+import {
+  Activity,
+  BarChart3,
+  CheckCircle2,
+  Clock3,
+  Flame,
+  Gauge,
+  Mic2,
+  Sparkles,
+  Timer,
+  Zap,
+} from "lucide-react";
 import DotMatrix from "../../../shared/ui/DotMatrix";
 import type { InsightBreakdown, InsightsSummary } from "../../../types";
 import { useInsights } from "../queries";
@@ -29,6 +40,13 @@ function formatDuration(seconds: number) {
   return remaining > 0 ? `${hours}h ${remaining}m` : `${hours}h`;
 }
 
+function formatMilliseconds(milliseconds: number) {
+  if (!milliseconds || milliseconds <= 0) return "n/a";
+  if (milliseconds < 1000) return `${Math.round(milliseconds)}ms`;
+  if (milliseconds < 10000) return `${(milliseconds / 1000).toFixed(1)}s`;
+  return `${Math.round(milliseconds / 1000)}s`;
+}
+
 function MetricTile({
   icon,
   label,
@@ -51,6 +69,29 @@ function MetricTile({
       <div className="mt-4 ui-text-title font-medium ui-color-primary">{value}</div>
       <div className="mt-1 ui-text-meta ui-color-disabled">{detail}</div>
     </article>
+  );
+}
+
+function PerformanceStat({
+  icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-md border border-border-primary bg-surface-elevated px-3 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="truncate ui-text-meta-strong ui-color-muted">{label}</div>
+        <div className="shrink-0 ui-color-disabled">{icon}</div>
+      </div>
+      <div className="mt-2 ui-text-body-sm-strong ui-color-primary">{value}</div>
+      <div className="mt-0.5 truncate ui-text-micro ui-color-disabled">{detail}</div>
+    </div>
   );
 }
 
@@ -165,6 +206,9 @@ export default function InsightsView({ isActive = true }: { isActive?: boolean }
   const summary = insightsQuery.data;
 
   const localDetail = summary ? `${Math.round(summary.local_percent)}% local engine usage` : "";
+  const pasteSuccessValue = summary?.auto_paste_attempts
+    ? `${Math.round(summary.auto_paste_success_percent)}%`
+    : "n/a";
 
   if (insightsQuery.isLoading) {
     return (
@@ -244,6 +288,47 @@ export default function InsightsView({ isActive = true }: { isActive?: boolean }
           </div>
 
           <ActivityChart summary={summary} />
+
+          <section className="rounded-lg border border-border-primary bg-surface-surface p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="ui-text-body-sm-strong ui-color-primary">Dictation performance</div>
+                <div className="mt-1 ui-text-meta ui-color-muted">
+                  Timing from the last {formatNumber(summary.timed_transcriptions)} completed runs
+                </div>
+              </div>
+              <div className="rounded-full border border-border-primary bg-surface-elevated px-3 py-1 ui-text-micro ui-color-muted">
+                {formatNumber(summary.auto_paste_attempts)} paste attempts
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <PerformanceStat
+                icon={<Zap size={14} />}
+                label="Recognition"
+                value={formatMilliseconds(summary.average_stt_elapsed_ms)}
+                detail="average STT time"
+              />
+              <PerformanceStat
+                icon={<Timer size={14} />}
+                label="End-to-end"
+                value={formatMilliseconds(summary.average_total_elapsed_ms)}
+                detail="recording to ready"
+              />
+              <PerformanceStat
+                icon={<CheckCircle2 size={14} />}
+                label="Auto-paste"
+                value={pasteSuccessValue}
+                detail="successful inserts"
+              />
+              <PerformanceStat
+                icon={<Clock3 size={14} />}
+                label="Cleanup"
+                value={formatMilliseconds(summary.average_cleanup_elapsed_ms)}
+                detail={`${formatNumber(summary.paste_fallback_count)} paste fallbacks`}
+              />
+            </div>
+          </section>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <BreakdownList title="Top modes" items={summary.top_modes} empty="No modes yet" />

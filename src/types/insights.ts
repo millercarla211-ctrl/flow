@@ -27,6 +27,14 @@ export type InsightsSummary = {
   best_day_label: string;
   local_percent: number;
   cleanup_percent: number;
+  timed_transcriptions: number;
+  average_stt_elapsed_ms: number;
+  average_cleanup_elapsed_ms: number;
+  average_paste_elapsed_ms: number;
+  average_total_elapsed_ms: number;
+  auto_paste_attempts: number;
+  auto_paste_success_percent: number;
+  paste_fallback_count: number;
   daily: DailyInsight[];
   top_modes: InsightBreakdown[];
   top_models: InsightBreakdown[];

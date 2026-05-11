@@ -168,6 +168,14 @@ pub struct InsightsSummary {
     pub best_day_label: String,
     pub local_percent: f32,
     pub cleanup_percent: f32,
+    pub timed_transcriptions: u32,
+    pub average_stt_elapsed_ms: f32,
+    pub average_cleanup_elapsed_ms: f32,
+    pub average_paste_elapsed_ms: f32,
+    pub average_total_elapsed_ms: f32,
+    pub auto_paste_attempts: u32,
+    pub auto_paste_success_percent: f32,
+    pub paste_fallback_count: u32,
     pub daily: Vec<DailyInsight>,
     pub top_modes: Vec<InsightBreakdown>,
     pub top_models: Vec<InsightBreakdown>,
@@ -1687,6 +1695,17 @@ fn build_insights_summary(
     let mut window_words = 0u32;
     let mut local_count = 0u32;
     let mut cleanup_count = 0u32;
+    let mut stt_time_sum = 0u64;
+    let mut stt_time_count = 0u32;
+    let mut cleanup_time_sum = 0u64;
+    let mut cleanup_time_count = 0u32;
+    let mut paste_time_sum = 0u64;
+    let mut paste_time_count = 0u32;
+    let mut total_time_sum = 0u64;
+    let mut total_time_count = 0u32;
+    let mut auto_paste_attempts = 0u32;
+    let mut auto_paste_successes = 0u32;
+    let mut paste_fallback_count = 0u32;
 
     for record in records {
         let words = effective_word_count(record);
@@ -1717,6 +1736,30 @@ fn build_insights_summary(
         }
         if record.llm_cleaned {
             cleanup_count = cleanup_count.saturating_add(1);
+        }
+        if let Some(elapsed_ms) = record.stt_elapsed_ms {
+            stt_time_sum = stt_time_sum.saturating_add(u64::from(elapsed_ms));
+            stt_time_count = stt_time_count.saturating_add(1);
+        }
+        if let Some(elapsed_ms) = record.cleanup_elapsed_ms {
+            cleanup_time_sum = cleanup_time_sum.saturating_add(u64::from(elapsed_ms));
+            cleanup_time_count = cleanup_time_count.saturating_add(1);
+        }
+        if let Some(elapsed_ms) = record.paste_elapsed_ms {
+            paste_time_sum = paste_time_sum.saturating_add(u64::from(elapsed_ms));
+            paste_time_count = paste_time_count.saturating_add(1);
+        }
+        if let Some(elapsed_ms) = record.total_elapsed_ms {
+            total_time_sum = total_time_sum.saturating_add(u64::from(elapsed_ms));
+            total_time_count = total_time_count.saturating_add(1);
+        }
+        if record.auto_paste_requested {
+            auto_paste_attempts = auto_paste_attempts.saturating_add(1);
+            match record.auto_paste_succeeded {
+                Some(true) => auto_paste_successes = auto_paste_successes.saturating_add(1),
+                Some(false) => paste_fallback_count = paste_fallback_count.saturating_add(1),
+                None => {}
+            }
         }
 
         let mode_label = record
@@ -1779,6 +1822,14 @@ fn build_insights_summary(
         best_day_label,
         local_percent: percentage(local_count, total_transcriptions),
         cleanup_percent: percentage(cleanup_count, total_transcriptions),
+        timed_transcriptions: total_time_count,
+        average_stt_elapsed_ms: average_millis(stt_time_sum, stt_time_count),
+        average_cleanup_elapsed_ms: average_millis(cleanup_time_sum, cleanup_time_count),
+        average_paste_elapsed_ms: average_millis(paste_time_sum, paste_time_count),
+        average_total_elapsed_ms: average_millis(total_time_sum, total_time_count),
+        auto_paste_attempts,
+        auto_paste_success_percent: percentage(auto_paste_successes, auto_paste_attempts),
+        paste_fallback_count,
         daily,
         top_modes: sorted_breakdowns(mode_map, 5),
         top_models: sorted_breakdowns(model_map, 5),
@@ -1841,6 +1892,14 @@ fn percentage(count: u32, total: u32) -> f32 {
         0.0
     } else {
         count as f32 * 100.0 / total as f32
+    }
+}
+
+fn average_millis(sum: u64, count: u32) -> f32 {
+    if count == 0 {
+        0.0
+    } else {
+        sum as f32 / count as f32
     }
 }
 
@@ -2006,5 +2065,36 @@ mod tests {
         assert_eq!(summary.top_modes[0].label, "Default");
         assert!(summary.local_percent > 60.0);
         assert!(summary.local_percent < 70.0);
+    }
+
+    #[test]
+    fn insights_include_performance_and_paste_health() {
+        let today = Local::now().date_naive();
+        let mut first = record_on(today, 10, "parakeet-tdt-0.6b-v3-int8", Some("Default"));
+        first.stt_elapsed_ms = Some(1_200);
+        first.cleanup_elapsed_ms = Some(300);
+        first.paste_elapsed_ms = Some(90);
+        first.total_elapsed_ms = Some(1_700);
+        first.auto_paste_requested = true;
+        first.auto_paste_succeeded = Some(true);
+
+        let mut second = record_on(today, 20, "parakeet-tdt-0.6b-v3-int8", Some("Default"));
+        second.stt_elapsed_ms = Some(800);
+        second.cleanup_elapsed_ms = Some(100);
+        second.paste_elapsed_ms = Some(110);
+        second.total_elapsed_ms = Some(1_300);
+        second.auto_paste_requested = true;
+        second.auto_paste_succeeded = Some(false);
+
+        let summary = build_insights_summary(&[first, second], 7, today);
+
+        assert_eq!(summary.timed_transcriptions, 2);
+        assert_eq!(summary.average_stt_elapsed_ms, 1_000.0);
+        assert_eq!(summary.average_cleanup_elapsed_ms, 200.0);
+        assert_eq!(summary.average_paste_elapsed_ms, 100.0);
+        assert_eq!(summary.average_total_elapsed_ms, 1_500.0);
+        assert_eq!(summary.auto_paste_attempts, 2);
+        assert_eq!(summary.auto_paste_success_percent, 50.0);
+        assert_eq!(summary.paste_fallback_count, 1);
     }
 }
