@@ -10,6 +10,7 @@ import {
   SNIPPET_TRIGGER_MAX_LENGTH,
 } from "../../../shared/lib/bulkImport";
 import type { Snippet } from "../../../types";
+import { useSettings } from "../../settings/queries";
 import { useCreateSnippet, useDeleteSnippet, useSnippets, useUpdateSnippet } from "../queries";
 
 type Draft = {
@@ -26,6 +27,7 @@ type SnippetLoadPayload = {
 export default function SnippetsView({ isActive = true }: { isActive?: boolean }) {
   const { t } = useLingui();
   const snippetsQuery = useSnippets(isActive);
+  const settingsQuery = useSettings(undefined, isActive);
   const createMutation = useCreateSnippet();
   const updateMutation = useUpdateSnippet();
   const deleteMutation = useDeleteSnippet();
@@ -38,8 +40,17 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const snippets = snippetsQuery.data ?? [];
+  const settings = settingsQuery.data ?? null;
   const editing = Boolean(draft.id);
   const canSave = draft.trigger.trim().length > 0 && draft.expansion.trim().length > 0;
+  const dictionaryConflictKeys = new Set(
+    [
+      ...(settings?.dictionary ?? []),
+      ...(settings?.replacements ?? []).map((replacement) => replacement.from),
+    ]
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  );
 
   const sortedSnippets = useMemo(
     () => [...snippets].sort((a, b) => a.trigger.localeCompare(b.trigger)),
@@ -77,6 +88,10 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
 
   const saveDraft = async () => {
     if (!canSave) return;
+    if (dictionaryConflictKeys.has(draft.trigger.trim().toLowerCase())) {
+      setBackupError("That trigger is already used in Dictionary.");
+      return;
+    }
     if (draft.id) {
       await updateMutation.mutateAsync({
         id: draft.id,
@@ -138,8 +153,13 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
     );
     let created = 0;
     let updated = 0;
+    let conflictSkipped = 0;
 
     for (const item of imported.snippets) {
+      if (dictionaryConflictKeys.has(item.trigger.toLowerCase())) {
+        conflictSkipped += 1;
+        continue;
+      }
       const existing = existingByTrigger.get(item.trigger.toLowerCase());
       if (existing) {
         if (existing.expansion !== item.expansion || existing.trigger !== item.trigger) {
@@ -159,7 +179,7 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
     flashBackupStatus(
       t({
         id: "snippets.backup.imported",
-        message: `${sourceLabel === "file" ? "File import" : "Clipboard import"}: added ${created}, updated ${updated}, skipped ${imported.skipped}`,
+        message: `${sourceLabel === "file" ? "File import" : "Clipboard import"}: added ${created}, updated ${updated}, skipped ${imported.skipped + conflictSkipped}`,
       }),
     );
   };

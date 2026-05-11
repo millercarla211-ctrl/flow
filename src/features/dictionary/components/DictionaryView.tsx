@@ -20,6 +20,7 @@ import { useShiftHeld } from "../../../shared/hooks/useShiftHeld";
 import { assertBulkImportFile, parseDictionaryImport } from "../../../shared/lib/bulkImport";
 import { useModelCatalog } from "../../settings/models-queries";
 import { useSettings } from "../../settings/queries";
+import { useSnippets } from "../../snippets/queries";
 import * as dictionaryApi from "../api";
 import {
   setDictionaryEntriesCache,
@@ -147,6 +148,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
   const settingsQuery = useSettings(undefined, isActive);
   const modelsQuery = useModelCatalog(isActive);
   const replacementsQuery = useReplacements(isActive);
+  const snippetsQuery = useSnippets(isActive);
 
   const [newEntry, setNewEntry] = useState("");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -169,9 +171,18 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
   const models = modelsQuery.data ?? [];
   const entries = settings?.dictionary ?? [];
   const replacements = replacementsQuery.data ?? [];
-  const bootstrapError = settingsQuery.error ?? modelsQuery.error ?? replacementsQuery.error;
+  const snippets = snippetsQuery.data ?? [];
+  const bootstrapError =
+    settingsQuery.error ?? modelsQuery.error ?? replacementsQuery.error ?? snippetsQuery.error;
   const loading =
-    isActive && (settingsQuery.isLoading || modelsQuery.isLoading || replacementsQuery.isLoading);
+    isActive &&
+    (settingsQuery.isLoading ||
+      modelsQuery.isLoading ||
+      replacementsQuery.isLoading ||
+      snippetsQuery.isLoading);
+  const snippetTriggerKeys = new Set(
+    snippets.map((snippet) => snippet.trigger.trim().toLowerCase()).filter(Boolean),
+  );
 
   const {
     currentRef: entriesRef,
@@ -293,7 +304,12 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
       entriesRef.current.map((entry) => [entry.toLowerCase(), entry]),
     );
     let addedEntries = 0;
+    let conflictSkipped = 0;
     for (const entry of backup.entries) {
+      if (snippetTriggerKeys.has(entry.toLowerCase())) {
+        conflictSkipped += 1;
+        continue;
+      }
       if (!mergedEntryByKey.has(entry.toLowerCase())) {
         addedEntries += 1;
       }
@@ -306,6 +322,10 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     let addedReplacements = 0;
     let updatedReplacements = 0;
     for (const replacement of backup.replacements) {
+      if (snippetTriggerKeys.has(replacement.from.toLowerCase())) {
+        conflictSkipped += 1;
+        continue;
+      }
       const existing = mergedReplacementByKey.get(replacement.from.toLowerCase());
       if (!existing) {
         addedReplacements += 1;
@@ -320,7 +340,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
       Array.from(mergedReplacementByKey.values()).sort((a, b) => a.from.localeCompare(b.from)),
     );
 
-    const skipped = backup.skipped ?? 0;
+    const skipped = (backup.skipped ?? 0) + conflictSkipped;
     flashBackupStatus(
       t({
         id: "dictionary.backup.file_imported",
@@ -353,6 +373,10 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     const value = normalizeEntry(newEntry);
     const currentEntries = entriesRef.current;
     if (!value || currentEntries.includes(value)) return;
+    if (snippetTriggerKeys.has(value.toLowerCase())) {
+      setError("That word is already used as a snippet trigger.");
+      return;
+    }
     await persistEntries([...currentEntries, value]);
   };
 
@@ -360,9 +384,17 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     if (editingIndex === null) return;
     const currentEntries = entriesRef.current;
     const value = normalizeEntry(editingValue);
+    const currentValue = currentEntries[editingIndex] ?? "";
     if (!value) {
       const next = currentEntries.filter((_, idx) => idx !== editingIndex);
       await persistEntries(next);
+      return;
+    }
+    if (
+      value.toLowerCase() !== currentValue.toLowerCase() &&
+      snippetTriggerKeys.has(value.toLowerCase())
+    ) {
+      setError("That word is already used as a snippet trigger.");
       return;
     }
     const next = currentEntries.map((entry, idx) => (idx === editingIndex ? value : entry));
@@ -385,6 +417,10 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     const from = normalizeEntry(newFrom);
     const to = normalizeEntry(newTo);
     if (!from) return;
+    if (snippetTriggerKeys.has(from.toLowerCase())) {
+      setError("That phrase is already used as a snippet trigger.");
+      return;
+    }
     const exists = currentReplacements.some((r) => r.from.toLowerCase() === from.toLowerCase());
     if (exists) return;
     await persistReplacements([...currentReplacements, { from, to }]);
@@ -395,9 +431,17 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     const currentReplacements = replacementsRef.current;
     const from = normalizeEntry(editingFrom);
     const to = normalizeEntry(editingTo);
+    const currentFrom = currentReplacements[editingReplacementIndex]?.from ?? "";
     if (!from) {
       const next = currentReplacements.filter((_, idx) => idx !== editingReplacementIndex);
       await persistReplacements(next);
+      return;
+    }
+    if (
+      from.toLowerCase() !== currentFrom.toLowerCase() &&
+      snippetTriggerKeys.has(from.toLowerCase())
+    ) {
+      setError("That phrase is already used as a snippet trigger.");
       return;
     }
     const next = currentReplacements.map((r, idx) =>

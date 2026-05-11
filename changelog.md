@@ -6,6 +6,7 @@
 - Added Vibe Coding recent-file memory so IDE filenames can be tagged without explicit trigger words, with trigger-based extensionless matching.
 - Matched Vibe Coding file-tagging behavior to dictionary replacements by skipping file tags when custom substitutions changed the transcript.
 - Added Wispr-style bulk file import for dictionary CSV/JSON and snippets JSON.
+- Prevented Dictionary and Snippets from importing or saving overlapping trigger phrases.
 - Added local coding post-processing for spoken file tags, extensions, paths, identifiers, and explicit backticks.
 - Added transcript history paste-back into focused apps, including batch selected transcript paste.
 
