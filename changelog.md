@@ -20,6 +20,7 @@
 - Added transcript history paste-back into focused apps, including batch selected transcript paste.
 - Added a History Disabled state on Home when Local Data Storage is set to Never store.
 - Paused voice activity Insights when transcript history is disabled by the local data policy.
+- Paused Transform history when Local Data Storage is set to Never store.
 
 - Windows support! 🎉🎉
 

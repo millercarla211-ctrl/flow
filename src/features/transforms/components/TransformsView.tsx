@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Save,
   SendHorizontal,
+  ShieldOff,
   SplitSquareHorizontal,
   Trash2,
   WandSparkles,
@@ -117,10 +118,18 @@ const historyToResult = (entry: TransformHistoryEntry): TransformResult => ({
   created_at: entry.created_at,
 });
 
-export default function TransformsView({ isActive = true }: { isActive?: boolean }) {
+export default function TransformsView({
+  isActive = true,
+  historyDisabled = false,
+  onOpenDataSettings,
+}: {
+  isActive?: boolean;
+  historyDisabled?: boolean;
+  onOpenDataSettings?: () => void;
+}) {
   const { t } = useLingui();
   const presetsQuery = useTransformPresets(isActive);
-  const historyQuery = useTransformHistory(isActive, 12);
+  const historyQuery = useTransformHistory(isActive && !historyDisabled, 12);
   const transformMutation = useTransformText();
   const sourceMutation = useTransformSource();
   const deleteHistoryMutation = useDeleteTransformHistoryEntry();
@@ -134,7 +143,7 @@ export default function TransformsView({ isActive = true }: { isActive?: boolean
   const [reviewMode, setReviewMode] = useState<"result" | "diff">("result");
   const [sourceHint, setSourceHint] = useState<string | null>(null);
   const presets = presetsQuery.data ?? [];
-  const history = historyQuery.data ?? [];
+  const history = historyDisabled ? [] : (historyQuery.data ?? []);
 
   const activeResult = useMemo(() => {
     if (activeVariant === "original") return null;
@@ -366,7 +375,40 @@ export default function TransformsView({ isActive = true }: { isActive?: boolean
                 <span className="ui-text-micro ui-color-disabled">{history.length}</span>
               </div>
 
-              {historyQuery.isLoading ? (
+              {historyDisabled ? (
+                <div className="rounded-md border border-border-primary bg-surface-elevated px-3 py-6 text-center">
+                  <ShieldOff
+                    size={16}
+                    className="mx-auto mb-2 text-content-disabled"
+                    aria-hidden="true"
+                  />
+                  <div className="ui-text-meta-strong ui-color-secondary">
+                    {t({
+                      id: "transforms.history.disabled.title",
+                      message: "History paused",
+                    })}
+                  </div>
+                  <div className="mx-auto mt-1 max-w-[220px] ui-text-micro ui-color-muted">
+                    {t({
+                      id: "transforms.history.disabled.body",
+                      message:
+                        "Transform history is not stored while Local Data Storage is set to Never store.",
+                    })}
+                  </div>
+                  {onOpenDataSettings && (
+                    <button
+                      type="button"
+                      onClick={onOpenDataSettings}
+                      className="mt-3 rounded-full border border-border-primary px-3 py-1 ui-text-meta font-medium ui-color-primary transition-colors hover:border-border-secondary hover:bg-surface-surface"
+                    >
+                      {t({
+                        id: "transforms.history.disabled.open_settings",
+                        message: "Change data storage",
+                      })}
+                    </button>
+                  )}
+                </div>
+              ) : historyQuery.isLoading ? (
                 <div className="flex h-24 items-center justify-center">
                   <DotMatrix cols={10} rows={4} dotSize={2} gap={5} />
                 </div>
