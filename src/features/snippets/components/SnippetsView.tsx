@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useLingui } from "@lingui/react/macro";
 import { Check, Copy, Download, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import DotMatrix from "../../../shared/ui/DotMatrix";
+import { useShiftHeld } from "../../../shared/hooks/useShiftHeld";
+import {
+  assertBulkImportFile,
+  parseSnippetImport,
+  SNIPPET_TRIGGER_MAX_LENGTH,
+} from "../../../shared/lib/bulkImport";
 import type { Snippet } from "../../../types";
 import { useCreateSnippet, useDeleteSnippet, useSnippets, useUpdateSnippet } from "../queries";
 
@@ -13,52 +19,8 @@ type Draft = {
 };
 
 const emptyDraft: Draft = { trigger: "", expansion: "" };
-const SNIPPET_TRIGGER_MAX_LENGTH = 59;
-
-type SnippetImportItem = {
-  trigger: string;
-  expansion: string;
-};
-
 type SnippetLoadPayload = {
   expansion?: string;
-};
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value && typeof value === "object" && !Array.isArray(value));
-
-const normalizeImportedSnippets = (value: unknown): SnippetImportItem[] => {
-  const source = Array.isArray(value)
-    ? value
-    : isObject(value) && Array.isArray(value.snippets)
-      ? value.snippets
-      : null;
-
-  if (!source) {
-    throw new Error("Clipboard does not contain a Flow snippets backup.");
-  }
-
-  const seen = new Set<string>();
-  const snippets: SnippetImportItem[] = [];
-
-  for (const item of source) {
-    if (!isObject(item)) continue;
-    const trigger = typeof item.trigger === "string" ? item.trigger.trim() : "";
-    const expansion = typeof item.expansion === "string" ? item.expansion.trim() : "";
-    if (!trigger || !expansion) continue;
-
-    const normalizedTrigger = trigger.slice(0, SNIPPET_TRIGGER_MAX_LENGTH);
-    const key = normalizedTrigger.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    snippets.push({ trigger: normalizedTrigger, expansion });
-  }
-
-  if (snippets.length === 0) {
-    throw new Error("No usable snippets were found in the clipboard backup.");
-  }
-
-  return snippets;
 };
 
 export default function SnippetsView({ isActive = true }: { isActive?: boolean }) {
@@ -67,11 +29,13 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
   const createMutation = useCreateSnippet();
   const updateMutation = useUpdateSnippet();
   const deleteMutation = useDeleteSnippet();
+  const shiftHeld = useShiftHeld(isActive);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const snippets = snippetsQuery.data ?? [];
   const editing = Boolean(draft.id);
@@ -165,6 +129,41 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
     );
   };
 
+  const applySnippetImport = async (
+    imported: ReturnType<typeof parseSnippetImport>,
+    sourceLabel: "clipboard" | "file",
+  ) => {
+    const existingByTrigger = new Map(
+      snippets.map((snippet) => [snippet.trigger.trim().toLowerCase(), snippet]),
+    );
+    let created = 0;
+    let updated = 0;
+
+    for (const item of imported.snippets) {
+      const existing = existingByTrigger.get(item.trigger.toLowerCase());
+      if (existing) {
+        if (existing.expansion !== item.expansion || existing.trigger !== item.trigger) {
+          await updateMutation.mutateAsync({
+            id: existing.id,
+            trigger: item.trigger,
+            expansion: item.expansion,
+          });
+          updated += 1;
+        }
+      } else {
+        await createMutation.mutateAsync(item);
+        created += 1;
+      }
+    }
+
+    flashBackupStatus(
+      t({
+        id: "snippets.backup.imported",
+        message: `${sourceLabel === "file" ? "File import" : "Clipboard import"}: added ${created}, updated ${updated}, skipped ${imported.skipped}`,
+      }),
+    );
+  };
+
   const importSnippets = async () => {
     if (importing) return;
     setImporting(true);
@@ -172,36 +171,25 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
     setBackupStatus(null);
     try {
       const raw = await navigator.clipboard.readText();
-      const imported = normalizeImportedSnippets(JSON.parse(raw));
-      const existingByTrigger = new Map(
-        snippets.map((snippet) => [snippet.trigger.trim().toLowerCase(), snippet]),
-      );
-      let created = 0;
-      let updated = 0;
+      await applySnippetImport(parseSnippetImport(raw), "clipboard");
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setImporting(false);
+    }
+  };
 
-      for (const item of imported) {
-        const existing = existingByTrigger.get(item.trigger.toLowerCase());
-        if (existing) {
-          if (existing.expansion !== item.expansion || existing.trigger !== item.trigger) {
-            await updateMutation.mutateAsync({
-              id: existing.id,
-              trigger: item.trigger,
-              expansion: item.expansion,
-            });
-            updated += 1;
-          }
-        } else {
-          await createMutation.mutateAsync(item);
-          created += 1;
-        }
-      }
+  const importSnippetFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || importing) return;
 
-      flashBackupStatus(
-        t({
-          id: "snippets.backup.imported",
-          message: `Imported ${created} new and updated ${updated} snippets`,
-        }),
-      );
+    setImporting(true);
+    setBackupError(null);
+    setBackupStatus(null);
+    try {
+      assertBulkImportFile(file, ["json"]);
+      await applySnippetImport(parseSnippetImport(await file.text()), "file");
     } catch (error) {
       setBackupError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -228,6 +216,13 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={importFileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={importSnippetFile}
+          />
           <button
             type="button"
             onClick={exportSnippets}
@@ -239,7 +234,12 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
           </button>
           <button
             type="button"
-            onClick={importSnippets}
+            onClick={shiftHeld ? importSnippets : () => importFileInputRef.current?.click()}
+            title={
+              shiftHeld
+                ? "Import snippets from clipboard JSON"
+                : "Import snippets from a Wispr-style JSON file"
+            }
             disabled={importing}
             className="ui-button-ghost h-9 gap-2 rounded-full border border-border-primary px-4 ui-text-button-sm disabled:opacity-40"
           >
@@ -294,7 +294,7 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
               </span>
               <input
                 value={draft.trigger}
-                maxLength={59}
+                maxLength={SNIPPET_TRIGGER_MAX_LENGTH}
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, trigger: event.target.value }))
                 }

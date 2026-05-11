@@ -6,6 +6,7 @@ import {
   useId,
   useRef,
   type Dispatch,
+  type ChangeEvent,
   type CSSProperties,
   type SetStateAction,
 } from "react";
@@ -16,6 +17,7 @@ import {
   MODEL_CAPABILITY_DICTIONARY,
 } from "../../../shared/lib/modelCapabilities";
 import { useShiftHeld } from "../../../shared/hooks/useShiftHeld";
+import { assertBulkImportFile, parseDictionaryImport } from "../../../shared/lib/bulkImport";
 import { useModelCatalog } from "../../settings/models-queries";
 import { useSettings } from "../../settings/queries";
 import * as dictionaryApi from "../api";
@@ -160,6 +162,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const [importingBackup, setImportingBackup] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
   const warningTooltipId = useId();
 
   const settings = settingsQuery.data ?? null;
@@ -278,6 +281,67 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
           message: `Imported ${backup.entries.length} entries and ${backup.replacements.length} replacements`,
         }),
       );
+    } catch (importError) {
+      setBackupError(toErrorMessage(importError));
+    } finally {
+      setImportingBackup(false);
+    }
+  };
+
+  const importDictionaryPayload = async (backup: DictionaryBackup & { skipped?: number }) => {
+    const mergedEntryByKey = new Map(
+      entriesRef.current.map((entry) => [entry.toLowerCase(), entry]),
+    );
+    let addedEntries = 0;
+    for (const entry of backup.entries) {
+      if (!mergedEntryByKey.has(entry.toLowerCase())) {
+        addedEntries += 1;
+      }
+      mergedEntryByKey.set(entry.toLowerCase(), entry);
+    }
+
+    const mergedReplacementByKey = new Map(
+      replacementsRef.current.map((replacement) => [replacement.from.toLowerCase(), replacement]),
+    );
+    let addedReplacements = 0;
+    let updatedReplacements = 0;
+    for (const replacement of backup.replacements) {
+      const existing = mergedReplacementByKey.get(replacement.from.toLowerCase());
+      if (!existing) {
+        addedReplacements += 1;
+      } else if (existing.to !== replacement.to || existing.from !== replacement.from) {
+        updatedReplacements += 1;
+      }
+      mergedReplacementByKey.set(replacement.from.toLowerCase(), replacement);
+    }
+
+    await persistEntries(Array.from(mergedEntryByKey.values()).sort((a, b) => a.localeCompare(b)));
+    await persistReplacements(
+      Array.from(mergedReplacementByKey.values()).sort((a, b) => a.from.localeCompare(b.from)),
+    );
+
+    const skipped = backup.skipped ?? 0;
+    flashBackupStatus(
+      t({
+        id: "dictionary.backup.file_imported",
+        message: `Imported ${addedEntries} entries, added ${addedReplacements} replacements, updated ${updatedReplacements}; skipped ${skipped}`,
+      }),
+    );
+  };
+
+  const handleImportFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || importingBackup) return;
+
+    setImportingBackup(true);
+    setBackupError(null);
+    setBackupStatus(null);
+
+    try {
+      assertBulkImportFile(file, ["csv", "json"]);
+      const backup = parseDictionaryImport(file.name, await file.text());
+      await importDictionaryPayload(backup);
     } catch (importError) {
       setBackupError(toErrorMessage(importError));
     } finally {
@@ -486,6 +550,13 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <input
+            ref={importFileInputRef}
+            type="file"
+            accept=".csv,.json,text/csv,application/json"
+            className="hidden"
+            onChange={handleImportFileChange}
+          />
           <button
             type="button"
             onClick={handleExportBackup}
@@ -497,7 +568,12 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
           </button>
           <button
             type="button"
-            onClick={handleImportBackup}
+            onClick={shiftHeld ? handleImportBackup : () => importFileInputRef.current?.click()}
+            title={
+              shiftHeld
+                ? "Import a Flow dictionary backup from clipboard"
+                : "Import dictionary CSV or Flow JSON backup"
+            }
             disabled={importingBackup}
             className="ui-button-ghost h-9 gap-2 rounded-full border border-border-primary px-4 ui-text-button-sm disabled:opacity-40"
           >
