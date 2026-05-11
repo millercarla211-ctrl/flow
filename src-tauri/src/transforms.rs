@@ -3,7 +3,7 @@ use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::{assistive, llm_cleanup, storage, toast, tray, AppRuntime, AppState};
+use crate::{assistive, llm_cleanup, storage, tray, AppRuntime, AppState, PasteTextResult};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct TransformPreset {
@@ -27,13 +27,6 @@ pub(crate) struct TransformResult {
 pub(crate) struct TransformSource {
     source: String,
     text: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct TransformPasteResult {
-    pasted: bool,
-    copied: bool,
-    message: String,
 }
 
 pub(crate) fn default_transform_presets() -> Vec<TransformPreset> {
@@ -235,40 +228,13 @@ pub(crate) fn open_transforms_view(
 pub(crate) fn paste_transform_result(
     app: AppHandle<AppRuntime>,
     text: String,
-) -> Result<TransformPasteResult, String> {
-    let text = text.trim().to_string();
-    if text.is_empty() {
-        return Err("Text is required".to_string());
-    }
-
-    if let Some(window) = app.get_webview_window(crate::SETTINGS_WINDOW_LABEL) {
-        let _ = window.hide();
-        std::thread::sleep(std::time::Duration::from_millis(140));
-    }
-
-    match assistive::paste_text(&text) {
-        Ok(()) => Ok(TransformPasteResult {
-            pasted: true,
-            copied: false,
-            message: "Pasted transformed text".to_string(),
-        }),
-        Err(err) => {
-            assistive::copy_text_to_clipboard(&text).map_err(|copy_err| {
-                format!("Paste failed: {err}. Clipboard fallback failed: {copy_err}")
-            })?;
-            toast::show(
-                &app,
-                "info",
-                Some("Copied transformed text"),
-                "Paste was blocked, so Flow copied the result to your clipboard.",
-            );
-            Ok(TransformPasteResult {
-                pasted: false,
-                copied: true,
-                message: format!("Paste failed; copied to clipboard. Reason: {err}"),
-            })
-        }
-    }
+) -> Result<PasteTextResult, String> {
+    crate::paste_text_into_focused_app(
+        &app,
+        text,
+        "Copied transformed text",
+        "Paste was blocked, so Flow copied the result to your clipboard.",
+    )
 }
 
 #[tauri::command]

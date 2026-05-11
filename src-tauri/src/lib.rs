@@ -481,6 +481,7 @@ pub fn run() {
             open_accessibility_settings,
             check_accessibility_permission,
             get_auto_paste_status,
+            paste_text_to_focused_app,
             check_microphone_permission,
             request_microphone_permission,
             open_microphone_settings,
@@ -1114,6 +1115,55 @@ fn get_auto_paste_status() -> AutoPasteStatus {
     AutoPasteStatus {
         enabled: transcription_api::auto_paste_enabled(),
         accessibility_granted: permissions::check_accessibility_permission(),
+    }
+}
+
+#[tauri::command]
+fn paste_text_to_focused_app(
+    app: AppHandle<AppRuntime>,
+    text: String,
+) -> Result<PasteTextResult, String> {
+    paste_text_into_focused_app(
+        &app,
+        text,
+        "Copied text",
+        "Paste was blocked, so Flow copied the text to your clipboard.",
+    )
+}
+
+pub(crate) fn paste_text_into_focused_app(
+    app: &AppHandle<AppRuntime>,
+    text: String,
+    fallback_title: &str,
+    fallback_message: &str,
+) -> Result<PasteTextResult, String> {
+    let text = text.trim().to_string();
+    if text.is_empty() {
+        return Err("Text is required".to_string());
+    }
+
+    if let Some(window) = app.get_webview_window(SETTINGS_WINDOW_LABEL) {
+        let _ = window.hide();
+        std::thread::sleep(std::time::Duration::from_millis(140));
+    }
+
+    match assistive::paste_text(&text) {
+        Ok(()) => Ok(PasteTextResult {
+            pasted: true,
+            copied: false,
+            message: "Pasted text".to_string(),
+        }),
+        Err(err) => {
+            assistive::copy_text_to_clipboard(&text).map_err(|copy_err| {
+                format!("Paste failed: {err}. Clipboard fallback failed: {copy_err}")
+            })?;
+            toast::show(app, "info", Some(fallback_title), fallback_message);
+            Ok(PasteTextResult {
+                pasted: false,
+                copied: true,
+                message: format!("Paste failed; copied to clipboard. Reason: {err}"),
+            })
+        }
     }
 }
 
@@ -1953,4 +2003,11 @@ pub(crate) struct TranscriptionErrorPayload {
 struct AutoPasteStatus {
     enabled: bool,
     accessibility_granted: bool,
+}
+
+#[derive(Serialize, Clone)]
+pub(crate) struct PasteTextResult {
+    pasted: bool,
+    copied: bool,
+    message: String,
 }

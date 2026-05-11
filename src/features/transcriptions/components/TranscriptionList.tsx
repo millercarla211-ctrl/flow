@@ -16,6 +16,7 @@ import {
   Pin,
   PinOff,
   RotateCw,
+  SendHorizontal,
   Sparkles,
   Trash2,
   WandSparkles,
@@ -75,6 +76,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const [batchError, setBatchError] = useState<string | null>(null);
   const [batchBusy, setBatchBusy] = useState<
     | "copy"
+    | "paste"
     | "scratchpad"
     | "transform"
     | "cleanup"
@@ -370,6 +372,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const runBatchAction = async (
     action:
       | "copy"
+      | "paste"
       | "scratchpad"
       | "transform"
       | "cleanup"
@@ -402,6 +405,24 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
         id: "transcriptions.batch.copied",
         message: `Copied ${selectedTextRecords.length} transcripts`,
       });
+    });
+
+  const pasteSelected = () =>
+    runBatchAction("paste", async () => {
+      if (!selectedBatchText) throw new Error("Selected items have no transcript text.");
+      const result = await invoke<{ pasted: boolean; copied: boolean; message: string }>(
+        "paste_text_to_focused_app",
+        { text: selectedBatchText },
+      );
+      return result.pasted
+        ? t({
+            id: "transcriptions.batch.pasted",
+            message: `Pasted ${selectedTextRecords.length} transcripts`,
+          })
+        : t({
+            id: "transcriptions.batch.paste_copied",
+            message: `Paste blocked; copied ${selectedTextRecords.length} transcripts`,
+          });
     });
 
   const saveSelectedToScratchpad = () =>
@@ -790,6 +811,20 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
                   title={t({ id: "transcriptions.batch.copy", message: "Copy selected" })}
                 >
                   <Copy size={13} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={pasteSelected}
+                  disabled={!hasSelectedText || batchBusy !== null}
+                  className="ui-button-ghost h-7 w-7 disabled:opacity-40"
+                  aria-label={t({ id: "transcriptions.batch.paste", message: "Paste selected" })}
+                  title={t({ id: "transcriptions.batch.paste", message: "Paste selected" })}
+                >
+                  <SendHorizontal
+                    size={13}
+                    aria-hidden="true"
+                    className={batchBusy === "paste" ? "animate-pulse" : undefined}
+                  />
                 </button>
                 <button
                   type="button"

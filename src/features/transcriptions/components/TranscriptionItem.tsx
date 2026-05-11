@@ -21,6 +21,7 @@ import {
   PinOff,
   Trash2,
   RotateCw,
+  SendHorizontal,
   Check,
   ChevronDown,
   ChevronUp,
@@ -73,6 +74,12 @@ interface TranscriptionItemProps {
   selected?: boolean;
   onSelectionChange?: (id: string, selected: boolean) => void;
 }
+
+type PasteTextResult = {
+  pasted: boolean;
+  copied: boolean;
+  message: string;
+};
 
 type DiagnosticTone = "neutral" | "local" | "cloud" | "warning" | "error";
 
@@ -161,12 +168,13 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   const [isCancellingRetry, setIsCancellingRetry] = useState(false);
   const [isRetryingLlm, setIsRetryingLlm] = useState(false);
   const [isUndoingLlm, setIsUndoingLlm] = useState(false);
+  const [isPasting, setIsPasting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectionText, setSelectionText] = useState("");
   const [actionStatus, setActionStatus] = useState<
-    "saved" | "opened" | "dictionary" | "snippet" | null
+    "saved" | "opened" | "dictionary" | "snippet" | "pasted" | null
   >(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
@@ -239,9 +247,30 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
 
   const selectedActionText = () => selectionText.trim() || record.text.trim();
 
-  const flashActionStatus = (status: "saved" | "opened" | "dictionary" | "snippet") => {
+  const flashActionStatus = (status: "saved" | "opened" | "dictionary" | "snippet" | "pasted") => {
     setActionStatus(status);
     window.setTimeout(() => setActionStatus(null), 1600);
+  };
+
+  const handlePasteText = async () => {
+    const text = selectedActionText();
+    if (!text || isPasting) return;
+    setIsPasting(true);
+    try {
+      const result = await invoke<PasteTextResult>("paste_text_to_focused_app", { text });
+      setMenuOpen(false);
+      setSelectionText("");
+      if (result.copied) {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1400);
+      } else {
+        flashActionStatus("pasted");
+      }
+    } catch (err) {
+      console.error("Failed to paste transcription:", err);
+    } finally {
+      setIsPasting(false);
+    }
   };
 
   const handleAddSelectionToDictionary = async () => {
@@ -816,41 +845,63 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
             )}
 
             {!isError && (
-              <motion.button
-                onClick={handleCopy}
-                whileTap={{ scale: 0.95 }}
-                className={`p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100 hover:bg-surface-elevated ${
-                  copied ? "bg-surface-elevated" : ""
-                }`}
-                title={
-                  copied
-                    ? t({
-                        id: "transcriptions.item.copied",
-                        message: "Copied",
-                      })
-                    : t({
-                        id: "transcriptions.item.copy_transcription",
-                        message: "Copy transcription",
-                      })
-                }
-                aria-label={
-                  copied
-                    ? t({
-                        id: "transcriptions.item.copied",
-                        message: "Copied",
-                      })
-                    : t({
-                        id: "transcriptions.item.copy_transcription",
-                        message: "Copy transcription",
-                      })
-                }
-              >
-                {copied ? (
-                  <Check size={14} className="text-success" aria-hidden="true" />
-                ) : (
-                  <Copy size={14} className="text-content-secondary" aria-hidden="true" />
-                )}
-              </motion.button>
+              <>
+                <motion.button
+                  onClick={handlePasteText}
+                  disabled={isPasting}
+                  whileTap={{ scale: 0.95 }}
+                  className="p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100 hover:bg-surface-elevated disabled:opacity-40"
+                  title={t({
+                    id: "transcriptions.item.paste_transcription",
+                    message: "Paste transcription",
+                  })}
+                  aria-label={t({
+                    id: "transcriptions.item.paste_transcription",
+                    message: "Paste transcription",
+                  })}
+                >
+                  <SendHorizontal
+                    size={14}
+                    className={`text-content-secondary ${isPasting ? "animate-pulse" : ""}`}
+                    aria-hidden="true"
+                  />
+                </motion.button>
+                <motion.button
+                  onClick={handleCopy}
+                  whileTap={{ scale: 0.95 }}
+                  className={`p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100 hover:bg-surface-elevated ${
+                    copied ? "bg-surface-elevated" : ""
+                  }`}
+                  title={
+                    copied
+                      ? t({
+                          id: "transcriptions.item.copied",
+                          message: "Copied",
+                        })
+                      : t({
+                          id: "transcriptions.item.copy_transcription",
+                          message: "Copy transcription",
+                        })
+                  }
+                  aria-label={
+                    copied
+                      ? t({
+                          id: "transcriptions.item.copied",
+                          message: "Copied",
+                        })
+                      : t({
+                          id: "transcriptions.item.copy_transcription",
+                          message: "Copy transcription",
+                        })
+                  }
+                >
+                  {copied ? (
+                    <Check size={14} className="text-success" aria-hidden="true" />
+                  ) : (
+                    <Copy size={14} className="text-content-secondary" aria-hidden="true" />
+                  )}
+                </motion.button>
+              </>
             )}
 
             <motion.button
@@ -1007,6 +1058,24 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                   {!isError && (
                     <>
                       <button
+                        onClick={handlePasteText}
+                        disabled={isPasting}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors disabled:opacity-50"
+                      >
+                        <SendHorizontal size={12} className="text-content-muted" />
+                        <span>
+                          {hasSelection
+                            ? t({
+                                id: "transcriptions.item.paste_selection",
+                                message: "Paste selection",
+                              })
+                            : t({
+                                id: "transcriptions.item.paste_transcription",
+                                message: "Paste transcription",
+                              })}
+                        </span>
+                      </button>
+                      <button
                         onClick={handleSaveToScratchpad}
                         className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors"
                       >
@@ -1147,10 +1216,15 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                         id: "transcriptions.item.opened_snippets",
                         message: "Opened in Snippets",
                       })
-                    : t({
-                        id: "transcriptions.item.opened_transforms",
-                        message: "Opened in Transforms",
-                      })}
+                    : actionStatus === "pasted"
+                      ? t({
+                          id: "transcriptions.item.pasted",
+                          message: "Pasted",
+                        })
+                      : t({
+                          id: "transcriptions.item.opened_transforms",
+                          message: "Opened in Transforms",
+                        })}
             </span>
           </div>
         )}
