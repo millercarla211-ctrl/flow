@@ -7,9 +7,9 @@ use crate::{assistive, llm_cleanup, storage, tray, AppRuntime, AppState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct TransformPreset {
-    id: String,
-    label: String,
-    instruction: String,
+    pub(crate) id: String,
+    pub(crate) label: String,
+    pub(crate) instruction: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,6 +115,12 @@ fn preset(id: &str, label: &str, instruction: &str) -> TransformPreset {
 #[tauri::command]
 pub(crate) fn get_transform_presets() -> Vec<TransformPreset> {
     default_transform_presets()
+}
+
+pub(crate) fn transform_preset_exists(id: &str) -> bool {
+    default_transform_presets()
+        .iter()
+        .any(|preset| preset.id == id)
 }
 
 #[tauri::command]

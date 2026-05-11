@@ -32,6 +32,8 @@ pub(crate) struct UpdateSettingsArgs {
     pub llm_api_key: String,
     pub llm_model: String,
     pub edit_mode_enabled: bool,
+    pub auto_transform_enabled: bool,
+    pub auto_transform_preset_id: String,
     pub media_control_enabled: bool,
     pub auto_update_enabled: bool,
     pub auto_launch_enabled: bool,
@@ -116,6 +118,14 @@ fn validate_update_settings_args(args: &UpdateSettingsArgs) -> Result<(), String
 
     if args.cleanup_enabled && !args.llm_enabled {
         return Err("AI Cleanup cannot be enabled without an active language model".into());
+    }
+
+    if args.auto_transform_enabled && !args.llm_enabled {
+        return Err("Auto Transform cannot be enabled without an active language model".into());
+    }
+
+    if !crate::transforms::transform_preset_exists(args.auto_transform_preset_id.trim()) {
+        return Err("Unknown auto transform preset".into());
     }
 
     if args.llm_enabled {
@@ -227,6 +237,8 @@ pub(crate) fn update_settings(
     next.llm_api_key = args.llm_api_key;
     next.llm_model = args.llm_model.trim().to_string();
     next.edit_mode_enabled = args.edit_mode_enabled;
+    next.auto_transform_enabled = args.auto_transform_enabled;
+    next.auto_transform_preset_id = args.auto_transform_preset_id.trim().to_string();
     next.media_control_enabled = args.media_control_enabled;
     next.auto_update_enabled = args.auto_update_enabled;
     next.auto_launch_enabled = args.auto_launch_enabled;
@@ -318,6 +330,8 @@ mod tests {
             llm_api_key: String::new(),
             llm_model: String::new(),
             edit_mode_enabled: false,
+            auto_transform_enabled: false,
+            auto_transform_preset_id: "polish".to_string(),
             media_control_enabled: true,
             auto_update_enabled: true,
             auto_launch_enabled: false,
@@ -347,6 +361,29 @@ mod tests {
             err,
             "AI Cleanup cannot be enabled without an active language model"
         );
+    }
+
+    #[test]
+    fn rejects_enabling_auto_transform_without_llm() {
+        let mut args = base_args();
+        args.auto_transform_enabled = true;
+
+        let err = validate_update_settings_args(&args).unwrap_err();
+
+        assert_eq!(
+            err,
+            "Auto Transform cannot be enabled without an active language model"
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_auto_transform_preset() {
+        let mut args = base_args();
+        args.auto_transform_preset_id = "unknown".to_string();
+
+        let err = validate_update_settings_args(&args).unwrap_err();
+
+        assert_eq!(err, "Unknown auto transform preset");
     }
 
     #[test]

@@ -84,6 +84,8 @@ export function useSettingsForm({
   const [llmModel, setLlmModel] = useState("");
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [editModeEnabled, setEditModeEnabled] = useState(false);
+  const [autoTransformEnabled, setAutoTransformEnabled] = useState(false);
+  const [autoTransformPresetId, setAutoTransformPresetId] = useState("polish");
   const [mediaControlEnabled, setMediaControlEnabled] = useState(false);
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(false);
   const [autoLaunchEnabled, setAutoLaunchEnabled] = useState(false);
@@ -125,6 +127,7 @@ export function useSettingsForm({
     if (!value) {
       setCleanupEnabled(false);
       setEditModeEnabled(false);
+      setAutoTransformEnabled(false);
       setError(null);
     }
   }, []);
@@ -189,6 +192,8 @@ export function useSettingsForm({
     setLlmApiKeyRaw(s.llm_api_key ?? "");
     setLlmModel(s.llm_model ?? "");
     setEditModeEnabled(s.edit_mode_enabled ?? false);
+    setAutoTransformEnabled(s.auto_transform_enabled ?? false);
+    setAutoTransformPresetId(s.auto_transform_preset_id ?? "polish");
     setMediaControlEnabled(s.media_control_enabled ?? false);
     setAutoUpdateEnabled(s.auto_update_enabled ?? false);
     setAutoLaunchEnabled(s.auto_launch_enabled ?? false);
@@ -286,6 +291,7 @@ export function useSettingsForm({
     if (aiFeaturesReady) return;
     setCleanupEnabled(false);
     setEditModeEnabled(false);
+    setAutoTransformEnabled(false);
   }, [aiFeaturesReady]);
 
   useEffect(() => {
@@ -553,6 +559,8 @@ export function useSettingsForm({
             llmApiKey,
             llmModel,
             editModeEnabled: aiFeaturesReady ? editModeEnabled : false,
+            autoTransformEnabled: aiFeaturesReady ? autoTransformEnabled : false,
+            autoTransformPresetId: autoTransformPresetId || "polish",
             mediaControlEnabled,
             autoUpdateEnabled,
             autoLaunchEnabled,
@@ -596,6 +604,8 @@ export function useSettingsForm({
     llmApiKey,
     llmModel,
     editModeEnabled,
+    autoTransformEnabled,
+    autoTransformPresetId,
     mediaControlEnabled,
     autoUpdateEnabled,
     autoLaunchEnabled,
@@ -836,6 +846,10 @@ export function useSettingsForm({
     setCleanupEnabled,
     editModeEnabled,
     setEditModeEnabled,
+    autoTransformEnabled,
+    setAutoTransformEnabled,
+    autoTransformPresetId,
+    setAutoTransformPresetId,
     mediaControlEnabled,
     setMediaControlEnabled,
     autoUpdateEnabled,

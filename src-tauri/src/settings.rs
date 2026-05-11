@@ -34,6 +34,8 @@ const KEY_DICTIONARY: &str = "dictionary";
 const KEY_REPLACEMENTS: &str = "replacements";
 const KEY_PERSONALITIES: &str = "personalities";
 const KEY_EDIT_MODE_ENABLED: &str = "edit_mode_enabled";
+const KEY_AUTO_TRANSFORM_ENABLED: &str = "auto_transform_enabled";
+const KEY_AUTO_TRANSFORM_PRESET_ID: &str = "auto_transform_preset_id";
 const KEY_MEDIA_CONTROL_ENABLED: &str = "media_control_enabled";
 const KEY_AUTO_UPDATE_ENABLED: &str = "auto_update_enabled";
 const KEY_AUTO_LAUNCH_ENABLED: &str = "auto_launch_enabled";
@@ -114,6 +116,10 @@ pub struct UserSettings {
     pub personalities: Vec<Personality>,
     #[serde(default)]
     pub edit_mode_enabled: bool,
+    #[serde(default)]
+    pub auto_transform_enabled: bool,
+    #[serde(default = "default_auto_transform_preset_id")]
+    pub auto_transform_preset_id: String,
     #[serde(default)]
     pub media_control_enabled: bool,
     #[serde(default)]
@@ -347,6 +353,8 @@ impl Default for UserSettings {
             replacements: Vec::new(),
             personalities: default_personalities(),
             edit_mode_enabled: false,
+            auto_transform_enabled: false,
+            auto_transform_preset_id: default_auto_transform_preset_id(),
             media_control_enabled: false,
             auto_update_enabled: false,
             auto_launch_enabled: false,
@@ -384,6 +392,10 @@ pub enum RecordingPrunePolicy {
 
 fn default_recording_prune_policy() -> RecordingPrunePolicy {
     RecordingPrunePolicy::Never
+}
+
+fn default_auto_transform_preset_id() -> String {
+    "polish".to_string()
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -622,6 +634,16 @@ impl SettingsStore {
                 self.read_value(&conn, KEY_PERSONALITIES, settings.personalities.clone())?;
             settings.edit_mode_enabled =
                 self.read_value(&conn, KEY_EDIT_MODE_ENABLED, settings.edit_mode_enabled)?;
+            settings.auto_transform_enabled = self.read_value(
+                &conn,
+                KEY_AUTO_TRANSFORM_ENABLED,
+                settings.auto_transform_enabled,
+            )?;
+            settings.auto_transform_preset_id = self.read_value(
+                &conn,
+                KEY_AUTO_TRANSFORM_PRESET_ID,
+                settings.auto_transform_preset_id.clone(),
+            )?;
             settings.media_control_enabled = self.read_value(
                 &conn,
                 KEY_MEDIA_CONTROL_ENABLED,
@@ -704,6 +726,11 @@ impl SettingsStore {
             should_persist = true;
         }
 
+        if !crate::transforms::transform_preset_exists(&settings.auto_transform_preset_id) {
+            settings.auto_transform_preset_id = default_auto_transform_preset_id();
+            should_persist = true;
+        }
+
         let canonical_locale = canonicalize_app_locale_or_default(&settings.app_locale);
         if settings.app_locale != canonical_locale {
             settings.app_locale = canonical_locale;
@@ -781,6 +808,16 @@ impl SettingsStore {
         self.write_value(&conn, KEY_REPLACEMENTS, &settings.replacements)?;
         self.write_value(&conn, KEY_PERSONALITIES, &settings.personalities)?;
         self.write_value(&conn, KEY_EDIT_MODE_ENABLED, &settings.edit_mode_enabled)?;
+        self.write_value(
+            &conn,
+            KEY_AUTO_TRANSFORM_ENABLED,
+            &settings.auto_transform_enabled,
+        )?;
+        self.write_value(
+            &conn,
+            KEY_AUTO_TRANSFORM_PRESET_ID,
+            &settings.auto_transform_preset_id,
+        )?;
         self.write_value(
             &conn,
             KEY_MEDIA_CONTROL_ENABLED,

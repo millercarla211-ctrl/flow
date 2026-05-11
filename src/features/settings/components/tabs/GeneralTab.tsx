@@ -2,7 +2,7 @@ import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
-import { Check, Copy, Info, Mic, Square } from "lucide-react";
+import { Check, Copy, Info, Mic, Square, WandSparkles } from "lucide-react";
 import ToggleSwitch from "../../../../shared/ui/ToggleSwitch";
 import { Dropdown } from "../../../../shared/ui/Dropdown";
 import { formatShortcutForDisplay } from "../../../../shared/lib/shortcuts";
@@ -13,12 +13,29 @@ import type {
 } from "../../../../shared/lib/transcriptionLanguages";
 
 type CaptureMode = "smart" | "hold" | "toggle" | null;
-type HelpTooltipId = "edit-mode" | "cleanup";
+type HelpTooltipId = "edit-mode" | "auto-transform" | "cleanup";
 type MicrophoneTestStatus = "idle" | "starting" | "listening" | "error";
 type MicrophoneTestLevels = {
   left: number;
   right: number;
 };
+
+const AUTO_TRANSFORM_PRESET_OPTIONS = [
+  { value: "polish", label: "Polish", description: "Clean wording while preserving meaning." },
+  {
+    value: "professional",
+    label: "Professional",
+    description: "Crisp professional tone for work messages.",
+  },
+  { value: "fix_grammar", label: "Fix grammar", description: "Correct grammar and spelling." },
+  { value: "shorter", label: "Shorter", description: "Make transcripts compact and scannable." },
+  { value: "turn_to_list", label: "Turn to list", description: "Convert speech into bullets." },
+  {
+    value: "vibe_coding",
+    label: "Vibe coding",
+    description: "Turn speech into an implementation request.",
+  },
+];
 
 type GeneralTabProps = {
   variants: Variants;
@@ -52,6 +69,10 @@ type GeneralTabProps = {
   setErrorCopied: (value: boolean) => void;
   editModeEnabled: boolean;
   setEditModeEnabled: (value: boolean) => void;
+  autoTransformEnabled: boolean;
+  setAutoTransformEnabled: (value: boolean) => void;
+  autoTransformPresetId: string;
+  setAutoTransformPresetId: (value: string) => void;
   cleanupEnabled: boolean;
   setCleanupEnabled: (value: boolean) => void;
   aiFeaturesReady: boolean;
@@ -89,6 +110,10 @@ const GeneralTab = ({
   setErrorCopied,
   editModeEnabled,
   setEditModeEnabled,
+  autoTransformEnabled,
+  setAutoTransformEnabled,
+  autoTransformPresetId,
+  setAutoTransformPresetId,
   cleanupEnabled,
   setCleanupEnabled,
   aiFeaturesReady,
@@ -643,6 +668,129 @@ const GeneralTab = ({
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-surface-surface">
+              <div className="py-2 px-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="ui-text-label-strong ui-color-primary">
+                    {t({
+                      id: "settings.general.auto_transform",
+                      message: "Auto Transform",
+                    })}
+                  </span>
+                  <ToggleSwitch
+                    enabled={autoTransformEnabled}
+                    onToggle={() =>
+                      aiFeaturesReady && setAutoTransformEnabled(!autoTransformEnabled)
+                    }
+                    ariaLabel={t({
+                      id: "settings.general.auto_transform.toggle_aria",
+                      message: "Toggle Auto Transform",
+                    })}
+                    disabled={aiFeaturesDisabled}
+                  />
+                </div>
+                <div className="mt-0.5 flex items-start justify-between gap-3">
+                  <span className="ui-text-meta ui-color-muted">
+                    {aiFeaturesDisabled ? (
+                      <>
+                        {t({
+                          id: "settings.general.auto_transform.configure_prefix",
+                          message: "Configure a language model in",
+                        })}{" "}
+                        <button
+                          type="button"
+                          onClick={onOpenModelsTab}
+                          className="ui-color-primary underline underline-offset-2 decoration-[var(--color-border-secondary)] transition-colors hover:decoration-[var(--color-text-primary)]"
+                        >
+                          {t({
+                            id: "settings.general.models_tab",
+                            message: "Models",
+                          })}
+                        </button>{" "}
+                        {t({
+                          id: "settings.general.auto_transform.models_suffix",
+                          message: "to transform every dictation.",
+                        })}
+                      </>
+                    ) : (
+                      t({
+                        id: "settings.general.auto_transform.body",
+                        message: "apply a transform preset after every dictation",
+                      })
+                    )}
+                  </span>
+                  <div
+                    className="relative shrink-0"
+                    onMouseEnter={() => showHelpTooltip("auto-transform")}
+                    onMouseLeave={() => hideHelpTooltip("auto-transform")}
+                  >
+                    <button
+                      type="button"
+                      className="p-0.5 text-content-disabled transition-colors hover:text-content-muted"
+                      aria-label={t({
+                        id: "settings.general.auto_transform.info_aria",
+                        message: "More information about Auto Transform",
+                      })}
+                      aria-expanded={openHelpTooltip === "auto-transform"}
+                      aria-controls="auto-transform-help-tooltip"
+                      onFocus={() => showHelpTooltip("auto-transform")}
+                      onBlur={() => hideHelpTooltip("auto-transform")}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          hideHelpTooltip("auto-transform");
+                        }
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          toggleHelpTooltip("auto-transform");
+                        }
+                      }}
+                    >
+                      <Info size={10} aria-hidden="true" />
+                    </button>
+                    <div
+                      id="auto-transform-help-tooltip"
+                      role="tooltip"
+                      className={`absolute right-0 bottom-full z-10 mb-1 ${
+                        openHelpTooltip === "auto-transform" ? "block" : "hidden"
+                      }`}
+                    >
+                      <div className="w-48 rounded-lg border border-border-secondary bg-surface-overlay px-2.5 py-1.5 ui-text-micro leading-tight ui-color-secondary shadow-lg">
+                        <p>
+                          {t({
+                            id: "settings.general.auto_transform.help",
+                            message:
+                              "After speech recognition, Flow runs the selected Transform preset, saves it to Transform history, then pastes the result.",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <AnimatePresence initial={false}>
+                  {autoTransformEnabled && !aiFeaturesDisabled && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <Dropdown
+                        value={autoTransformPresetId}
+                        onChange={setAutoTransformPresetId}
+                        options={AUTO_TRANSFORM_PRESET_OPTIONS}
+                        icon={<WandSparkles size={14} />}
+                        className="mt-2"
+                        buttonClassName="h-9"
+                        menuClassName="max-h-64"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 

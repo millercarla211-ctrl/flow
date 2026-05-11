@@ -395,6 +395,8 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
           llmApiKey: "",
           llmModel: "",
           editModeEnabled: false,
+          autoTransformEnabled: false,
+          autoTransformPresetId: "polish",
           mediaControlEnabled: true,
           autoUpdateEnabled: true,
           autoLaunchEnabled: false,

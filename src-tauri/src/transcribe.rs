@@ -12,7 +12,7 @@ use crate::{
     recorder::{speech_percentage_i16_with_mode, CompletedRecording, RecordingSaved},
     scratchpad,
     settings::{Personality, UserSettings},
-    storage, toast, transcription_api, update_checker, AppRuntime, AppState,
+    storage, toast, transcription_api, transforms, update_checker, AppRuntime, AppState,
     TranscriptionCompletePayload, TranscriptionErrorPayload, EVENT_TRANSCRIPTION_COMPLETE,
     EVENT_TRANSCRIPTION_ERROR,
 };
@@ -72,6 +72,57 @@ fn apply_dictionary_and_snippets(
         Err(err) => {
             eprintln!("Failed to load snippets for transcript expansion: {err}");
             replaced
+        }
+    }
+}
+
+async fn apply_auto_transform_if_enabled(
+    app: &AppHandle<AppRuntime>,
+    transcript: &str,
+    settings: &UserSettings,
+    should_auto_transform: bool,
+) -> (String, bool) {
+    let trimmed = transcript.trim();
+    if !should_auto_transform || trimmed.is_empty() {
+        return (transcript.to_string(), false);
+    }
+
+    let Some(preset) = transforms::default_transform_presets()
+        .into_iter()
+        .find(|preset| preset.id == settings.auto_transform_preset_id)
+    else {
+        eprintln!(
+            "Auto Transform skipped: unknown preset {}",
+            settings.auto_transform_preset_id
+        );
+        return (transcript.to_string(), false);
+    };
+
+    let state = app.state::<AppState>();
+    match llm_cleanup::edit_transcription(&state.http(), trimmed, &preset.instruction, settings)
+        .await
+    {
+        Ok(transformed) if !transformed.trim().is_empty() => {
+            if let Err(err) = state.storage().save_transform_history(
+                preset.label,
+                Some(preset.id),
+                Some(preset.instruction),
+                trimmed.to_string(),
+                transformed.clone(),
+            ) {
+                eprintln!("Auto Transform succeeded but history could not be saved: {err}");
+            }
+            (transformed, true)
+        }
+        Ok(_) => {
+            eprintln!("Auto Transform returned empty text, keeping transcript");
+            (transcript.to_string(), false)
+        }
+        Err(err) => {
+            eprintln!("Auto Transform failed, keeping transcript: {err}");
+            llm_cleanup::note_preflight_failure();
+            maybe_warn_llm_unavailable(app, false);
+            (transcript.to_string(), false)
         }
     }
 }
@@ -213,7 +264,9 @@ pub(crate) fn queue_transcription(
                 let llm_available = llm_cleanup::is_llm_available(&settings);
                 let should_refine_transcript =
                     llm_cleanup::should_refine_transcript(&settings, active_mode.as_ref());
-                let llm_needed = is_edit_mode || should_refine_transcript;
+                let auto_transform_requested = settings.auto_transform_enabled && !is_edit_mode;
+                let llm_needed =
+                    is_edit_mode || should_refine_transcript || auto_transform_requested;
                 let preflight_unavailable =
                     llm_needed && matches!(llm_cleanup::cached_preflight_available(), Some(false));
                 let should_use_llm = if is_edit_mode {
@@ -221,9 +274,12 @@ pub(crate) fn queue_transcription(
                 } else {
                     should_refine_transcript && !preflight_unavailable
                 };
+                let should_auto_transform =
+                    auto_transform_requested && llm_available && !preflight_unavailable;
 
                 let cleanup_started = Instant::now();
-                let (final_transcript, llm_cleaned) = if should_use_llm {
+                let mut used_postprocess = should_use_llm;
+                let (mut final_transcript, mut llm_cleaned) = if should_use_llm {
                     if let Some(ref selected) = pending_selected_text {
                         match llm_cleanup::edit_transcription(
                             &http,
@@ -265,7 +321,20 @@ pub(crate) fn queue_transcription(
                     }
                     (raw_transcript.clone(), false)
                 };
-                let cleanup_elapsed_ms = should_use_llm.then(|| elapsed_ms(cleanup_started));
+
+                let (transformed, auto_transformed) = apply_auto_transform_if_enabled(
+                    &app_handle,
+                    &final_transcript,
+                    &settings,
+                    should_auto_transform,
+                )
+                .await;
+                if auto_transformed {
+                    final_transcript = transformed;
+                    llm_cleaned = true;
+                    used_postprocess = true;
+                }
+                let cleanup_elapsed_ms = used_postprocess.then(|| elapsed_ms(cleanup_started));
 
                 let final_transcript =
                     apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
@@ -1243,7 +1312,8 @@ pub(crate) fn finalize_streaming_transcription(
         let llm_available = llm_cleanup::is_llm_available(&settings);
         let should_refine_transcript =
             llm_cleanup::should_refine_transcript(&settings, active_mode.as_ref());
-        let llm_needed = is_edit_mode || should_refine_transcript;
+        let auto_transform_requested = settings.auto_transform_enabled && !is_edit_mode;
+        let llm_needed = is_edit_mode || should_refine_transcript || auto_transform_requested;
         let preflight_unavailable =
             llm_needed && matches!(llm_cleanup::cached_preflight_available(), Some(false));
         let should_use_llm = if is_edit_mode {
@@ -1251,9 +1321,12 @@ pub(crate) fn finalize_streaming_transcription(
         } else {
             should_refine_transcript && !preflight_unavailable
         };
+        let should_auto_transform =
+            auto_transform_requested && llm_available && !preflight_unavailable;
 
         let cleanup_started = Instant::now();
-        let (final_transcript, llm_cleaned) = if should_use_llm {
+        let mut used_postprocess = should_use_llm;
+        let (mut final_transcript, mut llm_cleaned) = if should_use_llm {
             if let Some(ref selected) = pending_selected_text {
                 match llm_cleanup::edit_transcription(&http, selected, &raw_transcript, &settings)
                     .await
@@ -1290,7 +1363,20 @@ pub(crate) fn finalize_streaming_transcription(
             }
             (raw_transcript.clone(), false)
         };
-        let cleanup_elapsed_ms = should_use_llm.then(|| elapsed_ms(cleanup_started));
+
+        let (transformed, auto_transformed) = apply_auto_transform_if_enabled(
+            &app_handle,
+            &final_transcript,
+            &settings,
+            should_auto_transform,
+        )
+        .await;
+        if auto_transformed {
+            final_transcript = transformed;
+            llm_cleaned = true;
+            used_postprocess = true;
+        }
+        let cleanup_elapsed_ms = used_postprocess.then(|| elapsed_ms(cleanup_started));
 
         let final_transcript =
             apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);

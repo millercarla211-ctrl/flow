@@ -70,6 +70,8 @@ export type StoredSettings = {
   replacements: Replacement[];
   personalities: Personality[];
   edit_mode_enabled: boolean;
+  auto_transform_enabled: boolean;
+  auto_transform_preset_id: string;
   media_control_enabled: boolean;
   auto_update_enabled: boolean;
   auto_launch_enabled: boolean;
