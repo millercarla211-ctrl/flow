@@ -3,8 +3,10 @@ import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown, { Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
+import { invoke } from "@tauri-apps/api/core";
 import {
   Copy,
+  FileText,
   Trash2,
   RotateCw,
   Check,
@@ -13,6 +15,7 @@ import {
   MoreVertical,
   AlertTriangle,
   Undo2,
+  WandSparkles,
   X,
 } from "lucide-react";
 import type { TranscriptionRecord } from "../../../types";
@@ -74,6 +77,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectionText, setSelectionText] = useState("");
+  const [actionStatus, setActionStatus] = useState<"saved" | "opened" | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
@@ -122,6 +126,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
     try {
       await navigator.clipboard.writeText(record.text);
       setCopied(true);
+      setActionStatus(null);
       setMenuOpen(false);
       setSelectionText("");
       setTimeout(() => setCopied(false), 2000);
@@ -134,10 +139,47 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
     if (!selectionText.trim()) return;
     try {
       await navigator.clipboard.writeText(selectionText);
+      setActionStatus(null);
       setMenuOpen(false);
       setSelectionText("");
     } catch (err) {
       console.error("Failed to copy selection:", err);
+    }
+  };
+
+  const selectedActionText = () => selectionText.trim() || record.text.trim();
+
+  const flashActionStatus = (status: "saved" | "opened") => {
+    setActionStatus(status);
+    window.setTimeout(() => setActionStatus(null), 1600);
+  };
+
+  const handleSaveToScratchpad = async () => {
+    const body = selectedActionText();
+    if (!body) return;
+    try {
+      await invoke("create_scratchpad_entry", {
+        body,
+        source: selectionText.trim() ? "transcription-selection" : "transcription",
+      });
+      setMenuOpen(false);
+      setSelectionText("");
+      flashActionStatus("saved");
+    } catch (err) {
+      console.error("Failed to save transcription to Scratchpad:", err);
+    }
+  };
+
+  const handleOpenTransform = async () => {
+    const text = selectedActionText();
+    if (!text) return;
+    try {
+      await invoke("open_transforms_view", { text });
+      setMenuOpen(false);
+      setSelectionText("");
+      flashActionStatus("opened");
+    } catch (err) {
+      console.error("Failed to open transcription in Transforms:", err);
     }
   };
 
@@ -235,6 +277,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   const llmModelLabel = record.llm_model?.trim() || null;
   const modeLabel = record.mode_name?.trim() || null;
   const allowContextMenu = !isRetryingLlm && !isUndoingLlm;
+  const hasSelection = selectionText.trim().length > 0;
 
   const captureSelectionText = () => {
     const selection = window.getSelection();
@@ -542,6 +585,45 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                       <div className="h-px bg-border-secondary mx-2" />
                     </>
                   )}
+                  {!isError && (
+                    <>
+                      <button
+                        onClick={handleSaveToScratchpad}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors"
+                      >
+                        <FileText size={12} className="text-content-muted" />
+                        <span>
+                          {hasSelection
+                            ? t({
+                                id: "transcriptions.item.save_selection",
+                                message: "Save selection",
+                              })
+                            : t({
+                                id: "transcriptions.item.save_to_scratchpad",
+                                message: "Save to Scratchpad",
+                              })}
+                        </span>
+                      </button>
+                      <button
+                        onClick={handleOpenTransform}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors"
+                      >
+                        <WandSparkles size={12} className="text-content-muted" />
+                        <span>
+                          {hasSelection
+                            ? t({
+                                id: "transcriptions.item.transform_selection",
+                                message: "Transform selection",
+                              })
+                            : t({
+                                id: "transcriptions.item.transform",
+                                message: "Transform",
+                              })}
+                        </span>
+                      </button>
+                      <div className="h-px bg-border-secondary mx-2" />
+                    </>
+                  )}
                   {canRetryFromAudio && (
                     <button
                       onClick={handleRetry}
@@ -627,6 +709,22 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
           </div>
         )}
 
+        {actionStatus && (
+          <div className="flex items-center gap-1.5 ui-text-meta ui-color-secondary">
+            <Check size={12} />
+            <span>
+              {actionStatus === "saved"
+                ? t({
+                    id: "transcriptions.item.saved_to_scratchpad",
+                    message: "Saved to Scratchpad",
+                  })
+                : t({
+                    id: "transcriptions.item.opened_transforms",
+                    message: "Opened in Transforms",
+                  })}
+            </span>
+          </div>
+        )}
         {isRetryingLlm && (
           <div className="flex items-center gap-1.5 ui-text-meta ui-color-local">
             <RotateCw size={12} className="animate-spin" />
