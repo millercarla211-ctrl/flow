@@ -11,6 +11,7 @@
 - Hardened Flow Fetch link capture so copied local, private, auth-token, and password-manager URLs stay out of the history.
 - Opened Scratchpad automatically on paste fallback and selected the newly saved dictation.
 - Added a Scratchpad editor context action for saving selected words directly to Dictionary.
+- Added Paste Last Transcript recovery from the tray/menu command and overlay quick actions.
 - Added local coding post-processing for spoken file tags, extensions, paths, identifiers, and explicit backticks.
 - Added transcript history paste-back into focused apps, including batch selected transcript paste.
 

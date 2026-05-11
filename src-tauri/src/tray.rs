@@ -1,6 +1,6 @@
 use crate::recent_transcriptions::{
     build_recent_transcriptions_menu, copy_transcription_to_clipboard,
-    MENU_ID_RECENT_TRANSCRIPTION_PREFIX,
+    paste_latest_transcription_from_menu, MENU_ID_RECENT_TRANSCRIPTION_PREFIX,
 };
 use crate::settings::{TranscriptionMode, UserSettings};
 use crate::{
@@ -30,6 +30,7 @@ const MENU_ID_MIC_PREFIX: &str = "menu_mic_";
 const MENU_ID_MIC_DEFAULT: &str = "menu_mic_default";
 const MENU_ID_FEEDBACK: &str = "menu_send_feedback";
 const MENU_ID_CHECK_UPDATES: &str = "menu_check_updates";
+const MENU_ID_PASTE_LAST_TRANSCRIPT: &str = "menu_paste_last_transcript";
 
 fn build_tray_menu(
     app: &AppHandle<AppRuntime>,
@@ -146,6 +147,14 @@ fn build_tray_menu(
     menu = menu.item(&mic_submenu.build()?);
 
     menu = menu.separator();
+    let paste_last = MenuItem::with_id(
+        app,
+        MENU_ID_PASTE_LAST_TRANSCRIPT,
+        "Paste Last Transcript",
+        true,
+        None::<&str>,
+    )?;
+    menu = menu.item(&paste_last);
     let recent_submenu = build_recent_transcriptions_menu(app, "Last Transcriptions")?;
     menu = menu.item(&recent_submenu);
     menu = menu.separator();
@@ -280,6 +289,7 @@ fn handle_tray_menu_event(app: &AppHandle<AppRuntime>, id: &str) {
                 eprintln!("Failed to open feedback link: {err}");
             }
         }
+        MENU_ID_PASTE_LAST_TRANSCRIPT => paste_latest_transcription_from_menu(app),
         MENU_ID_CHECK_UPDATES => {
             if let Err(err) = toggle_settings_window(app) {
                 eprintln!("Failed to open settings for update check: {err}");

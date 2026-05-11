@@ -135,11 +135,12 @@ pub(crate) fn sync_launch_at_login(
 #[cfg(target_os = "macos")]
 fn handle_app_menu_event(app: &AppHandle<AppRuntime>, id: &str) {
     use crate::recent_transcriptions::{
-        copy_transcription_to_clipboard, MENU_ID_RECENT_TRANSCRIPTION_PREFIX,
+        copy_transcription_to_clipboard, paste_latest_transcription_from_menu,
+        MENU_ID_RECENT_TRANSCRIPTION_PREFIX,
     };
     use platform::macos::menu::{
         MENU_ID_CHECK_UPDATES, MENU_ID_MIC_DEFAULT, MENU_ID_MIC_PREFIX, MENU_ID_MODEL_PREFIX,
-        MENU_ID_MODE_LOCAL, MENU_ID_REPORT_ISSUE, MENU_ID_WEBSITE,
+        MENU_ID_MODE_LOCAL, MENU_ID_PASTE_LAST_TRANSCRIPT, MENU_ID_REPORT_ISSUE, MENU_ID_WEBSITE,
     };
     use tauri_plugin_opener::OpenerExt;
 
@@ -155,6 +156,7 @@ fn handle_app_menu_event(app: &AppHandle<AppRuntime>, id: &str) {
         MENU_ID_REPORT_ISSUE => {
             let _ = app.opener().open_url(FEEDBACK_URL, None::<&str>);
         }
+        MENU_ID_PASTE_LAST_TRANSCRIPT => paste_latest_transcription_from_menu(app),
         MENU_ID_MODE_LOCAL => {
             set_transcription_mode(app, settings::TranscriptionMode::Local);
         }
@@ -485,6 +487,7 @@ pub fn run() {
             check_accessibility_permission,
             get_auto_paste_status,
             paste_text_to_focused_app,
+            paste_last_transcript,
             check_microphone_permission,
             request_microphone_permission,
             open_microphone_settings,
@@ -1132,6 +1135,11 @@ fn paste_text_to_focused_app(
         "Copied text",
         "Paste was blocked, so Flow copied the text to your clipboard.",
     )
+}
+
+#[tauri::command]
+fn paste_last_transcript(app: AppHandle<AppRuntime>) -> Result<PasteTextResult, String> {
+    recent_transcriptions::paste_latest_transcription(&app)
 }
 
 pub(crate) fn paste_text_into_focused_app(

@@ -1,4 +1,4 @@
-use crate::{assistive, toast, AppRuntime, AppState};
+use crate::{assistive, toast, AppRuntime, AppState, PasteTextResult};
 use tauri::menu::{MenuItem, SubmenuBuilder};
 use tauri::{AppHandle, Manager};
 
@@ -106,6 +106,52 @@ pub fn copy_transcription_to_clipboard(app: &AppHandle<AppRuntime>, transcriptio
             action_label: None,
         },
     );
+}
+
+pub fn paste_latest_transcription(app: &AppHandle<AppRuntime>) -> Result<PasteTextResult, String> {
+    let record = app
+        .state::<AppState>()
+        .storage()
+        .get_recent_transcriptions(1)
+        .map_err(|err| format!("Failed to load last transcript: {err}"))?
+        .into_iter()
+        .next()
+        .ok_or_else(|| "No transcript available to paste".to_string())?;
+
+    let text = record.text.trim();
+    if text.is_empty() {
+        return Err("Last transcript is empty".to_string());
+    }
+
+    crate::paste_text_into_focused_app(
+        app,
+        text.to_string(),
+        "Copied last transcript",
+        "Paste was blocked, so Flow copied the last transcript to your clipboard.",
+    )
+}
+
+pub fn paste_latest_transcription_from_menu(app: &AppHandle<AppRuntime>) {
+    match paste_latest_transcription(app) {
+        Ok(result) if result.pasted => {
+            toast::emit_toast(
+                app,
+                toast::Payload {
+                    toast_type: "success".to_string(),
+                    title: None,
+                    message: "Pasted last transcript".to_string(),
+                    auto_dismiss: Some(true),
+                    duration: Some(1200),
+                    retry_id: None,
+                    mode: None,
+                    action: None,
+                    action_label: None,
+                },
+            );
+        }
+        Ok(_) => {}
+        Err(err) => emit_copy_error_toast(app, &err),
+    }
 }
 
 fn emit_copy_error_toast(app: &AppHandle<AppRuntime>, message: &str) {

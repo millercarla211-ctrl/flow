@@ -18,6 +18,7 @@ pub const MENU_ID_MODE_CLOUD: &str = "menu_mode_cloud";
 pub const MENU_ID_MODEL_PREFIX: &str = "menu_model_";
 pub const MENU_ID_MIC_DEFAULT: &str = "menu_mic_default";
 pub const MENU_ID_MIC_PREFIX: &str = "menu_mic_";
+pub const MENU_ID_PASTE_LAST_TRANSCRIPT: &str = "menu_paste_last_transcript";
 
 pub fn build_app_menu(
     app: &AppHandle<AppRuntime>,
@@ -131,10 +132,18 @@ pub fn build_app_menu(
     }
     app_submenu = app_submenu.item(&mic_submenu.build()?);
 
+    let paste_last = MenuItem::with_id(
+        app,
+        MENU_ID_PASTE_LAST_TRANSCRIPT,
+        "Paste Last Transcript",
+        true,
+        None::<&str>,
+    )?;
     let recent_submenu = build_recent_transcriptions_menu(app, "Last Transcriptions")?;
 
     app_submenu = app_submenu
         .separator()
+        .item(&paste_last)
         .item(&recent_submenu)
         .separator()
         .item(&PredefinedMenuItem::services(app, Some("Services"))?)

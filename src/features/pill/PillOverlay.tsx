@@ -1,6 +1,16 @@
 import { useLingui } from "@lingui/react/macro";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Circle, Copy, FileText, Loader2, Pause, WandSparkles, X } from "lucide-react";
+import {
+  Check,
+  Circle,
+  Copy,
+  FileText,
+  Loader2,
+  Pause,
+  SendHorizontal,
+  WandSparkles,
+  X,
+} from "lucide-react";
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -175,7 +185,21 @@ type TranscriptionCompletePayload = {
   auto_paste?: boolean;
 };
 
-type QuickActionStatus = "copied" | "saved" | "opened" | "auto_on" | "auto_off" | "error" | null;
+type QuickActionStatus =
+  | "copied"
+  | "saved"
+  | "opened"
+  | "pasted"
+  | "auto_on"
+  | "auto_off"
+  | "error"
+  | null;
+
+type PasteTextResult = {
+  pasted: boolean;
+  copied: boolean;
+  message: string;
+};
 
 function getExpandedTextSegments(text: string): ExpandedTextSegment[] {
   let offset = 0;
@@ -870,13 +894,15 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
         ? "Saved"
         : quickActionStatus === "opened"
           ? "Opened"
-          : quickActionStatus === "auto_on"
-            ? "Auto on"
-            : quickActionStatus === "auto_off"
-              ? "Auto off"
-              : quickActionStatus === "error"
-                ? "Try again"
-                : "";
+          : quickActionStatus === "pasted"
+            ? "Pasted"
+            : quickActionStatus === "auto_on"
+              ? "Auto on"
+              : quickActionStatus === "auto_off"
+                ? "Auto off"
+                : quickActionStatus === "error"
+                  ? "Try again"
+                  : "";
 
   const flashQuickStatus = (status: QuickActionStatus) => {
     setQuickActionStatus(status);
@@ -909,6 +935,20 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
       flashQuickStatus("copied");
     } catch (error) {
       console.error("Failed to copy last transcript:", error);
+      flashQuickStatus("error");
+    }
+  };
+
+  const handlePasteLastTranscript = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!lastTranscript.trim()) return;
+
+    try {
+      const result = await invoke<PasteTextResult>("paste_last_transcript");
+      flashQuickStatus(result.copied ? "copied" : "pasted");
+    } catch (error) {
+      console.error("Failed to paste last transcript:", error);
       flashQuickStatus("error");
     }
   };
@@ -1069,6 +1109,21 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
                   )}
                   {transcriptAvailable && (
                     <>
+                      <button
+                        type="button"
+                        aria-label="Paste transcript"
+                        title="Paste transcript"
+                        onClick={handlePasteLastTranscript}
+                        className="flex h-7 w-7 items-center justify-center rounded-full border"
+                        style={{
+                          backgroundColor:
+                            "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
+                          borderColor: "var(--ui-pill-shell-border)",
+                          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
+                        }}
+                      >
+                        <SendHorizontal size={13} aria-hidden="true" />
+                      </button>
                       <button
                         type="button"
                         aria-label="Copy transcript"
