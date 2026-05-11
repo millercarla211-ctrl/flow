@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { motion, AnimatePresence } from "framer-motion";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
+import { useQueryClient } from "@tanstack/react-query";
 import {
+  BookPlus,
   Check,
   Clipboard,
   Copy,
@@ -23,6 +26,7 @@ import {
   useScratchpadVersions,
   useUpdateScratchpadEntry,
 } from "../queries";
+import { setDictionaryEntriesCache } from "../../dictionary/queries";
 
 const formatRelativeTime = (value: string) => {
   const date = new Date(value);
@@ -60,8 +64,20 @@ const sourceLabel = (source: string) => {
   }
 };
 
+const dictionaryWordPattern = /[A-Za-z0-9'_-]/;
+
+const cleanDictionaryCandidate = (value: string) =>
+  value
+    .replace(/\s+/g, " ")
+    .replace(/^[^\w'-]+|[^\w'-]+$/g, "")
+    .trim();
+
+const truncateMenuText = (value: string) =>
+  value.length > 34 ? `${value.slice(0, 31).trimEnd()}...` : value;
+
 export default function ScratchpadView({ isActive = true }: { isActive?: boolean }) {
   const { t } = useLingui();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
@@ -69,6 +85,13 @@ export default function ScratchpadView({ isActive = true }: { isActive?: boolean
   const [isCreating, setIsCreating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
+  const [dictionaryMenu, setDictionaryMenu] = useState<{
+    x: number;
+    y: number;
+    text: string;
+  } | null>(null);
+  const [dictionaryNotice, setDictionaryNotice] = useState("");
+  const editorRef = useRef<HTMLTextAreaElement>(null);
   const debouncedSearch = useDebouncedValue(searchQuery, 200);
 
   const entriesQuery = useScratchpadEntries(debouncedSearch, isActive);
@@ -86,6 +109,74 @@ export default function ScratchpadView({ isActive = true }: { isActive?: boolean
   const deleteMutation = useDeleteScratchpadEntry();
 
   const versions = versionsQuery.data ?? [];
+
+  const getEditorDictionaryCandidate = () => {
+    const editor = editorRef.current;
+    if (!editor) return "";
+
+    const { selectionStart, selectionEnd, value } = editor;
+    if (selectionStart !== selectionEnd) {
+      return cleanDictionaryCandidate(value.slice(selectionStart, selectionEnd));
+    }
+
+    let start = selectionStart;
+    let end = selectionEnd;
+
+    while (start > 0 && dictionaryWordPattern.test(value[start - 1])) {
+      start -= 1;
+    }
+    while (end < value.length && dictionaryWordPattern.test(value[end])) {
+      end += 1;
+    }
+
+    return cleanDictionaryCandidate(value.slice(start, end));
+  };
+
+  const handleEditorContextMenu = (event: MouseEvent<HTMLTextAreaElement>) => {
+    const candidate = getEditorDictionaryCandidate();
+    if (!candidate) {
+      setDictionaryMenu(null);
+      return;
+    }
+
+    event.preventDefault();
+    setDictionaryNotice("");
+    setDictionaryMenu({
+      x: event.clientX,
+      y: event.clientY,
+      text: candidate,
+    });
+  };
+
+  const handleAddDictionaryCandidate = async () => {
+    if (!dictionaryMenu?.text) return;
+
+    const entries = await invoke<string[]>("add_dictionary_entries", {
+      entries: [dictionaryMenu.text],
+    });
+    setDictionaryEntriesCache(queryClient, entries);
+    setDictionaryNotice(
+      t({
+        id: "scratchpad.dictionary.added",
+        message: "Added to Dictionary",
+      }),
+    );
+    setDictionaryMenu(null);
+    window.setTimeout(() => setDictionaryNotice(""), 1800);
+  };
+
+  useEffect(() => {
+    if (!dictionaryMenu) return;
+
+    const closeMenu = () => setDictionaryMenu(null);
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [dictionaryMenu]);
 
   useEffect(() => {
     let cancelled = false;
@@ -328,8 +419,11 @@ export default function ScratchpadView({ isActive = true }: { isActive?: boolean
 
           <div className="min-h-0 flex-1 p-4">
             <textarea
+              ref={editorRef}
               value={draftBody}
               onChange={(event) => setDraftBody(event.target.value)}
+              onContextMenu={handleEditorContextMenu}
+              spellCheck
               placeholder={t({
                 id: "scratchpad.editor.body_placeholder",
                 message: "Dictate or type here...",
@@ -339,6 +433,33 @@ export default function ScratchpadView({ isActive = true }: { isActive?: boolean
           </div>
 
           <AnimatePresence>
+            {dictionaryMenu && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: -3 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: -3 }}
+                transition={{ duration: 0.12 }}
+                className="ui-surface-menu fixed z-[200] min-w-[210px] overflow-hidden"
+                style={{ left: dictionaryMenu.x, top: dictionaryMenu.y }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={handleAddDictionaryCandidate}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left ui-text-menu-item ui-color-secondary transition-colors hover:bg-surface-elevated"
+                >
+                  <BookPlus size={13} className="text-content-muted" />
+                  <span className="min-w-0 truncate">
+                    {t({
+                      id: "scratchpad.dictionary.add",
+                      message: "Add to Dictionary",
+                    })}
+                    : {truncateMenuText(dictionaryMenu.text)}
+                  </span>
+                </button>
+              </motion.div>
+            )}
+
             {showVersions && selectedEntry && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
@@ -397,6 +518,17 @@ export default function ScratchpadView({ isActive = true }: { isActive?: boolean
                     ))}
                   </div>
                 )}
+              </motion.div>
+            )}
+
+            {dictionaryNotice && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                className="border-t border-border-primary px-4 py-3 ui-text-meta ui-color-secondary"
+              >
+                {dictionaryNotice}
               </motion.div>
             )}
 
