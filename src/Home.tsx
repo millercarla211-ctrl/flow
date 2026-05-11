@@ -322,6 +322,7 @@ const Home = () => {
       : null,
   ].filter(Boolean) as { label: string; shortcut: string }[];
   const shortcutReady = activeShortcuts.length > 0;
+  const primaryShortcut = activeShortcuts[0] ?? null;
   const shortcutLabel = shortcutReady
     ? `${activeShortcuts[0].label}: ${formatShortcutForDisplay(activeShortcuts[0].shortcut)}${
         activeShortcuts.length > 1 ? ` +${activeShortcuts.length - 1}` : ""
@@ -337,6 +338,19 @@ const Home = () => {
   const readinessPercent = Math.round(
     (readinessChecks.filter(Boolean).length / readinessChecks.length) * 100,
   );
+  const voicePanelHeadline =
+    readinessPercent >= 100 ? "Ready to type anywhere" : "Finish setup to dictate";
+  const voicePanelHint = !modelReady
+    ? "Download or select a local speech model before dictating."
+    : !microphoneReady
+      ? "Connect a microphone and grant access so Flow can hear you."
+      : !shortcutReady || !primaryShortcut
+        ? "Enable a Smart, Hold, or Toggle shortcut to start dictation from any app."
+        : primaryShortcut.label === "Hold"
+          ? `Hold ${formatShortcutForDisplay(primaryShortcut.shortcut)}, speak, then release.`
+          : primaryShortcut.label === "Toggle"
+            ? `Tap ${formatShortcutForDisplay(primaryShortcut.shortcut)} to start, then tap again to stop.`
+            : `Tap ${formatShortcutForDisplay(primaryShortcut.shortcut)} to toggle, or hold it for push-to-talk.`;
   const currentModeLabel = isCloudMode
     ? t({
         id: "home.mode.cloud",
@@ -728,6 +742,8 @@ const Home = () => {
 
             <FlowVoicePanel
               modeLabel={currentModeLabel}
+              headline={voicePanelHeadline}
+              hint={voicePanelHint}
               modelLabel={modelLabel}
               modelReady={modelReady}
               microphoneLabel={microphoneLabel}

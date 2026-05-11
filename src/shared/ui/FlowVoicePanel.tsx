@@ -20,6 +20,8 @@ type ReadinessItem = {
 
 export function FlowVoicePanel({
   modeLabel,
+  headline = "Flow is listening locally",
+  hint,
   modelLabel,
   modelReady = false,
   microphoneLabel,
@@ -34,6 +36,8 @@ export function FlowVoicePanel({
   onOpenModels,
 }: {
   modeLabel: string;
+  headline?: string;
+  hint?: string;
   modelLabel: string;
   modelReady?: boolean;
   microphoneLabel: string;
@@ -100,7 +104,7 @@ export function FlowVoicePanel({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <ShimmeringText
-                text="Flow is listening locally"
+                text={headline}
                 className="text-xs font-semibold"
                 color="var(--muted-foreground)"
                 shimmerColor="var(--foreground)"
@@ -122,6 +126,12 @@ export function FlowVoicePanel({
               <HardDrive size={12} className="shrink-0" />
               <span className="truncate">{storageLabel}</span>
             </div>
+            {hint && (
+              <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-[var(--foreground)]">
+                <Keyboard size={12} className="shrink-0 text-[var(--muted-foreground)]" />
+                <span className="truncate">{hint}</span>
+              </div>
+            )}
           </div>
           <LiveWaveform
             processing
