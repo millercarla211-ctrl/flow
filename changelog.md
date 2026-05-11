@@ -2,6 +2,10 @@
 
 ### New Features
 
+- Added Vibe Coding settings for variable recognition, file tagging, and editor context.
+- Added local coding post-processing for spoken file tags, extensions, paths, identifiers, and explicit backticks.
+- Added transcript history paste-back into focused apps, including batch selected transcript paste.
+
 - Windows support! 🎉🎉
 
 ### Improvements

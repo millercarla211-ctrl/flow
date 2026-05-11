@@ -12,9 +12,9 @@ use crate::{
     recorder::{speech_percentage_i16_with_mode, CompletedRecording, RecordingSaved},
     scratchpad,
     settings::{Personality, UserSettings},
-    storage, toast, transcription_api, transforms, update_checker, AppRuntime, AppState,
-    TranscriptionCompletePayload, TranscriptionErrorPayload, EVENT_TRANSCRIPTION_COMPLETE,
-    EVENT_TRANSCRIPTION_ERROR,
+    storage, toast, transcription_api, transforms, update_checker, vibe_coding, AppRuntime,
+    AppState, TranscriptionCompletePayload, TranscriptionErrorPayload,
+    EVENT_TRANSCRIPTION_COMPLETE, EVENT_TRANSCRIPTION_ERROR,
 };
 
 const WHISPER_CHUNK_SECONDS: f32 = 28.0;
@@ -350,6 +350,11 @@ pub(crate) fn queue_transcription(
 
                 let final_transcript =
                     apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
+                let final_transcript = vibe_coding::postprocess_coding_transcript(
+                    &final_transcript,
+                    &settings,
+                    active_mode.as_ref(),
+                );
 
                 if count_words(&final_transcript) == 0 {
                     handle_empty_transcription(&app_handle, &saved_for_task.path);
@@ -597,6 +602,11 @@ pub(crate) fn retry_transcription_async(
 
                 let final_transcript =
                     apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
+                let final_transcript = vibe_coding::postprocess_coding_transcript(
+                    &final_transcript,
+                    &settings,
+                    saved_personality.as_ref(),
+                );
 
                 if count_words(&final_transcript) == 0 {
                     handle_empty_transcription(&app_handle, &saved_for_task.path);
@@ -1406,6 +1416,11 @@ pub(crate) fn finalize_streaming_transcription(
 
         let final_transcript =
             apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
+        let final_transcript = vibe_coding::postprocess_coding_transcript(
+            &final_transcript,
+            &settings,
+            active_mode.as_ref(),
+        );
 
         if count_words(&final_transcript) == 0 {
             crate::pill::collapse_expanded_pill(&app_handle);

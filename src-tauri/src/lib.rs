@@ -33,6 +33,7 @@ mod transcription_api;
 mod transforms;
 mod tray;
 mod update_checker;
+mod vibe_coding;
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
