@@ -8,6 +8,7 @@
 - Added Wispr-style bulk file import for dictionary CSV/JSON and snippets JSON.
 - Prevented Dictionary and Snippets from importing or saving overlapping trigger phrases.
 - Added local Context Awareness formatting for messaging, email, and notes styles.
+- Hardened Flow Fetch link capture so copied local, private, auth-token, and password-manager URLs stay out of the history.
 - Added local coding post-processing for spoken file tags, extensions, paths, identifiers, and explicit backticks.
 - Added transcript history paste-back into focused apps, including batch selected transcript paste.
 
