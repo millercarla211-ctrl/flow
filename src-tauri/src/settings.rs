@@ -40,6 +40,7 @@ const KEY_VIBE_CODING_ENABLED: &str = "vibe_coding_enabled";
 const KEY_VIBE_CODING_VARIABLE_RECOGNITION: &str = "vibe_coding_variable_recognition";
 const KEY_VIBE_CODING_FILE_TAGGING: &str = "vibe_coding_file_tagging";
 const KEY_VIBE_CODING_INCLUDE_WINDOW_CONTEXT: &str = "vibe_coding_include_window_context";
+const KEY_VIBE_CODING_RECENT_FILES: &str = "vibe_coding_recent_files";
 const KEY_MEDIA_CONTROL_ENABLED: &str = "media_control_enabled";
 const KEY_AUTO_UPDATE_ENABLED: &str = "auto_update_enabled";
 const KEY_AUTO_LAUNCH_ENABLED: &str = "auto_launch_enabled";
@@ -132,6 +133,8 @@ pub struct UserSettings {
     pub vibe_coding_file_tagging: bool,
     #[serde(default = "default_true")]
     pub vibe_coding_include_window_context: bool,
+    #[serde(default)]
+    pub vibe_coding_recent_files: Vec<String>,
     #[serde(default)]
     pub media_control_enabled: bool,
     #[serde(default)]
@@ -386,6 +389,7 @@ impl Default for UserSettings {
             vibe_coding_variable_recognition: true,
             vibe_coding_file_tagging: true,
             vibe_coding_include_window_context: true,
+            vibe_coding_recent_files: Vec::new(),
             media_control_enabled: false,
             auto_update_enabled: false,
             auto_launch_enabled: false,
@@ -692,6 +696,11 @@ impl SettingsStore {
                 KEY_VIBE_CODING_INCLUDE_WINDOW_CONTEXT,
                 settings.vibe_coding_include_window_context,
             )?;
+            settings.vibe_coding_recent_files = self.read_value(
+                &conn,
+                KEY_VIBE_CODING_RECENT_FILES,
+                settings.vibe_coding_recent_files.clone(),
+            )?;
             settings.media_control_enabled = self.read_value(
                 &conn,
                 KEY_MEDIA_CONTROL_ENABLED,
@@ -885,6 +894,11 @@ impl SettingsStore {
             &conn,
             KEY_VIBE_CODING_INCLUDE_WINDOW_CONTEXT,
             &settings.vibe_coding_include_window_context,
+        )?;
+        self.write_value(
+            &conn,
+            KEY_VIBE_CODING_RECENT_FILES,
+            &settings.vibe_coding_recent_files,
         )?;
         self.write_value(
             &conn,

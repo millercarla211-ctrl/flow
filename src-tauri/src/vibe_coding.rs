@@ -2,7 +2,10 @@ use std::sync::OnceLock;
 
 use regex::{Captures, Regex};
 
-use crate::settings::{Personality, UserSettings};
+use crate::{
+    accessibility_context,
+    settings::{Personality, UserSettings},
+};
 
 const CODE_EXTENSIONS: &[&str] = &[
     "c", "cpp", "css", "env", "go", "h", "hpp", "html", "java", "js", "json", "jsx", "kt", "lock",
@@ -26,6 +29,7 @@ pub(crate) fn postprocess_coding_transcript(
 
     if settings.vibe_coding_file_tagging {
         result = tag_spoken_files(&result);
+        result = tag_recent_files(&result, &settings.vibe_coding_recent_files);
     }
 
     if settings.vibe_coding_variable_recognition {
@@ -40,6 +44,55 @@ fn should_postprocess(settings: &UserSettings, mode: Option<&Personality>) -> bo
         && mode.as_ref().is_some_and(|mode| {
             mode.id.eq_ignore_ascii_case("coding") || mode.name.eq_ignore_ascii_case("coding")
         })
+}
+
+pub(crate) fn refresh_recent_files_from_active_context(
+    settings: &mut UserSettings,
+    mode: Option<&Personality>,
+) -> bool {
+    if !settings.vibe_coding_enabled
+        || !settings.vibe_coding_file_tagging
+        || !settings.vibe_coding_include_window_context
+        || !mode.as_ref().is_some_and(|mode| {
+            mode.id.eq_ignore_ascii_case("coding") || mode.name.eq_ignore_ascii_case("coding")
+        })
+    {
+        return false;
+    }
+
+    let Some(context) = accessibility_context::get_active_context() else {
+        return false;
+    };
+
+    if !looks_like_supported_ide(&context.app_name)
+        && !looks_like_supported_ide(&context.window_title)
+    {
+        return false;
+    }
+
+    let mut candidates = extract_file_names(&context.window_title);
+    if let Some(url) = context.url.as_ref() {
+        candidates.extend(extract_file_names(url));
+    }
+
+    merge_recent_files(&mut settings.vibe_coding_recent_files, candidates)
+}
+
+fn looks_like_supported_ide(value: &str) -> bool {
+    let value = value.to_ascii_lowercase();
+    [
+        "cursor",
+        "windsurf",
+        "visual studio code",
+        "code",
+        "vscode",
+        "webstorm",
+        "intellij",
+        "terminal",
+        "powershell",
+    ]
+    .iter()
+    .any(|needle| value.contains(needle))
 }
 
 fn extension_regex() -> &'static Regex {
@@ -145,6 +198,93 @@ fn file_tag_regex() -> &'static Regex {
     })
 }
 
+fn file_candidate_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        let extensions = CODE_EXTENSIONS.join("|");
+        Regex::new(&format!(r"(?i)([A-Za-z0-9_./\\:-]+\.({extensions}))\b"))
+            .expect("valid file candidate regex")
+    })
+}
+
+fn normalize_recent_file(raw: &str) -> Option<String> {
+    let raw = raw.trim().trim_matches(|ch: char| {
+        matches!(ch, '"' | '\'' | '`' | ',' | ';' | ':' | ')' | ']' | '}')
+    });
+    if raw.is_empty() {
+        return None;
+    }
+
+    let basename = raw
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(raw)
+        .trim_start_matches('@');
+    if basename.is_empty() || !basename.contains('.') {
+        return None;
+    }
+
+    let extension = basename
+        .rsplit('.')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if !CODE_EXTENSIONS.contains(&extension.as_str()) {
+        return None;
+    }
+
+    Some(basename.chars().take(120).collect())
+}
+
+fn extract_file_names(text: &str) -> Vec<String> {
+    file_candidate_regex()
+        .captures_iter(text)
+        .filter_map(|caps| normalize_recent_file(&caps[1]))
+        .collect()
+}
+
+fn merge_recent_files(recent_files: &mut Vec<String>, candidates: Vec<String>) -> bool {
+    if candidates.is_empty() {
+        return false;
+    }
+
+    let mut changed = false;
+    for candidate in candidates {
+        if let Some(position) = recent_files
+            .iter()
+            .position(|file| file.eq_ignore_ascii_case(&candidate))
+        {
+            if position != 0 {
+                let existing = recent_files.remove(position);
+                recent_files.insert(0, existing);
+                changed = true;
+            }
+            continue;
+        }
+
+        recent_files.insert(0, candidate);
+        changed = true;
+    }
+
+    let mut deduped = Vec::with_capacity(recent_files.len());
+    for file in recent_files.drain(..) {
+        if !deduped
+            .iter()
+            .any(|existing: &String| existing.eq_ignore_ascii_case(&file))
+        {
+            deduped.push(file);
+        }
+    }
+
+    if deduped.len() > 100 {
+        deduped.truncate(100);
+        changed = true;
+    }
+
+    *recent_files = deduped;
+    changed
+}
+
 fn tag_spoken_files(text: &str) -> String {
     file_tag_regex()
         .replace_all(text, |caps: &Captures| {
@@ -152,6 +292,31 @@ fn tag_spoken_files(text: &str) -> String {
             format!("@{file}")
         })
         .to_string()
+}
+
+fn tag_recent_files(text: &str, recent_files: &[String]) -> String {
+    let mut result = text.to_string();
+    let mut files = recent_files
+        .iter()
+        .filter_map(|file| normalize_recent_file(file))
+        .collect::<Vec<_>>();
+    files.sort_by_key(|file| std::cmp::Reverse(file.len()));
+
+    for file in files {
+        let pattern = format!(
+            r"(?i)(^|[^@\w./\\-])({})($|[^\w./\\-]|\.(?:\s|$))",
+            regex::escape(&file)
+        );
+        if let Ok(regex) = Regex::new(&pattern) {
+            result = regex
+                .replace_all(&result, |caps: &Captures| {
+                    format!("{}@{}{}", &caps[1], &caps[2], &caps[3])
+                })
+                .to_string();
+        }
+    }
+
+    result
 }
 
 fn explicit_backtick_regex() -> &'static Regex {
@@ -313,5 +478,60 @@ mod tests {
         );
 
         assert_eq!(output, "Please check at index.tsx.");
+    }
+
+    #[test]
+    fn extracts_file_names_from_ide_titles() {
+        let files = extract_file_names("lib.rs - Flow - Visual Studio Code");
+
+        assert_eq!(files, vec!["lib.rs"]);
+    }
+
+    #[test]
+    fn recent_files_are_deduped_and_promoted() {
+        let mut recent_files = vec!["main.rs".to_string(), "index.tsx".to_string()];
+
+        let changed = merge_recent_files(
+            &mut recent_files,
+            vec!["INDEX.tsx".to_string(), "transcribe.rs".to_string()],
+        );
+
+        assert!(changed);
+        assert_eq!(
+            recent_files,
+            vec![
+                "transcribe.rs".to_string(),
+                "index.tsx".to_string(),
+                "main.rs".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn tags_recent_files_without_explicit_trigger() {
+        let mut settings = settings();
+        settings.vibe_coding_recent_files = vec!["index.tsx".to_string()];
+
+        let output = postprocess_coding_transcript(
+            "Please update index dot t s x.",
+            &settings,
+            Some(&coding_mode()),
+        );
+
+        assert_eq!(output, "Please update @index.tsx.");
+    }
+
+    #[test]
+    fn does_not_double_tag_recent_files() {
+        let mut settings = settings();
+        settings.vibe_coding_recent_files = vec!["index.tsx".to_string()];
+
+        let output = postprocess_coding_transcript(
+            "Please update @index dot t s x.",
+            &settings,
+            Some(&coding_mode()),
+        );
+
+        assert_eq!(output, "Please update @index.tsx.");
     }
 }

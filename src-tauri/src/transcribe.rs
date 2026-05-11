@@ -160,7 +160,7 @@ pub(crate) fn queue_transcription(
         let total_started = Instant::now();
         let is_cancelled = || app_handle.state::<AppState>().is_cancelled();
 
-        let settings = app_handle.state::<AppState>().current_settings();
+        let mut settings = app_handle.state::<AppState>().current_settings();
         let auto_paste = transcription_api::auto_paste_enabled();
 
         eprintln!(
@@ -170,6 +170,17 @@ pub(crate) fn queue_transcription(
         accessibility_context::log_active_context();
 
         let active_mode = mode_context::resolve_active_personality(&settings);
+        if vibe_coding::refresh_recent_files_from_active_context(
+            &mut settings,
+            active_mode.as_ref(),
+        ) {
+            if let Err(err) = app_handle
+                .state::<AppState>()
+                .persist_settings(settings.clone())
+            {
+                eprintln!("Failed to persist Vibe Coding recent files: {err}");
+            }
+        }
         // Local transcription path
         let stt_started = Instant::now();
         let result = {
@@ -1326,9 +1337,20 @@ pub(crate) fn finalize_streaming_transcription(
     tauri::async_runtime::spawn(async move {
         let total_started = Instant::now();
         let is_cancelled = || app_handle.state::<AppState>().is_cancelled();
-        let settings = app_handle.state::<AppState>().current_settings();
+        let mut settings = app_handle.state::<AppState>().current_settings();
         let auto_paste = transcription_api::auto_paste_enabled();
         let active_mode = mode_context::resolve_active_personality(&settings);
+        if vibe_coding::refresh_recent_files_from_active_context(
+            &mut settings,
+            active_mode.as_ref(),
+        ) {
+            if let Err(err) = app_handle
+                .state::<AppState>()
+                .persist_settings(settings.clone())
+            {
+                eprintln!("Failed to persist Vibe Coding recent files: {err}");
+            }
+        }
         let raw_transcript = transcription_api::normalize_transcript(&raw_transcript);
 
         if count_words(&raw_transcript) == 0 {
