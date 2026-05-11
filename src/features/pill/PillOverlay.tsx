@@ -34,6 +34,7 @@ const AUTO_TRANSFORM_PRESET_LABELS: Record<string, string> = {
   fix_grammar: "Grammar",
   shorter: "Shorter",
   turn_to_list: "List",
+  terminal_command: "Terminal",
   vibe_coding: "Coding",
 };
 const DOT_RADIUS = {

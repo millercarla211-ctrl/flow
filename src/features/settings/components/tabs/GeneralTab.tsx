@@ -31,6 +31,11 @@ const AUTO_TRANSFORM_PRESET_OPTIONS = [
   { value: "shorter", label: "Shorter", description: "Make transcripts compact and scannable." },
   { value: "turn_to_list", label: "Turn to list", description: "Convert speech into bullets." },
   {
+    value: "terminal_command",
+    label: "Terminal command",
+    description: "Turn spoken terminal intent into command text.",
+  },
+  {
     value: "vibe_coding",
     label: "Vibe coding",
     description: "Turn speech into an implementation request.",

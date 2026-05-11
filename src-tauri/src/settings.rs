@@ -256,6 +256,12 @@ fn default_coding_apps() -> Vec<String> {
         "Visual Studio",
         "WebStorm",
         "IntelliJ IDEA",
+        "Windows Terminal",
+        "PowerShell",
+        "Command Prompt",
+        "Git Bash",
+        "Cmder",
+        "ConEmu",
     ]
     .into_iter()
     .map(String::from)
@@ -270,6 +276,11 @@ fn default_coding_apps() -> Vec<String> {
         "Xcode",
         "WebStorm",
         "IntelliJ IDEA",
+        "Terminal",
+        "iTerm",
+        "Warp",
+        "Kitty",
+        "Alacritty",
     ]
     .into_iter()
     .map(String::from)
@@ -314,6 +325,10 @@ fn seed_personality_notes(personalities: &mut [Personality]) {
                 "- Apply proper casing conventions to variables and functions based on context (e.g., camelCase for JS, snake_case for Python) based on the user's speech.".to_string(),
                 "".to_string(),
                 "- Prioritize syntax accuracy over conversational flow based on the user's speech.".to_string(),
+                "".to_string(),
+                "- In terminals and command palettes, prefer executable command text over prose; preserve shell flags, quoted paths, environment variables, package names, branch names, and file names exactly.".to_string(),
+                "".to_string(),
+                "- For multi-step coding requests, structure the output as a concise implementation instruction with constraints, expected behavior, and verification steps.".to_string(),
             ],
             _ => Vec::new(),
         };
@@ -934,6 +949,18 @@ mod tests {
         store
             .read_value(&conn, key, false)
             .expect("read bool setting")
+    }
+
+    #[test]
+    fn default_coding_profile_includes_terminal_apps() {
+        let apps = default_coding_apps();
+        let expected_terminal = if cfg!(target_os = "windows") {
+            "PowerShell"
+        } else {
+            "Terminal"
+        };
+
+        assert!(apps.iter().any(|app| app == expected_terminal));
     }
 
     #[test]

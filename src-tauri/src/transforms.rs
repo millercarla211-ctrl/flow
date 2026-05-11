@@ -97,6 +97,11 @@ pub(crate) fn default_transform_presets() -> Vec<TransformPreset> {
             "Rewrite this as a concise engineering review comment with clear action, risk, and context.",
         ),
         preset(
+            "terminal_command",
+            "Terminal command",
+            "Convert this spoken request into the safest executable shell command or short command sequence. Output only the command text, no markdown fences and no explanation. Preserve paths, package names, flags, branches, ports, and environment variable names exactly when they are spoken.",
+        ),
+        preset(
             "vibe_coding",
             "Vibe coding",
             "Turn this into a clear implementation request for a coding assistant, including expected behavior and constraints.",
@@ -261,4 +266,23 @@ pub(crate) async fn transform_text(
         instruction: Some(instruction),
         created_at: Some(history_entry.created_at),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_presets_include_terminal_command_transform() {
+        let presets = default_transform_presets();
+        let terminal = presets
+            .iter()
+            .find(|preset| preset.id == "terminal_command")
+            .expect("terminal command preset");
+
+        assert_eq!(terminal.label, "Terminal command");
+        assert!(terminal
+            .instruction
+            .contains("Output only the command text"));
+    }
 }
