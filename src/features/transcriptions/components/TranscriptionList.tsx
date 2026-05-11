@@ -9,6 +9,7 @@ import {
   Check,
   CheckSquare,
   Copy,
+  Filter,
   FileText,
   Trash2,
   WandSparkles,
@@ -34,6 +35,7 @@ interface TranscriptionListProps {
 }
 
 type SortKey = "recent" | "oldest" | "longest" | "shortest";
+type FilterKey = "all" | "success" | "failed" | "paste_fallback" | "cleaned";
 
 type ListEntry =
   | { type: "header"; id: string; label: string }
@@ -50,6 +52,8 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const [searchOpen, setSearchOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("recent");
   const [sortOpen, setSortOpen] = useState(false);
+  const [filterKey, setFilterKey] = useState<FilterKey>("all");
+  const [filterOpen, setFilterOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [batchStatus, setBatchStatus] = useState<string | null>(null);
@@ -58,11 +62,13 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
     null,
   );
   const sortRef = useRef<HTMLDivElement>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 300);
   const shiftHeld = useShiftHeld(isActive);
 
   useClickOutside(sortRef, () => setSortOpen(false), sortOpen);
+  useClickOutside(filterRef, () => setFilterOpen(false), filterOpen);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -87,10 +93,51 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const retryLlmMutation = useRetryLlmCleanup();
   const undoLlmMutation = useUndoLlmCleanup();
   const retryingIdSet = useMemo(() => new Set(retryingIds), [retryingIds]);
+  const filterCounts = useMemo(
+    () =>
+      transcriptions.reduce(
+        (counts, record) => {
+          counts.all += 1;
+          if (record.status === "success") counts.success += 1;
+          if (record.status === "error") counts.failed += 1;
+          if (record.auto_paste_requested && record.auto_paste_succeeded === false) {
+            counts.paste_fallback += 1;
+          }
+          if (record.llm_cleaned) counts.cleaned += 1;
+          return counts;
+        },
+        {
+          all: 0,
+          success: 0,
+          failed: 0,
+          paste_fallback: 0,
+          cleaned: 0,
+        } satisfies Record<FilterKey, number>,
+      ),
+    [transcriptions],
+  );
+
+  const filteredTranscriptions = useMemo(() => {
+    switch (filterKey) {
+      case "success":
+        return transcriptions.filter((record) => record.status === "success");
+      case "failed":
+        return transcriptions.filter((record) => record.status === "error");
+      case "paste_fallback":
+        return transcriptions.filter(
+          (record) => record.auto_paste_requested && record.auto_paste_succeeded === false,
+        );
+      case "cleaned":
+        return transcriptions.filter((record) => record.llm_cleaned);
+      case "all":
+      default:
+        return transcriptions;
+    }
+  }, [transcriptions, filterKey]);
 
   const sortedTranscriptions = useMemo(() => {
-    if (sortKey === "recent") return transcriptions;
-    const copy = [...transcriptions];
+    if (sortKey === "recent") return filteredTranscriptions;
+    const copy = [...filteredTranscriptions];
     switch (sortKey) {
       case "oldest":
         copy.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -103,7 +150,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
         break;
     }
     return copy;
-  }, [transcriptions, sortKey]);
+  }, [filteredTranscriptions, sortKey]);
 
   const isTimeSorted = sortKey === "recent" || sortKey === "oldest";
   const selectedRecords = useMemo(
@@ -346,6 +393,54 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
       }),
     },
   ];
+  const filterOptions: { value: FilterKey; label: string; count: number }[] = [
+    {
+      value: "all",
+      label: t({
+        id: "transcriptions.filter.all",
+        message: "All",
+      }),
+      count: filterCounts.all,
+    },
+    {
+      value: "success",
+      label: t({
+        id: "transcriptions.filter.success",
+        message: "Successful",
+      }),
+      count: filterCounts.success,
+    },
+    {
+      value: "failed",
+      label: t({
+        id: "transcriptions.filter.failed",
+        message: "Failed",
+      }),
+      count: filterCounts.failed,
+    },
+    {
+      value: "paste_fallback",
+      label: t({
+        id: "transcriptions.filter.paste_fallback",
+        message: "Paste fallback",
+      }),
+      count: filterCounts.paste_fallback,
+    },
+    {
+      value: "cleaned",
+      label: t({
+        id: "transcriptions.filter.cleaned",
+        message: "Cleaned",
+      }),
+      count: filterCounts.cleaned,
+    },
+  ];
+  const activeFilterLabel =
+    filterOptions.find((option) => option.value === filterKey)?.label ??
+    t({
+      id: "transcriptions.filter.all",
+      message: "All",
+    });
 
   const renderEntry = useCallback(
     (_index: number, entry: ListEntry) => {
@@ -431,6 +526,16 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const showEmptyState = totalCount === 0 && !debouncedSearchQuery && !isLoading;
   const hasSelectedRecords = selectedRecords.length > 0;
   const hasSelectedText = selectedTextRecords.length > 0;
+  const noResultsMessage =
+    filterKey !== "all"
+      ? t({
+          id: "transcriptions.list.no_filter_results",
+          message: `No ${activeFilterLabel.toLowerCase()} transcriptions`,
+        })
+      : t({
+          id: "transcriptions.list.no_results",
+          message: `No results for "${debouncedSearchQuery}"`,
+        });
 
   return (
     <motion.div
@@ -541,6 +646,72 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
         </div>
 
         <div className="flex items-center justify-end gap-1">
+          <div className="relative" ref={filterRef}>
+            <button
+              type="button"
+              onClick={() => setFilterOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={filterOpen}
+              aria-label={t({
+                id: "transcriptions.list.filter.aria",
+                message: "Filter transcriptions",
+              })}
+              title={activeFilterLabel}
+              className={`ui-button-ghost h-8 gap-1.5 rounded-full px-2 ${
+                filterKey !== "all" ? "bg-surface-elevated ui-color-primary" : ""
+              }`}
+            >
+              <Filter size={13} aria-hidden="true" />
+              {filterKey !== "all" && (
+                <span className="max-w-20 truncate ui-text-meta">{activeFilterLabel}</span>
+              )}
+            </button>
+            <AnimatePresence>
+              {filterOpen && (
+                <motion.div
+                  role="menu"
+                  initial={{ opacity: 0, scale: 0.98, y: -2 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.98, y: -2 }}
+                  transition={{ duration: 0.12 }}
+                  className="ui-surface-menu absolute right-0 top-full mt-1 z-30 min-w-[190px]"
+                >
+                  {filterOptions.map((opt) => {
+                    const selected = opt.value === filterKey;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={selected}
+                        onClick={() => {
+                          setFilterKey(opt.value);
+                          setFilterOpen(false);
+                          setSelectedIds(new Set());
+                        }}
+                        className={`flex w-full items-center justify-between gap-3 px-3 py-1.5 ui-text-body-sm transition-colors ${
+                          selected
+                            ? "ui-color-primary bg-[var(--surface-interactive-strong)]"
+                            : "ui-color-secondary hover:bg-[var(--surface-interactive)] hover:text-content-primary"
+                        }`}
+                      >
+                        <span className="truncate">{opt.label}</span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          <span className="ui-text-meta tabular-nums ui-color-muted">
+                            {opt.count}
+                          </span>
+                          <span className="w-3 flex items-center justify-center">
+                            {selected && <Check size={12} aria-hidden="true" />}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           <AnimatePresence initial={false} mode="wait">
             {searchOpen ? (
               <motion.div
@@ -724,12 +895,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
         ) : (
           <div className="h-full flex flex-col items-center justify-center">
             <Search size={18} className="text-content-disabled mb-2" aria-hidden="true" />
-            <p className="ui-text-body-sm ui-color-muted">
-              {t({
-                id: "transcriptions.list.no_results",
-                message: `No results for "${debouncedSearchQuery}"`,
-              })}
-            </p>
+            <p className="ui-text-body-sm ui-color-muted">{noResultsMessage}</p>
           </div>
         )}
       </div>
