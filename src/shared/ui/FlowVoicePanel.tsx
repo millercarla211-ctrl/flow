@@ -1,5 +1,14 @@
 import type React from "react";
-import { AlertTriangle, Cpu, HardDrive, Keyboard, Mic2, ShieldCheck, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  ClipboardCheck,
+  Cpu,
+  HardDrive,
+  Keyboard,
+  Mic2,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,12 +37,15 @@ export function FlowVoicePanel({
   microphoneReady = false,
   shortcutLabel,
   shortcutReady = false,
+  pasteLabel,
+  pasteReady = true,
   aiLabel,
   aiReady = true,
   storageLabel,
   readinessPercent = 0,
   onOpenGeneralSettings,
   onOpenModels,
+  onOpenAppSettings,
 }: {
   modeLabel: string;
   headline?: string;
@@ -44,12 +56,15 @@ export function FlowVoicePanel({
   microphoneReady?: boolean;
   shortcutLabel: string;
   shortcutReady?: boolean;
+  pasteLabel: string;
+  pasteReady?: boolean;
   aiLabel: string;
   aiReady?: boolean;
   storageLabel: string;
   readinessPercent?: number;
   onOpenGeneralSettings?: () => void;
   onOpenModels?: () => void;
+  onOpenAppSettings?: () => void;
 }) {
   const readinessState: FlowReadinessState =
     readinessPercent >= 100 ? "ready" : readinessPercent >= 60 ? "warning" : "pending";
@@ -83,6 +98,14 @@ export function FlowVoicePanel({
       icon: <Keyboard size={13} aria-hidden="true" />,
       actionLabel: shortcutReady ? undefined : "Settings",
       onAction: shortcutReady ? undefined : onOpenGeneralSettings,
+    },
+    {
+      label: "Paste",
+      value: pasteLabel,
+      state: pasteReady ? "ready" : "warning",
+      icon: <ClipboardCheck size={13} aria-hidden="true" />,
+      actionLabel: pasteReady ? undefined : "Permissions",
+      onAction: pasteReady ? undefined : onOpenAppSettings,
     },
     {
       label: "AI",
@@ -145,7 +168,7 @@ export function FlowVoicePanel({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
           {statusItems.map((item) => (
             <div
               key={item.label}

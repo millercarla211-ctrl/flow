@@ -474,6 +474,7 @@ pub fn run() {
             toast::toast_dismissed,
             open_accessibility_settings,
             check_accessibility_permission,
+            get_auto_paste_status,
             check_microphone_permission,
             request_microphone_permission,
             open_microphone_settings,
@@ -1100,6 +1101,14 @@ fn open_accessibility_settings() -> Result<(), String> {
 #[tauri::command]
 fn check_accessibility_permission() -> bool {
     permissions::check_accessibility_permission()
+}
+
+#[tauri::command]
+fn get_auto_paste_status() -> AutoPasteStatus {
+    AutoPasteStatus {
+        enabled: transcription_api::auto_paste_enabled(),
+        accessibility_granted: permissions::check_accessibility_permission(),
+    }
 }
 
 #[tauri::command]
@@ -1772,4 +1781,10 @@ pub(crate) struct TranscriptionCompletePayload {
 pub(crate) struct TranscriptionErrorPayload {
     pub(crate) message: String,
     pub(crate) stage: String,
+}
+
+#[derive(Serialize, Clone)]
+struct AutoPasteStatus {
+    enabled: bool,
+    accessibility_granted: bool,
 }

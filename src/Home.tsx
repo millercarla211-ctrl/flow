@@ -37,7 +37,12 @@ import SnippetsView from "./features/snippets/components/SnippetsView";
 import TransformsView from "./features/transforms/components/TransformsView";
 import InsightsView from "./features/insights/components/InsightsView";
 import { useCurrentUser } from "./features/auth/queries";
-import { useSettings, useAppInfo, useInputDevices } from "./features/settings/queries";
+import {
+  useSettings,
+  useAppInfo,
+  useInputDevices,
+  useAutoPasteStatus,
+} from "./features/settings/queries";
 import {
   useLocalModelRuntimeStatus,
   useModelCatalog,
@@ -118,6 +123,7 @@ const Home = () => {
   const { data: updateStatus } = useUpdateStatus();
   const { data: appInfoData } = useAppInfo();
   const { data: inputDevices = [] } = useInputDevices();
+  const { data: autoPasteStatus } = useAutoPasteStatus();
   const { data: modelCatalog = [] } = useModelCatalog();
   const transcriptionMode: TranscriptionMode = settings?.transcription_mode ?? "local";
   const { data: localRuntimeStatus } = useLocalModelRuntimeStatus(transcriptionMode === "local");
@@ -331,10 +337,17 @@ const Home = () => {
   const aiRequested = Boolean(settings?.cleanup_enabled || settings?.edit_mode_enabled);
   const aiReady = !aiRequested || llmEnabled || isCloudMode;
   const aiLabel = aiRequested ? (aiReady ? "Cleanup/Edit ready" : "Provider needed") : "Optional";
+  const pasteReady =
+    (autoPasteStatus?.enabled ?? true) && (autoPasteStatus?.accessibility_granted ?? true);
+  const pasteLabel = !(autoPasteStatus?.enabled ?? true)
+    ? "Auto-paste off"
+    : autoPasteStatus?.accessibility_granted === false
+      ? "Permission needed"
+      : "Auto-paste ready";
   const storageLabel = appInfoData?.data_dir_path
     ? `Data: ${compactPath(appInfoData.data_dir_path)}`
     : "Data path loading";
-  const readinessChecks = [modelReady, microphoneReady, shortcutReady, aiReady];
+  const readinessChecks = [modelReady, microphoneReady, shortcutReady, pasteReady, aiReady];
   const readinessPercent = Math.round(
     (readinessChecks.filter(Boolean).length / readinessChecks.length) * 100,
   );
@@ -346,11 +359,13 @@ const Home = () => {
       ? "Connect a microphone and grant access so Flow can hear you."
       : !shortcutReady || !primaryShortcut
         ? "Enable a Smart, Hold, or Toggle shortcut to start dictation from any app."
-        : primaryShortcut.label === "Hold"
-          ? `Hold ${formatShortcutForDisplay(primaryShortcut.shortcut)}, speak, then release.`
-          : primaryShortcut.label === "Toggle"
-            ? `Tap ${formatShortcutForDisplay(primaryShortcut.shortcut)} to start, then tap again to stop.`
-            : `Tap ${formatShortcutForDisplay(primaryShortcut.shortcut)} to toggle, or hold it for push-to-talk.`;
+        : !pasteReady
+          ? "Enable auto-paste permissions so Flow can type into the focused app."
+          : primaryShortcut.label === "Hold"
+            ? `Hold ${formatShortcutForDisplay(primaryShortcut.shortcut)}, speak, then release.`
+            : primaryShortcut.label === "Toggle"
+              ? `Tap ${formatShortcutForDisplay(primaryShortcut.shortcut)} to start, then tap again to stop.`
+              : `Tap ${formatShortcutForDisplay(primaryShortcut.shortcut)} to toggle, or hold it for push-to-talk.`;
   const currentModeLabel = isCloudMode
     ? t({
         id: "home.mode.cloud",
@@ -750,6 +765,8 @@ const Home = () => {
               microphoneReady={microphoneReady}
               shortcutLabel={shortcutLabel}
               shortcutReady={shortcutReady}
+              pasteLabel={pasteLabel}
+              pasteReady={pasteReady}
               aiLabel={aiLabel}
               aiReady={aiReady}
               storageLabel={storageLabel}
@@ -760,6 +777,10 @@ const Home = () => {
               }}
               onOpenModels={() => {
                 setSettingsTab("models");
+                setIsSettingsOpen(true);
+              }}
+              onOpenAppSettings={() => {
+                setSettingsTab("app");
                 setIsSettingsOpen(true);
               }}
             />

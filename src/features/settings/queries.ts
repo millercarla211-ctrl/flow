@@ -7,6 +7,7 @@ export const settingsKeys = {
   detail: () => [...settingsKeys.all, "detail"] as const,
   appInfo: () => ["appInfo"] as const,
   devices: () => ["inputDevices"] as const,
+  autoPaste: () => ["autoPasteStatus"] as const,
 };
 
 export function useSettings<TSelect = StoredSettings>(
@@ -36,5 +37,15 @@ export function useInputDevices(enabled: boolean = true) {
     queryFn: settingsApi.listInputDevices,
     enabled,
     refetchOnMount: "always",
+  });
+}
+
+export function useAutoPasteStatus(enabled: boolean = true) {
+  return useQuery({
+    queryKey: settingsKeys.autoPaste(),
+    queryFn: settingsApi.getAutoPasteStatus,
+    enabled,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
   });
 }

@@ -77,3 +77,8 @@ export type StoredSettings = {
   analytics_enabled: boolean;
   analytics_install_id: string;
 };
+
+export type AutoPasteStatus = {
+  enabled: boolean;
+  accessibility_granted: boolean;
+};
