@@ -432,6 +432,7 @@ pub fn run() {
             get_app_info,
             open_data_dir,
             get_transcriptions,
+            set_transcription_pinned,
             delete_transcription,
             delete_all_transcriptions,
             retry_transcription,
@@ -1403,6 +1404,19 @@ fn get_transcriptions(
         .storage()
         .get_all_filtered(search_query.as_deref())
         .map_err(|err| format!("Failed to get transcriptions: {err}"))
+}
+
+#[tauri::command]
+fn set_transcription_pinned(
+    id: String,
+    pinned: bool,
+    state: tauri::State<AppState>,
+) -> Result<storage::TranscriptionRecord, String> {
+    state
+        .storage()
+        .set_pinned(&id, pinned)
+        .map_err(|err| format!("Failed to update pinned transcription: {err}"))?
+        .ok_or_else(|| "Transcription not found".to_string())
 }
 
 #[tauri::command]

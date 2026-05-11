@@ -19,6 +19,7 @@ import { Virtuoso } from "react-virtuoso";
 import {
   useTranscriptionList,
   useDeleteTranscription,
+  useSetTranscriptionPinned,
   useRetryTranscription,
   useRetryLlmCleanup,
   useUndoLlmCleanup,
@@ -36,7 +37,14 @@ interface TranscriptionListProps {
 }
 
 type SortKey = "recent" | "oldest" | "longest" | "shortest";
-type FilterKey = "all" | "success" | "failed" | "paste_fallback" | "cleaned" | "transformed";
+type FilterKey =
+  | "all"
+  | "success"
+  | "failed"
+  | "pinned"
+  | "paste_fallback"
+  | "cleaned"
+  | "transformed";
 
 type ListEntry =
   | { type: "header"; id: string; label: string }
@@ -86,6 +94,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   } = useTranscriptionList(debouncedSearchQuery, isActive);
   const totalCount = transcriptions.length;
   const deleteMutation = useDeleteTranscription();
+  const pinMutation = useSetTranscriptionPinned();
   const {
     retry: retryMutation,
     cancelRetry: cancelRetryMutation,
@@ -101,6 +110,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
           counts.all += 1;
           if (record.status === "success") counts.success += 1;
           if (record.status === "error") counts.failed += 1;
+          if (record.pinned) counts.pinned += 1;
           if (record.auto_paste_requested && record.auto_paste_succeeded === false) {
             counts.paste_fallback += 1;
           }
@@ -114,6 +124,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
           all: 0,
           success: 0,
           failed: 0,
+          pinned: 0,
           paste_fallback: 0,
           cleaned: 0,
           transformed: 0,
@@ -128,6 +139,8 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
         return transcriptions.filter((record) => record.status === "success");
       case "failed":
         return transcriptions.filter((record) => record.status === "error");
+      case "pinned":
+        return transcriptions.filter((record) => record.pinned);
       case "paste_fallback":
         return transcriptions.filter(
           (record) => record.auto_paste_requested && record.auto_paste_succeeded === false,
@@ -254,6 +267,13 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
       await deleteMutation.mutateAsync(id);
     },
     [deleteMutation],
+  );
+
+  const togglePinned = useCallback(
+    async (id: string, pinned: boolean) => {
+      await pinMutation.mutateAsync({ id, pinned });
+    },
+    [pinMutation],
   );
 
   const retryTranscription = useCallback(
@@ -447,6 +467,14 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
       count: filterCounts.failed,
     },
     {
+      value: "pinned",
+      label: t({
+        id: "transcriptions.filter.pinned",
+        message: "Pinned",
+      }),
+      count: filterCounts.pinned,
+    },
+    {
       value: "paste_fallback",
       label: t({
         id: "transcriptions.filter.paste_fallback",
@@ -498,6 +526,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
             record={record}
             isRetrying={retryingIdSet.has(record.id)}
             onDelete={deleteTranscription}
+            onTogglePinned={togglePinned}
             onRetry={retryTranscription}
             onCancelRetry={cancelRetryTranscription}
             onRetryLlm={retryLlmCleanup}
@@ -515,6 +544,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
     [
       retryingIdSet,
       deleteTranscription,
+      togglePinned,
       retryTranscription,
       cancelRetryTranscription,
       retryLlmCleanup,

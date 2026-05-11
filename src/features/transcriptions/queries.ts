@@ -30,6 +30,17 @@ export function useDeleteTranscription() {
   });
 }
 
+export function useSetTranscriptionPinned() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: transcriptionsApi.setTranscriptionPinned,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transcriptionKeys.all });
+    },
+  });
+}
+
 export function useRetryTranscription(enabled: boolean = true) {
   const [retryingIds, setRetryingIds] = useState<string[]>([]);
   const queryClient = useQueryClient();

@@ -15,6 +15,8 @@ import {
   Gauge,
   HardDrive,
   Mic2,
+  Pin,
+  PinOff,
   Trash2,
   RotateCw,
   Check,
@@ -56,6 +58,7 @@ const markdownComponents: Components = {
 interface TranscriptionItemProps {
   record: TranscriptionRecord;
   onDelete: (id: string) => Promise<void>;
+  onTogglePinned?: (id: string, pinned: boolean) => Promise<void>;
   onRetry: (id: string) => Promise<void>;
   onCancelRetry?: (id: string) => Promise<void>;
   onRetryLlm?: (id: string) => Promise<void>;
@@ -136,6 +139,7 @@ const DiagnosticsChip: React.FC<DiagnosticsChipProps> = ({
 const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   record,
   onDelete,
+  onTogglePinned,
   onRetry,
   onCancelRetry,
   onRetryLlm,
@@ -151,6 +155,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   const { t } = useLingui();
   const [copied, setCopied] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPinning, setIsPinning] = useState(false);
   const [isCancellingRetry, setIsCancellingRetry] = useState(false);
   const [isRetryingLlm, setIsRetryingLlm] = useState(false);
   const [isUndoingLlm, setIsUndoingLlm] = useState(false);
@@ -278,6 +283,20 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
     }
   };
 
+  const handleTogglePinned = async () => {
+    if (isPinning || !onTogglePinned) return;
+    setIsPinning(true);
+    setMenuOpen(false);
+    setSelectionText("");
+    try {
+      await onTogglePinned(record.id, !record.pinned);
+    } catch (err) {
+      console.error("Failed to update pinned transcription:", err);
+    } finally {
+      setIsPinning(false);
+    }
+  };
+
   const handleRetry = async () => {
     if (isRetrying) return;
     setMenuOpen(false);
@@ -368,6 +387,16 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   const pasteElapsedLabel = formatElapsed(record.paste_elapsed_ms);
   const totalElapsedLabel = formatElapsed(record.total_elapsed_ms);
   const diagnostics: DiagnosticItem[] = [];
+
+  if (record.pinned) {
+    diagnostics.push({
+      key: "pinned",
+      icon: Pin,
+      label: "Pinned",
+      title: "Pinned transcription",
+      tone: "local",
+    });
+  }
 
   if (audioDurationSeconds > 0) {
     diagnostics.push({
@@ -576,6 +605,20 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
               </>
             )}
             <span>{timeStr}</span>
+            {record.pinned && (
+              <>
+                <span aria-hidden="true" className="opacity-60">
+                  Â·
+                </span>
+                <span className="flex items-center gap-1 ui-color-primary font-medium">
+                  <Pin size={10} aria-hidden="true" className="opacity-80" />
+                  {t({
+                    id: "transcriptions.item.pinned",
+                    message: "Pinned",
+                  })}
+                </span>
+              </>
+            )}
             {isError && (
               <>
                 <span aria-hidden="true" className="opacity-60">
@@ -701,6 +744,47 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
 
         {!isRetrying && !isRetryingLlm && !isUndoingLlm && (
           <div className="relative shrink-0 flex items-center gap-1" ref={menuRef}>
+            {onTogglePinned && (
+              <motion.button
+                onClick={handleTogglePinned}
+                disabled={isPinning}
+                whileTap={{ scale: 0.95 }}
+                className={`p-1.5 rounded-md transition-colors hover:bg-surface-elevated disabled:opacity-50 ${
+                  record.pinned
+                    ? "opacity-100 ui-color-primary"
+                    : "opacity-0 group-hover:opacity-100 ui-color-muted"
+                }`}
+                title={
+                  record.pinned
+                    ? t({
+                        id: "transcriptions.item.unpin",
+                        message: "Unpin transcription",
+                      })
+                    : t({
+                        id: "transcriptions.item.pin",
+                        message: "Pin transcription",
+                      })
+                }
+                aria-label={
+                  record.pinned
+                    ? t({
+                        id: "transcriptions.item.unpin",
+                        message: "Unpin transcription",
+                      })
+                    : t({
+                        id: "transcriptions.item.pin",
+                        message: "Pin transcription",
+                      })
+                }
+              >
+                {record.pinned ? (
+                  <PinOff size={14} aria-hidden="true" />
+                ) : (
+                  <Pin size={14} aria-hidden="true" />
+                )}
+              </motion.button>
+            )}
+
             {!isError && (
               <motion.button
                 onClick={handleCopy}
@@ -824,8 +908,33 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                       <div className="h-px bg-border-secondary mx-2" />
                     </>
                   )}
+                  {onTogglePinned && (
+                    <button
+                      onClick={handleTogglePinned}
+                      disabled={isPinning}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors disabled:opacity-50"
+                    >
+                      {record.pinned ? (
+                        <PinOff size={12} className="text-content-muted" />
+                      ) : (
+                        <Pin size={12} className="text-content-muted" />
+                      )}
+                      <span>
+                        {record.pinned
+                          ? t({
+                              id: "transcriptions.item.unpin",
+                              message: "Unpin transcription",
+                            })
+                          : t({
+                              id: "transcriptions.item.pin",
+                              message: "Pin transcription",
+                            })}
+                      </span>
+                    </button>
+                  )}
                   {selectionText.trim().length > 0 && (
                     <>
+                      {onTogglePinned && <div className="h-px bg-border-secondary mx-2" />}
                       <button
                         onClick={handleCopySelection}
                         className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors"

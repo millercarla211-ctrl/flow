@@ -11,6 +11,16 @@ export async function deleteTranscription(id: string): Promise<void> {
   await invoke("delete_transcription", { id });
 }
 
+export async function setTranscriptionPinned({
+  id,
+  pinned,
+}: {
+  id: string;
+  pinned: boolean;
+}): Promise<TranscriptionRecord> {
+  return invoke<TranscriptionRecord>("set_transcription_pinned", { id, pinned });
+}
+
 export async function retryTranscription(id: string): Promise<void> {
   await invoke("retry_transcription", { id });
 }

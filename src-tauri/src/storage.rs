@@ -61,6 +61,8 @@ pub struct TranscriptionRecord {
     pub auto_transform_preset_id: Option<String>,
     #[serde(default)]
     pub auto_transform_label: Option<String>,
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -284,6 +286,7 @@ impl StorageManager {
             auto_paste_succeeded: metadata.auto_paste_succeeded,
             auto_transform_preset_id: metadata.auto_transform_preset_id,
             auto_transform_label: metadata.auto_transform_label,
+            pinned: false,
         };
 
         let conn = self.connection.lock();
@@ -324,6 +327,7 @@ impl StorageManager {
             auto_paste_succeeded: metadata.auto_paste_succeeded,
             auto_transform_preset_id: metadata.auto_transform_preset_id,
             auto_transform_label: metadata.auto_transform_label,
+            pinned: false,
         };
 
         let conn = self.connection.lock();
@@ -785,6 +789,21 @@ impl StorageManager {
         Self::get_record(&conn, id)
     }
 
+    pub fn set_pinned(&self, id: &str, pinned: bool) -> Result<Option<TranscriptionRecord>> {
+        let conn = self.connection.lock();
+        let existing = Self::get_record(&conn, id)?;
+        if existing.is_none() {
+            return Ok(None);
+        }
+
+        conn.execute(
+            "UPDATE transcriptions SET pinned = ?1 WHERE id = ?2",
+            params![if pinned { 1 } else { 0 }, id],
+        )?;
+
+        Self::get_record(&conn, id)
+    }
+
     pub fn get_all_filtered(&self, search_query: Option<&str>) -> Result<Vec<TranscriptionRecord>> {
         let conn = self.connection.lock();
         let (where_clause, params) = Self::build_search_query(search_query);
@@ -793,10 +812,10 @@ impl StorageManager {
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
                     speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name,
                     stt_elapsed_ms, cleanup_elapsed_ms, paste_elapsed_ms, total_elapsed_ms,
-                    auto_paste_requested, auto_paste_succeeded, auto_transform_preset_id, auto_transform_label
+                    auto_paste_requested, auto_paste_succeeded, auto_transform_preset_id, auto_transform_label, pinned
              FROM transcriptions
              {}
-             ORDER BY timestamp DESC",
+             ORDER BY pinned DESC, timestamp DESC",
             where_clause
         );
 
@@ -821,7 +840,7 @@ impl StorageManager {
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
                     speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name,
                     stt_elapsed_ms, cleanup_elapsed_ms, paste_elapsed_ms, total_elapsed_ms,
-                    auto_paste_requested, auto_paste_succeeded, auto_transform_preset_id, auto_transform_label
+                    auto_paste_requested, auto_paste_succeeded, auto_transform_preset_id, auto_transform_label, pinned
              FROM transcriptions
              WHERE status = ?1 AND text <> ''
              ORDER BY timestamp DESC
@@ -845,7 +864,7 @@ impl StorageManager {
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
                     speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name,
                     stt_elapsed_ms, cleanup_elapsed_ms, paste_elapsed_ms, total_elapsed_ms,
-                    auto_paste_requested, auto_paste_succeeded, auto_transform_preset_id, auto_transform_label
+                    auto_paste_requested, auto_paste_succeeded, auto_transform_preset_id, auto_transform_label, pinned
              FROM transcriptions
              WHERE status = ?1 AND text <> ''
              ORDER BY timestamp DESC",
@@ -940,8 +959,9 @@ impl StorageManager {
                 auto_paste_requested,
                 auto_paste_succeeded,
                 auto_transform_preset_id,
-                auto_transform_label
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
+                auto_transform_label,
+                pinned
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
             params![
                 record.id,
                 timestamp,
@@ -968,6 +988,7 @@ impl StorageManager {
                     .map(|succeeded| if succeeded { 1 } else { 0 }),
                 record.auto_transform_preset_id,
                 record.auto_transform_label,
+                if record.pinned { 1 } else { 0 },
             ],
         )?;
         Ok(())
@@ -1041,7 +1062,7 @@ impl StorageManager {
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
                     speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name,
                     stt_elapsed_ms, cleanup_elapsed_ms, paste_elapsed_ms, total_elapsed_ms,
-                    auto_paste_requested, auto_paste_succeeded, auto_transform_preset_id, auto_transform_label
+                    auto_paste_requested, auto_paste_succeeded, auto_transform_preset_id, auto_transform_label, pinned
              FROM transcriptions WHERE id = ?1",
             params![id],
             Self::record_from_row,
@@ -1140,6 +1161,7 @@ impl StorageManager {
             auto_paste_succeeded,
             auto_transform_preset_id: row.get("auto_transform_preset_id").unwrap_or(None),
             auto_transform_label: row.get("auto_transform_label").unwrap_or(None),
+            pinned: row.get::<_, i64>("pinned").unwrap_or(0) == 1,
         })
     }
 
@@ -1242,11 +1264,13 @@ impl StorageManager {
                 auto_paste_requested INTEGER NOT NULL DEFAULT 0,
                 auto_paste_succeeded INTEGER NULL,
                 auto_transform_preset_id TEXT NULL,
-                auto_transform_label TEXT NULL
+                auto_transform_label TEXT NULL,
+                pinned INTEGER NOT NULL DEFAULT 0
             );
             CREATE INDEX IF NOT EXISTS idx_transcriptions_timestamp ON transcriptions(timestamp);
             CREATE INDEX IF NOT EXISTS idx_transcriptions_status ON transcriptions(status);
             CREATE INDEX IF NOT EXISTS idx_transcriptions_speech_model ON transcriptions(speech_model);
+            CREATE INDEX IF NOT EXISTS idx_transcriptions_pinned ON transcriptions(pinned);
 
             CREATE TABLE IF NOT EXISTS library_items (
                 id TEXT PRIMARY KEY,
@@ -1412,6 +1436,12 @@ impl StorageManager {
             "transcriptions",
             "auto_transform_label",
             "ALTER TABLE transcriptions ADD COLUMN auto_transform_label TEXT NULL",
+        )?;
+        Self::ensure_column(
+            conn,
+            "transcriptions",
+            "pinned",
+            "ALTER TABLE transcriptions ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",
         )?;
         Self::ensure_column(
             conn,
@@ -2042,6 +2072,7 @@ mod tests {
             auto_paste_succeeded: None,
             auto_transform_preset_id: None,
             auto_transform_label: None,
+            pinned: false,
         }
     }
 
@@ -2140,6 +2171,26 @@ mod tests {
         let filtered = storage.get_all_filtered(Some("Terminal")).unwrap();
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].id, saved.id);
+
+        let pinned = storage.set_pinned(&saved.id, true).unwrap().unwrap();
+        assert!(pinned.pinned);
+
+        let loaded = storage.get_by_id(&saved.id).unwrap();
+        assert!(loaded.pinned);
+
+        let other = storage
+            .save_transcription(
+                "newer unpinned text".to_string(),
+                String::new(),
+                TranscriptionStatus::Success,
+                None,
+                TranscriptionMetadata::default(),
+                None,
+            )
+            .unwrap();
+        let all = storage.get_all_filtered(None).unwrap();
+        assert_eq!(all[0].id, saved.id);
+        assert_ne!(all[0].id, other.id);
 
         drop(storage);
         let _ = std::fs::remove_file(db_path);
