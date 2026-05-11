@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
 use tauri::{async_runtime, AppHandle, Manager};
@@ -93,6 +94,7 @@ pub(crate) fn queue_transcription(
     let recording_for_task = recording.clone();
 
     async_runtime::spawn(async move {
+        let total_started = Instant::now();
         let is_cancelled = || app_handle.state::<AppState>().is_cancelled();
 
         let settings = app_handle.state::<AppState>().current_settings();
@@ -106,6 +108,7 @@ pub(crate) fn queue_transcription(
 
         let active_mode = mode_context::resolve_active_personality(&settings);
         // Local transcription path
+        let stt_started = Instant::now();
         let result = {
             let model_key = settings.local_model.clone();
             match model_manager::ensure_model_ready(&app_handle, &model_key) {
@@ -165,6 +168,7 @@ pub(crate) fn queue_transcription(
                 Err(err) => Err(err),
             }
         };
+        let stt_elapsed_ms = Some(elapsed_ms(stt_started));
 
         match result {
             Ok(result) => {
@@ -218,6 +222,7 @@ pub(crate) fn queue_transcription(
                     should_refine_transcript && !preflight_unavailable
                 };
 
+                let cleanup_started = Instant::now();
                 let (final_transcript, llm_cleaned) = if should_use_llm {
                     if let Some(ref selected) = pending_selected_text {
                         match llm_cleanup::edit_transcription(
@@ -260,6 +265,7 @@ pub(crate) fn queue_transcription(
                     }
                     (raw_transcript.clone(), false)
                 };
+                let cleanup_elapsed_ms = should_use_llm.then(|| elapsed_ms(cleanup_started));
 
                 let final_transcript =
                     apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
@@ -279,10 +285,14 @@ pub(crate) fn queue_transcription(
                 }
 
                 let mut pasted = false;
-                if auto_paste && !final_transcript.trim().is_empty() {
+                let mut paste_elapsed_ms = None;
+                let auto_paste_requested = auto_paste && !final_transcript.trim().is_empty();
+                if auto_paste_requested {
+                    let paste_started = Instant::now();
                     pasted =
                         paste_transcript_or_save_fallback(&app_handle, &final_transcript, "local")
                             .await;
+                    paste_elapsed_ms = Some(elapsed_ms(paste_started));
                 }
 
                 let metadata = build_transcription_metadata(TranscriptionMetadataInput {
@@ -292,6 +302,12 @@ pub(crate) fn queue_transcription(
                     llm_cleaned,
                     synced: false,
                     mode: active_mode.as_ref(),
+                    stt_elapsed_ms,
+                    cleanup_elapsed_ms,
+                    paste_elapsed_ms,
+                    total_elapsed_ms: Some(elapsed_ms(total_started)),
+                    auto_paste_requested,
+                    auto_paste_succeeded: auto_paste_requested.then_some(pasted),
                 });
 
                 emit_transcription_complete_with_cleanup(
@@ -369,6 +385,7 @@ pub(crate) fn retry_transcription_async(
             app: app_handle.clone(),
             id: retry_id.clone(),
         };
+        let total_started = Instant::now();
 
         if cancel_token.is_cancelled() {
             return;
@@ -379,6 +396,7 @@ pub(crate) fn retry_transcription_async(
             settings.transcription_mode,
         );
         // Local transcription path
+        let stt_started = Instant::now();
         let result = {
             match load_audio_for_transcription(&saved_for_task.path) {
                 Ok((samples, sample_rate)) => {
@@ -444,6 +462,7 @@ pub(crate) fn retry_transcription_async(
                 Err(err) => Err(err),
             }
         };
+        let stt_elapsed_ms = Some(elapsed_ms(stt_started));
 
         match result {
             Ok(result) => {
@@ -463,6 +482,7 @@ pub(crate) fn retry_transcription_async(
                     && matches!(llm_cleanup::cached_preflight_available(), Some(false));
                 let should_use_llm = should_refine_transcript && !preflight_unavailable;
 
+                let cleanup_started = Instant::now();
                 let (final_transcript, llm_cleaned) = if should_use_llm {
                     match llm_cleanup::cleanup_transcription(
                         &http,
@@ -486,6 +506,7 @@ pub(crate) fn retry_transcription_async(
                     }
                     (raw_transcript.clone(), false)
                 };
+                let cleanup_elapsed_ms = should_use_llm.then(|| elapsed_ms(cleanup_started));
 
                 let final_transcript =
                     apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
@@ -511,6 +532,12 @@ pub(crate) fn retry_transcription_async(
                     synced: false,
                     mode_id: saved_mode_id.clone(),
                     mode_name: saved_mode_name.clone(),
+                    stt_elapsed_ms,
+                    cleanup_elapsed_ms,
+                    paste_elapsed_ms: None,
+                    total_elapsed_ms: Some(elapsed_ms(total_started)),
+                    auto_paste_requested: false,
+                    auto_paste_succeeded: None,
                 };
 
                 let raw_text = if llm_cleaned {
@@ -804,6 +831,12 @@ struct TranscriptionMetadataInput<'a> {
     llm_cleaned: bool,
     synced: bool,
     mode: Option<&'a Personality>,
+    stt_elapsed_ms: Option<u32>,
+    cleanup_elapsed_ms: Option<u32>,
+    paste_elapsed_ms: Option<u32>,
+    total_elapsed_ms: Option<u32>,
+    auto_paste_requested: bool,
+    auto_paste_succeeded: Option<bool>,
 }
 
 fn build_transcription_metadata(
@@ -816,6 +849,12 @@ fn build_transcription_metadata(
         llm_cleaned,
         synced,
         mode,
+        stt_elapsed_ms,
+        cleanup_elapsed_ms,
+        paste_elapsed_ms,
+        total_elapsed_ms,
+        auto_paste_requested,
+        auto_paste_succeeded,
     } = input;
 
     storage::TranscriptionMetadata {
@@ -830,6 +869,12 @@ fn build_transcription_metadata(
         synced,
         mode_id: mode.map(|m| m.id.clone()),
         mode_name: mode.map(|m| m.name.clone()),
+        stt_elapsed_ms,
+        cleanup_elapsed_ms,
+        paste_elapsed_ms,
+        total_elapsed_ms,
+        auto_paste_requested,
+        auto_paste_succeeded,
     }
 }
 
@@ -845,6 +890,10 @@ fn compute_audio_duration_seconds(saved: &RecordingSaved) -> f32 {
     }
     let duration_ms = (saved.ended_at - saved.started_at).num_milliseconds();
     (duration_ms.max(0) as f32) / 1000.0
+}
+
+fn elapsed_ms(started: Instant) -> u32 {
+    started.elapsed().as_millis().min(u32::MAX as u128) as u32
 }
 
 pub(crate) fn count_words(text: &str) -> u32 {
@@ -1170,6 +1219,7 @@ pub(crate) fn finalize_streaming_transcription(
     let app_handle = app.clone();
 
     tauri::async_runtime::spawn(async move {
+        let total_started = Instant::now();
         let is_cancelled = || app_handle.state::<AppState>().is_cancelled();
         let settings = app_handle.state::<AppState>().current_settings();
         let auto_paste = transcription_api::auto_paste_enabled();
@@ -1202,6 +1252,7 @@ pub(crate) fn finalize_streaming_transcription(
             should_refine_transcript && !preflight_unavailable
         };
 
+        let cleanup_started = Instant::now();
         let (final_transcript, llm_cleaned) = if should_use_llm {
             if let Some(ref selected) = pending_selected_text {
                 match llm_cleanup::edit_transcription(&http, selected, &raw_transcript, &settings)
@@ -1239,6 +1290,7 @@ pub(crate) fn finalize_streaming_transcription(
             }
             (raw_transcript.clone(), false)
         };
+        let cleanup_elapsed_ms = should_use_llm.then(|| elapsed_ms(cleanup_started));
 
         let final_transcript =
             apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
@@ -1257,9 +1309,13 @@ pub(crate) fn finalize_streaming_transcription(
         }
 
         let mut pasted = false;
-        if auto_paste && !final_transcript.trim().is_empty() {
+        let mut paste_elapsed_ms = None;
+        let auto_paste_requested = auto_paste && !final_transcript.trim().is_empty();
+        if auto_paste_requested {
+            let paste_started = Instant::now();
             pasted = paste_transcript_or_save_fallback(&app_handle, &final_transcript, "streaming")
                 .await;
+            paste_elapsed_ms = Some(elapsed_ms(paste_started));
         }
 
         if is_cancelled() {
@@ -1278,6 +1334,12 @@ pub(crate) fn finalize_streaming_transcription(
             synced: false,
             mode_id: active_mode.as_ref().map(|m| m.id.clone()),
             mode_name: active_mode.as_ref().map(|m| m.name.clone()),
+            stt_elapsed_ms: None,
+            cleanup_elapsed_ms,
+            paste_elapsed_ms,
+            total_elapsed_ms: Some(elapsed_ms(total_started)),
+            auto_paste_requested,
+            auto_paste_succeeded: auto_paste_requested.then_some(pasted),
         };
 
         crate::pill::collapse_expanded_pill(&app_handle);

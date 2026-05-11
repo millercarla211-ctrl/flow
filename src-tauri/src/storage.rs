@@ -45,6 +45,18 @@ pub struct TranscriptionRecord {
     pub mode_id: Option<String>,
     #[serde(default)]
     pub mode_name: Option<String>,
+    #[serde(default)]
+    pub stt_elapsed_ms: Option<u32>,
+    #[serde(default)]
+    pub cleanup_elapsed_ms: Option<u32>,
+    #[serde(default)]
+    pub paste_elapsed_ms: Option<u32>,
+    #[serde(default)]
+    pub total_elapsed_ms: Option<u32>,
+    #[serde(default)]
+    pub auto_paste_requested: bool,
+    #[serde(default)]
+    pub auto_paste_succeeded: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -170,6 +182,12 @@ pub struct TranscriptionMetadata {
     pub synced: bool,
     pub mode_id: Option<String>,
     pub mode_name: Option<String>,
+    pub stt_elapsed_ms: Option<u32>,
+    pub cleanup_elapsed_ms: Option<u32>,
+    pub paste_elapsed_ms: Option<u32>,
+    pub total_elapsed_ms: Option<u32>,
+    pub auto_paste_requested: bool,
+    pub auto_paste_succeeded: Option<bool>,
 }
 
 impl Default for TranscriptionMetadata {
@@ -182,6 +200,12 @@ impl Default for TranscriptionMetadata {
             synced: false,
             mode_id: None,
             mode_name: None,
+            stt_elapsed_ms: None,
+            cleanup_elapsed_ms: None,
+            paste_elapsed_ms: None,
+            total_elapsed_ms: None,
+            auto_paste_requested: false,
+            auto_paste_succeeded: None,
         }
     }
 }
@@ -235,6 +259,12 @@ impl StorageManager {
             synced: metadata.synced,
             mode_id: metadata.mode_id,
             mode_name: metadata.mode_name,
+            stt_elapsed_ms: metadata.stt_elapsed_ms,
+            cleanup_elapsed_ms: metadata.cleanup_elapsed_ms,
+            paste_elapsed_ms: metadata.paste_elapsed_ms,
+            total_elapsed_ms: metadata.total_elapsed_ms,
+            auto_paste_requested: metadata.auto_paste_requested,
+            auto_paste_succeeded: metadata.auto_paste_succeeded,
         };
 
         let conn = self.connection.lock();
@@ -267,6 +297,12 @@ impl StorageManager {
             synced: metadata.synced,
             mode_id: metadata.mode_id,
             mode_name: metadata.mode_name,
+            stt_elapsed_ms: metadata.stt_elapsed_ms,
+            cleanup_elapsed_ms: metadata.cleanup_elapsed_ms,
+            paste_elapsed_ms: metadata.paste_elapsed_ms,
+            total_elapsed_ms: metadata.total_elapsed_ms,
+            auto_paste_requested: metadata.auto_paste_requested,
+            auto_paste_succeeded: metadata.auto_paste_succeeded,
         };
 
         let conn = self.connection.lock();
@@ -688,8 +724,14 @@ impl StorageManager {
                 audio_duration_seconds = ?9,
                 synced = ?10,
                 mode_id = ?11,
-                mode_name = ?12
-             WHERE id = ?13",
+                mode_name = ?12,
+                stt_elapsed_ms = ?13,
+                cleanup_elapsed_ms = ?14,
+                paste_elapsed_ms = ?15,
+                total_elapsed_ms = ?16,
+                auto_paste_requested = ?17,
+                auto_paste_succeeded = ?18
+             WHERE id = ?19",
             params![
                 text,
                 raw_text,
@@ -703,6 +745,14 @@ impl StorageManager {
                 metadata.synced,
                 metadata.mode_id,
                 metadata.mode_name,
+                metadata.stt_elapsed_ms.map(|value| value as i64),
+                metadata.cleanup_elapsed_ms.map(|value| value as i64),
+                metadata.paste_elapsed_ms.map(|value| value as i64),
+                metadata.total_elapsed_ms.map(|value| value as i64),
+                if metadata.auto_paste_requested { 1 } else { 0 },
+                metadata
+                    .auto_paste_succeeded
+                    .map(|succeeded| if succeeded { 1 } else { 0 }),
                 id,
             ],
         )?;
@@ -716,7 +766,9 @@ impl StorageManager {
 
         let sql = format!(
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
-                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name
+                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name,
+                    stt_elapsed_ms, cleanup_elapsed_ms, paste_elapsed_ms, total_elapsed_ms,
+                    auto_paste_requested, auto_paste_succeeded
              FROM transcriptions
              {}
              ORDER BY timestamp DESC",
@@ -742,7 +794,9 @@ impl StorageManager {
         let conn = self.connection.lock();
         let mut stmt = conn.prepare(
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
-                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name
+                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name,
+                    stt_elapsed_ms, cleanup_elapsed_ms, paste_elapsed_ms, total_elapsed_ms,
+                    auto_paste_requested, auto_paste_succeeded
              FROM transcriptions
              WHERE status = ?1 AND text <> ''
              ORDER BY timestamp DESC
@@ -764,7 +818,9 @@ impl StorageManager {
         let conn = self.connection.lock();
         let mut stmt = conn.prepare(
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
-                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name
+                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name,
+                    stt_elapsed_ms, cleanup_elapsed_ms, paste_elapsed_ms, total_elapsed_ms,
+                    auto_paste_requested, auto_paste_succeeded
              FROM transcriptions
              WHERE status = ?1 AND text <> ''
              ORDER BY timestamp DESC",
@@ -846,8 +902,14 @@ impl StorageManager {
                 audio_duration_seconds,
                 synced,
                 mode_id,
-                mode_name
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                mode_name,
+                stt_elapsed_ms,
+                cleanup_elapsed_ms,
+                paste_elapsed_ms,
+                total_elapsed_ms,
+                auto_paste_requested,
+                auto_paste_succeeded
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
             params![
                 record.id,
                 timestamp,
@@ -864,6 +926,14 @@ impl StorageManager {
                 if record.synced { 1 } else { 0 },
                 record.mode_id,
                 record.mode_name,
+                record.stt_elapsed_ms.map(|value| value as i64),
+                record.cleanup_elapsed_ms.map(|value| value as i64),
+                record.paste_elapsed_ms.map(|value| value as i64),
+                record.total_elapsed_ms.map(|value| value as i64),
+                if record.auto_paste_requested { 1 } else { 0 },
+                record
+                    .auto_paste_succeeded
+                    .map(|succeeded| if succeeded { 1 } else { 0 }),
             ],
         )?;
         Ok(())
@@ -927,7 +997,9 @@ impl StorageManager {
     fn get_record(conn: &Connection, id: &str) -> Result<Option<TranscriptionRecord>> {
         conn.query_row(
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
-                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name
+                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name,
+                    stt_elapsed_ms, cleanup_elapsed_ms, paste_elapsed_ms, total_elapsed_ms,
+                    auto_paste_requested, auto_paste_succeeded
              FROM transcriptions WHERE id = ?1",
             params![id],
             Self::record_from_row,
@@ -989,6 +1061,9 @@ impl StorageManager {
         } else {
             PathBuf::from(&audio_path).exists()
         };
+        let auto_paste_succeeded = row
+            .get::<_, Option<i64>>("auto_paste_succeeded")?
+            .map(|value| value == 1);
 
         Ok(TranscriptionRecord {
             id: row.get("id")?,
@@ -1007,6 +1082,20 @@ impl StorageManager {
             synced: row.get::<_, i64>("synced").unwrap_or(0) == 1,
             mode_id: row.get("mode_id").unwrap_or(None),
             mode_name: row.get("mode_name").unwrap_or(None),
+            stt_elapsed_ms: row
+                .get::<_, Option<i64>>("stt_elapsed_ms")?
+                .map(|value| value.max(0) as u32),
+            cleanup_elapsed_ms: row
+                .get::<_, Option<i64>>("cleanup_elapsed_ms")?
+                .map(|value| value.max(0) as u32),
+            paste_elapsed_ms: row
+                .get::<_, Option<i64>>("paste_elapsed_ms")?
+                .map(|value| value.max(0) as u32),
+            total_elapsed_ms: row
+                .get::<_, Option<i64>>("total_elapsed_ms")?
+                .map(|value| value.max(0) as u32),
+            auto_paste_requested: row.get::<_, i64>("auto_paste_requested").unwrap_or(0) == 1,
+            auto_paste_succeeded,
         })
     }
 
@@ -1101,7 +1190,13 @@ impl StorageManager {
                 audio_duration_seconds REAL NOT NULL DEFAULT 0,
                 synced INTEGER NOT NULL DEFAULT 0,
                 mode_id TEXT NULL,
-                mode_name TEXT NULL
+                mode_name TEXT NULL,
+                stt_elapsed_ms INTEGER NULL,
+                cleanup_elapsed_ms INTEGER NULL,
+                paste_elapsed_ms INTEGER NULL,
+                total_elapsed_ms INTEGER NULL,
+                auto_paste_requested INTEGER NOT NULL DEFAULT 0,
+                auto_paste_succeeded INTEGER NULL
             );
             CREATE INDEX IF NOT EXISTS idx_transcriptions_timestamp ON transcriptions(timestamp);
             CREATE INDEX IF NOT EXISTS idx_transcriptions_status ON transcriptions(status);
@@ -1223,6 +1318,42 @@ impl StorageManager {
             "transcriptions",
             "mode_name",
             "ALTER TABLE transcriptions ADD COLUMN mode_name TEXT NULL",
+        )?;
+        Self::ensure_column(
+            conn,
+            "transcriptions",
+            "stt_elapsed_ms",
+            "ALTER TABLE transcriptions ADD COLUMN stt_elapsed_ms INTEGER NULL",
+        )?;
+        Self::ensure_column(
+            conn,
+            "transcriptions",
+            "cleanup_elapsed_ms",
+            "ALTER TABLE transcriptions ADD COLUMN cleanup_elapsed_ms INTEGER NULL",
+        )?;
+        Self::ensure_column(
+            conn,
+            "transcriptions",
+            "paste_elapsed_ms",
+            "ALTER TABLE transcriptions ADD COLUMN paste_elapsed_ms INTEGER NULL",
+        )?;
+        Self::ensure_column(
+            conn,
+            "transcriptions",
+            "total_elapsed_ms",
+            "ALTER TABLE transcriptions ADD COLUMN total_elapsed_ms INTEGER NULL",
+        )?;
+        Self::ensure_column(
+            conn,
+            "transcriptions",
+            "auto_paste_requested",
+            "ALTER TABLE transcriptions ADD COLUMN auto_paste_requested INTEGER NOT NULL DEFAULT 0",
+        )?;
+        Self::ensure_column(
+            conn,
+            "transcriptions",
+            "auto_paste_succeeded",
+            "ALTER TABLE transcriptions ADD COLUMN auto_paste_succeeded INTEGER NULL",
         )?;
         Self::ensure_column(
             conn,
@@ -1777,6 +1908,12 @@ mod tests {
             synced: false,
             mode_id: None,
             mode_name: mode_name.map(str::to_string),
+            stt_elapsed_ms: None,
+            cleanup_elapsed_ms: None,
+            paste_elapsed_ms: None,
+            total_elapsed_ms: None,
+            auto_paste_requested: false,
+            auto_paste_succeeded: None,
         }
     }
 

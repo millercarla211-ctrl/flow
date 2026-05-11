@@ -15,4 +15,10 @@ export type TranscriptionRecord = {
   synced: boolean;
   mode_id?: string | null;
   mode_name?: string | null;
+  stt_elapsed_ms?: number | null;
+  cleanup_elapsed_ms?: number | null;
+  paste_elapsed_ms?: number | null;
+  total_elapsed_ms?: number | null;
+  auto_paste_requested: boolean;
+  auto_paste_succeeded?: boolean | null;
 };

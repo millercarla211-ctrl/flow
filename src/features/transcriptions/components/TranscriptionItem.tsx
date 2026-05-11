@@ -6,6 +6,8 @@ import remarkBreaks from "remark-breaks";
 import { invoke } from "@tauri-apps/api/core";
 import {
   CheckSquare,
+  ClipboardCheck,
+  ClipboardX,
   Clock3,
   Cloud,
   Copy,
@@ -23,6 +25,7 @@ import {
   Undo2,
   WandSparkles,
   Square,
+  Timer,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -101,6 +104,13 @@ const formatWordsPerMinute = (wordCount: number, seconds: number) => {
   if (!Number.isFinite(seconds) || seconds < 1 || wordCount <= 0) return null;
   const wordsPerMinute = Math.round(wordCount / (seconds / 60));
   return wordsPerMinute > 0 ? `${wordsPerMinute} wpm` : null;
+};
+
+const formatElapsed = (milliseconds?: number | null) => {
+  if (milliseconds == null || !Number.isFinite(milliseconds) || milliseconds < 0) return null;
+  if (milliseconds < 1000) return `${Math.round(milliseconds)}ms`;
+  if (milliseconds < 10_000) return `${(milliseconds / 1000).toFixed(1)}s`;
+  return `${Math.round(milliseconds / 1000)}s`;
 };
 
 const truncateDiagnosticLabel = (label: string) =>
@@ -352,6 +362,10 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   const wordCount = Math.max(0, record.word_count ?? 0);
   const audioDurationSeconds = Math.max(0, record.audio_duration_seconds ?? 0);
   const wpmLabel = formatWordsPerMinute(wordCount, audioDurationSeconds);
+  const sttElapsedLabel = formatElapsed(record.stt_elapsed_ms);
+  const cleanupElapsedLabel = formatElapsed(record.cleanup_elapsed_ms);
+  const pasteElapsedLabel = formatElapsed(record.paste_elapsed_ms);
+  const totalElapsedLabel = formatElapsed(record.total_elapsed_ms);
   const diagnostics: DiagnosticItem[] = [];
 
   if (audioDurationSeconds > 0) {
@@ -378,6 +392,56 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
       icon: Gauge,
       label: wpmLabel,
       title: "Estimated speaking pace",
+    });
+  }
+
+  if (sttElapsedLabel) {
+    diagnostics.push({
+      key: "stt-time",
+      icon: Timer,
+      label: `STT ${sttElapsedLabel}`,
+      title: "Local speech recognition time",
+    });
+  }
+
+  if (cleanupElapsedLabel) {
+    diagnostics.push({
+      key: "cleanup-time",
+      icon: WandSparkles,
+      label: `Cleanup ${cleanupElapsedLabel}`,
+      title: "AI cleanup time",
+      tone: "local",
+    });
+  }
+
+  if (pasteElapsedLabel) {
+    diagnostics.push({
+      key: "paste-time",
+      icon: record.auto_paste_succeeded ? ClipboardCheck : ClipboardX,
+      label: `Paste ${pasteElapsedLabel}`,
+      title: record.auto_paste_succeeded
+        ? "Auto-paste succeeded"
+        : "Auto-paste failed and used fallback",
+      tone: record.auto_paste_succeeded ? "local" : "warning",
+    });
+  } else if (record.auto_paste_requested) {
+    diagnostics.push({
+      key: "paste-result",
+      icon: record.auto_paste_succeeded ? ClipboardCheck : ClipboardX,
+      label: record.auto_paste_succeeded ? "Pasted" : "Paste fallback",
+      title: record.auto_paste_succeeded
+        ? "Auto-paste succeeded"
+        : "Auto-paste failed and used fallback",
+      tone: record.auto_paste_succeeded ? "local" : "warning",
+    });
+  }
+
+  if (totalElapsedLabel) {
+    diagnostics.push({
+      key: "total-time",
+      icon: Clock3,
+      label: `Total ${totalElapsedLabel}`,
+      title: "Total processing time after recording stopped",
     });
   }
 
