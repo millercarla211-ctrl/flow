@@ -2,7 +2,16 @@ import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
-import { Download, Plus, Sparkles, Upload } from "lucide-react";
+import {
+  AlertTriangle,
+  AppWindow,
+  Download,
+  Globe2,
+  Plus,
+  Route,
+  Sparkles,
+  Upload,
+} from "lucide-react";
 import { useShiftHeld } from "../../../shared/hooks/useShiftHeld";
 import ToggleSwitch from "../../../shared/ui/ToggleSwitch";
 import DotMatrix from "../../../shared/ui/DotMatrix";
@@ -33,6 +42,19 @@ type StyleImportItem = {
   apps: string[];
   websites: string[];
   instructions: string[];
+};
+
+type StyleAssignmentConflict = {
+  label: string;
+  styles: string[];
+  kind: "app" | "site";
+};
+
+type StyleCoverage = {
+  enabledStyles: number;
+  assignedApps: number;
+  assignedSites: number;
+  conflicts: StyleAssignmentConflict[];
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -92,6 +114,39 @@ const normalizeStyleBackup = (value: unknown): StyleImportItem[] => {
   return styles;
 };
 
+const addAssignment = (
+  map: Map<string, { label: string; styles: Set<string> }>,
+  rawLabel: string,
+  styleName: string,
+  lowerCase = false,
+) => {
+  const label = rawLabel.trim();
+  if (!label) return;
+
+  const normalizedLabel = lowerCase ? normalizeWebsite(label) : label;
+  if (!normalizedLabel) return;
+
+  const key = normalizedLabel.toLowerCase();
+  const current = map.get(key) ?? {
+    label: normalizedLabel,
+    styles: new Set<string>(),
+  };
+  current.styles.add(styleName);
+  map.set(key, current);
+};
+
+const createCoverageConflicts = (
+  entries: Map<string, { label: string; styles: Set<string> }>,
+  kind: "app" | "site",
+) =>
+  Array.from(entries.values())
+    .filter((entry) => entry.styles.size > 1)
+    .map((entry) => ({
+      label: entry.label,
+      styles: Array.from(entry.styles).sort((left, right) => left.localeCompare(right)),
+      kind,
+    }));
+
 const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   const { t } = useLingui();
   const [personalities, setPersonalities] = useState<Personality[]>([]);
@@ -110,6 +165,34 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   const persistVersionRef = useRef(0);
   const saveTimeoutRef = useRef<number | null>(null);
   const shiftHeld = useShiftHeld(isActive);
+
+  const styleCoverage = useMemo<StyleCoverage>(() => {
+    const appAssignments = new Map<string, { label: string; styles: Set<string> }>();
+    const siteAssignments = new Map<string, { label: string; styles: Set<string> }>();
+    let enabledStyles = 0;
+
+    for (const personality of personalities) {
+      if (!personality.enabled) continue;
+
+      enabledStyles += 1;
+      for (const app of personality.apps) {
+        addAssignment(appAssignments, app, personality.name);
+      }
+      for (const site of personality.websites) {
+        addAssignment(siteAssignments, site, personality.name, true);
+      }
+    }
+
+    return {
+      enabledStyles,
+      assignedApps: appAssignments.size,
+      assignedSites: siteAssignments.size,
+      conflicts: [
+        ...createCoverageConflicts(appAssignments, "app"),
+        ...createCoverageConflicts(siteAssignments, "site"),
+      ].sort((left, right) => left.label.localeCompare(right.label)),
+    };
+  }, [personalities]);
 
   const styleTemplates: StyleTemplate[] = useMemo(
     () => [
@@ -606,6 +689,8 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
         </div>
       )}
 
+      {!loading && personalities.length > 0 && <StyleCoveragePanel coverage={styleCoverage} />}
+
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <div className="mr-1 flex items-center gap-1.5 ui-text-meta-strong ui-color-muted">
           <Sparkles size={13} aria-hidden="true" />
@@ -902,6 +987,121 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+};
+
+const StyleCoveragePanel = ({ coverage }: { coverage: StyleCoverage }) => {
+  const { t } = useLingui();
+  const hasConflicts = coverage.conflicts.length > 0;
+  const visibleConflicts = coverage.conflicts.slice(0, 3);
+  const hiddenConflictCount = Math.max(0, coverage.conflicts.length - visibleConflicts.length);
+  const metrics = [
+    {
+      label: t({
+        id: "personalization.coverage.enabled",
+        message: "Enabled",
+      }),
+      value: coverage.enabledStyles,
+      icon: <Sparkles size={13} aria-hidden="true" />,
+    },
+    {
+      label: t({
+        id: "personalization.coverage.apps",
+        message: "Apps",
+      }),
+      value: coverage.assignedApps,
+      icon: <AppWindow size={13} aria-hidden="true" />,
+    },
+    {
+      label: t({
+        id: "personalization.coverage.sites",
+        message: "Sites",
+      }),
+      value: coverage.assignedSites,
+      icon: <Globe2 size={13} aria-hidden="true" />,
+    },
+    {
+      label: t({
+        id: "personalization.coverage.conflicts",
+        message: "Conflicts",
+      }),
+      value: coverage.conflicts.length,
+      icon: hasConflicts ? (
+        <AlertTriangle size={13} aria-hidden="true" />
+      ) : (
+        <Route size={13} aria-hidden="true" />
+      ),
+    },
+  ];
+
+  return (
+    <div className="mb-5 rounded-xl border border-border-primary bg-surface-secondary px-3 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 ui-text-body-sm-strong ui-color-primary">
+            <Route size={14} aria-hidden="true" />
+            {t({
+              id: "personalization.coverage.title",
+              message: "Style routing",
+            })}
+          </div>
+          <p className="mt-1 ui-text-meta ui-color-muted">
+            {hasConflicts
+              ? t({
+                  id: "personalization.coverage.conflict_status",
+                  message: "Some app/site assignments overlap.",
+                })
+              : t({
+                  id: "personalization.coverage.clean_status",
+                  message: "Assignments are unambiguous.",
+                })}
+          </p>
+        </div>
+
+        <div className="grid min-w-[360px] flex-1 grid-cols-4 gap-1.5">
+          {metrics.map((metric) => (
+            <div
+              key={metric.label}
+              className="min-w-0 rounded-lg border border-border-primary bg-surface-surface px-2 py-1.5"
+            >
+              <div className="flex items-center gap-1.5 ui-text-micro-strong ui-color-muted">
+                {metric.icon}
+                <span className="truncate">{metric.label}</span>
+              </div>
+              <div className="mt-0.5 font-mono ui-text-body-sm-strong ui-color-primary">
+                {metric.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {hasConflicts && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {visibleConflicts.map((conflict) => (
+            <span
+              key={`${conflict.kind}-${conflict.label}`}
+              className="inline-flex max-w-full items-center gap-1 rounded-full border border-border-primary bg-surface-surface px-2 py-1 ui-text-meta ui-color-secondary"
+              title={conflict.styles.join(", ")}
+            >
+              {conflict.kind === "app" ? (
+                <AppWindow size={11} aria-hidden="true" />
+              ) : (
+                <Globe2 size={11} aria-hidden="true" />
+              )}
+              <span className="max-w-[120px] truncate font-mono">{conflict.label}</span>
+              <span className="ui-color-disabled">in</span>
+              <span className="max-w-[180px] truncate">{conflict.styles.join(", ")}</span>
+            </span>
+          ))}
+          {hiddenConflictCount > 0 && (
+            <span className="inline-flex items-center rounded-full border border-border-primary bg-surface-surface px-2 py-1 ui-text-meta ui-color-muted">
+              +{hiddenConflictCount}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 };
