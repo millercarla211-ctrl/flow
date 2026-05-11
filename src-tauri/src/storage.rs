@@ -901,7 +901,12 @@ impl StorageManager {
             if !query.trim().is_empty() {
                 let like_query = format!("%{}%", query.trim());
                 return (
-                    "WHERE text LIKE ?1 OR raw_text LIKE ?1".to_string(),
+                    "WHERE text LIKE ?1
+                        OR raw_text LIKE ?1
+                        OR speech_model LIKE ?1
+                        OR mode_name LIKE ?1
+                        OR auto_transform_label LIKE ?1"
+                        .to_string(),
                     vec![Box::new(like_query)],
                 );
             }
@@ -2131,6 +2136,10 @@ mod tests {
             loaded.auto_transform_label.as_deref(),
             Some("Terminal command")
         );
+
+        let filtered = storage.get_all_filtered(Some("Terminal")).unwrap();
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].id, saved.id);
 
         drop(storage);
         let _ = std::fs::remove_file(db_path);
