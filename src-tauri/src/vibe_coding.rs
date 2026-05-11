@@ -295,28 +295,146 @@ fn tag_spoken_files(text: &str) -> String {
 }
 
 fn tag_recent_files(text: &str, recent_files: &[String]) -> String {
-    let mut result = text.to_string();
     let mut files = recent_files
         .iter()
         .filter_map(|file| normalize_recent_file(file))
         .collect::<Vec<_>>();
     files.sort_by_key(|file| std::cmp::Reverse(file.len()));
 
+    let mut trigger_aliases = Vec::new();
+    let mut full_aliases = Vec::new();
     for file in files {
+        for alias in recent_file_aliases(&file, false) {
+            trigger_aliases.push((alias, file.clone()));
+        }
+        for alias in recent_file_aliases(&file, true) {
+            trigger_aliases.push((alias.clone(), file.clone()));
+            full_aliases.push((alias, file.clone()));
+        }
+    }
+    trigger_aliases.sort_by_key(|(alias, _)| std::cmp::Reverse(alias.len()));
+    full_aliases.sort_by_key(|(alias, _)| std::cmp::Reverse(alias.len()));
+
+    let result = tag_triggered_recent_files(text, &trigger_aliases);
+    tag_full_recent_files(&result, &full_aliases)
+}
+
+fn tag_triggered_recent_files(text: &str, aliases: &[(String, String)]) -> String {
+    let mut result = text.to_string();
+    for (alias, file) in aliases {
         let pattern = format!(
-            r"(?i)(^|[^@\w./\\-])({})($|[^\w./\\-]|\.(?:\s|$))",
-            regex::escape(&file)
+            r"(?i)(^|[^\w@./\\-])(?:tag|tagged|at|@)\s+({})($|[^\w./\\-]|\.(?:\s|$))",
+            alias_regex(alias)
         );
         if let Ok(regex) = Regex::new(&pattern) {
             result = regex
                 .replace_all(&result, |caps: &Captures| {
-                    format!("{}@{}{}", &caps[1], &caps[2], &caps[3])
+                    format!("{}@{}{}", &caps[1], file, &caps[3])
+                })
+                .to_string();
+        }
+    }
+    result
+}
+
+fn tag_full_recent_files(text: &str, aliases: &[(String, String)]) -> String {
+    let mut result = text.to_string();
+    for (alias, file) in aliases {
+        let pattern = format!(
+            r"(?i)(^|[^@\w./\\-])({})($|[^\w./\\-]|\.(?:\s|$))",
+            alias_regex(alias)
+        );
+        if let Ok(regex) = Regex::new(&pattern) {
+            result = regex
+                .replace_all(&result, |caps: &Captures| {
+                    format!("{}@{}{}", &caps[1], file, &caps[3])
                 })
                 .to_string();
         }
     }
 
     result
+}
+
+fn recent_file_aliases(file: &str, include_extension: bool) -> Vec<String> {
+    let Some((stem, extension)) = file.rsplit_once('.') else {
+        return Vec::new();
+    };
+
+    let mut aliases = Vec::new();
+    if include_extension {
+        push_unique_alias(&mut aliases, file);
+    } else {
+        push_unique_alias(&mut aliases, stem);
+    }
+
+    let words = split_identifier_words(stem);
+    if !words.is_empty() {
+        let spoken_stem = words.join(" ");
+        let compact_stem = words.join("");
+        if include_extension {
+            push_unique_alias(&mut aliases, &format!("{spoken_stem}.{extension}"));
+            push_unique_alias(&mut aliases, &format!("{compact_stem}.{extension}"));
+        } else {
+            push_unique_alias(&mut aliases, &spoken_stem);
+            push_unique_alias(&mut aliases, &compact_stem);
+        }
+    }
+
+    aliases
+}
+
+fn push_unique_alias(aliases: &mut Vec<String>, alias: &str) {
+    let alias = whitespace_regex()
+        .replace_all(alias.trim(), " ")
+        .to_string();
+    if alias.is_empty() {
+        return;
+    }
+    if !aliases
+        .iter()
+        .any(|existing| existing.eq_ignore_ascii_case(&alias))
+    {
+        aliases.push(alias);
+    }
+}
+
+fn alias_regex(alias: &str) -> String {
+    regex::escape(alias).replace(r"\ ", r"\s+")
+}
+
+fn split_identifier_words(value: &str) -> Vec<String> {
+    let mut expanded = String::with_capacity(value.len() + 8);
+    let mut previous: Option<char> = None;
+    let mut chars = value.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if matches!(ch, '_' | '-' | ' ' | '.') {
+            expanded.push(' ');
+            previous = Some(' ');
+            continue;
+        }
+
+        if let Some(prev) = previous {
+            let next = chars.peek().copied();
+            let starts_word = ch.is_ascii_uppercase()
+                && (prev.is_ascii_lowercase()
+                    || prev.is_ascii_digit()
+                    || (prev.is_ascii_uppercase()
+                        && next.is_some_and(|next| next.is_ascii_lowercase())));
+            if starts_word {
+                expanded.push(' ');
+            }
+        }
+
+        expanded.push(ch);
+        previous = Some(ch);
+    }
+
+    expanded
+        .split_whitespace()
+        .map(|word| word.to_ascii_lowercase())
+        .collect()
 }
 
 fn explicit_backtick_regex() -> &'static Regex {
@@ -533,5 +651,33 @@ mod tests {
         );
 
         assert_eq!(output, "Please update @index.tsx.");
+    }
+
+    #[test]
+    fn trigger_words_can_tag_recent_files_without_extensions() {
+        let mut settings = settings();
+        settings.vibe_coding_recent_files = vec!["myScript.py".to_string()];
+
+        let output = postprocess_coding_transcript(
+            "Can you explain tag my script?",
+            &settings,
+            Some(&coding_mode()),
+        );
+
+        assert_eq!(output, "Can you explain @myScript.py?");
+    }
+
+    #[test]
+    fn recent_file_matching_handles_camel_case_speech() {
+        let mut settings = settings();
+        settings.vibe_coding_recent_files = vec!["cursorFormatting.ts".to_string()];
+
+        let output = postprocess_coding_transcript(
+            "Please inspect cursor formatting dot t s.",
+            &settings,
+            Some(&coding_mode()),
+        );
+
+        assert_eq!(output, "Please inspect @cursorFormatting.ts.");
     }
 }
