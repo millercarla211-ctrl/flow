@@ -818,6 +818,19 @@ pub(crate) fn handle_registered_hotkey_event(
                 pill.handle_toggle_press(app);
             }
         }
+        hotkeys::ShortcutAction::PasteLastTranscript => {
+            if state == HotkeyState::Pressed {
+                crate::recent_transcriptions::paste_latest_transcription_from_menu(app);
+            }
+        }
+    }
+}
+
+fn default_paste_last_transcript_shortcut() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "Cmd+Ctrl+V"
+    } else {
+        "Shift+Alt+Z"
     }
 }
 
@@ -879,6 +892,12 @@ pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
         settings.toggle_enabled,
         &settings.toggle_shortcut,
         hotkeys::ShortcutAction::Toggle,
+    );
+    add_binding(
+        "Paste last transcript",
+        true,
+        default_paste_last_transcript_shortcut(),
+        hotkeys::ShortcutAction::PasteLastTranscript,
     );
 
     state.hotkeys.replace_registrations(app, bindings)
