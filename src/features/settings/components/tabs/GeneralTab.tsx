@@ -606,7 +606,7 @@ const GeneralTab = ({
                     })
                   : t({
                       id: "settings.general.shortcuts.command_description",
-                      message: "select text, then speak an edit",
+                      message: "hold to edit or generate",
                     })
               }
               shortcut={commandShortcut}

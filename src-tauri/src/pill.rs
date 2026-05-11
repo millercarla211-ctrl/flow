@@ -378,7 +378,7 @@ impl PillController {
 
         if self.is_recording() {
             if *self.shortcut_origin.lock() == Some(ShortcutOrigin::Command) {
-                self.stop_and_process(app);
+                return;
             }
             return;
         }
@@ -403,7 +403,7 @@ impl PillController {
         state.set_pending_command_mode(true);
         self.capture_selected_text_for_command_mode(app);
 
-        if !self.try_start_recording(RecordingMode::Toggle) {
+        if !self.try_start_recording(RecordingMode::Hold) {
             state.set_pending_command_mode(false);
             return;
         }
@@ -433,6 +433,20 @@ impl PillController {
                 self.reset_recording_state();
                 self.transition_to_error(app, &format!("Unable to start recording: {err}"));
             }
+        }
+    }
+
+    fn handle_command_release(&self, app: &AppHandle<AppRuntime>) {
+        if *self.shortcut_origin.lock() != Some(ShortcutOrigin::Command) {
+            return;
+        }
+
+        if !self.clear_hold_state() {
+            return;
+        }
+
+        if self.active_mode() == Some(RecordingMode::Hold) {
+            self.stop_and_process(app);
         }
     }
 
@@ -915,14 +929,15 @@ pub(crate) fn handle_registered_hotkey_event(
                 pill.handle_toggle_press(app);
             }
         }
-        hotkeys::ShortcutAction::Command => {
-            if state == HotkeyState::Pressed {
+        hotkeys::ShortcutAction::Command => match state {
+            HotkeyState::Pressed => {
                 if pill.should_ignore_shortcut_press() {
                     return;
                 }
                 pill.handle_command_press(app);
             }
-        }
+            HotkeyState::Released => pill.handle_command_release(app),
+        },
         hotkeys::ShortcutAction::PasteLastTranscript => {
             if state == HotkeyState::Pressed {
                 crate::recent_transcriptions::paste_latest_transcription_from_menu(app);
