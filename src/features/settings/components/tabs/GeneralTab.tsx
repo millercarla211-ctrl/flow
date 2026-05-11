@@ -1,8 +1,8 @@
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
-import { Check, Copy, Info, Mic, Square, WandSparkles } from "lucide-react";
+import { Check, Copy, Info, Mic, Sparkles, Square, WandSparkles } from "lucide-react";
 import ToggleSwitch from "../../../../shared/ui/ToggleSwitch";
 import { Dropdown } from "../../../../shared/ui/Dropdown";
 import { formatShortcutForDisplay } from "../../../../shared/lib/shortcuts";
@@ -12,7 +12,7 @@ import type {
   TranscriptionLanguageOption,
 } from "../../../../shared/lib/transcriptionLanguages";
 
-type CaptureMode = "smart" | "hold" | "toggle" | null;
+type CaptureMode = "smart" | "hold" | "toggle" | "command" | null;
 type HelpTooltipId = "edit-mode" | "auto-transform" | "cleanup";
 type MicrophoneTestStatus = "idle" | "starting" | "listening" | "error";
 type MicrophoneTestLevels = {
@@ -86,6 +86,9 @@ type GeneralTabProps = {
   toggleShortcut: string;
   toggleEnabled: boolean;
   setToggleEnabled: (value: boolean) => void;
+  commandShortcut: string;
+  commandEnabled: boolean;
+  setCommandEnabled: (value: boolean) => void;
   captureActive: CaptureMode;
   capturePreview: string;
   onStartCapture: (mode: Exclude<CaptureMode, null>) => void;
@@ -127,6 +130,9 @@ const GeneralTab = ({
   toggleShortcut,
   toggleEnabled,
   setToggleEnabled,
+  commandShortcut,
+  commandEnabled,
+  setCommandEnabled,
   captureActive,
   capturePreview,
   onStartCapture,
@@ -574,6 +580,41 @@ const GeneralTab = ({
                 onStartCapture("toggle");
               }}
               canDisable={smartEnabled || holdEnabled}
+            />
+            <ShortcutRow
+              label={t({
+                id: "settings.general.shortcuts.command",
+                message: "Command Mode",
+              })}
+              description={
+                aiFeaturesDisabled
+                  ? t({
+                      id: "settings.general.shortcuts.command_configure",
+                      message: "configure AI to edit selected text",
+                    })
+                  : t({
+                      id: "settings.general.shortcuts.command_description",
+                      message: "select text, then speak an edit",
+                    })
+              }
+              shortcut={commandShortcut}
+              enabled={commandEnabled}
+              isCapturing={captureActive === "command"}
+              capturePreview={capturePreview}
+              onToggle={() => {
+                if (aiFeaturesDisabled) {
+                  onOpenModelsTab();
+                  return;
+                }
+                setCommandEnabled(!commandEnabled);
+              }}
+              onCapture={() => {
+                if (!commandEnabled) return;
+                onStartCapture("command");
+              }}
+              canDisable
+              disabled={aiFeaturesDisabled}
+              icon={<Sparkles size={12} aria-hidden="true" />}
             />
           </div>
         </div>
@@ -1320,6 +1361,8 @@ type ShortcutRowProps = {
   onToggle: () => void;
   onCapture: () => void;
   canDisable: boolean;
+  disabled?: boolean;
+  icon?: ReactNode;
 };
 
 const ShortcutRow = ({
@@ -1332,6 +1375,8 @@ const ShortcutRow = ({
   onToggle,
   onCapture,
   canDisable,
+  disabled = false,
+  icon,
 }: ShortcutRowProps) => {
   const { t } = useLingui();
   const displayShortcut = formatShortcutForDisplay(shortcut);
@@ -1344,6 +1389,7 @@ const ShortcutRow = ({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
+          {icon && <span className="shrink-0 ui-color-muted">{icon}</span>}
           <span className="ui-text-label-strong ui-color-primary">{label}</span>
           <span className="truncate ui-text-meta ui-color-disabled">{description}</span>
         </div>
@@ -1354,12 +1400,12 @@ const ShortcutRow = ({
             id: "settings.general.shortcut.toggle_aria",
             message: `Toggle ${label} shortcut`,
           })}
-          disabled={enabled && !canDisable}
+          disabled={disabled || (enabled && !canDisable)}
         />
       </div>
       <motion.button
         onClick={onCapture}
-        disabled={!enabled}
+        disabled={!enabled || disabled}
         aria-label={t({
           id: "settings.general.shortcut.record_aria",
           message: `Record new shortcut for ${label}, currently ${displayShortcut}`,
@@ -1367,7 +1413,7 @@ const ShortcutRow = ({
         className={`w-full border-b pb-1 pt-1 text-left ui-text-kbd transition-colors flex items-center ${
           isCapturing
             ? "ui-color-primary border-border-hover"
-            : enabled
+            : enabled && !disabled
               ? "ui-color-secondary border-border-primary hover:border-border-secondary hover:text-content-primary"
               : "ui-color-disabled border-border-primary cursor-not-allowed"
         }`}

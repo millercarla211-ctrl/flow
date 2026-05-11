@@ -57,6 +57,7 @@ enum ShortcutOrigin {
     Hold,
     Toggle,
     Smart,
+    Command,
 }
 
 #[derive(Serialize, Clone)]
@@ -330,20 +331,119 @@ impl PillController {
         *self.shortcut_origin.lock() = None;
     }
 
-    fn capture_selected_text_if_enabled(&self, app: &AppHandle<AppRuntime>) {
+    fn capture_selected_text(&self, app: &AppHandle<AppRuntime>, force: bool) -> bool {
         let state = app.state::<AppState>();
-        let settings = state.current_settings();
 
-        if !settings.edit_mode_enabled {
-            state.set_pending_selected_text(None);
-            return;
+        if !force {
+            let settings = state.current_settings();
+            if !settings.edit_mode_enabled {
+                state.set_pending_selected_text(None);
+                return false;
+            }
         }
 
         let selected_text = match assistive::get_selected_text_ax() {
-            Some(text) if text.len() <= 10_000 => Some(text),
+            Some(text) if text.len() <= 10_000 && !text.trim().is_empty() => Some(text),
             _ => None,
         };
+        let has_selection = selected_text.is_some();
         state.set_pending_selected_text(selected_text);
+        has_selection
+    }
+
+    fn capture_selected_text_if_enabled(&self, app: &AppHandle<AppRuntime>) {
+        let _ = self.capture_selected_text(app, false);
+    }
+
+    fn capture_selected_text_for_command_mode(&self, app: &AppHandle<AppRuntime>) -> bool {
+        if self.capture_selected_text(app, true) {
+            return true;
+        }
+
+        app.state::<AppState>().set_pending_selected_text(None);
+        toast::show(
+            app,
+            "warning",
+            Some("Command Mode"),
+            "Select text first, then use Command Mode.",
+        );
+        false
+    }
+
+    fn handle_command_press(&self, app: &AppHandle<AppRuntime>) {
+        if self.status() == PillStatus::Processing {
+            if *self.shortcut_origin.lock() == Some(ShortcutOrigin::Command) {
+                self.cancel_processing(app);
+            }
+            return;
+        }
+
+        if self.status() == PillStatus::Error {
+            toast::hide(app);
+            self.reset(app);
+        }
+
+        if self.active_mode() == Some(RecordingMode::Hold) {
+            return;
+        }
+
+        if self.is_recording() {
+            if *self.shortcut_origin.lock() == Some(ShortcutOrigin::Command) {
+                self.stop_and_process(app);
+            }
+            return;
+        }
+
+        if !check_mic_permission(app) {
+            return;
+        }
+
+        let state = app.state::<AppState>();
+        let settings = state.current_settings();
+        if !crate::llm_cleanup::is_llm_available(&settings) {
+            state.set_pending_selected_text(None);
+            toast::show(
+                app,
+                "warning",
+                Some("Command Mode"),
+                "Command Mode needs a configured language model in Settings -> Models.",
+            );
+            return;
+        }
+
+        if !self.capture_selected_text_for_command_mode(app) {
+            return;
+        }
+
+        if !self.try_start_recording(RecordingMode::Toggle) {
+            return;
+        }
+
+        *self.shortcut_origin.lock() = Some(ShortcutOrigin::Command);
+        self.preload_local_model_if_needed(app, &settings);
+
+        match self.recorder.start(settings.microphone_device) {
+            Ok(started) => {
+                self.transition_to(app, PillStatus::Listening);
+                self.start_audio_spectrum_emitter(app);
+                self.pause_media_if_playing(app);
+                self.start_streaming_session_if_supported(app, &settings.local_model);
+
+                emit_event(
+                    app,
+                    crate::EVENT_RECORDING_START,
+                    crate::RecordingStartPayload {
+                        started_at: started.to_rfc3339(),
+                    },
+                );
+                check_accessibility_warning(app);
+            }
+            Err(err) => {
+                state.set_pending_selected_text(None);
+                self.reset_recording_state();
+                self.transition_to_error(app, &format!("Unable to start recording: {err}"));
+            }
+        }
     }
 
     fn is_recording(&self) -> bool {
@@ -583,8 +683,11 @@ impl PillController {
 
     fn stop_and_process(&self, app: &AppHandle<AppRuntime>) {
         self.stop_audio_spectrum_emitter();
+        let origin = *self.shortcut_origin.lock();
         *self.recording_mode.lock() = None;
-        self.capture_selected_text_if_enabled(app);
+        if origin != Some(ShortcutOrigin::Command) {
+            self.capture_selected_text_if_enabled(app);
+        }
 
         let state = app.state::<AppState>();
         let has_streaming = state.has_streaming_session();
@@ -818,6 +921,14 @@ pub(crate) fn handle_registered_hotkey_event(
                 pill.handle_toggle_press(app);
             }
         }
+        hotkeys::ShortcutAction::Command => {
+            if state == HotkeyState::Pressed {
+                if pill.should_ignore_shortcut_press() {
+                    return;
+                }
+                pill.handle_command_press(app);
+            }
+        }
         hotkeys::ShortcutAction::PasteLastTranscript => {
             if state == HotkeyState::Pressed {
                 crate::recent_transcriptions::paste_latest_transcription_from_menu(app);
@@ -892,6 +1003,12 @@ pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
         settings.toggle_enabled,
         &settings.toggle_shortcut,
         hotkeys::ShortcutAction::Toggle,
+    );
+    add_binding(
+        "Command Mode",
+        settings.command_enabled,
+        &settings.command_shortcut,
+        hotkeys::ShortcutAction::Command,
     );
     add_binding(
         "Paste last transcript",

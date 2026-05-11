@@ -39,6 +39,7 @@ import type {
 const TEXT_SIZE_MODE_STORAGE_KEY = "flow_text_size_mode";
 
 type ActiveTab = "general" | "models" | "about" | "account" | "app" | "vibe";
+type ShortcutCaptureMode = "smart" | "hold" | "toggle" | "command";
 
 interface UseSettingsFormOptions {
   isOpen: boolean;
@@ -63,6 +64,8 @@ export function useSettingsForm({
   const [holdEnabled, setHoldEnabled] = useState(false);
   const [toggleShortcut, setToggleShortcut] = useState("Control+Alt+Space");
   const [toggleEnabled, setToggleEnabled] = useState(false);
+  const [commandShortcut, setCommandShortcut] = useState("Control+Alt+E");
+  const [commandEnabled, setCommandEnabled] = useState(false);
   const [transcriptionMode, setTranscriptionModeRaw] =
     useState<TranscriptionMode>(initialTranscriptionMode);
   const [localModel, setLocalModel] = useState("");
@@ -73,9 +76,9 @@ export function useSettingsForm({
   const [downloadState, setDownloadState] = useState<Record<string, DownloadEvent>>({});
   const [error, setError] = useState<string | null>(null);
   const [errorCopied, setErrorCopied] = useState(false);
-  const [captureActive, setCaptureActive] = useState<"smart" | "hold" | "toggle" | null>(null);
+  const [captureActive, setCaptureActive] = useState<ShortcutCaptureMode | null>(null);
   const [capturePreview, setCapturePreview] = useState<string>("");
-  const captureActiveRef = useRef<"smart" | "hold" | "toggle" | null>(null);
+  const captureActiveRef = useRef<ShortcutCaptureMode | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("general");
   const [llmEnabled, setLlmEnabledRaw] = useState(false);
   const [cleanupEnabled, setCleanupEnabled] = useState(false);
@@ -136,6 +139,7 @@ export function useSettingsForm({
       setCleanupEnabled(false);
       setEditModeEnabled(false);
       setAutoTransformEnabled(false);
+      setCommandEnabled(false);
       setError(null);
     }
   }, []);
@@ -187,6 +191,8 @@ export function useSettingsForm({
     setHoldEnabled(s.hold_enabled);
     setToggleShortcut(s.toggle_shortcut);
     setToggleEnabled(s.toggle_enabled);
+    setCommandShortcut(s.command_shortcut ?? "Control+Alt+E");
+    setCommandEnabled(s.command_enabled ?? false);
     setTranscriptionModeRaw(s.transcription_mode);
     setLocalModel(s.local_model);
     setMicrophoneDevice(s.microphone_device);
@@ -287,6 +293,8 @@ export function useSettingsForm({
         setHoldShortcut(combo);
       } else if (captureActive === "toggle") {
         setToggleShortcut(combo);
+      } else if (captureActive === "command") {
+        setCommandShortcut(combo);
       }
       setError(null);
     },
@@ -306,6 +314,7 @@ export function useSettingsForm({
     setCleanupEnabled(false);
     setEditModeEnabled(false);
     setAutoTransformEnabled(false);
+    setCommandEnabled(false);
   }, [aiFeaturesReady]);
 
   useEffect(() => {
@@ -559,6 +568,8 @@ export function useSettingsForm({
             holdEnabled,
             toggleShortcut,
             toggleEnabled,
+            commandShortcut,
+            commandEnabled: aiFeaturesReady ? commandEnabled : false,
             transcriptionMode,
             localModel,
             microphoneDevice,
@@ -610,6 +621,8 @@ export function useSettingsForm({
     holdEnabled,
     toggleShortcut,
     toggleEnabled,
+    commandShortcut,
+    commandEnabled,
     transcriptionMode,
     localModel,
     microphoneDevice,
@@ -650,7 +663,7 @@ export function useSettingsForm({
   }, [appInfo?.data_dir_path]);
 
   const handleStartCapture = useCallback(
-    (mode: "smart" | "hold" | "toggle") => {
+    (mode: ShortcutCaptureMode) => {
       if (captureActive === mode) {
         finalizeCapture();
         resetCaptureState();
@@ -830,6 +843,9 @@ export function useSettingsForm({
     toggleShortcut,
     toggleEnabled,
     setToggleEnabled,
+    commandShortcut,
+    commandEnabled,
+    setCommandEnabled,
     transcriptionMode,
     setTranscriptionMode,
     localModel,

@@ -55,6 +55,8 @@ export type StoredSettings = {
   hold_enabled: boolean;
   toggle_shortcut: string;
   toggle_enabled: boolean;
+  command_shortcut: string;
+  command_enabled: boolean;
   transcription_mode: TranscriptionMode;
   local_model: string;
   microphone_device: string | null;

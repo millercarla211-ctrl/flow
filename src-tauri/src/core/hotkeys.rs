@@ -26,6 +26,7 @@ pub(crate) enum ShortcutAction {
     Smart,
     Hold,
     Toggle,
+    Command,
     PasteLastTranscript,
 }
 

@@ -18,6 +18,8 @@ pub(crate) struct UpdateSettingsArgs {
     pub hold_enabled: bool,
     pub toggle_shortcut: String,
     pub toggle_enabled: bool,
+    pub command_shortcut: String,
+    pub command_enabled: bool,
     pub transcription_mode: TranscriptionMode,
     pub local_model: String,
     pub microphone_device: Option<String>,
@@ -66,6 +68,10 @@ fn validate_update_settings_args(args: &UpdateSettingsArgs) -> Result<(), String
         return Err("Toggle shortcut cannot be empty when enabled".into());
     }
 
+    if args.command_enabled && args.command_shortcut.trim().is_empty() {
+        return Err("Command Mode shortcut cannot be empty when enabled".into());
+    }
+
     if !args.smart_enabled && !args.hold_enabled && !args.toggle_enabled {
         return Err("At least one recording mode must be enabled".into());
     }
@@ -88,6 +94,12 @@ fn validate_update_settings_args(args: &UpdateSettingsArgs) -> Result<(), String
         let normalized = hotkeys::parse_shortcut(raw)
             .map_err(|err| format!("Toggle shortcut is invalid: {err}"))?;
         enabled_shortcuts.push(("Toggle", normalized));
+    }
+    if args.command_enabled {
+        let raw = args.command_shortcut.trim();
+        let normalized = hotkeys::parse_shortcut(raw)
+            .map_err(|err| format!("Command Mode shortcut is invalid: {err}"))?;
+        enabled_shortcuts.push(("Command Mode", normalized));
     }
 
     for i in 0..enabled_shortcuts.len() {
@@ -229,6 +241,12 @@ pub(crate) fn update_settings(
         args.toggle_shortcut
     };
     next.toggle_enabled = args.toggle_enabled;
+    next.command_shortcut = if args.command_enabled {
+        canonicalize_shortcut_for_storage(&args.command_shortcut)?
+    } else {
+        args.command_shortcut
+    };
+    next.command_enabled = args.command_enabled;
     next.transcription_mode = args.transcription_mode;
     next.local_model = args.local_model;
     next.microphone_device = args.microphone_device;
@@ -331,6 +349,8 @@ mod tests {
             hold_enabled: false,
             toggle_shortcut: "Control+Alt+Space".to_string(),
             toggle_enabled: false,
+            command_shortcut: "Control+Alt+E".to_string(),
+            command_enabled: false,
             transcription_mode: TranscriptionMode::Local,
             local_model: default_local_model(),
             microphone_device: None,
@@ -416,6 +436,17 @@ mod tests {
         let err = validate_update_settings_args(&args).unwrap_err();
 
         assert_eq!(err, "Smart and Hold shortcuts cannot be the same");
+    }
+
+    #[test]
+    fn rejects_command_shortcut_overlap() {
+        let mut args = base_args();
+        args.command_enabled = true;
+        args.command_shortcut = "Ctrl+Space".to_string();
+
+        let err = validate_update_settings_args(&args).unwrap_err();
+
+        assert_eq!(err, "Smart and Command Mode shortcuts cannot be the same");
     }
 
     #[test]

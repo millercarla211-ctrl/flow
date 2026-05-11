@@ -14,6 +14,8 @@ const KEY_HOLD_SHORTCUT: &str = "hold_shortcut";
 const KEY_HOLD_ENABLED: &str = "hold_enabled";
 const KEY_TOGGLE_SHORTCUT: &str = "toggle_shortcut";
 const KEY_TOGGLE_ENABLED: &str = "toggle_enabled";
+const KEY_COMMAND_SHORTCUT: &str = "command_shortcut";
+const KEY_COMMAND_ENABLED: &str = "command_enabled";
 const KEY_TRANSCRIPTION_MODE: &str = "transcription_mode";
 const KEY_LOCAL_MODEL: &str = "local_model";
 const KEY_MICROPHONE_DEVICE: &str = "microphone_device";
@@ -87,6 +89,10 @@ pub struct UserSettings {
     pub toggle_shortcut: String,
     #[serde(default)]
     pub toggle_enabled: bool,
+    #[serde(default = "default_command_shortcut")]
+    pub command_shortcut: String,
+    #[serde(default)]
+    pub command_enabled: bool,
     #[serde(default = "default_transcription_mode")]
     pub transcription_mode: TranscriptionMode,
     #[serde(default = "default_local_model")]
@@ -165,6 +171,10 @@ fn default_hold_shortcut() -> String {
 
 fn default_toggle_shortcut() -> String {
     "Control+Alt+Space".to_string()
+}
+
+fn default_command_shortcut() -> String {
+    "Control+Alt+E".to_string()
 }
 
 fn default_true() -> bool {
@@ -370,6 +380,8 @@ impl Default for UserSettings {
             hold_enabled: false,
             toggle_shortcut: default_toggle_shortcut(),
             toggle_enabled: false,
+            command_shortcut: default_command_shortcut(),
+            command_enabled: false,
             transcription_mode: default_transcription_mode(),
             local_model: default_local_model(),
             microphone_device: None,
@@ -634,6 +646,13 @@ impl SettingsStore {
                 self.read_value(&conn, KEY_TOGGLE_SHORTCUT, settings.toggle_shortcut.clone())?;
             settings.toggle_enabled =
                 self.read_value(&conn, KEY_TOGGLE_ENABLED, settings.toggle_enabled)?;
+            settings.command_shortcut = self.read_value(
+                &conn,
+                KEY_COMMAND_SHORTCUT,
+                settings.command_shortcut.clone(),
+            )?;
+            settings.command_enabled =
+                self.read_value(&conn, KEY_COMMAND_ENABLED, settings.command_enabled)?;
             settings.transcription_mode = self.read_value(
                 &conn,
                 KEY_TRANSCRIPTION_MODE,
@@ -872,6 +891,8 @@ impl SettingsStore {
         self.write_value(&conn, KEY_HOLD_ENABLED, &settings.hold_enabled)?;
         self.write_value(&conn, KEY_TOGGLE_SHORTCUT, &settings.toggle_shortcut)?;
         self.write_value(&conn, KEY_TOGGLE_ENABLED, &settings.toggle_enabled)?;
+        self.write_value(&conn, KEY_COMMAND_SHORTCUT, &settings.command_shortcut)?;
+        self.write_value(&conn, KEY_COMMAND_ENABLED, &settings.command_enabled)?;
         self.write_value(&conn, KEY_TRANSCRIPTION_MODE, &settings.transcription_mode)?;
         self.write_value(&conn, KEY_LOCAL_MODEL, &settings.local_model)?;
         self.write_value(&conn, KEY_MICROPHONE_DEVICE, &settings.microphone_device)?;
