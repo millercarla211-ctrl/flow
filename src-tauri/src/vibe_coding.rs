@@ -22,6 +22,7 @@ pub(crate) fn postprocess_coding_transcript(
     result = normalize_spoken_extensions(&result);
     result = normalize_path_separators(&result);
     result = normalize_identifier_separators(&result);
+    result = normalize_spoken_code_symbols(&result);
 
     if settings.vibe_coding_file_tagging {
         result = tag_spoken_files(&result);
@@ -167,6 +168,79 @@ fn normalize_explicit_backticks(text: &str) -> String {
         .to_string()
 }
 
+fn code_symbol_patterns() -> &'static [(Regex, &'static str)] {
+    static PATTERNS: OnceLock<Vec<(Regex, &'static str)>> = OnceLock::new();
+    PATTERNS.get_or_init(|| {
+        [
+            (r"(?i)\bopen\s+(?:paren|parenthesis)\b", "("),
+            (r"(?i)\bclose\s+(?:paren|parenthesis)\b", ")"),
+            (r"(?i)\bopen\s+(?:bracket|square bracket)\b", "["),
+            (r"(?i)\bclose\s+(?:bracket|square bracket)\b", "]"),
+            (r"(?i)\bopen\s+(?:brace|curly brace)\b", "{"),
+            (r"(?i)\bclose\s+(?:brace|curly brace)\b", "}"),
+            (r"(?i)\btriple\s+equals\b", " === "),
+            (r"(?i)\bdouble\s+equals\b", " == "),
+            (r"(?i)\bnot\s+equals\b", " != "),
+            (r"(?i)\bfat\s+arrow\b", " => "),
+            (r"(?i)\barrow\b", " -> "),
+            (r"(?i)\bequals\b", " = "),
+            (r"(?i)\bsemicolon\b", ";"),
+            (r"(?i)\bcolon\b", ":"),
+            (r"(?i)\bcomma\b", ","),
+            (r"(?i)\bpipe\b", " | "),
+        ]
+        .into_iter()
+        .map(|(pattern, replacement)| {
+            (
+                Regex::new(pattern).expect("valid code symbol regex"),
+                replacement,
+            )
+        })
+        .collect()
+    })
+}
+
+fn whitespace_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"[ \t]{2,}").expect("valid whitespace regex"))
+}
+
+fn space_before_closer_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\s+([,.;:)\]}])").expect("valid closer spacing regex"))
+}
+
+fn space_after_opener_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"([(\[{])\s+").expect("valid opener spacing regex"))
+}
+
+fn space_before_function_paren_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"([A-Za-z0-9_`])\s+\(").expect("valid function paren regex"))
+}
+
+fn cleanup_symbol_spacing(text: &str) -> String {
+    let text = whitespace_regex().replace_all(text, " ").to_string();
+    let text = space_before_closer_regex()
+        .replace_all(&text, "$1")
+        .to_string();
+    let text = space_after_opener_regex()
+        .replace_all(&text, "$1")
+        .to_string();
+    space_before_function_paren_regex()
+        .replace_all(&text, "$1(")
+        .to_string()
+}
+
+fn normalize_spoken_code_symbols(text: &str) -> String {
+    let mut result = text.to_string();
+    for (regex, replacement) in code_symbol_patterns() {
+        result = regex.replace_all(&result, *replacement).to_string();
+    }
+    cleanup_symbol_spacing(&result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -207,6 +281,17 @@ mod tests {
         );
 
         assert_eq!(output, "Use `createUser` with user_id and auth-token.");
+    }
+
+    #[test]
+    fn postprocesses_spoken_code_symbols() {
+        let output = postprocess_coding_transcript(
+            "Return createUser open paren user underscore id comma auth dash token close paren semicolon",
+            &settings(),
+            Some(&coding_mode()),
+        );
+
+        assert_eq!(output, "Return createUser(user_id, auth-token);");
     }
 
     #[test]
