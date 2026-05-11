@@ -1,7 +1,18 @@
 import { useLingui } from "@lingui/react/macro";
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X, ArrowDownUp, Check } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  Search,
+  X,
+  ArrowDownUp,
+  Check,
+  CheckSquare,
+  Copy,
+  FileText,
+  Trash2,
+  WandSparkles,
+} from "lucide-react";
 import { Virtuoso } from "react-virtuoso";
 import {
   useTranscriptionList,
@@ -39,6 +50,13 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const [searchOpen, setSearchOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("recent");
   const [sortOpen, setSortOpen] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [batchStatus, setBatchStatus] = useState<string | null>(null);
+  const [batchError, setBatchError] = useState<string | null>(null);
+  const [batchBusy, setBatchBusy] = useState<"copy" | "scratchpad" | "transform" | "delete" | null>(
+    null,
+  );
   const sortRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 300);
@@ -88,6 +106,33 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   }, [transcriptions, sortKey]);
 
   const isTimeSorted = sortKey === "recent" || sortKey === "oldest";
+  const selectedRecords = useMemo(
+    () => sortedTranscriptions.filter((record) => selectedIds.has(record.id)),
+    [selectedIds, sortedTranscriptions],
+  );
+  const selectedTextRecords = useMemo(
+    () =>
+      selectedRecords.filter(
+        (record) => record.status === "success" && record.text.trim().length > 0,
+      ),
+    [selectedRecords],
+  );
+  const allVisibleSelected =
+    sortedTranscriptions.length > 0 &&
+    sortedTranscriptions.every((record) => selectedIds.has(record.id));
+  const selectedBatchText = useMemo(
+    () => selectedTextRecords.map((record) => record.text.trim()).join("\n\n"),
+    [selectedTextRecords],
+  );
+
+  useEffect(() => {
+    if (selectedIds.size === 0) return;
+    const visibleIds = new Set(transcriptions.map((record) => record.id));
+    setSelectedIds((current) => {
+      const next = new Set(Array.from(current).filter((id) => visibleIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [selectedIds.size, transcriptions]);
 
   const formatGroupLabel = useCallback(
     (date: Date) => {
@@ -178,6 +223,99 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
     [undoLlmMutation],
   );
 
+  const flashBatchStatus = (message: string) => {
+    setBatchStatus(message);
+    setBatchError(null);
+    window.setTimeout(() => setBatchStatus(null), 2400);
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const toggleRecordSelection = useCallback((id: string, selected: boolean) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (selected) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAllVisible = () => {
+    setSelectedIds((current) => {
+      if (allVisibleSelected) return new Set();
+      const next = new Set(current);
+      sortedTranscriptions.forEach((record) => next.add(record.id));
+      return next;
+    });
+  };
+
+  const runBatchAction = async (
+    action: "copy" | "scratchpad" | "transform" | "delete",
+    work: () => Promise<string>,
+  ) => {
+    if (batchBusy || selectedRecords.length === 0) return;
+    setBatchBusy(action);
+    setBatchError(null);
+    setBatchStatus(null);
+    try {
+      const message = await work();
+      flashBatchStatus(message);
+    } catch (error) {
+      setBatchError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBatchBusy(null);
+    }
+  };
+
+  const copySelected = () =>
+    runBatchAction("copy", async () => {
+      if (!selectedBatchText) throw new Error("Selected items have no transcript text.");
+      await navigator.clipboard.writeText(selectedBatchText);
+      return t({
+        id: "transcriptions.batch.copied",
+        message: `Copied ${selectedTextRecords.length} transcripts`,
+      });
+    });
+
+  const saveSelectedToScratchpad = () =>
+    runBatchAction("scratchpad", async () => {
+      if (!selectedBatchText) throw new Error("Selected items have no transcript text.");
+      await invoke("create_scratchpad_entry", {
+        body: selectedBatchText,
+        source: "transcription-batch",
+      });
+      return t({
+        id: "transcriptions.batch.saved",
+        message: `Saved ${selectedTextRecords.length} transcripts to Scratchpad`,
+      });
+    });
+
+  const transformSelected = () =>
+    runBatchAction("transform", async () => {
+      if (!selectedBatchText) throw new Error("Selected items have no transcript text.");
+      await invoke("open_transforms_view", { text: selectedBatchText });
+      return t({
+        id: "transcriptions.batch.opened_transform",
+        message: "Opened selected transcripts in Transforms",
+      });
+    });
+
+  const deleteSelected = () =>
+    runBatchAction("delete", async () => {
+      for (const record of selectedRecords) {
+        await deleteMutation.mutateAsync(record.id);
+      }
+      const deletedCount = selectedRecords.length;
+      clearSelection();
+      return t({
+        id: "transcriptions.batch.deleted",
+        message: `Deleted ${deletedCount} transcripts`,
+      });
+    });
+
   const sortOptions: { value: SortKey; label: string }[] = [
     {
       value: "recent",
@@ -236,6 +374,9 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
             showLlmButtons={showLlmButtons}
             shiftHeld={shiftHeld}
             showDate={!isTimeSorted}
+            selectionMode={selectionMode}
+            selected={selectedIds.has(record.id)}
+            onSelectionChange={toggleRecordSelection}
           />
         </div>
       );
@@ -250,6 +391,9 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
       showLlmButtons,
       shiftHeld,
       isTimeSorted,
+      selectionMode,
+      selectedIds,
+      toggleRecordSelection,
     ],
   );
 
@@ -285,6 +429,8 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
 
   const hasAnyResults = sortedTranscriptions.length > 0;
   const showEmptyState = totalCount === 0 && !debouncedSearchQuery && !isLoading;
+  const hasSelectedRecords = selectedRecords.length > 0;
+  const hasSelectedText = selectedTextRecords.length > 0;
 
   return (
     <motion.div
@@ -293,119 +439,237 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
       transition={{ duration: 0.25, ease: "easeOut" }}
       className="w-full flex-1 min-h-0 flex flex-col"
     >
-      <div className="flex items-center justify-end gap-1 mb-3 h-8 shrink-0">
-        <AnimatePresence initial={false} mode="wait">
-          {searchOpen ? (
-            <motion.div
-              key="search-input"
-              initial={{ opacity: 0, width: 32 }}
-              animate={{ opacity: 1, width: 240 }}
-              exit={{ opacity: 0, width: 32 }}
-              transition={{ duration: 0.16, ease: "easeOut" }}
-              className="flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border-primary bg-surface-secondary/60 overflow-hidden"
-            >
-              <Search size={12} className="text-content-disabled shrink-0" aria-hidden="true" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                autoFocus
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") closeSearch();
-                }}
-                placeholder={t({
-                  id: "transcriptions.list.search.placeholder_short",
-                  message: "Search",
-                })}
-                aria-label={t({
-                  id: "transcriptions.list.search.aria",
-                  message: "Search transcriptions",
-                })}
-                className="bg-transparent ui-text-body-sm ui-color-secondary placeholder-content-disabled outline-hidden flex-1 min-w-0"
-              />
-              <button
-                onClick={closeSearch}
-                aria-label={t({
-                  id: "transcriptions.list.search.close",
-                  message: "Close search",
-                })}
-                className="p-0.5 rounded text-content-disabled hover:text-content-muted transition-colors shrink-0"
-              >
-                <X size={12} aria-hidden="true" />
-              </button>
-            </motion.div>
-          ) : (
-            <motion.button
-              key="search-button"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.12 }}
-              onClick={() => setSearchOpen(true)}
-              aria-label={t({
-                id: "transcriptions.list.search.open",
-                message: "Search transcriptions",
-              })}
-              className="ui-button-ghost h-8 w-8"
-            >
-              <Search size={13} aria-hidden="true" />
-            </motion.button>
-          )}
-        </AnimatePresence>
-
-        <div className="relative" ref={sortRef}>
-          <button
-            type="button"
-            onClick={() => setSortOpen((open) => !open)}
-            aria-haspopup="menu"
-            aria-expanded={sortOpen}
-            aria-label={t({
-              id: "transcriptions.list.sort.aria",
-              message: "Sort transcriptions",
-            })}
-            className="ui-button-ghost h-8 w-8"
-          >
-            <ArrowDownUp size={13} aria-hidden="true" />
-          </button>
+      <div className="mb-3 flex min-h-8 shrink-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <AnimatePresence>
-            {sortOpen && (
+            {selectionMode && (
               <motion.div
-                role="menu"
-                initial={{ opacity: 0, scale: 0.98, y: -2 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.98, y: -2 }}
-                transition={{ duration: 0.12 }}
-                className="ui-surface-menu absolute right-0 top-full mt-1 z-30 min-w-[160px]"
+                key="batch-toolbar"
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8 }}
+                transition={{ duration: 0.14 }}
+                className="flex min-w-0 items-center gap-1 rounded-full border border-border-primary bg-surface-secondary/70 px-1.5 py-1"
               >
-                {sortOptions.map((opt) => {
-                  const selected = opt.value === sortKey;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={selected}
-                      onClick={() => {
-                        setSortKey(opt.value);
-                        setSortOpen(false);
-                      }}
-                      className={`flex w-full items-center justify-between gap-3 px-3 py-1.5 ui-text-body-sm transition-colors ${
-                        selected
-                          ? "ui-color-primary bg-[var(--surface-interactive-strong)]"
-                          : "ui-color-secondary hover:bg-[var(--surface-interactive)] hover:text-content-primary"
-                      }`}
-                    >
-                      <span>{opt.label}</span>
-                      <span className="w-3 flex items-center justify-center shrink-0">
-                        {selected && <Check size={12} aria-hidden="true" />}
-                      </span>
-                    </button>
-                  );
-                })}
+                <button
+                  type="button"
+                  onClick={toggleAllVisible}
+                  className="ui-button-ghost h-7 gap-1 rounded-full px-2 ui-text-meta"
+                >
+                  <CheckSquare size={13} aria-hidden="true" />
+                  {allVisibleSelected
+                    ? t({ id: "transcriptions.batch.none", message: "None" })
+                    : t({ id: "transcriptions.batch.all", message: "All" })}
+                </button>
+                <span className="px-2 ui-text-meta ui-color-muted tabular-nums">
+                  {selectedRecords.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={copySelected}
+                  disabled={!hasSelectedText || batchBusy !== null}
+                  className="ui-button-ghost h-7 w-7 disabled:opacity-40"
+                  aria-label={t({ id: "transcriptions.batch.copy", message: "Copy selected" })}
+                  title={t({ id: "transcriptions.batch.copy", message: "Copy selected" })}
+                >
+                  <Copy size={13} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={saveSelectedToScratchpad}
+                  disabled={!hasSelectedText || batchBusy !== null}
+                  className="ui-button-ghost h-7 w-7 disabled:opacity-40"
+                  aria-label={t({
+                    id: "transcriptions.batch.save",
+                    message: "Save selected to Scratchpad",
+                  })}
+                  title={t({
+                    id: "transcriptions.batch.save",
+                    message: "Save selected to Scratchpad",
+                  })}
+                >
+                  <FileText size={13} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={transformSelected}
+                  disabled={!hasSelectedText || batchBusy !== null}
+                  className="ui-button-ghost h-7 w-7 disabled:opacity-40"
+                  aria-label={t({
+                    id: "transcriptions.batch.transform",
+                    message: "Transform selected",
+                  })}
+                  title={t({
+                    id: "transcriptions.batch.transform",
+                    message: "Transform selected",
+                  })}
+                >
+                  <WandSparkles size={13} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteSelected}
+                  disabled={!hasSelectedRecords || batchBusy !== null}
+                  className="ui-button-ghost h-7 w-7 text-content-muted hover:text-error disabled:opacity-40"
+                  aria-label={t({ id: "transcriptions.batch.delete", message: "Delete selected" })}
+                  title={t({ id: "transcriptions.batch.delete", message: "Delete selected" })}
+                >
+                  <Trash2 size={13} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="ui-button-ghost h-7 w-7"
+                  aria-label={t({ id: "transcriptions.batch.close", message: "Close selection" })}
+                  title={t({ id: "transcriptions.batch.close", message: "Close selection" })}
+                >
+                  <X size={13} aria-hidden="true" />
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
+          {(batchStatus || batchError) && (
+            <span
+              className={`truncate ui-text-meta ${
+                batchError ? "ui-color-error-soft" : "ui-color-secondary"
+              }`}
+              role="status"
+            >
+              {batchError ?? batchStatus}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-1">
+          <AnimatePresence initial={false} mode="wait">
+            {searchOpen ? (
+              <motion.div
+                key="search-input"
+                initial={{ opacity: 0, width: 32 }}
+                animate={{ opacity: 1, width: 240 }}
+                exit={{ opacity: 0, width: 32 }}
+                transition={{ duration: 0.16, ease: "easeOut" }}
+                className="flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border-primary bg-surface-secondary/60 overflow-hidden"
+              >
+                <Search size={12} className="text-content-disabled shrink-0" aria-hidden="true" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  autoFocus
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") closeSearch();
+                  }}
+                  placeholder={t({
+                    id: "transcriptions.list.search.placeholder_short",
+                    message: "Search",
+                  })}
+                  aria-label={t({
+                    id: "transcriptions.list.search.aria",
+                    message: "Search transcriptions",
+                  })}
+                  className="bg-transparent ui-text-body-sm ui-color-secondary placeholder-content-disabled outline-hidden flex-1 min-w-0"
+                />
+                <button
+                  onClick={closeSearch}
+                  aria-label={t({
+                    id: "transcriptions.list.search.close",
+                    message: "Close search",
+                  })}
+                  className="p-0.5 rounded text-content-disabled hover:text-content-muted transition-colors shrink-0"
+                >
+                  <X size={12} aria-hidden="true" />
+                </button>
+              </motion.div>
+            ) : (
+              <motion.button
+                key="search-button"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                onClick={() => setSearchOpen(true)}
+                aria-label={t({
+                  id: "transcriptions.list.search.open",
+                  message: "Search transcriptions",
+                })}
+                className="ui-button-ghost h-8 w-8"
+              >
+                <Search size={13} aria-hidden="true" />
+              </motion.button>
+            )}
+          </AnimatePresence>
+
+          <div className="relative" ref={sortRef}>
+            <button
+              type="button"
+              onClick={() => setSortOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={sortOpen}
+              aria-label={t({
+                id: "transcriptions.list.sort.aria",
+                message: "Sort transcriptions",
+              })}
+              className="ui-button-ghost h-8 w-8"
+            >
+              <ArrowDownUp size={13} aria-hidden="true" />
+            </button>
+            <AnimatePresence>
+              {sortOpen && (
+                <motion.div
+                  role="menu"
+                  initial={{ opacity: 0, scale: 0.98, y: -2 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.98, y: -2 }}
+                  transition={{ duration: 0.12 }}
+                  className="ui-surface-menu absolute right-0 top-full mt-1 z-30 min-w-[160px]"
+                >
+                  {sortOptions.map((opt) => {
+                    const selected = opt.value === sortKey;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={selected}
+                        onClick={() => {
+                          setSortKey(opt.value);
+                          setSortOpen(false);
+                        }}
+                        className={`flex w-full items-center justify-between gap-3 px-3 py-1.5 ui-text-body-sm transition-colors ${
+                          selected
+                            ? "ui-color-primary bg-[var(--surface-interactive-strong)]"
+                            : "ui-color-secondary hover:bg-[var(--surface-interactive)] hover:text-content-primary"
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        <span className="w-3 flex items-center justify-center shrink-0">
+                          {selected && <Check size={12} aria-hidden="true" />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectionMode((current) => !current);
+              setBatchError(null);
+              setBatchStatus(null);
+            }}
+            aria-pressed={selectionMode}
+            aria-label={t({
+              id: "transcriptions.batch.toggle",
+              message: "Select transcriptions",
+            })}
+            className={`ui-button-ghost h-8 w-8 ${selectionMode ? "bg-surface-elevated ui-color-primary" : ""}`}
+          >
+            <CheckSquare size={13} aria-hidden="true" />
+          </button>
         </div>
       </div>
 

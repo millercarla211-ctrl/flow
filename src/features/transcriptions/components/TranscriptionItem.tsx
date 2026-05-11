@@ -5,6 +5,7 @@ import ReactMarkdown, { Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  CheckSquare,
   Copy,
   FileText,
   Trash2,
@@ -16,6 +17,7 @@ import {
   AlertTriangle,
   Undo2,
   WandSparkles,
+  Square,
   X,
 } from "lucide-react";
 import type { TranscriptionRecord } from "../../../types";
@@ -53,6 +55,9 @@ interface TranscriptionItemProps {
   showLlmButtons?: boolean;
   shiftHeld?: boolean;
   showDate?: boolean;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onSelectionChange?: (id: string, selected: boolean) => void;
 }
 
 const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
@@ -66,6 +71,9 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   showLlmButtons = false,
   shiftHeld = false,
   showDate = false,
+  selectionMode = false,
+  selected = false,
+  onSelectionChange,
 }) => {
   const { t } = useLingui();
   const [copied, setCopied] = useState(false);
@@ -276,7 +284,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
     : null;
   const llmModelLabel = record.llm_model?.trim() || null;
   const modeLabel = record.mode_name?.trim() || null;
-  const allowContextMenu = !isRetryingLlm && !isUndoingLlm;
+  const allowContextMenu = !selectionMode && !isRetryingLlm && !isUndoingLlm;
   const hasSelection = selectionText.trim().length > 0;
 
   const captureSelectionText = () => {
@@ -314,8 +322,41 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
       }}
     >
       <div
-        className={`flex items-start gap-2 py-2.5 px-3 rounded-lg transition-colors ${isError ? "bg-red-500/[0.03]" : "hover:bg-[var(--surface-interactive)]"}`}
+        className={`flex items-start gap-2 py-2.5 px-3 rounded-lg transition-colors ${
+          selected
+            ? "bg-[var(--surface-interactive-strong)]"
+            : isError
+              ? "bg-red-500/[0.03]"
+              : "hover:bg-[var(--surface-interactive)]"
+        }`}
       >
+        {selectionMode && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelectionChange?.(record.id, !selected);
+            }}
+            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-content-muted transition-colors hover:bg-surface-elevated hover:text-content-primary"
+            aria-label={
+              selected
+                ? t({
+                    id: "transcriptions.item.deselect",
+                    message: "Deselect transcription",
+                  })
+                : t({
+                    id: "transcriptions.item.select",
+                    message: "Select transcription",
+                  })
+            }
+          >
+            {selected ? (
+              <CheckSquare size={15} aria-hidden="true" />
+            ) : (
+              <Square size={15} aria-hidden="true" />
+            )}
+          </button>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-x-2 mb-1 ui-text-meta ui-color-disabled whitespace-nowrap overflow-hidden">
             {showDate && (
