@@ -583,6 +583,7 @@ pub struct AppState {
     ffmpeg_toast_shown: AtomicBool,
     pending_recording_path: parking_lot::Mutex<Option<PathBuf>>,
     pending_selected_text: parking_lot::Mutex<Option<String>>,
+    pending_command_mode: AtomicBool,
     download_tokens: parking_lot::Mutex<HashMap<String, CancellationToken>>,
     library_tokens: parking_lot::Mutex<HashMap<String, CancellationToken>>,
     library_queue: parking_lot::Mutex<VecDeque<LibraryJob>>,
@@ -643,6 +644,7 @@ impl AppState {
             ffmpeg_toast_shown: AtomicBool::new(false),
             pending_recording_path: parking_lot::Mutex::new(None),
             pending_selected_text: parking_lot::Mutex::new(None),
+            pending_command_mode: AtomicBool::new(false),
             download_tokens: parking_lot::Mutex::new(HashMap::new()),
             library_tokens: parking_lot::Mutex::new(HashMap::new()),
             library_queue: parking_lot::Mutex::new(VecDeque::new()),
@@ -925,6 +927,14 @@ impl AppState {
 
     pub fn take_pending_selected_text(&self) -> Option<String> {
         self.pending_selected_text.lock().take()
+    }
+
+    pub fn set_pending_command_mode(&self, active: bool) {
+        self.pending_command_mode.store(active, Ordering::SeqCst);
+    }
+
+    pub fn take_pending_command_mode(&self) -> bool {
+        self.pending_command_mode.swap(false, Ordering::SeqCst)
     }
 
     pub fn create_download_token(&self, model: &str) -> CancellationToken {

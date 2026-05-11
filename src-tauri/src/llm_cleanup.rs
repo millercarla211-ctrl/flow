@@ -52,17 +52,31 @@ Rules:
 - Do not wrap the output in JSON, code fences, or any structured format.
 "#;
 
+const COMMAND_PROMPT: &str = r#"
+You turn the user's spoken command or question into text that will be inserted at the cursor.
+
+Rules:
+- Return only the final text to insert. No JSON, no code fences, no commentary.
+- If the user asks a question, answer directly and concisely.
+- If the user asks you to write, draft, list, translate, summarize, or create content, produce that content.
+- If the user asks for a command, code, or prompt, return the usable command, code, or prompt without prefacing it.
+- Preserve code identifiers, file names, URLs, and technical casing when the intent is clear.
+- Do not use em dashes.
+- Do not mention that there was no highlighted text.
+"#;
+
 #[derive(Debug, Clone, Copy)]
 enum TextTaskKind {
     Cleanup,
     Edit,
+    Command,
 }
 
 impl TextTaskKind {
     fn max_tokens(self) -> u32 {
         match self {
             Self::Cleanup => 4096,
-            Self::Edit => 8192,
+            Self::Edit | Self::Command => 8192,
         }
     }
 
@@ -70,6 +84,7 @@ impl TextTaskKind {
         match self {
             Self::Cleanup => 0.0,
             Self::Edit => 0.1,
+            Self::Command => 0.2,
         }
     }
 }
@@ -230,6 +245,19 @@ fn build_edit_system_prompt(settings: &UserSettings) -> String {
     if let Some(vibe_guidance) = format_vibe_coding_guidance(settings, None) {
         prompt.push_str(
             "\n\nVibe coding guidance:\nApply this only when the edit target is technical text or the active app is an IDE/terminal.\n",
+        );
+        prompt.push_str(&vibe_guidance);
+    }
+
+    prompt
+}
+
+fn build_command_system_prompt(settings: &UserSettings) -> String {
+    let mut prompt = COMMAND_PROMPT.trim().to_string();
+
+    if let Some(vibe_guidance) = format_vibe_coding_guidance(settings, None) {
+        prompt.push_str(
+            "\n\nVibe coding guidance:\nApply this when the command asks for technical output or the active app is an IDE/terminal.\n",
         );
         prompt.push_str(&vibe_guidance);
     }
@@ -399,6 +427,7 @@ fn build_user_content(task: TextTaskKind, text: &str, instruction: Option<&str>)
                 text
             )
         }
+        TextTaskKind::Command => format!("Command:\n{}", text),
     }
 }
 
@@ -640,6 +669,37 @@ pub async fn edit_transcription(
     }
 
     eprintln!("[LLM Edit] Final output: {} chars", result.len());
+
+    Ok(result)
+}
+
+pub async fn command_transcription(
+    client: &Client,
+    voice_command: &str,
+    settings: &UserSettings,
+) -> Result<String> {
+    if !is_llm_available(settings) {
+        return Err(anyhow!(
+            "Command Mode requires a selected language model in Settings -> Models"
+        ));
+    }
+
+    eprintln!(
+        "[LLM Command] Processing {} char command without selected text",
+        voice_command.len()
+    );
+
+    let result = run_text_task(
+        client,
+        settings,
+        TextTaskKind::Command,
+        build_command_system_prompt(settings),
+        build_user_content(TextTaskKind::Command, voice_command, None),
+        voice_command,
+    )
+    .await?;
+
+    eprintln!("[LLM Command] Final output: {} chars", result.len());
 
     Ok(result)
 }
@@ -890,6 +950,21 @@ mod tests {
 
         assert!(prompt.contains("Vibe coding guidance"));
         assert!(prompt.contains("technical casing"));
+    }
+
+    #[test]
+    fn command_prompt_outputs_insertable_text_only() {
+        let prompt = build_command_system_prompt(&llm_settings());
+
+        assert!(prompt.contains("text that will be inserted at the cursor"));
+        assert!(prompt.contains("Return only the final text to insert"));
+    }
+
+    #[test]
+    fn command_user_content_wraps_spoken_command() {
+        let content = build_user_content(TextTaskKind::Command, "write a two line apology", None);
+
+        assert_eq!(content, "Command:\nwrite a two line apology");
     }
 
     #[test]

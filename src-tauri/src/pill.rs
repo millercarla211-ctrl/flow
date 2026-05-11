@@ -355,19 +355,8 @@ impl PillController {
         let _ = self.capture_selected_text(app, false);
     }
 
-    fn capture_selected_text_for_command_mode(&self, app: &AppHandle<AppRuntime>) -> bool {
-        if self.capture_selected_text(app, true) {
-            return true;
-        }
-
-        app.state::<AppState>().set_pending_selected_text(None);
-        toast::show(
-            app,
-            "warning",
-            Some("Command Mode"),
-            "Select text first, then use Command Mode.",
-        );
-        false
+    fn capture_selected_text_for_command_mode(&self, app: &AppHandle<AppRuntime>) {
+        let _ = self.capture_selected_text(app, true);
     }
 
     fn handle_command_press(&self, app: &AppHandle<AppRuntime>) {
@@ -411,11 +400,11 @@ impl PillController {
             return;
         }
 
-        if !self.capture_selected_text_for_command_mode(app) {
-            return;
-        }
+        state.set_pending_command_mode(true);
+        self.capture_selected_text_for_command_mode(app);
 
         if !self.try_start_recording(RecordingMode::Toggle) {
+            state.set_pending_command_mode(false);
             return;
         }
 
@@ -439,6 +428,7 @@ impl PillController {
                 check_accessibility_warning(app);
             }
             Err(err) => {
+                state.set_pending_command_mode(false);
                 state.set_pending_selected_text(None);
                 self.reset_recording_state();
                 self.transition_to_error(app, &format!("Unable to start recording: {err}"));
@@ -779,6 +769,8 @@ impl PillController {
     pub fn cancel(&self, app: &AppHandle<AppRuntime>) {
         self.stop_audio_spectrum_emitter();
         let _ = app.state::<AppState>().stop_streaming_session(app);
+        app.state::<AppState>().set_pending_command_mode(false);
+        app.state::<AppState>().set_pending_selected_text(None);
         collapse_expanded_pill(app);
         if let Err(err) = self.recorder.stop() {
             eprintln!("Failed to stop recorder: {err}");
@@ -795,6 +787,8 @@ impl PillController {
         self.stop_audio_spectrum_emitter();
         let state = app.state::<AppState>();
         let _ = state.stop_streaming_session(app);
+        state.set_pending_command_mode(false);
+        state.set_pending_selected_text(None);
         collapse_expanded_pill(app);
         state.request_cancellation();
         let _ = self.recorder.stop();

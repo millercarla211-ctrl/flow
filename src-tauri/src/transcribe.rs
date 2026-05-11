@@ -195,6 +195,7 @@ pub(crate) fn queue_transcription(
     state.set_pending_path(Some(saved.path.clone()));
 
     let pending_selected_text = state.take_pending_selected_text();
+    let pending_command_mode = state.take_pending_command_mode();
     let cancel_token = state.create_transcription_token();
 
     let http = state.http();
@@ -321,10 +322,12 @@ pub(crate) fn queue_transcription(
                     return;
                 }
 
-                if pending_selected_text.is_some() && !llm_cleanup::is_llm_available(&settings) {
+                if (pending_command_mode || pending_selected_text.is_some())
+                    && !llm_cleanup::is_llm_available(&settings)
+                {
                     emit_transcription_error(
                         &app_handle,
-                        "Edit mode requires a selected language model. Choose one in Settings -> Models."
+                        "Command Mode requires a selected language model. Choose one in Settings -> Models."
                             .to_string(),
                         "edit_mode",
                         saved_for_task.path.display().to_string(),
@@ -333,7 +336,7 @@ pub(crate) fn queue_transcription(
                     return;
                 }
 
-                let is_edit_mode = pending_selected_text.is_some();
+                let is_edit_mode = pending_command_mode || pending_selected_text.is_some();
                 let llm_available = llm_cleanup::is_llm_available(&settings);
                 let should_refine_transcript =
                     llm_cleanup::should_refine_transcript(&settings, active_mode.as_ref());
@@ -370,6 +373,18 @@ pub(crate) fn queue_transcription(
                                 (selected.clone(), false)
                             }
                         }
+                    } else if pending_command_mode {
+                        match llm_cleanup::command_transcription(&http, &raw_transcript, &settings)
+                            .await
+                        {
+                            Ok(answer) => (answer, true),
+                            Err(err) => {
+                                eprintln!("LLM command failed, skipping command output: {err}");
+                                llm_cleanup::note_preflight_failure();
+                                maybe_warn_llm_unavailable(&app_handle, true);
+                                (String::new(), false)
+                            }
+                        }
                     } else {
                         match llm_cleanup::cleanup_transcription(
                             &http,
@@ -392,7 +407,14 @@ pub(crate) fn queue_transcription(
                     if preflight_unavailable {
                         maybe_warn_llm_unavailable(&app_handle, is_edit_mode);
                     }
-                    (raw_transcript.clone(), false)
+                    (
+                        if is_edit_mode {
+                            pending_selected_text.clone().unwrap_or_default()
+                        } else {
+                            raw_transcript.clone()
+                        },
+                        false,
+                    )
                 };
 
                 let (transformed, auto_transform) = apply_auto_transform_if_enabled(
@@ -1422,6 +1444,7 @@ pub(crate) fn finalize_streaming_transcription(
     let state = app.state::<AppState>();
     state.clear_cancellation();
     let pending_selected_text = state.take_pending_selected_text();
+    let pending_command_mode = state.take_pending_command_mode();
     let http = state.http();
     let app_handle = app.clone();
 
@@ -1459,7 +1482,20 @@ pub(crate) fn finalize_streaming_transcription(
             return;
         }
 
-        let is_edit_mode = pending_selected_text.is_some();
+        if (pending_command_mode || pending_selected_text.is_some())
+            && !llm_cleanup::is_llm_available(&settings)
+        {
+            emit_transcription_error(
+                &app_handle,
+                "Command Mode requires a selected language model. Choose one in Settings -> Models."
+                    .to_string(),
+                "edit_mode",
+                String::new(),
+            );
+            return;
+        }
+
+        let is_edit_mode = pending_command_mode || pending_selected_text.is_some();
         let llm_available = llm_cleanup::is_llm_available(&settings);
         let should_refine_transcript =
             llm_cleanup::should_refine_transcript(&settings, active_mode.as_ref());
@@ -1490,6 +1526,16 @@ pub(crate) fn finalize_streaming_transcription(
                         (selected.clone(), false)
                     }
                 }
+            } else if pending_command_mode {
+                match llm_cleanup::command_transcription(&http, &raw_transcript, &settings).await {
+                    Ok(answer) => (answer, true),
+                    Err(err) => {
+                        eprintln!("LLM command failed (streaming): {err}");
+                        llm_cleanup::note_preflight_failure();
+                        maybe_warn_llm_unavailable(&app_handle, true);
+                        (String::new(), false)
+                    }
+                }
             } else {
                 match llm_cleanup::cleanup_transcription(
                     &http,
@@ -1512,7 +1558,14 @@ pub(crate) fn finalize_streaming_transcription(
             if preflight_unavailable {
                 maybe_warn_llm_unavailable(&app_handle, is_edit_mode);
             }
-            (raw_transcript.clone(), false)
+            (
+                if is_edit_mode {
+                    pending_selected_text.clone().unwrap_or_default()
+                } else {
+                    raw_transcript.clone()
+                },
+                false,
+            )
         };
 
         let (transformed, auto_transform) = apply_auto_transform_if_enabled(
