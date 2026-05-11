@@ -11,6 +11,8 @@ import {
   Copy,
   Filter,
   FileText,
+  Pin,
+  PinOff,
   RotateCw,
   Trash2,
   WandSparkles,
@@ -68,7 +70,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const [batchStatus, setBatchStatus] = useState<string | null>(null);
   const [batchError, setBatchError] = useState<string | null>(null);
   const [batchBusy, setBatchBusy] = useState<
-    "copy" | "scratchpad" | "transform" | "retry" | "delete" | null
+    "copy" | "scratchpad" | "transform" | "pin" | "unpin" | "retry" | "delete" | null
   >(null);
   const sortRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -190,6 +192,14 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
     () =>
       selectedRecords.filter((record) => record.audio_available && !retryingIdSet.has(record.id)),
     [selectedRecords, retryingIdSet],
+  );
+  const selectedPinnedRecords = useMemo(
+    () => selectedRecords.filter((record) => record.pinned),
+    [selectedRecords],
+  );
+  const selectedUnpinnedRecords = useMemo(
+    () => selectedRecords.filter((record) => !record.pinned),
+    [selectedRecords],
   );
   const allVisibleSelected =
     sortedTranscriptions.length > 0 &&
@@ -334,7 +344,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   };
 
   const runBatchAction = async (
-    action: "copy" | "scratchpad" | "transform" | "retry" | "delete",
+    action: "copy" | "scratchpad" | "transform" | "pin" | "unpin" | "retry" | "delete",
     work: () => Promise<string>,
   ) => {
     if (batchBusy || selectedRecords.length === 0) return;
@@ -381,6 +391,34 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
       return t({
         id: "transcriptions.batch.opened_transform",
         message: "Opened selected transcripts in Transforms",
+      });
+    });
+
+  const pinSelected = () =>
+    runBatchAction("pin", async () => {
+      if (selectedUnpinnedRecords.length === 0) {
+        throw new Error("Selected items are already pinned.");
+      }
+      for (const record of selectedUnpinnedRecords) {
+        await pinMutation.mutateAsync({ id: record.id, pinned: true });
+      }
+      return t({
+        id: "transcriptions.batch.pinned",
+        message: `Pinned ${selectedUnpinnedRecords.length} transcripts`,
+      });
+    });
+
+  const unpinSelected = () =>
+    runBatchAction("unpin", async () => {
+      if (selectedPinnedRecords.length === 0) {
+        throw new Error("Selected items are not pinned.");
+      }
+      for (const record of selectedPinnedRecords) {
+        await pinMutation.mutateAsync({ id: record.id, pinned: false });
+      }
+      return t({
+        id: "transcriptions.batch.unpinned",
+        message: `Unpinned ${selectedPinnedRecords.length} transcripts`,
       });
     });
 
@@ -593,6 +631,8 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const hasSelectedRecords = selectedRecords.length > 0;
   const hasSelectedText = selectedTextRecords.length > 0;
   const hasSelectedRetryable = selectedRetryableRecords.length > 0;
+  const hasSelectedPinned = selectedPinnedRecords.length > 0;
+  const hasSelectedUnpinned = selectedUnpinnedRecords.length > 0;
   const noResultsMessage =
     filterKey !== "all"
       ? t({
@@ -636,6 +676,34 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
                 <span className="px-2 ui-text-meta ui-color-muted tabular-nums">
                   {selectedRecords.length}
                 </span>
+                <button
+                  type="button"
+                  onClick={pinSelected}
+                  disabled={!hasSelectedUnpinned || batchBusy !== null}
+                  className="ui-button-ghost h-7 w-7 disabled:opacity-40"
+                  aria-label={t({ id: "transcriptions.batch.pin", message: "Pin selected" })}
+                  title={t({ id: "transcriptions.batch.pin", message: "Pin selected" })}
+                >
+                  <Pin
+                    size={13}
+                    aria-hidden="true"
+                    className={batchBusy === "pin" ? "animate-pulse" : undefined}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={unpinSelected}
+                  disabled={!hasSelectedPinned || batchBusy !== null}
+                  className="ui-button-ghost h-7 w-7 disabled:opacity-40"
+                  aria-label={t({ id: "transcriptions.batch.unpin", message: "Unpin selected" })}
+                  title={t({ id: "transcriptions.batch.unpin", message: "Unpin selected" })}
+                >
+                  <PinOff
+                    size={13}
+                    aria-hidden="true"
+                    className={batchBusy === "unpin" ? "animate-pulse" : undefined}
+                  />
+                </button>
                 <button
                   type="button"
                   onClick={copySelected}
