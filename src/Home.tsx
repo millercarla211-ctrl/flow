@@ -144,6 +144,7 @@ const Home = () => {
     let cancelled = false;
     let unlistenNavigate: UnlistenFn | null = null;
     let unlistenModels: UnlistenFn | null = null;
+    let unlistenSnippets: UnlistenFn | null = null;
     let unlistenTransforms: UnlistenFn | null = null;
     let unlistenDragEnter: UnlistenFn | null = null;
     let unlistenDragOver: UnlistenFn | null = null;
@@ -177,6 +178,14 @@ const Home = () => {
     }).then((fn) => {
       if (cancelled) fn();
       else unlistenTransforms = fn;
+    });
+
+    listen("navigate:snippets", () => {
+      setActiveView("snippets");
+      setIsSettingsOpen(false);
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlistenSnippets = fn;
     });
 
     listen<{ paths?: string[] }>("tauri://drag-enter", (event) => {
@@ -237,6 +246,7 @@ const Home = () => {
       cancelled = true;
       unlistenNavigate?.();
       unlistenModels?.();
+      unlistenSnippets?.();
       unlistenTransforms?.();
       unlistenDragEnter?.();
       unlistenDragOver?.();

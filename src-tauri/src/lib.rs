@@ -450,6 +450,7 @@ pub fn run() {
             snippets::create_snippet,
             snippets::update_snippet,
             snippets::delete_snippet,
+            snippets::open_snippets_view,
             flow_fetch::list_flow_fetch_links,
             flow_fetch::delete_flow_fetch_link,
             flow_fetch::copy_flow_fetch_link,

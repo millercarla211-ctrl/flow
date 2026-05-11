@@ -12,6 +12,7 @@ import {
   Cloud,
   Copy,
   BookPlus,
+  FilePlus2,
   FileText,
   Gauge,
   HardDrive,
@@ -164,7 +165,9 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectionText, setSelectionText] = useState("");
-  const [actionStatus, setActionStatus] = useState<"saved" | "opened" | "dictionary" | null>(null);
+  const [actionStatus, setActionStatus] = useState<
+    "saved" | "opened" | "dictionary" | "snippet" | null
+  >(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
@@ -236,7 +239,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
 
   const selectedActionText = () => selectionText.trim() || record.text.trim();
 
-  const flashActionStatus = (status: "saved" | "opened" | "dictionary") => {
+  const flashActionStatus = (status: "saved" | "opened" | "dictionary" | "snippet") => {
     setActionStatus(status);
     window.setTimeout(() => setActionStatus(null), 1600);
   };
@@ -251,6 +254,19 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
       flashActionStatus("dictionary");
     } catch (err) {
       console.error("Failed to add selection to Dictionary:", err);
+    }
+  };
+
+  const handleCreateSnippetFromSelection = async () => {
+    const expansion = selectionText.trim();
+    if (!expansion) return;
+    try {
+      await invoke("open_snippets_view", { expansion });
+      setMenuOpen(false);
+      setSelectionText("");
+      flashActionStatus("snippet");
+    } catch (err) {
+      console.error("Failed to open Snippets with selection:", err);
     }
   };
 
@@ -973,6 +989,18 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                           })}
                         </span>
                       </button>
+                      <button
+                        onClick={handleCreateSnippetFromSelection}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors"
+                      >
+                        <FilePlus2 size={12} className="text-content-muted" />
+                        <span>
+                          {t({
+                            id: "transcriptions.item.create_snippet_from_selection",
+                            message: "Create snippet from selection",
+                          })}
+                        </span>
+                      </button>
                       <div className="h-px bg-border-secondary mx-2" />
                     </>
                   )}
@@ -1114,10 +1142,15 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                       id: "transcriptions.item.added_to_dictionary",
                       message: "Added to Dictionary",
                     })
-                  : t({
-                      id: "transcriptions.item.opened_transforms",
-                      message: "Opened in Transforms",
-                    })}
+                  : actionStatus === "snippet"
+                    ? t({
+                        id: "transcriptions.item.opened_snippets",
+                        message: "Opened in Snippets",
+                      })
+                    : t({
+                        id: "transcriptions.item.opened_transforms",
+                        message: "Opened in Transforms",
+                      })}
             </span>
           </div>
         )}

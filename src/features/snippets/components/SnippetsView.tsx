@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useLingui } from "@lingui/react/macro";
 import { Check, Copy, Download, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import DotMatrix from "../../../shared/ui/DotMatrix";
@@ -17,6 +18,10 @@ const SNIPPET_TRIGGER_MAX_LENGTH = 59;
 type SnippetImportItem = {
   trigger: string;
   expansion: string;
+};
+
+type SnippetLoadPayload = {
+  expansion?: string;
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -76,6 +81,25 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
     () => [...snippets].sort((a, b) => a.trigger.localeCompare(b.trigger)),
     [snippets],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: UnlistenFn | null = null;
+
+    listen<SnippetLoadPayload>("snippets:load_expansion", (event) => {
+      const expansion = event.payload?.expansion?.trim();
+      if (!expansion || cancelled) return;
+      setDraft({ trigger: "", expansion });
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
 
   const startEdit = (snippet: Snippet) => {
     setDraft({
