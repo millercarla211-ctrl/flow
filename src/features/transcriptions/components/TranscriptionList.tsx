@@ -16,6 +16,7 @@ import {
   Pin,
   PinOff,
   RotateCw,
+  Sparkles,
   Trash2,
   WandSparkles,
 } from "lucide-react";
@@ -73,7 +74,16 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const [batchStatus, setBatchStatus] = useState<string | null>(null);
   const [batchError, setBatchError] = useState<string | null>(null);
   const [batchBusy, setBatchBusy] = useState<
-    "copy" | "scratchpad" | "transform" | "export" | "pin" | "unpin" | "retry" | "delete" | null
+    | "copy"
+    | "scratchpad"
+    | "transform"
+    | "cleanup"
+    | "export"
+    | "pin"
+    | "unpin"
+    | "retry"
+    | "delete"
+    | null
   >(null);
   const sortRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -196,6 +206,16 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
     () =>
       selectedRecords.filter((record) => record.audio_available && !retryingIdSet.has(record.id)),
     [selectedRecords, retryingIdSet],
+  );
+  const selectedCleanupRecords = useMemo(
+    () =>
+      selectedRecords.filter(
+        (record) =>
+          record.status === "success" &&
+          !record.llm_cleaned &&
+          !record.speech_model.trim().startsWith("cloud-"),
+      ),
+    [selectedRecords],
   );
   const selectedPinnedRecords = useMemo(
     () => selectedRecords.filter((record) => record.pinned),
@@ -348,7 +368,16 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   };
 
   const runBatchAction = async (
-    action: "copy" | "scratchpad" | "transform" | "export" | "pin" | "unpin" | "retry" | "delete",
+    action:
+      | "copy"
+      | "scratchpad"
+      | "transform"
+      | "cleanup"
+      | "export"
+      | "pin"
+      | "unpin"
+      | "retry"
+      | "delete",
     work: () => Promise<string>,
   ) => {
     if (batchBusy || selectedRecords.length === 0) return;
@@ -424,6 +453,20 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
       return t({
         id: "transcriptions.batch.exported",
         message: `Exported ${exportedCount} transcripts`,
+      });
+    });
+
+  const cleanupSelected = () =>
+    runBatchAction("cleanup", async () => {
+      if (selectedCleanupRecords.length === 0) {
+        throw new Error("Selected items are already cleaned or cannot use cleanup.");
+      }
+      for (const record of selectedCleanupRecords) {
+        await retryLlmMutation.mutateAsync(record.id);
+      }
+      return t({
+        id: "transcriptions.batch.cleaned",
+        message: `Cleaning ${selectedCleanupRecords.length} transcripts`,
       });
     });
 
@@ -664,6 +707,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const hasSelectedRecords = selectedRecords.length > 0;
   const hasSelectedText = selectedTextRecords.length > 0;
   const hasSelectedRetryable = selectedRetryableRecords.length > 0;
+  const hasSelectedCleanup = showLlmButtons && selectedCleanupRecords.length > 0;
   const hasSelectedPinned = selectedPinnedRecords.length > 0;
   const hasSelectedUnpinned = selectedUnpinnedRecords.length > 0;
   const noResultsMessage =
@@ -779,6 +823,28 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
                 >
                   <WandSparkles size={13} aria-hidden="true" />
                 </button>
+                {showLlmButtons && (
+                  <button
+                    type="button"
+                    onClick={cleanupSelected}
+                    disabled={!hasSelectedCleanup || batchBusy !== null}
+                    className="ui-button-ghost h-7 w-7 disabled:opacity-40"
+                    aria-label={t({
+                      id: "transcriptions.batch.cleanup",
+                      message: "Clean selected",
+                    })}
+                    title={t({
+                      id: "transcriptions.batch.cleanup",
+                      message: "Clean selected",
+                    })}
+                  >
+                    <Sparkles
+                      size={13}
+                      aria-hidden="true"
+                      className={batchBusy === "cleanup" ? "animate-pulse" : undefined}
+                    />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={exportSelected}
