@@ -61,19 +61,45 @@ fn save_auto_paste_fallback(
     emit_auto_paste_error(app, format!("{fallback_message} Reason: {paste_error}"));
 }
 
+struct TextExpansionResult {
+    text: String,
+    dictionary_replaced: bool,
+}
+
 fn apply_dictionary_and_snippets(
     app: &AppHandle<AppRuntime>,
     transcript: &str,
     settings: &UserSettings,
-) -> String {
+) -> TextExpansionResult {
     let replaced = dictionary::apply_replacements(transcript, &settings.replacements);
-    match app.state::<AppState>().storage().get_snippets() {
+    let dictionary_replaced = replaced != transcript;
+    let text = match app.state::<AppState>().storage().get_snippets() {
         Ok(snippets) => storage::apply_snippets_to_text(&replaced, &snippets),
         Err(err) => {
             eprintln!("Failed to load snippets for transcript expansion: {err}");
             replaced
         }
+    };
+
+    TextExpansionResult {
+        text,
+        dictionary_replaced,
     }
+}
+
+fn apply_vibe_coding_postprocess(
+    transcript: &str,
+    settings: &UserSettings,
+    mode: Option<&Personality>,
+    dictionary_replaced: bool,
+) -> String {
+    if !dictionary_replaced {
+        return vibe_coding::postprocess_coding_transcript(transcript, settings, mode);
+    }
+
+    let mut settings_without_file_tags = settings.clone();
+    settings_without_file_tags.vibe_coding_file_tagging = false;
+    vibe_coding::postprocess_coding_transcript(transcript, &settings_without_file_tags, mode)
 }
 
 #[derive(Debug, Clone)]
@@ -359,12 +385,13 @@ pub(crate) fn queue_transcription(
                 }
                 let cleanup_elapsed_ms = used_postprocess.then(|| elapsed_ms(cleanup_started));
 
-                let final_transcript =
+                let expanded_transcript =
                     apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
-                let final_transcript = vibe_coding::postprocess_coding_transcript(
-                    &final_transcript,
+                let final_transcript = apply_vibe_coding_postprocess(
+                    &expanded_transcript.text,
                     &settings,
                     active_mode.as_ref(),
+                    expanded_transcript.dictionary_replaced,
                 );
 
                 if count_words(&final_transcript) == 0 {
@@ -611,12 +638,13 @@ pub(crate) fn retry_transcription_async(
                 };
                 let cleanup_elapsed_ms = should_use_llm.then(|| elapsed_ms(cleanup_started));
 
-                let final_transcript =
+                let expanded_transcript =
                     apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
-                let final_transcript = vibe_coding::postprocess_coding_transcript(
-                    &final_transcript,
+                let final_transcript = apply_vibe_coding_postprocess(
+                    &expanded_transcript.text,
                     &settings,
                     saved_personality.as_ref(),
+                    expanded_transcript.dictionary_replaced,
                 );
 
                 if count_words(&final_transcript) == 0 {
@@ -1436,12 +1464,13 @@ pub(crate) fn finalize_streaming_transcription(
         }
         let cleanup_elapsed_ms = used_postprocess.then(|| elapsed_ms(cleanup_started));
 
-        let final_transcript =
+        let expanded_transcript =
             apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
-        let final_transcript = vibe_coding::postprocess_coding_transcript(
-            &final_transcript,
+        let final_transcript = apply_vibe_coding_postprocess(
+            &expanded_transcript.text,
             &settings,
             active_mode.as_ref(),
+            expanded_transcript.dictionary_replaced,
         );
 
         if count_words(&final_transcript) == 0 {
@@ -1509,4 +1538,50 @@ pub(crate) fn finalize_streaming_transcription(
             "local_streaming",
         );
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn coding_mode() -> Personality {
+        Personality {
+            id: "coding".to_string(),
+            name: "Coding".to_string(),
+            enabled: true,
+            apps: Vec::new(),
+            websites: Vec::new(),
+            instructions: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn dictionary_replacements_disable_vibe_file_tagging_only() {
+        let mut settings = UserSettings::default();
+        settings.vibe_coding_recent_files = vec!["index.tsx".to_string()];
+
+        let output = apply_vibe_coding_postprocess(
+            "Please update index dot t s x and backtick createUser backtick.",
+            &settings,
+            Some(&coding_mode()),
+            true,
+        );
+
+        assert_eq!(output, "Please update index.tsx and `createUser`.");
+    }
+
+    #[test]
+    fn unchanged_dictionary_allows_vibe_file_tagging() {
+        let mut settings = UserSettings::default();
+        settings.vibe_coding_recent_files = vec!["index.tsx".to_string()];
+
+        let output = apply_vibe_coding_postprocess(
+            "Please update index dot t s x.",
+            &settings,
+            Some(&coding_mode()),
+            false,
+        );
+
+        assert_eq!(output, "Please update @index.tsx.");
+    }
 }
