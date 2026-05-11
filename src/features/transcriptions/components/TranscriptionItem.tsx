@@ -11,6 +11,7 @@ import {
   Clock3,
   Cloud,
   Copy,
+  BookPlus,
   FileText,
   Gauge,
   HardDrive,
@@ -163,7 +164,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectionText, setSelectionText] = useState("");
-  const [actionStatus, setActionStatus] = useState<"saved" | "opened" | null>(null);
+  const [actionStatus, setActionStatus] = useState<"saved" | "opened" | "dictionary" | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
@@ -235,9 +236,22 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
 
   const selectedActionText = () => selectionText.trim() || record.text.trim();
 
-  const flashActionStatus = (status: "saved" | "opened") => {
+  const flashActionStatus = (status: "saved" | "opened" | "dictionary") => {
     setActionStatus(status);
     window.setTimeout(() => setActionStatus(null), 1600);
+  };
+
+  const handleAddSelectionToDictionary = async () => {
+    const entry = selectionText.trim();
+    if (!entry) return;
+    try {
+      await invoke("add_dictionary_entries", { entries: [entry] });
+      setMenuOpen(false);
+      setSelectionText("");
+      flashActionStatus("dictionary");
+    } catch (err) {
+      console.error("Failed to add selection to Dictionary:", err);
+    }
   };
 
   const handleSaveToScratchpad = async () => {
@@ -947,6 +961,18 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                           })}
                         </span>
                       </button>
+                      <button
+                        onClick={handleAddSelectionToDictionary}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors"
+                      >
+                        <BookPlus size={12} className="text-content-muted" />
+                        <span>
+                          {t({
+                            id: "transcriptions.item.add_selection_to_dictionary",
+                            message: "Add selection to Dictionary",
+                          })}
+                        </span>
+                      </button>
                       <div className="h-px bg-border-secondary mx-2" />
                     </>
                   )}
@@ -1083,10 +1109,15 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                     id: "transcriptions.item.saved_to_scratchpad",
                     message: "Saved to Scratchpad",
                   })
-                : t({
-                    id: "transcriptions.item.opened_transforms",
-                    message: "Opened in Transforms",
-                  })}
+                : actionStatus === "dictionary"
+                  ? t({
+                      id: "transcriptions.item.added_to_dictionary",
+                      message: "Added to Dictionary",
+                    })
+                  : t({
+                      id: "transcriptions.item.opened_transforms",
+                      message: "Opened in Transforms",
+                    })}
             </span>
           </div>
         )}

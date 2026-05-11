@@ -422,6 +422,7 @@ pub fn run() {
             preview_recording_prune,
             set_user_name,
             dictionary::set_dictionary,
+            dictionary::add_dictionary_entries,
             dictionary::get_replacements,
             dictionary::set_replacements,
             personalization::get_personalities,

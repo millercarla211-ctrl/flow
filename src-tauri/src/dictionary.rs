@@ -129,6 +129,23 @@ pub fn set_dictionary(
 }
 
 #[tauri::command]
+pub fn add_dictionary_entries(
+    entries: Vec<String>,
+    state: tauri::State<AppState>,
+) -> Result<Vec<String>, String> {
+    let mut settings = state.current_settings();
+    let mut merged = settings.dictionary.clone();
+    merged.extend(entries);
+    let cleaned = sanitize_dictionary_entries(&merged);
+
+    settings.dictionary = cleaned.clone();
+    state
+        .persist_settings(settings)
+        .map_err(|err| err.to_string())?;
+    Ok(cleaned)
+}
+
+#[tauri::command]
 pub fn get_replacements(state: tauri::State<AppState>) -> Result<Vec<Replacement>, String> {
     let mut settings = state.current_settings();
     let cleaned = sanitize_replacements(&settings.replacements);
@@ -153,4 +170,32 @@ pub fn set_replacements(
         .persist_settings(settings)
         .map_err(|err| err.to_string())?;
     Ok(cleaned)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_dictionary_entries_merges_case_insensitive_duplicates() {
+        let entries = vec![
+            " Flow ".to_string(),
+            "flow".to_string(),
+            "Parakeet TDT".to_string(),
+        ];
+
+        assert_eq!(
+            sanitize_dictionary_entries(&entries),
+            vec!["Flow".to_string(), "Parakeet TDT".to_string()]
+        );
+    }
+
+    #[test]
+    fn sanitize_dictionary_entries_caps_to_sixty_four_items() {
+        let entries = (0..80)
+            .map(|index| format!("Term {index}"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(sanitize_dictionary_entries(&entries).len(), 64);
+    }
 }
