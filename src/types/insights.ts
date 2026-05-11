@@ -16,7 +16,9 @@ export type InsightBreakdown = {
 export type InsightsSummary = {
   days: number;
   total_transcriptions: number;
+  pinned_transcriptions: number;
   total_words: number;
+  pinned_words: number;
   words_today: number;
   words_this_week: number;
   total_audio_seconds: number;

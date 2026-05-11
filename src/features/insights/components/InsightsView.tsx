@@ -9,6 +9,7 @@ import {
   Flame,
   Gauge,
   Mic2,
+  Pin,
   Sparkles,
   Timer,
   Zap,
@@ -344,7 +345,7 @@ export default function InsightsView({ isActive = true }: { isActive?: boolean }
             />
           </div>
 
-          <section className="grid gap-3 rounded-lg border border-border-primary bg-surface-surface p-4 sm:grid-cols-3">
+          <section className="grid gap-3 rounded-lg border border-border-primary bg-surface-surface p-4 sm:grid-cols-2 xl:grid-cols-4">
             <div>
               <div className="flex items-center gap-2 ui-text-meta-strong ui-color-muted">
                 <Activity size={14} />
@@ -354,6 +355,18 @@ export default function InsightsView({ isActive = true }: { isActive?: boolean }
                 {formatCompact(summary.words_this_week)}
               </div>
               <div className="mt-1 ui-text-meta ui-color-disabled">words since Monday</div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 ui-text-meta-strong ui-color-muted">
+                <Pin size={14} />
+                Pinned
+              </div>
+              <div className="mt-2 ui-text-title font-medium ui-color-primary">
+                {formatCompact(summary.pinned_words)}
+              </div>
+              <div className="mt-1 ui-text-meta ui-color-disabled">
+                {formatNumber(summary.pinned_transcriptions)} saved transcripts
+              </div>
             </div>
             <div>
               <div className="flex items-center gap-2 ui-text-meta-strong ui-color-muted">

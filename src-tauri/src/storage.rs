@@ -163,7 +163,9 @@ pub struct InsightBreakdown {
 pub struct InsightsSummary {
     pub days: usize,
     pub total_transcriptions: u32,
+    pub pinned_transcriptions: u32,
     pub total_words: u32,
+    pub pinned_words: u32,
     pub words_today: u32,
     pub words_this_week: u32,
     pub total_audio_seconds: f32,
@@ -1770,6 +1772,8 @@ fn build_insights_summary(
     let mut active_days = HashSet::new();
 
     let mut total_words = 0u32;
+    let mut pinned_words = 0u32;
+    let mut pinned_transcriptions = 0u32;
     let mut words_today = 0u32;
     let mut words_this_week = 0u32;
     let mut total_audio_seconds = 0.0f32;
@@ -1795,6 +1799,10 @@ fn build_insights_summary(
 
         total_words = total_words.saturating_add(words);
         total_audio_seconds += audio_seconds;
+        if record.pinned {
+            pinned_transcriptions = pinned_transcriptions.saturating_add(1);
+            pinned_words = pinned_words.saturating_add(words);
+        }
 
         if day == today {
             words_today = words_today.saturating_add(words);
@@ -1907,7 +1915,9 @@ fn build_insights_summary(
     InsightsSummary {
         days,
         total_transcriptions,
+        pinned_transcriptions,
         total_words,
+        pinned_words,
         words_today,
         words_this_week,
         total_audio_seconds,
@@ -2232,6 +2242,7 @@ mod tests {
     fn insights_include_performance_and_paste_health() {
         let today = Local::now().date_naive();
         let mut first = record_on(today, 10, "parakeet-tdt-0.6b-v3-int8", Some("Default"));
+        first.pinned = true;
         first.stt_elapsed_ms = Some(1_200);
         first.cleanup_elapsed_ms = Some(300);
         first.paste_elapsed_ms = Some(90);
@@ -2254,6 +2265,8 @@ mod tests {
         let summary = build_insights_summary(&[first, second], 7, today);
 
         assert_eq!(summary.timed_transcriptions, 2);
+        assert_eq!(summary.pinned_transcriptions, 1);
+        assert_eq!(summary.pinned_words, 10);
         assert_eq!(summary.average_stt_elapsed_ms, 1_000.0);
         assert_eq!(summary.average_cleanup_elapsed_ms, 200.0);
         assert_eq!(summary.average_paste_elapsed_ms, 100.0);
