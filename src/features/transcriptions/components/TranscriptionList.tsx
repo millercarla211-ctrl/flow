@@ -17,6 +17,7 @@ import {
   PinOff,
   RotateCw,
   SendHorizontal,
+  ShieldOff,
   Sparkles,
   Trash2,
   WandSparkles,
@@ -41,6 +42,8 @@ import type { TranscriptionRecord } from "../../../types";
 interface TranscriptionListProps {
   showLlmButtons?: boolean;
   isActive?: boolean;
+  historyDisabled?: boolean;
+  onOpenDataSettings?: () => void;
 }
 
 type SortKey = "recent" | "oldest" | "longest" | "shortest";
@@ -62,6 +65,8 @@ const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(),
 const TranscriptionList: React.FC<TranscriptionListProps> = ({
   showLlmButtons = false,
   isActive = true,
+  historyDisabled = false,
+  onOpenDataSettings,
 }) => {
   const { t } = useLingui();
   const [searchQuery, setSearchQuery] = useState("");
@@ -108,7 +113,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
     data: transcriptions = [],
     isLoading,
     isFetched,
-  } = useTranscriptionList(debouncedSearchQuery, isActive);
+  } = useTranscriptionList(debouncedSearchQuery, isActive && !historyDisabled);
   const totalCount = transcriptions.length;
   const deleteMutation = useDeleteTranscription();
   const exportMutation = useExportTranscriptions();
@@ -705,6 +710,48 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
     setSearchOpen(false);
     setSearchQuery("");
   };
+
+  if (historyDisabled) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        className="w-full flex-1 min-h-0 flex items-center justify-center"
+      >
+        <div className="flex max-w-sm flex-col items-center text-center">
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-border-primary bg-surface-secondary/70 text-content-muted">
+            <ShieldOff size={18} aria-hidden="true" />
+          </div>
+          <p className="ui-text-body-lg font-semibold ui-color-primary">
+            {t({
+              id: "transcriptions.history_disabled.title",
+              message: "History disabled",
+            })}
+          </p>
+          <p className="mt-1 ui-text-body-sm ui-color-muted">
+            {t({
+              id: "transcriptions.history_disabled.body",
+              message:
+                "Flow is not storing transcripts or transforms on this device because Local Data Storage is set to Never store.",
+            })}
+          </p>
+          {onOpenDataSettings && (
+            <button
+              type="button"
+              onClick={onOpenDataSettings}
+              className="mt-4 rounded-full border border-border-primary bg-surface-secondary px-3 py-1.5 ui-text-body-sm font-medium ui-color-primary transition-colors hover:border-border-secondary hover:bg-surface-elevated"
+            >
+              {t({
+                id: "transcriptions.history_disabled.open_settings",
+                message: "Change data storage",
+              })}
+            </button>
+          )}
+        </div>
+      </motion.div>
+    );
+  }
 
   if (isLoading && transcriptions.length === 0 && !debouncedSearchQuery && !isFetched) {
     return (

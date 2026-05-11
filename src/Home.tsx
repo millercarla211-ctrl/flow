@@ -808,6 +808,11 @@ const Home = () => {
             <TranscriptionList
               showLlmButtons={showCleanupButtons}
               isActive={activeView === "home"}
+              historyDisabled={settings?.local_data_storage_policy === "never"}
+              onOpenDataSettings={() => {
+                setSettingsTab("app");
+                setIsSettingsOpen(true);
+              }}
             />
           </div>
 

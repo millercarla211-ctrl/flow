@@ -17,6 +17,7 @@
 - Added Wispr-style local data storage controls for transcript and transform history: store normally, auto-delete after 24 hours, or never store.
 - Added local coding post-processing for spoken file tags, extensions, paths, identifiers, and explicit backticks.
 - Added transcript history paste-back into focused apps, including batch selected transcript paste.
+- Added a History Disabled state on Home when Local Data Storage is set to Never store.
 
 - Windows support! 🎉🎉
 
