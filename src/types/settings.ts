@@ -72,6 +72,10 @@ export type StoredSettings = {
   edit_mode_enabled: boolean;
   auto_transform_enabled: boolean;
   auto_transform_preset_id: string;
+  vibe_coding_enabled: boolean;
+  vibe_coding_variable_recognition: boolean;
+  vibe_coding_file_tagging: boolean;
+  vibe_coding_include_window_context: boolean;
   media_control_enabled: boolean;
   auto_update_enabled: boolean;
   auto_launch_enabled: boolean;

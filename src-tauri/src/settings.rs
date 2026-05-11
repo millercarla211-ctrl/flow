@@ -36,6 +36,10 @@ const KEY_PERSONALITIES: &str = "personalities";
 const KEY_EDIT_MODE_ENABLED: &str = "edit_mode_enabled";
 const KEY_AUTO_TRANSFORM_ENABLED: &str = "auto_transform_enabled";
 const KEY_AUTO_TRANSFORM_PRESET_ID: &str = "auto_transform_preset_id";
+const KEY_VIBE_CODING_ENABLED: &str = "vibe_coding_enabled";
+const KEY_VIBE_CODING_VARIABLE_RECOGNITION: &str = "vibe_coding_variable_recognition";
+const KEY_VIBE_CODING_FILE_TAGGING: &str = "vibe_coding_file_tagging";
+const KEY_VIBE_CODING_INCLUDE_WINDOW_CONTEXT: &str = "vibe_coding_include_window_context";
 const KEY_MEDIA_CONTROL_ENABLED: &str = "media_control_enabled";
 const KEY_AUTO_UPDATE_ENABLED: &str = "auto_update_enabled";
 const KEY_AUTO_LAUNCH_ENABLED: &str = "auto_launch_enabled";
@@ -120,6 +124,14 @@ pub struct UserSettings {
     pub auto_transform_enabled: bool,
     #[serde(default = "default_auto_transform_preset_id")]
     pub auto_transform_preset_id: String,
+    #[serde(default = "default_true")]
+    pub vibe_coding_enabled: bool,
+    #[serde(default = "default_true")]
+    pub vibe_coding_variable_recognition: bool,
+    #[serde(default = "default_true")]
+    pub vibe_coding_file_tagging: bool,
+    #[serde(default = "default_true")]
+    pub vibe_coding_include_window_context: bool,
     #[serde(default)]
     pub media_control_enabled: bool,
     #[serde(default)]
@@ -370,6 +382,10 @@ impl Default for UserSettings {
             edit_mode_enabled: false,
             auto_transform_enabled: false,
             auto_transform_preset_id: default_auto_transform_preset_id(),
+            vibe_coding_enabled: true,
+            vibe_coding_variable_recognition: true,
+            vibe_coding_file_tagging: true,
+            vibe_coding_include_window_context: true,
             media_control_enabled: false,
             auto_update_enabled: false,
             auto_launch_enabled: false,
@@ -659,6 +675,23 @@ impl SettingsStore {
                 KEY_AUTO_TRANSFORM_PRESET_ID,
                 settings.auto_transform_preset_id.clone(),
             )?;
+            settings.vibe_coding_enabled =
+                self.read_value(&conn, KEY_VIBE_CODING_ENABLED, settings.vibe_coding_enabled)?;
+            settings.vibe_coding_variable_recognition = self.read_value(
+                &conn,
+                KEY_VIBE_CODING_VARIABLE_RECOGNITION,
+                settings.vibe_coding_variable_recognition,
+            )?;
+            settings.vibe_coding_file_tagging = self.read_value(
+                &conn,
+                KEY_VIBE_CODING_FILE_TAGGING,
+                settings.vibe_coding_file_tagging,
+            )?;
+            settings.vibe_coding_include_window_context = self.read_value(
+                &conn,
+                KEY_VIBE_CODING_INCLUDE_WINDOW_CONTEXT,
+                settings.vibe_coding_include_window_context,
+            )?;
             settings.media_control_enabled = self.read_value(
                 &conn,
                 KEY_MEDIA_CONTROL_ENABLED,
@@ -832,6 +865,26 @@ impl SettingsStore {
             &conn,
             KEY_AUTO_TRANSFORM_PRESET_ID,
             &settings.auto_transform_preset_id,
+        )?;
+        self.write_value(
+            &conn,
+            KEY_VIBE_CODING_ENABLED,
+            &settings.vibe_coding_enabled,
+        )?;
+        self.write_value(
+            &conn,
+            KEY_VIBE_CODING_VARIABLE_RECOGNITION,
+            &settings.vibe_coding_variable_recognition,
+        )?;
+        self.write_value(
+            &conn,
+            KEY_VIBE_CODING_FILE_TAGGING,
+            &settings.vibe_coding_file_tagging,
+        )?;
+        self.write_value(
+            &conn,
+            KEY_VIBE_CODING_INCLUDE_WINDOW_CONTEXT,
+            &settings.vibe_coding_include_window_context,
         )?;
         self.write_value(
             &conn,

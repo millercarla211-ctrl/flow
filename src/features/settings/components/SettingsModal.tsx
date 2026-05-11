@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AppWindow, Cpu, Info, Keyboard, User, X } from "lucide-react";
+import { AppWindow, Code2, Cpu, Info, Keyboard, User, X } from "lucide-react";
 import FAQModal from "../../../shared/ui/FAQModal";
 import WhatsNewModal from "../../updates/components/WhatsNewModal";
 import AboutTab from "./tabs/AboutTab";
@@ -9,6 +9,7 @@ import AccountTab from "./tabs/AccountTab";
 import GeneralTab from "./tabs/GeneralTab";
 import ModelsTab from "./tabs/ModelsTab";
 import AppTab from "./tabs/AppTab";
+import VibeCodingTab from "./tabs/VibeCodingTab";
 import type { User as AuthUser } from "../../auth/api";
 import type { TranscriptionMode } from "../../../types";
 import { useSettingsForm } from "../useSettingsForm";
@@ -16,7 +17,7 @@ import { useSettingsForm } from "../useSettingsForm";
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: "general" | "account" | "models" | "about" | "app";
+  initialTab?: "general" | "account" | "models" | "about" | "app" | "vibe";
   currentUser: AuthUser | null;
   onUpdateUser: () => Promise<void>;
   transcriptionMode: TranscriptionMode;
@@ -161,6 +162,15 @@ const SettingsModal = ({
                     onClick={() => form.setActiveTab("app")}
                   />
                   <ModalNavItem
+                    icon={<Code2 size={14} aria-hidden="true" />}
+                    label={t({
+                      id: "settings.modal.tab.vibe",
+                      message: "Vibe coding",
+                    })}
+                    active={form.activeTab === "vibe"}
+                    onClick={() => form.setActiveTab("vibe")}
+                  />
+                  <ModalNavItem
                     icon={<Info size={14} aria-hidden="true" />}
                     label={t({
                       id: "settings.modal.tab.about",
@@ -262,6 +272,21 @@ const SettingsModal = ({
                         cleanupEnabled={form.cleanupEnabled}
                         setCleanupEnabled={form.setCleanupEnabled}
                         aiFeaturesReady={form.aiFeaturesReady}
+                      />
+                    )}
+
+                    {form.activeTab === "vibe" && (
+                      <VibeCodingTab
+                        key="vibe"
+                        variants={tabContentVariants}
+                        enabled={form.vibeCodingEnabled}
+                        onEnabledChange={form.setVibeCodingEnabled}
+                        variableRecognition={form.vibeCodingVariableRecognition}
+                        onVariableRecognitionChange={form.setVibeCodingVariableRecognition}
+                        fileTagging={form.vibeCodingFileTagging}
+                        onFileTaggingChange={form.setVibeCodingFileTagging}
+                        includeWindowContext={form.vibeCodingIncludeWindowContext}
+                        onIncludeWindowContextChange={form.setVibeCodingIncludeWindowContext}
                       />
                     )}
 

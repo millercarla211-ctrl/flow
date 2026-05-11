@@ -214,7 +214,92 @@ fn build_cleanup_system_prompt(settings: &UserSettings, mode: Option<&Personalit
         prompt.push_str(&style_guidance);
     }
 
+    if let Some(vibe_guidance) = format_vibe_coding_guidance(settings, mode) {
+        prompt.push_str(
+            "\n\nVibe coding guidance:\nApply this only when it improves technical fidelity without inventing code context.\n",
+        );
+        prompt.push_str(&vibe_guidance);
+    }
+
     prompt
+}
+
+fn build_edit_system_prompt(settings: &UserSettings) -> String {
+    let mut prompt = EDIT_PROMPT.trim().to_string();
+
+    if let Some(vibe_guidance) = format_vibe_coding_guidance(settings, None) {
+        prompt.push_str(
+            "\n\nVibe coding guidance:\nApply this only when the edit target is technical text or the active app is an IDE/terminal.\n",
+        );
+        prompt.push_str(&vibe_guidance);
+    }
+
+    prompt
+}
+
+fn is_coding_personality(personality: &Personality) -> bool {
+    personality.id.eq_ignore_ascii_case("coding") || personality.name.eq_ignore_ascii_case("coding")
+}
+
+fn active_coding_personality(settings: &UserSettings, mode: Option<&Personality>) -> bool {
+    if let Some(personality) = mode {
+        return is_coding_personality(personality);
+    }
+
+    mode_context::resolve_active_personality(settings)
+        .as_ref()
+        .is_some_and(is_coding_personality)
+}
+
+fn truncate_prompt_context(value: &str, max_chars: usize) -> String {
+    value.chars().take(max_chars).collect()
+}
+
+fn format_vibe_coding_guidance(
+    settings: &UserSettings,
+    mode: Option<&Personality>,
+) -> Option<String> {
+    if !settings.vibe_coding_enabled || !active_coding_personality(settings, mode) {
+        return None;
+    }
+
+    let mut lines = vec![
+        "- Preserve code identifiers, package names, file names, branch names, CLI flags, environment variables, and paths exactly when they are spoken.".to_string(),
+        "- Use markdown backticks for code-like identifiers in prose, but do not wrap terminal commands or plain pasted code in markdown fences.".to_string(),
+    ];
+
+    if settings.vibe_coding_variable_recognition {
+        lines.push(
+            "- When a spoken phrase clearly refers to a variable, function, class, component, command, or package, keep its technical casing and formatting instead of rewriting it as normal prose.".to_string(),
+        );
+    }
+
+    if settings.vibe_coding_file_tagging {
+        lines.push(
+            "- When the user is addressing an AI coding assistant and explicitly refers to a file, preserve @file style tags and common extensions like .rs, .tsx, .ts, .py, .md, .json, .toml, and .lock.".to_string(),
+        );
+    }
+
+    if settings.vibe_coding_include_window_context {
+        if let Some(context) = accessibility_context::get_active_context() {
+            lines.push("- Active editor context for spelling only:".to_string());
+            lines.push(format!(
+                "  - App: {}",
+                truncate_prompt_context(&context.app_name, 80)
+            ));
+            if !context.window_title.trim().is_empty() {
+                lines.push(format!(
+                    "  - Window: {}",
+                    truncate_prompt_context(&context.window_title, 160)
+                ));
+            }
+            if let Some(url) = context.url.as_ref().filter(|url| !url.trim().is_empty()) {
+                lines.push(format!("  - URL: {}", truncate_prompt_context(url, 160)));
+            }
+        }
+    }
+
+    Some(lines.join("\n"))
 }
 
 #[derive(Clone, Copy)]
@@ -543,7 +628,7 @@ pub async fn edit_transcription(
         client,
         settings,
         TextTaskKind::Edit,
-        EDIT_PROMPT.trim().to_string(),
+        build_edit_system_prompt(settings),
         build_user_content(TextTaskKind::Edit, selected_text, Some(voice_command)),
         selected_text,
     )
@@ -706,6 +791,17 @@ mod tests {
         }
     }
 
+    fn coding_personality() -> Personality {
+        Personality {
+            id: "coding".to_string(),
+            name: "Coding".to_string(),
+            enabled: true,
+            apps: Vec::new(),
+            websites: Vec::new(),
+            instructions: vec!["- Preserve exact code symbols.".to_string()],
+        }
+    }
+
     fn llm_settings() -> UserSettings {
         UserSettings {
             llm_enabled: true,
@@ -768,6 +864,32 @@ mod tests {
 
         assert!(!personality_has_style_guidance(Some(&personality)));
         assert!(!should_refine_transcript(&settings, Some(&personality)));
+    }
+
+    #[test]
+    fn vibe_coding_guidance_requires_enabled_coding_context() {
+        let mut settings = llm_settings();
+        let coding = coding_personality();
+
+        let guidance = format_vibe_coding_guidance(&settings, Some(&coding)).unwrap();
+
+        assert!(guidance.contains("Preserve code identifiers"));
+        assert!(guidance.contains("@file style tags"));
+
+        settings.vibe_coding_enabled = false;
+        assert!(format_vibe_coding_guidance(&settings, Some(&coding)).is_none());
+        assert!(format_vibe_coding_guidance(&llm_settings(), None).is_none());
+    }
+
+    #[test]
+    fn cleanup_prompt_includes_vibe_coding_when_coding_mode_is_active() {
+        let settings = llm_settings();
+        let coding = coding_personality();
+
+        let prompt = build_cleanup_system_prompt(&settings, Some(&coding));
+
+        assert!(prompt.contains("Vibe coding guidance"));
+        assert!(prompt.contains("technical casing"));
     }
 
     #[test]

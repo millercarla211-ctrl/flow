@@ -37,7 +37,7 @@ import type {
 
 const TEXT_SIZE_MODE_STORAGE_KEY = "flow_text_size_mode";
 
-type ActiveTab = "general" | "models" | "about" | "account" | "app";
+type ActiveTab = "general" | "models" | "about" | "account" | "app" | "vibe";
 
 interface UseSettingsFormOptions {
   isOpen: boolean;
@@ -86,6 +86,10 @@ export function useSettingsForm({
   const [editModeEnabled, setEditModeEnabled] = useState(false);
   const [autoTransformEnabled, setAutoTransformEnabled] = useState(false);
   const [autoTransformPresetId, setAutoTransformPresetId] = useState("polish");
+  const [vibeCodingEnabled, setVibeCodingEnabled] = useState(true);
+  const [vibeCodingVariableRecognition, setVibeCodingVariableRecognition] = useState(true);
+  const [vibeCodingFileTagging, setVibeCodingFileTagging] = useState(true);
+  const [vibeCodingIncludeWindowContext, setVibeCodingIncludeWindowContext] = useState(true);
   const [mediaControlEnabled, setMediaControlEnabled] = useState(false);
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(false);
   const [autoLaunchEnabled, setAutoLaunchEnabled] = useState(false);
@@ -194,6 +198,10 @@ export function useSettingsForm({
     setEditModeEnabled(s.edit_mode_enabled ?? false);
     setAutoTransformEnabled(s.auto_transform_enabled ?? false);
     setAutoTransformPresetId(s.auto_transform_preset_id ?? "polish");
+    setVibeCodingEnabled(s.vibe_coding_enabled ?? true);
+    setVibeCodingVariableRecognition(s.vibe_coding_variable_recognition ?? true);
+    setVibeCodingFileTagging(s.vibe_coding_file_tagging ?? true);
+    setVibeCodingIncludeWindowContext(s.vibe_coding_include_window_context ?? true);
     setMediaControlEnabled(s.media_control_enabled ?? false);
     setAutoUpdateEnabled(s.auto_update_enabled ?? false);
     setAutoLaunchEnabled(s.auto_launch_enabled ?? false);
@@ -561,6 +569,10 @@ export function useSettingsForm({
             editModeEnabled: aiFeaturesReady ? editModeEnabled : false,
             autoTransformEnabled: aiFeaturesReady ? autoTransformEnabled : false,
             autoTransformPresetId: autoTransformPresetId || "polish",
+            vibeCodingEnabled,
+            vibeCodingVariableRecognition,
+            vibeCodingFileTagging,
+            vibeCodingIncludeWindowContext,
             mediaControlEnabled,
             autoUpdateEnabled,
             autoLaunchEnabled,
@@ -606,6 +618,10 @@ export function useSettingsForm({
     editModeEnabled,
     autoTransformEnabled,
     autoTransformPresetId,
+    vibeCodingEnabled,
+    vibeCodingVariableRecognition,
+    vibeCodingFileTagging,
+    vibeCodingIncludeWindowContext,
     mediaControlEnabled,
     autoUpdateEnabled,
     autoLaunchEnabled,
@@ -850,6 +866,14 @@ export function useSettingsForm({
     setAutoTransformEnabled,
     autoTransformPresetId,
     setAutoTransformPresetId,
+    vibeCodingEnabled,
+    setVibeCodingEnabled,
+    vibeCodingVariableRecognition,
+    setVibeCodingVariableRecognition,
+    vibeCodingFileTagging,
+    setVibeCodingFileTagging,
+    vibeCodingIncludeWindowContext,
+    setVibeCodingIncludeWindowContext,
     mediaControlEnabled,
     setMediaControlEnabled,
     autoUpdateEnabled,

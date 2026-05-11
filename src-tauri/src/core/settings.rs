@@ -34,6 +34,10 @@ pub(crate) struct UpdateSettingsArgs {
     pub edit_mode_enabled: bool,
     pub auto_transform_enabled: bool,
     pub auto_transform_preset_id: String,
+    pub vibe_coding_enabled: bool,
+    pub vibe_coding_variable_recognition: bool,
+    pub vibe_coding_file_tagging: bool,
+    pub vibe_coding_include_window_context: bool,
     pub media_control_enabled: bool,
     pub auto_update_enabled: bool,
     pub auto_launch_enabled: bool,
@@ -239,6 +243,10 @@ pub(crate) fn update_settings(
     next.edit_mode_enabled = args.edit_mode_enabled;
     next.auto_transform_enabled = args.auto_transform_enabled;
     next.auto_transform_preset_id = args.auto_transform_preset_id.trim().to_string();
+    next.vibe_coding_enabled = args.vibe_coding_enabled;
+    next.vibe_coding_variable_recognition = args.vibe_coding_variable_recognition;
+    next.vibe_coding_file_tagging = args.vibe_coding_file_tagging;
+    next.vibe_coding_include_window_context = args.vibe_coding_include_window_context;
     next.media_control_enabled = args.media_control_enabled;
     next.auto_update_enabled = args.auto_update_enabled;
     next.auto_launch_enabled = args.auto_launch_enabled;
@@ -332,6 +340,10 @@ mod tests {
             edit_mode_enabled: false,
             auto_transform_enabled: false,
             auto_transform_preset_id: "polish".to_string(),
+            vibe_coding_enabled: true,
+            vibe_coding_variable_recognition: true,
+            vibe_coding_file_tagging: true,
+            vibe_coding_include_window_context: true,
             media_control_enabled: true,
             auto_update_enabled: true,
             auto_launch_enabled: false,
