@@ -2,7 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
-import { Plus, Sparkles } from "lucide-react";
+import { Download, Plus, Sparkles, Upload } from "lucide-react";
 import { useShiftHeld } from "../../../shared/hooks/useShiftHeld";
 import ToggleSwitch from "../../../shared/ui/ToggleSwitch";
 import DotMatrix from "../../../shared/ui/DotMatrix";
@@ -27,6 +27,71 @@ type StyleTemplate = {
   instructions: string[];
 };
 
+type StyleImportItem = {
+  name: string;
+  enabled: boolean;
+  apps: string[];
+  websites: string[];
+  instructions: string[];
+};
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value && typeof value === "object" && !Array.isArray(value));
+
+const normalizeStringList = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const list: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") continue;
+    const normalized = item.trim();
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    list.push(normalized);
+  }
+  return list;
+};
+
+const normalizeStyleBackup = (value: unknown): StyleImportItem[] => {
+  const source = Array.isArray(value)
+    ? value
+    : isObject(value) && Array.isArray(value.styles)
+      ? value.styles
+      : isObject(value) && Array.isArray(value.personalities)
+        ? value.personalities
+        : null;
+
+  if (!source) {
+    throw new Error("Clipboard does not contain a Flow style backup.");
+  }
+
+  const seen = new Set<string>();
+  const styles: StyleImportItem[] = [];
+  for (const item of source) {
+    if (!isObject(item)) continue;
+    const name = typeof item.name === "string" ? item.name.trim() : "";
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    styles.push({
+      name,
+      enabled: typeof item.enabled === "boolean" ? item.enabled : true,
+      apps: normalizeStringList(item.apps),
+      websites: normalizeStringList(item.websites),
+      instructions: normalizeStringList(item.instructions),
+    });
+  }
+
+  if (styles.length === 0) {
+    throw new Error("No usable styles were found in the clipboard backup.");
+  }
+
+  return styles;
+};
+
 const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   const { t } = useLingui();
   const [personalities, setPersonalities] = useState<Personality[]>([]);
@@ -37,6 +102,9 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   const [activePersonalityId, setActivePersonalityId] = useState<string | null>(null);
   const [pendingDeletePersonality, setPendingDeletePersonality] =
     useState<PendingDeletePersonality | null>(null);
+  const [backupStatus, setBackupStatus] = useState<string | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const [importingBackup, setImportingBackup] = useState(false);
   const hasRequestedIconRefreshRef = useRef(false);
   const websiteIconRefreshKeyRef = useRef<string | null>(null);
   const persistVersionRef = useRef(0);
@@ -276,6 +344,71 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
     [persistPersonalities],
   );
 
+  const flashBackupStatus = (message: string) => {
+    setBackupStatus(message);
+    setBackupError(null);
+    window.setTimeout(() => setBackupStatus(null), 2400);
+  };
+
+  const handleExportStyles = async () => {
+    const payload = {
+      app: "Flow",
+      type: "styles",
+      version: 1,
+      exported_at: new Date().toISOString(),
+      styles: personalities.map(({ name, enabled, apps, websites, instructions }) => ({
+        name,
+        enabled,
+        apps,
+        websites,
+        instructions,
+      })),
+    };
+    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+    flashBackupStatus(
+      t({
+        id: "personalization.backup.exported",
+        message: "Styles copied as JSON",
+      }),
+    );
+  };
+
+  const handleImportStyles = async () => {
+    if (importingBackup) return;
+    setImportingBackup(true);
+    setBackupError(null);
+    setBackupStatus(null);
+    try {
+      const raw = await navigator.clipboard.readText();
+      const imported = normalizeStyleBackup(JSON.parse(raw));
+      updatePersonalities((prev) => {
+        const mergedByName = new Map(prev.map((style) => [style.name.toLowerCase(), style]));
+        for (const style of imported) {
+          const existing = mergedByName.get(style.name.toLowerCase());
+          mergedByName.set(style.name.toLowerCase(), {
+            id: existing?.id ?? createId(),
+            name: style.name,
+            enabled: style.enabled,
+            apps: style.apps,
+            websites: style.websites,
+            instructions: style.instructions,
+          });
+        }
+        return Array.from(mergedByName.values());
+      });
+      flashBackupStatus(
+        t({
+          id: "personalization.backup.imported",
+          message: `Imported ${imported.length} styles`,
+        }),
+      );
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setImportingBackup(false);
+    }
+  };
+
   const updatePersonality = useCallback(
     (id: string, patch: Partial<Personality>) => {
       updatePersonalities((prev) =>
@@ -416,27 +549,62 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
               })}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleAddMode}
-            aria-label={t({
-              id: "personalization.new_mode",
-              message: "New style",
-            })}
-            className="group inline-flex shrink-0 self-start items-center gap-1.5 rounded-lg border border-border-primary bg-surface-secondary px-3 py-1.5 ui-text-button ui-color-secondary transition-colors hover:border-border-hover hover:bg-surface-elevated hover:text-content-primary"
-          >
-            <Plus
-              size={13}
-              aria-hidden="true"
-              className="text-content-muted transition-colors group-hover:text-content-primary"
-            />
-            {t({
-              id: "personalization.new_mode",
-              message: "New style",
-            })}
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={handleExportStyles}
+              disabled={personalities.length === 0}
+              className="ui-button-ghost h-9 gap-2 rounded-full border border-border-primary px-4 ui-text-button-sm disabled:opacity-40"
+            >
+              <Download size={15} aria-hidden="true" />
+              {t({ id: "personalization.export", message: "Export" })}
+            </button>
+            <button
+              type="button"
+              onClick={handleImportStyles}
+              disabled={importingBackup}
+              className="ui-button-ghost h-9 gap-2 rounded-full border border-border-primary px-4 ui-text-button-sm disabled:opacity-40"
+            >
+              <Upload size={15} aria-hidden="true" />
+              {importingBackup
+                ? t({ id: "personalization.importing", message: "Importing" })
+                : t({ id: "personalization.import", message: "Import" })}
+            </button>
+            <button
+              type="button"
+              onClick={handleAddMode}
+              aria-label={t({
+                id: "personalization.new_mode",
+                message: "New style",
+              })}
+              className="group inline-flex shrink-0 self-start items-center gap-1.5 rounded-lg border border-border-primary bg-surface-secondary px-3 py-1.5 ui-text-button ui-color-secondary transition-colors hover:border-border-hover hover:bg-surface-elevated hover:text-content-primary"
+            >
+              <Plus
+                size={13}
+                aria-hidden="true"
+                className="text-content-muted transition-colors group-hover:text-content-primary"
+              />
+              {t({
+                id: "personalization.new_mode",
+                message: "New style",
+              })}
+            </button>
+          </div>
         </div>
       </div>
+
+      {(backupStatus || backupError) && (
+        <div
+          className={`mb-4 rounded-lg border px-3 py-2 ui-text-body-sm ${
+            backupError
+              ? "border-red-500/30 bg-red-500/10 ui-color-error-soft"
+              : "border-border-primary bg-surface-surface ui-color-secondary"
+          }`}
+          role="status"
+        >
+          {backupError ?? backupStatus}
+        </div>
+      )}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <div className="mr-1 flex items-center gap-1.5 ui-text-meta-strong ui-color-muted">
