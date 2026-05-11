@@ -1,8 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
 import { AnimatePresence, motion } from "framer-motion";
-import { Circle, Loader2, Pause, X } from "lucide-react";
+import { Check, Circle, Copy, FileText, Loader2, Pause, WandSparkles, X } from "lucide-react";
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useMachine } from "@xstate/react";
 import { LiveWaveform } from "@/components/ui/live-waveform";
 import { pillMachine } from "./machine";
@@ -159,6 +160,13 @@ interface ExpandedTextSegment {
   isWhitespace: boolean;
 }
 
+type TranscriptionCompletePayload = {
+  transcript?: string;
+  auto_paste?: boolean;
+};
+
+type QuickActionStatus = "copied" | "saved" | "opened" | "error" | null;
+
 function getExpandedTextSegments(text: string): ExpandedTextSegment[] {
   let offset = 0;
 
@@ -188,6 +196,8 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const { spectrumBins, lastSpectrumAt, isErrorFlashing, isExpanded, expandedText } = state.context;
   const [isHovering, setIsHovering] = useState(false);
   const [showFirstTip, setShowFirstTip] = useState(false);
+  const [lastTranscript, setLastTranscript] = useState("");
+  const [quickActionStatus, setQuickActionStatus] = useState<QuickActionStatus>(null);
 
   // Primary canvas (small pill dots)
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -219,6 +229,8 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const colorPaletteRef = useRef<PillColorPalette>(FALLBACK_PILL_COLOR_PALETTE);
   const audioReferenceLevelRef = useRef<number>(0);
   const audioFrameCountRef = useRef<number>(0);
+  const quickActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quickStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** Render to both canvases (primary + background). */
   const renderBoth = useCallback(
@@ -634,6 +646,57 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    const unlisteners: UnlistenFn[] = [];
+
+    const clearQuickTimers = () => {
+      if (quickActionTimerRef.current) {
+        clearTimeout(quickActionTimerRef.current);
+        quickActionTimerRef.current = null;
+      }
+      if (quickStatusTimerRef.current) {
+        clearTimeout(quickStatusTimerRef.current);
+        quickStatusTimerRef.current = null;
+      }
+    };
+
+    listen<TranscriptionCompletePayload>("transcription:complete", (event) => {
+      if (cancelled) return;
+      const transcript = event.payload?.transcript?.trim() ?? "";
+      if (!transcript) {
+        return;
+      }
+      clearQuickTimers();
+      setLastTranscript(transcript);
+      setQuickActionStatus(null);
+      quickActionTimerRef.current = setTimeout(() => {
+        setLastTranscript("");
+        setQuickActionStatus(null);
+        quickActionTimerRef.current = null;
+      }, 15000);
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisteners.push(fn);
+    });
+
+    listen("recording:start", () => {
+      if (cancelled) return;
+      clearQuickTimers();
+      setLastTranscript("");
+      setQuickActionStatus(null);
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisteners.push(fn);
+    });
+
+    return () => {
+      cancelled = true;
+      clearQuickTimers();
+      unlisteners.forEach((fn) => fn());
+    };
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && pillStatus === "error") {
         e.preventDefault();
@@ -746,7 +809,9 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
       : PILL_HEIGHT;
   const shellRadius = EXPANDED_BORDER_RADIUS;
   const displayText = expandedText || visibleStatusMessage;
-  const showFirstUseTip = showFirstTip && !isActiveStatus && !hasTranscriptPreview;
+  const showQuickActions = Boolean(lastTranscript.trim()) && !isActiveStatus;
+  const showFirstUseTip =
+    showFirstTip && !isActiveStatus && !hasTranscriptPreview && !lastTranscript.trim();
   const showIdleHandle = !showRecordingUi && !hasTranscriptPreview;
   const bubbleTitle =
     pillStatus === "error"
@@ -770,6 +835,27 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const darkIdleShell = "var(--border)";
   const darkIdleBorder = "var(--color-bg-primary)";
   const darkIdleHandle = "var(--color-border-secondary)";
+  const quickStatusLabel =
+    quickActionStatus === "copied"
+      ? "Copied"
+      : quickActionStatus === "saved"
+        ? "Saved"
+        : quickActionStatus === "opened"
+          ? "Opened"
+          : quickActionStatus === "error"
+            ? "Try again"
+            : "";
+
+  const flashQuickStatus = (status: QuickActionStatus) => {
+    setQuickActionStatus(status);
+    if (quickStatusTimerRef.current) {
+      clearTimeout(quickStatusTimerRef.current);
+    }
+    quickStatusTimerRef.current = setTimeout(() => {
+      setQuickActionStatus(null);
+      quickStatusTimerRef.current = null;
+    }, 1400);
+  };
 
   const handleBubbleAction = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -778,6 +864,51 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
       send({ type: "DISMISS" });
     }
     await hideWindow();
+  };
+
+  const handleCopyLastTranscript = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const text = lastTranscript.trim();
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      flashQuickStatus("copied");
+    } catch (error) {
+      console.error("Failed to copy last transcript:", error);
+      flashQuickStatus("error");
+    }
+  };
+
+  const handleSaveLastTranscript = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const text = lastTranscript.trim();
+    if (!text) return;
+
+    try {
+      await invoke("create_scratchpad_entry", { body: text, source: "overlay" });
+      flashQuickStatus("saved");
+    } catch (error) {
+      console.error("Failed to save last transcript:", error);
+      flashQuickStatus("error");
+    }
+  };
+
+  const handleTransformLastTranscript = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const text = lastTranscript.trim();
+    if (!text) return;
+
+    try {
+      await invoke("open_transforms_view", { text });
+      flashQuickStatus("opened");
+    } catch (error) {
+      console.error("Failed to open transform view:", error);
+      flashQuickStatus("error");
+    }
   };
 
   const renderRecordIcon = () => {
@@ -801,6 +932,93 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
       </div>
       <div className="relative flex items-end justify-center pb-[7px]">
         <AnimatePresence>
+          {showQuickActions && (
+            <motion.div
+              key="quick-actions"
+              initial={{ opacity: 0, y: 10, scale: 0.95, filter: "blur(4px)" }}
+              animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: 7, scale: 0.97, filter: "blur(4px)" }}
+              transition={softSpringTransition}
+              className="absolute bottom-[54px] z-20 flex items-center gap-1 rounded-full border px-1.5 py-1"
+              style={{
+                color: "var(--color-text-primary)",
+                backgroundColor: "color-mix(in srgb, var(--color-bg-primary) 94%, transparent)",
+                borderColor: "var(--ui-pill-shell-border)",
+                boxShadow: "0 14px 45px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.08)",
+                backdropFilter: "blur(18px)",
+              }}
+            >
+              {quickActionStatus ? (
+                <span
+                  className="flex h-7 items-center gap-1.5 rounded-full px-2.5"
+                  style={{
+                    color:
+                      quickActionStatus === "error"
+                        ? "var(--color-error)"
+                        : "var(--color-text-primary)",
+                    fontFamily: "var(--font-mono), 'JetBrains Mono', ui-monospace, monospace",
+                    fontSize: 11,
+                    letterSpacing: 0,
+                  }}
+                >
+                  {quickActionStatus === "error" ? (
+                    <X size={12} aria-hidden="true" />
+                  ) : (
+                    <Check size={12} aria-hidden="true" />
+                  )}
+                  {quickStatusLabel}
+                </span>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Copy transcript"
+                    title="Copy transcript"
+                    onClick={handleCopyLastTranscript}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border"
+                    style={{
+                      backgroundColor:
+                        "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
+                      borderColor: "var(--ui-pill-shell-border)",
+                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    <Copy size={13} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Save transcript"
+                    title="Save transcript"
+                    onClick={handleSaveLastTranscript}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border"
+                    style={{
+                      backgroundColor:
+                        "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
+                      borderColor: "var(--ui-pill-shell-border)",
+                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    <FileText size={13} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Transform transcript"
+                    title="Transform transcript"
+                    onClick={handleTransformLastTranscript}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border"
+                    style={{
+                      backgroundColor:
+                        "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
+                      borderColor: "var(--ui-pill-shell-border)",
+                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    <WandSparkles size={13} aria-hidden="true" />
+                  </button>
+                </>
+              )}
+            </motion.div>
+          )}
           {showFirstUseTip && (
             <motion.div
               key="first-tip"

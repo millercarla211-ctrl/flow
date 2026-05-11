@@ -113,6 +113,7 @@ const Home = () => {
     let cancelled = false;
     let unlistenNavigate: UnlistenFn | null = null;
     let unlistenModels: UnlistenFn | null = null;
+    let unlistenTransforms: UnlistenFn | null = null;
     let unlistenDragEnter: UnlistenFn | null = null;
     let unlistenDragOver: UnlistenFn | null = null;
     let unlistenDragLeave: UnlistenFn | null = null;
@@ -137,6 +138,14 @@ const Home = () => {
     }).then((fn) => {
       if (cancelled) fn();
       else unlistenModels = fn;
+    });
+
+    listen("navigate:transforms", () => {
+      setActiveView("transforms");
+      setIsSettingsOpen(false);
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlistenTransforms = fn;
     });
 
     listen<{ paths?: string[] }>("tauri://drag-enter", (event) => {
@@ -197,6 +206,7 @@ const Home = () => {
       cancelled = true;
       unlistenNavigate?.();
       unlistenModels?.();
+      unlistenTransforms?.();
       unlistenDragEnter?.();
       unlistenDragOver?.();
       unlistenDragLeave?.();

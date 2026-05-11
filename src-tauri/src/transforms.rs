@@ -1,9 +1,9 @@
 use arboard::Clipboard;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
-use crate::{assistive, llm_cleanup, storage, AppRuntime, AppState};
+use crate::{assistive, llm_cleanup, storage, tray, AppRuntime, AppState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct TransformPreset {
@@ -132,6 +132,35 @@ pub(crate) fn delete_transform_history_entry(
         .storage()
         .delete_transform_history_entry(&id)
         .map_err(|err| format!("Failed to delete transform history item: {err}"))
+}
+
+#[tauri::command]
+pub(crate) fn open_transforms_view(
+    app: AppHandle<AppRuntime>,
+    text: Option<String>,
+) -> Result<(), String> {
+    tray::toggle_settings_window(&app).map_err(|err| format!("Failed to open Flow: {err}"))?;
+
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(180));
+        if let Err(err) = app.emit("navigate:transforms", ()) {
+            eprintln!("Failed to emit navigate:transforms: {err}");
+        }
+        if let Some(text) = text
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+        {
+            std::thread::sleep(std::time::Duration::from_millis(80));
+            if let Err(err) = app.emit(
+                "transforms:load_text",
+                serde_json::json!({ "text": text, "source": "overlay" }),
+            ) {
+                eprintln!("Failed to emit transforms:load_text: {err}");
+            }
+        }
+    });
+
+    Ok(())
 }
 
 #[tauri::command]

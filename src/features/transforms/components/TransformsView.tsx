@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import {
   Check,
@@ -12,6 +12,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 import DotMatrix from "../../../shared/ui/DotMatrix";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useCreateScratchpadEntry } from "../../scratchpad/queries";
 import {
   useDeleteTransformHistoryEntry,
@@ -28,6 +29,11 @@ const sampleText =
 type DiffToken = {
   type: "same" | "added" | "removed";
   value: string;
+};
+
+type TransformLoadPayload = {
+  text?: string;
+  source?: string;
 };
 
 const variantKey = (variant: TransformResult) => variant.history_id ?? variant.label;
@@ -138,12 +144,32 @@ export default function TransformsView({ isActive = true }: { isActive?: boolean
 
   const canTransform = sourceText.trim().length > 0 && !transformMutation.isPending;
 
-  const setSource = (text: string, hint?: string | null) => {
+  const setSource = useCallback((text: string, hint?: string | null) => {
     setSourceText(text);
     setActiveVariant("original");
     setReviewMode("result");
     setSourceHint(hint ?? null);
-  };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: UnlistenFn | null = null;
+
+    listen<TransformLoadPayload>("transforms:load_text", (event) => {
+      const text = event.payload?.text?.trim();
+      if (!text || cancelled) return;
+      const source = event.payload?.source === "overlay" ? "Loaded from overlay" : "Loaded text";
+      setSource(text, source);
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [setSource]);
 
   const importSource = async () => {
     const source = await sourceMutation.mutateAsync();

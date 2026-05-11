@@ -453,6 +453,7 @@ pub fn run() {
             transforms::get_transform_source,
             transforms::list_transform_history,
             transforms::delete_transform_history_entry,
+            transforms::open_transforms_view,
             transforms::transform_text,
             library::commands::create_library_item,
             library::commands::get_library_items_page,
