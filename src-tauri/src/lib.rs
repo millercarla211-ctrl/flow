@@ -56,8 +56,8 @@ use recorder::{
 use reqwest::Client;
 use serde::Serialize;
 use settings::{
-    default_local_model, LlmProvider, RecordingPrunePolicy, SettingsStore, TranscriptionMode,
-    UserSettings,
+    default_local_model, LlmProvider, LocalDataStoragePolicy, RecordingPrunePolicy, SettingsStore,
+    TranscriptionMode, UserSettings,
 };
 use tauri::async_runtime;
 use tauri::tray::TrayIcon;
@@ -336,6 +336,7 @@ pub fn run() {
                 let settings = state.current_settings();
                 state.download_default_local_model_if_missing(handle, &settings, "startup");
                 state.preload_local_model_if_needed(handle, &settings, "startup");
+                schedule_local_data_prune(handle.clone(), settings);
             }
             library::commands::recover_interrupted_library_items(handle);
 
@@ -426,6 +427,7 @@ pub fn run() {
             update_settings,
             set_auto_transform_setting,
             preview_recording_prune,
+            preview_local_data_prune,
             set_user_name,
             dictionary::set_dictionary,
             dictionary::add_dictionary_entries,
@@ -1293,6 +1295,12 @@ struct RecordingPrunePreview {
     candidate_count: u32,
 }
 
+#[derive(Serialize)]
+struct LocalDataPrunePreview {
+    transcription_count: u32,
+    transform_history_count: u32,
+}
+
 #[tauri::command]
 async fn preview_recording_prune(
     policy: RecordingPrunePolicy,
@@ -1305,6 +1313,26 @@ async fn preview_recording_prune(
             .map_err(|err| err.to_string())?;
 
     Ok(RecordingPrunePreview { candidate_count })
+}
+
+#[tauri::command]
+async fn preview_local_data_prune(
+    policy: LocalDataStoragePolicy,
+    state: tauri::State<'_, AppState>,
+) -> Result<LocalDataPrunePreview, String> {
+    let storage = state.storage();
+    let cutoff_ms =
+        local_data_prune_cutoff(policy, Local::now()).map(|cutoff| cutoff.timestamp_millis());
+
+    let counts = async_runtime::spawn_blocking(move || storage.preview_local_data_prune(cutoff_ms))
+        .await
+        .map_err(|err| err.to_string())?
+        .map_err(|err| err.to_string())?;
+
+    Ok(LocalDataPrunePreview {
+        transcription_count: counts.transcription_count,
+        transform_history_count: counts.transform_history_count,
+    })
 }
 
 #[tauri::command]
@@ -1818,6 +1846,75 @@ pub(crate) fn schedule_recording_prune(app: AppHandle<AppRuntime>, settings: Use
             Err(err) => eprintln!("Recording prune task failed: {err}"),
         }
     });
+}
+
+pub(crate) fn schedule_local_data_prune(app: AppHandle<AppRuntime>, settings: UserSettings) {
+    if matches!(
+        settings.local_data_storage_policy,
+        LocalDataStoragePolicy::Store
+    ) {
+        return;
+    }
+
+    async_runtime::spawn(async move {
+        let app_handle = app.clone();
+        match async_runtime::spawn_blocking(move || {
+            prune_local_data_for_settings(&app_handle, &settings)
+        })
+        .await
+        {
+            Ok(Ok(counts)) => {
+                if counts.transcription_count > 0 || counts.transform_history_count > 0 {
+                    let _ = app.emit(
+                        EVENT_TRANSCRIPTION_COMPLETE,
+                        TranscriptionCompletePayload {
+                            transcript: String::new(),
+                            auto_paste: false,
+                        },
+                    );
+                }
+            }
+            Ok(Err(err)) => eprintln!("Failed to prune local data: {err}"),
+            Err(err) => eprintln!("Local data prune task failed: {err}"),
+        }
+    });
+}
+
+fn prune_local_data_for_settings(
+    app: &AppHandle<AppRuntime>,
+    settings: &UserSettings,
+) -> FlowResult<storage::LocalDataPruneCounts> {
+    let cutoff_ms = local_data_prune_cutoff(settings.local_data_storage_policy, Local::now())
+        .map(|cutoff| cutoff.timestamp_millis());
+    let result = app
+        .state::<AppState>()
+        .storage()
+        .prune_local_data(cutoff_ms)?;
+
+    for audio_path in &result.audio_paths {
+        if audio_path.trim().is_empty() {
+            continue;
+        }
+
+        if let Err(err) = std::fs::remove_file(audio_path) {
+            if Path::new(audio_path).exists() {
+                eprintln!("Failed to remove local data audio {}: {err}", audio_path);
+            }
+        }
+    }
+
+    Ok(result.counts)
+}
+
+fn local_data_prune_cutoff(
+    policy: LocalDataStoragePolicy,
+    now: DateTime<Local>,
+) -> Option<DateTime<Local>> {
+    match policy {
+        LocalDataStoragePolicy::Store => None,
+        LocalDataStoragePolicy::Day => now.checked_sub_days(Days::new(1)),
+        LocalDataStoragePolicy::Never => None,
+    }
 }
 
 fn prune_recordings_for_settings(

@@ -14,6 +14,7 @@
 - Added Paste Last Transcript recovery from the tray/menu command and overlay quick actions.
 - Added the default Paste Last Transcript shortcut (`Shift+Alt+Z` on Windows, `Cmd+Ctrl+V` on macOS).
 - Added a local "press enter" voice command that strips the phrase at the end of dictation and sends Enter after paste.
+- Added Wispr-style local data storage controls for transcript and transform history: store normally, auto-delete after 24 hours, or never store.
 - Added local coding post-processing for spoken file tags, extensions, paths, identifiers, and explicit backticks.
 - Added transcript history paste-back into focused apps, including batch selected transcript paste.
 

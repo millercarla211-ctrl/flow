@@ -3,8 +3,8 @@ use tauri::{AppHandle, Emitter};
 
 use super::hotkeys;
 use crate::settings::{
-    canonicalize_app_locale, canonicalize_app_locale_or_default, LlmProvider, RecordingPrunePolicy,
-    ThemeMode, TranscriptionMode, UserSettings,
+    canonicalize_app_locale, canonicalize_app_locale_or_default, LlmProvider,
+    LocalDataStoragePolicy, RecordingPrunePolicy, ThemeMode, TranscriptionMode, UserSettings,
 };
 
 use crate::{analytics, model_manager, pill, tray, AppRuntime, AppState, EVENT_SETTINGS_CHANGED};
@@ -42,6 +42,7 @@ pub(crate) struct UpdateSettingsArgs {
     pub auto_update_enabled: bool,
     pub auto_launch_enabled: bool,
     pub recording_prune_policy: RecordingPrunePolicy,
+    pub local_data_storage_policy: LocalDataStoragePolicy,
     pub analytics_enabled: bool,
 }
 
@@ -251,6 +252,7 @@ pub(crate) fn update_settings(
     next.auto_update_enabled = args.auto_update_enabled;
     next.auto_launch_enabled = args.auto_launch_enabled;
     next.recording_prune_policy = args.recording_prune_policy;
+    next.local_data_storage_policy = args.local_data_storage_policy;
     next.analytics_enabled = args.analytics_enabled;
 
     let launch_changed = prev.auto_launch_enabled != next.auto_launch_enabled;
@@ -307,6 +309,9 @@ pub(crate) fn update_settings(
     if prev.recording_prune_policy != next.recording_prune_policy {
         crate::schedule_recording_prune(app.clone(), next.clone());
     }
+    if prev.local_data_storage_policy != next.local_data_storage_policy {
+        crate::schedule_local_data_prune(app.clone(), next.clone());
+    }
 
     Ok(next)
 }
@@ -348,6 +353,7 @@ mod tests {
             auto_update_enabled: true,
             auto_launch_enabled: false,
             recording_prune_policy: RecordingPrunePolicy::Never,
+            local_data_storage_policy: LocalDataStoragePolicy::Store,
             analytics_enabled: true,
         }
     }

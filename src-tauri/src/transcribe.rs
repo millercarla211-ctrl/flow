@@ -11,7 +11,7 @@ use crate::{
     mode_context, model_manager,
     recorder::{speech_percentage_i16_with_mode, CompletedRecording, RecordingSaved},
     scratchpad,
-    settings::{Personality, UserSettings},
+    settings::{LocalDataStoragePolicy, Personality, UserSettings},
     storage, toast, transcription_api, transforms, update_checker, vibe_coding, voice_commands,
     AppRuntime, AppState, TranscriptionCompletePayload, TranscriptionErrorPayload,
     EVENT_TRANSCRIPTION_COMPLETE, EVENT_TRANSCRIPTION_ERROR,
@@ -149,14 +149,20 @@ async fn apply_auto_transform_if_enabled(
         .await
     {
         Ok(transformed) if !transformed.trim().is_empty() => {
-            if let Err(err) = state.storage().save_transform_history(
-                preset.label.clone(),
-                Some(preset.id.clone()),
-                Some(preset.instruction.clone()),
-                trimmed.to_string(),
-                transformed.clone(),
+            if !matches!(
+                settings.local_data_storage_policy,
+                LocalDataStoragePolicy::Never
             ) {
-                eprintln!("Auto Transform succeeded but history could not be saved: {err}");
+                if let Err(err) = state.storage().save_transform_history(
+                    preset.label.clone(),
+                    Some(preset.id.clone()),
+                    Some(preset.instruction.clone()),
+                    trimmed.to_string(),
+                    transformed.clone(),
+                ) {
+                    eprintln!("Auto Transform succeeded but history could not be saved: {err}");
+                }
+                crate::schedule_local_data_prune(app.clone(), settings.clone());
             }
             (
                 transformed,
@@ -791,29 +797,40 @@ fn emit_transcription_complete_with_cleanup(
 
     app.state::<AppState>().pill().safe_reset(app);
 
-    if llm_cleaned {
-        let _ = app
-            .state::<AppState>()
-            .storage()
-            .save_transcription_with_cleanup(
-                raw_transcript,
+    let settings = app.state::<AppState>().current_settings();
+    if !matches!(
+        settings.local_data_storage_policy,
+        LocalDataStoragePolicy::Never
+    ) {
+        if llm_cleaned {
+            let _ = app
+                .state::<AppState>()
+                .storage()
+                .save_transcription_with_cleanup(
+                    raw_transcript,
+                    final_transcript,
+                    audio_path,
+                    metadata,
+                    None,
+                );
+        } else {
+            let _ = app.state::<AppState>().storage().save_transcription(
                 final_transcript,
                 audio_path,
+                storage::TranscriptionStatus::Success,
+                None,
                 metadata,
                 None,
             );
-    } else {
-        let _ = app.state::<AppState>().storage().save_transcription(
-            final_transcript,
-            audio_path,
-            storage::TranscriptionStatus::Success,
-            None,
-            metadata,
-            None,
-        );
+        }
+    } else if !audio_path.trim().is_empty() {
+        if let Err(err) = std::fs::remove_file(&audio_path) {
+            if std::path::Path::new(&audio_path).exists() {
+                eprintln!("Failed to remove non-stored transcription audio {audio_path}: {err}");
+            }
+        }
     }
 
-    let settings = app.state::<AppState>().current_settings();
     if let Err(err) = crate::tray::refresh_tray_menu(app, &settings) {
         eprintln!("Failed to refresh tray menu: {err}");
     }
@@ -823,6 +840,7 @@ fn emit_transcription_complete_with_cleanup(
     }
 
     crate::schedule_recording_prune(app.clone(), settings);
+    crate::schedule_local_data_prune(app.clone(), app.state::<AppState>().current_settings());
 
     let update_state = app.state::<AppState>().update_state().clone();
     update_checker::maybe_show_update_toast(app, &update_state);
@@ -930,17 +948,28 @@ fn emit_transcription_error_inner(
         ..Default::default()
     };
 
-    let record_result = state.storage().save_transcription(
-        String::new(),
-        audio_path.clone(),
-        storage::TranscriptionStatus::Error,
-        Some(toast_message.clone()),
-        metadata,
-        None,
-    );
+    if !matches!(
+        settings.local_data_storage_policy,
+        LocalDataStoragePolicy::Never
+    ) {
+        let record_result = state.storage().save_transcription(
+            String::new(),
+            audio_path.clone(),
+            storage::TranscriptionStatus::Error,
+            Some(toast_message.clone()),
+            metadata,
+            None,
+        );
 
-    if let Err(err) = record_result {
-        eprintln!("Failed to persist failed transcription: {err}");
+        if let Err(err) = record_result {
+            eprintln!("Failed to persist failed transcription: {err}");
+        }
+    } else if !audio_path.trim().is_empty() {
+        if let Err(err) = std::fs::remove_file(&audio_path) {
+            if std::path::Path::new(&audio_path).exists() {
+                eprintln!("Failed to remove non-stored failed audio {audio_path}: {err}");
+            }
+        }
     }
 
     if state.pill().status() == crate::pill::PillStatus::Listening {

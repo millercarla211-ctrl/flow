@@ -16,6 +16,7 @@ import { Dropdown } from "../../../../shared/ui/Dropdown";
 import type { PlatformCapabilities } from "../../../../shared/lib/platform";
 import type {
   AppLocaleSetting,
+  LocalDataStoragePolicy,
   RecordingPrunePolicy,
   TextSizeMode,
   ThemeMode,
@@ -25,9 +26,20 @@ type RecordingPrunePreview = {
   candidate_count: number;
 };
 
+type LocalDataPrunePreview = {
+  transcription_count: number;
+  transform_history_count: number;
+};
+
 type PendingPruneConfirmation = {
   policy: RecordingPrunePolicy;
   candidateCount: number | null;
+};
+
+type PendingLocalDataConfirmation = {
+  policy: LocalDataStoragePolicy;
+  transcriptionCount: number | null;
+  transformHistoryCount: number | null;
 };
 
 const recordingPrunePolicySeverity: Record<RecordingPrunePolicy, number> = {
@@ -98,6 +110,8 @@ type AppTabProps = {
   onAutoLaunchEnabledChange: (enabled: boolean) => void;
   recordingPrunePolicy: RecordingPrunePolicy;
   onRecordingPrunePolicyChange: (policy: RecordingPrunePolicy) => void;
+  localDataStoragePolicy: LocalDataStoragePolicy;
+  onLocalDataStoragePolicyChange: (policy: LocalDataStoragePolicy) => void;
   analyticsEnabled: boolean;
   onAnalyticsEnabledChange: (enabled: boolean) => void;
   platformCapabilities: PlatformCapabilities;
@@ -123,6 +137,8 @@ const AppTab = ({
   onAutoLaunchEnabledChange,
   recordingPrunePolicy,
   onRecordingPrunePolicyChange,
+  localDataStoragePolicy,
+  onLocalDataStoragePolicyChange,
   analyticsEnabled,
   onAnalyticsEnabledChange,
   platformCapabilities,
@@ -132,6 +148,9 @@ const AppTab = ({
   const [isPreviewingPrune, setIsPreviewingPrune] = useState(false);
   const [pendingPruneConfirmation, setPendingPruneConfirmation] =
     useState<PendingPruneConfirmation | null>(null);
+  const [isPreviewingLocalData, setIsPreviewingLocalData] = useState(false);
+  const [pendingLocalDataConfirmation, setPendingLocalDataConfirmation] =
+    useState<PendingLocalDataConfirmation | null>(null);
 
   const textSizeOptions: Array<{ value: TextSizeMode; label: string }> = [
     {
@@ -180,6 +199,33 @@ const AppTab = ({
       label: t({ id: "settings.app.prune.three_months", message: "3 Months" }),
     },
     { value: "year", label: t({ id: "settings.app.prune.year", message: "1 Year" }) },
+  ];
+
+  const localDataStorageOptions: Array<{
+    value: LocalDataStoragePolicy;
+    label: string;
+  }> = [
+    {
+      value: "store",
+      label: t({
+        id: "settings.app.local_data.store",
+        message: "Store normally",
+      }),
+    },
+    {
+      value: "day",
+      label: t({
+        id: "settings.app.local_data.day",
+        message: "Auto-delete 24h",
+      }),
+    },
+    {
+      value: "never",
+      label: t({
+        id: "settings.app.local_data.never",
+        message: "Never store",
+      }),
+    },
   ];
 
   const appLanguageOptions = buildAppLocaleOptions(
@@ -345,6 +391,54 @@ const AppTab = ({
     setDraftPolicy(recordingPrunePolicy);
   };
 
+  const getLocalDataStorageLabel = (policy: LocalDataStoragePolicy) =>
+    localDataStorageOptions.find((option) => option.value === policy)?.label ?? policy;
+
+  const handleLocalDataPolicyChange = async (policy: LocalDataStoragePolicy) => {
+    if (policy === localDataStoragePolicy || isPreviewingLocalData) {
+      return;
+    }
+
+    if (policy === "store") {
+      onLocalDataStoragePolicyChange(policy);
+      return;
+    }
+
+    setIsPreviewingLocalData(true);
+    try {
+      const preview = await invoke<LocalDataPrunePreview>("preview_local_data_prune", {
+        policy,
+      });
+      setPendingLocalDataConfirmation({
+        policy,
+        transcriptionCount: preview.transcription_count,
+        transformHistoryCount: preview.transform_history_count,
+      });
+    } catch (error) {
+      console.error("Failed to preview local data policy impact", error);
+      setPendingLocalDataConfirmation({
+        policy,
+        transcriptionCount: null,
+        transformHistoryCount: null,
+      });
+    } finally {
+      setIsPreviewingLocalData(false);
+    }
+  };
+
+  const handleConfirmLocalDataChange = () => {
+    if (!pendingLocalDataConfirmation) {
+      return;
+    }
+
+    onLocalDataStoragePolicyChange(pendingLocalDataConfirmation.policy);
+    setPendingLocalDataConfirmation(null);
+  };
+
+  const handleCloseLocalDataConfirmation = () => {
+    setPendingLocalDataConfirmation(null);
+  };
+
   const pruneConfirmationMessage = pendingPruneConfirmation
     ? buildPruneConfirmationMessage(
         pendingPruneConfirmation.policy,
@@ -380,6 +474,42 @@ const AppTab = ({
         message: "Checking how many recordings would be deleted",
       })
     : confirmButtonLabel;
+
+  const localDataConfirmationLabel = pendingLocalDataConfirmation
+    ? getLocalDataStorageLabel(pendingLocalDataConfirmation.policy)
+    : "";
+
+  const localDataConfirmationMessage = pendingLocalDataConfirmation
+    ? pendingLocalDataConfirmation.policy === "never"
+      ? t({
+          id: "settings.app.local_data.confirm.never",
+          message: `Switching to ${{ localDataConfirmationLabel }} deletes existing transcript history and transform history, then prevents new local history from being stored.`,
+        })
+      : t({
+          id: "settings.app.local_data.confirm.day",
+          message: `Switching to ${{ localDataConfirmationLabel }} deletes existing transcript and transform history older than 24 hours, then keeps pruning it locally.`,
+        })
+    : "";
+
+  const localDataConfirmationCounts =
+    pendingLocalDataConfirmation &&
+    pendingLocalDataConfirmation.transcriptionCount !== null &&
+    pendingLocalDataConfirmation.transformHistoryCount !== null
+      ? t({
+          id: "settings.app.local_data.confirm.counts",
+          message: `${plural(pendingLocalDataConfirmation.transcriptionCount, {
+            one: "# transcript",
+            other: "# transcripts",
+          })} and ${plural(pendingLocalDataConfirmation.transformHistoryCount, {
+            one: "# transform",
+            other: "# transforms",
+          })} are affected now.`,
+        })
+      : t({
+          id: "settings.app.local_data.confirm.unknown_counts",
+          message: "Flow could not count affected items right now.",
+        });
+
   const hasPermissionRows =
     platformCapabilities.requiresNativeMicrophonePermission ||
     platformCapabilities.requiresAccessibilityPermission ||
@@ -608,6 +738,36 @@ const AppTab = ({
               </div>
             </div>
 
+            <div className="rounded-lg bg-surface-surface p-2.5">
+              <div className="px-2 py-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="ui-text-label-strong ui-color-primary">
+                    {t({
+                      id: "settings.app.local_data.label",
+                      message: "Local Data Storage",
+                    })}
+                  </span>
+                  <div className="w-[140px] shrink-0">
+                    <Dropdown
+                      value={localDataStoragePolicy}
+                      onChange={(value) => {
+                        void handleLocalDataPolicyChange(value);
+                      }}
+                      options={localDataStorageOptions}
+                      buttonClassName="py-0.5 px-2 ui-text-meta h-[24px]"
+                      disabled={isPreviewingLocalData}
+                    />
+                  </div>
+                </div>
+                <span className="ui-text-micro ui-color-disabled block mt-0.5">
+                  {t({
+                    id: "settings.app.local_data.body",
+                    message: "controls transcript and transform history saved on this device.",
+                  })}
+                </span>
+              </div>
+            </div>
+
             {hasPermissionRows && (
               <p className="ui-text-micro ui-color-disabled px-0.5">
                 {t({
@@ -823,6 +983,69 @@ const AppTab = ({
                 >
                   {t({
                     id: "settings.app.auto_delete_recordings.confirm.apply",
+                    message: "Apply anyway",
+                  })}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {pendingLocalDataConfirmation && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-xs px-6"
+            onClick={handleCloseLocalDataConfirmation}
+          >
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="w-full max-w-sm rounded-2xl border border-red-500/30 bg-surface-tertiary p-5 ui-shadow-modal-deep"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label={t({
+                id: "settings.app.local_data.confirm.title",
+                message: "Change local data storage?",
+              })}
+            >
+              <div className="mb-3 flex items-start gap-3">
+                <AlertTriangle size={20} className="mt-1 shrink-0 text-red-400" />
+                <div className="min-w-0">
+                  <p className="ui-text-body-lg font-semibold ui-color-error-strong leading-tight">
+                    {t({
+                      id: "settings.app.local_data.confirm.title",
+                      message: "Change local data storage?",
+                    })}
+                  </p>
+                  <p className="mt-1 ui-text-body text-content-primary leading-relaxed">
+                    {localDataConfirmationMessage}
+                  </p>
+                </div>
+              </div>
+              <p className="ui-text-micro text-content-muted">{localDataConfirmationCounts}</p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  onClick={handleCloseLocalDataConfirmation}
+                  className="rounded-lg border border-border-secondary px-4 py-2 ui-text-body-sm font-medium text-content-secondary hover:border-border-hover transition-colors"
+                >
+                  {t({
+                    id: "settings.app.cancel",
+                    message: "Cancel",
+                  })}
+                </button>
+                <button
+                  onClick={handleConfirmLocalDataChange}
+                  className="rounded-lg bg-red-500/90 px-4 py-2 ui-text-body-sm font-semibold ui-color-on-solid hover:bg-red-500 transition-colors"
+                >
+                  {t({
+                    id: "settings.app.local_data.confirm.apply",
                     message: "Apply anyway",
                   })}
                 </button>

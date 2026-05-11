@@ -45,6 +45,7 @@ const KEY_MEDIA_CONTROL_ENABLED: &str = "media_control_enabled";
 const KEY_AUTO_UPDATE_ENABLED: &str = "auto_update_enabled";
 const KEY_AUTO_LAUNCH_ENABLED: &str = "auto_launch_enabled";
 const KEY_RECORDING_PRUNE_POLICY: &str = "recording_prune_policy";
+const KEY_LOCAL_DATA_STORAGE_POLICY: &str = "local_data_storage_policy";
 const KEY_ANALYTICS_ENABLED: &str = "analytics_enabled";
 const KEY_ANALYTICS_INSTALL_ID: &str = "analytics_install_id";
 
@@ -143,6 +144,8 @@ pub struct UserSettings {
     pub auto_launch_enabled: bool,
     #[serde(default = "default_recording_prune_policy")]
     pub recording_prune_policy: RecordingPrunePolicy,
+    #[serde(default = "default_local_data_storage_policy")]
+    pub local_data_storage_policy: LocalDataStoragePolicy,
     #[serde(default = "default_true")]
     pub analytics_enabled: bool,
     #[serde(default)]
@@ -394,6 +397,7 @@ impl Default for UserSettings {
             auto_update_enabled: false,
             auto_launch_enabled: false,
             recording_prune_policy: default_recording_prune_policy(),
+            local_data_storage_policy: default_local_data_storage_policy(),
             analytics_enabled: true,
             analytics_install_id: String::new(),
         }
@@ -427,6 +431,19 @@ pub enum RecordingPrunePolicy {
 
 fn default_recording_prune_policy() -> RecordingPrunePolicy {
     RecordingPrunePolicy::Never
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum LocalDataStoragePolicy {
+    #[default]
+    Store,
+    Day,
+    Never,
+}
+
+fn default_local_data_storage_policy() -> LocalDataStoragePolicy {
+    LocalDataStoragePolicy::Store
 }
 
 fn default_auto_transform_preset_id() -> String {
@@ -715,6 +732,11 @@ impl SettingsStore {
                 KEY_RECORDING_PRUNE_POLICY,
                 settings.recording_prune_policy,
             )?;
+            settings.local_data_storage_policy = self.read_value(
+                &conn,
+                KEY_LOCAL_DATA_STORAGE_POLICY,
+                settings.local_data_storage_policy,
+            )?;
             settings.analytics_enabled =
                 self.read_value(&conn, KEY_ANALYTICS_ENABLED, settings.analytics_enabled)?;
             settings.analytics_install_id = self.read_value(
@@ -919,6 +941,11 @@ impl SettingsStore {
             &conn,
             KEY_RECORDING_PRUNE_POLICY,
             &settings.recording_prune_policy,
+        )?;
+        self.write_value(
+            &conn,
+            KEY_LOCAL_DATA_STORAGE_POLICY,
+            &settings.local_data_storage_policy,
         )?;
         self.write_value(&conn, KEY_ANALYTICS_ENABLED, &settings.analytics_enabled)?;
         self.write_value(

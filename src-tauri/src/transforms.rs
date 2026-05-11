@@ -3,7 +3,10 @@ use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::{assistive, llm_cleanup, storage, tray, AppRuntime, AppState, PasteTextResult};
+use crate::{
+    assistive, llm_cleanup, settings::LocalDataStoragePolicy, storage, tray, AppRuntime, AppState,
+    PasteTextResult,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct TransformPreset {
@@ -279,6 +282,21 @@ pub(crate) async fn transform_text(
             .await
             .map_err(|err| format!("Transform failed: {err}"))?;
 
+    if matches!(
+        settings.local_data_storage_policy,
+        LocalDataStoragePolicy::Never
+    ) {
+        return Ok(TransformResult {
+            history_id: None,
+            preset_id,
+            label,
+            original: text,
+            transformed,
+            instruction: Some(instruction),
+            created_at: None,
+        });
+    }
+
     let history_entry = state
         .storage()
         .save_transform_history(
@@ -289,6 +307,7 @@ pub(crate) async fn transform_text(
             transformed.clone(),
         )
         .map_err(|err| format!("Transform succeeded but history could not be saved: {err}"))?;
+    crate::schedule_local_data_prune(app.clone(), settings.clone());
 
     Ok(TransformResult {
         history_id: Some(history_entry.id),

@@ -93,6 +93,18 @@ pub struct StorageManager {
     connection: Arc<Mutex<Connection>>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+pub struct LocalDataPruneCounts {
+    pub transcription_count: u32,
+    pub transform_history_count: u32,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct LocalDataPruneResult {
+    pub counts: LocalDataPruneCounts,
+    pub audio_paths: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScratchpadEntry {
     pub id: String,
@@ -906,6 +918,90 @@ impl StorageManager {
         Ok(paths)
     }
 
+    pub fn preview_local_data_prune(
+        &self,
+        older_than_timestamp_ms: Option<i64>,
+    ) -> Result<LocalDataPruneCounts> {
+        let conn = self.connection.lock();
+
+        let transcription_count = if let Some(cutoff_ms) = older_than_timestamp_ms {
+            conn.query_row(
+                "SELECT COUNT(*) FROM transcriptions WHERE timestamp < ?1",
+                params![cutoff_ms],
+                |row| row.get::<_, i64>(0),
+            )?
+        } else {
+            conn.query_row("SELECT COUNT(*) FROM transcriptions", [], |row| {
+                row.get::<_, i64>(0)
+            })?
+        };
+
+        let transform_history_count = if let Some(cutoff_ms) = older_than_timestamp_ms {
+            conn.query_row(
+                "SELECT COUNT(*) FROM transform_history WHERE created_at < ?1",
+                params![cutoff_ms],
+                |row| row.get::<_, i64>(0),
+            )?
+        } else {
+            conn.query_row("SELECT COUNT(*) FROM transform_history", [], |row| {
+                row.get::<_, i64>(0)
+            })?
+        };
+
+        Ok(LocalDataPruneCounts {
+            transcription_count: saturating_i64_to_u32(transcription_count),
+            transform_history_count: saturating_i64_to_u32(transform_history_count),
+        })
+    }
+
+    pub fn prune_local_data(
+        &self,
+        older_than_timestamp_ms: Option<i64>,
+    ) -> Result<LocalDataPruneResult> {
+        let conn = self.connection.lock();
+
+        let audio_paths = if let Some(cutoff_ms) = older_than_timestamp_ms {
+            let mut stmt =
+                conn.prepare("SELECT audio_path FROM transcriptions WHERE timestamp < ?1")?;
+            let paths = stmt
+                .query_map(params![cutoff_ms], |row| row.get(0))?
+                .collect::<rusqlite::Result<Vec<String>>>()?;
+            paths
+        } else {
+            let mut stmt = conn.prepare("SELECT audio_path FROM transcriptions")?;
+            let paths = stmt
+                .query_map([], |row| row.get(0))?
+                .collect::<rusqlite::Result<Vec<String>>>()?;
+            paths
+        };
+
+        let transcription_count = if let Some(cutoff_ms) = older_than_timestamp_ms {
+            conn.execute(
+                "DELETE FROM transcriptions WHERE timestamp < ?1",
+                params![cutoff_ms],
+            )?
+        } else {
+            conn.execute("DELETE FROM transcriptions", [])?
+        };
+
+        let transform_history_count = if let Some(cutoff_ms) = older_than_timestamp_ms {
+            conn.execute(
+                "DELETE FROM transform_history WHERE created_at < ?1",
+                params![cutoff_ms],
+            )?
+        } else {
+            conn.execute("DELETE FROM transform_history", [])?
+        };
+
+        Ok(LocalDataPruneResult {
+            counts: LocalDataPruneCounts {
+                transcription_count: transcription_count.min(u32::MAX as usize) as u32,
+                transform_history_count: transform_history_count.min(u32::MAX as usize) as u32,
+            },
+            audio_paths,
+        })
+    }
+
     pub fn get_by_id(&self, id: &str) -> Option<TranscriptionRecord> {
         let conn = self.connection.lock();
         match Self::get_record(&conn, id) {
@@ -1544,6 +1640,10 @@ impl StorageManager {
 
 fn count_words(text: &str) -> u32 {
     crate::transcribe::count_words(text)
+}
+
+fn saturating_i64_to_u32(value: i64) -> u32 {
+    value.max(0).min(u32::MAX as i64) as u32
 }
 
 pub fn apply_snippets_to_text(text: &str, snippets: &[Snippet]) -> String {
@@ -2201,6 +2301,96 @@ mod tests {
         let all = storage.get_all_filtered(None).unwrap();
         assert_eq!(all[0].id, saved.id);
         assert_ne!(all[0].id, other.id);
+
+        drop(storage);
+        let _ = std::fs::remove_file(db_path);
+    }
+
+    #[test]
+    fn local_data_prune_counts_and_deletes_old_history() {
+        let db_path =
+            std::env::temp_dir().join(format!("flow-local-data-prune-{}.sqlite", Uuid::new_v4()));
+        let storage = StorageManager::new(db_path.clone()).unwrap();
+        let old_ms = (Local::now() - chrono::Duration::days(2)).timestamp_millis();
+        let fresh_ms = Local::now().timestamp_millis();
+        let cutoff_ms = (Local::now() - chrono::Duration::days(1)).timestamp_millis();
+
+        let old_record = storage
+            .save_transcription(
+                "old words".to_string(),
+                "old.wav".to_string(),
+                TranscriptionStatus::Success,
+                None,
+                TranscriptionMetadata::default(),
+                None,
+            )
+            .unwrap();
+        let fresh_record = storage
+            .save_transcription(
+                "fresh words".to_string(),
+                "fresh.wav".to_string(),
+                TranscriptionStatus::Success,
+                None,
+                TranscriptionMetadata::default(),
+                None,
+            )
+            .unwrap();
+        let old_transform = storage
+            .save_transform_history(
+                "Polish".to_string(),
+                Some("polish".to_string()),
+                Some("Polish this".to_string()),
+                "old original".to_string(),
+                "old transformed".to_string(),
+            )
+            .unwrap();
+        let fresh_transform = storage
+            .save_transform_history(
+                "Polish".to_string(),
+                Some("polish".to_string()),
+                Some("Polish this".to_string()),
+                "fresh original".to_string(),
+                "fresh transformed".to_string(),
+            )
+            .unwrap();
+
+        {
+            let conn = storage.connection.lock();
+            conn.execute(
+                "UPDATE transcriptions SET timestamp = ?1 WHERE id = ?2",
+                params![old_ms, &old_record.id],
+            )
+            .unwrap();
+            conn.execute(
+                "UPDATE transcriptions SET timestamp = ?1 WHERE id = ?2",
+                params![fresh_ms, &fresh_record.id],
+            )
+            .unwrap();
+            conn.execute(
+                "UPDATE transform_history SET created_at = ?1 WHERE id = ?2",
+                params![old_ms, &old_transform.id],
+            )
+            .unwrap();
+            conn.execute(
+                "UPDATE transform_history SET created_at = ?1 WHERE id = ?2",
+                params![fresh_ms, &fresh_transform.id],
+            )
+            .unwrap();
+        }
+
+        let preview = storage.preview_local_data_prune(Some(cutoff_ms)).unwrap();
+        assert_eq!(preview.transcription_count, 1);
+        assert_eq!(preview.transform_history_count, 1);
+
+        let pruned = storage.prune_local_data(Some(cutoff_ms)).unwrap();
+        assert_eq!(pruned.counts.transcription_count, 1);
+        assert_eq!(pruned.counts.transform_history_count, 1);
+        assert_eq!(pruned.audio_paths, vec!["old.wav".to_string()]);
+        assert!(storage.get_by_id(&old_record.id).is_none());
+        assert!(storage.get_by_id(&fresh_record.id).is_some());
+        let remaining_history = storage.get_transform_history(10).unwrap();
+        assert_eq!(remaining_history.len(), 1);
+        assert_eq!(remaining_history[0].id, fresh_transform.id);
 
         drop(storage);
         let _ = std::fs::remove_file(db_path);

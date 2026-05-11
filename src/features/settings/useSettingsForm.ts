@@ -32,6 +32,7 @@ import type {
   DownloadEvent,
   LlmProvider,
   RecordingPrunePolicy,
+  LocalDataStoragePolicy,
   AppLocaleSetting,
 } from "../../types";
 
@@ -94,6 +95,8 @@ export function useSettingsForm({
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(false);
   const [autoLaunchEnabled, setAutoLaunchEnabled] = useState(false);
   const [recordingPrunePolicy, setRecordingPrunePolicy] = useState<RecordingPrunePolicy>("never");
+  const [localDataStoragePolicy, setLocalDataStoragePolicy] =
+    useState<LocalDataStoragePolicy>("store");
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [textSizeMode, setTextSizeModeRaw] = useState<TextSizeMode>(() =>
     parseTextSizeMode(localStorage.getItem(TEXT_SIZE_MODE_STORAGE_KEY)),
@@ -206,6 +209,7 @@ export function useSettingsForm({
     setAutoUpdateEnabled(s.auto_update_enabled ?? false);
     setAutoLaunchEnabled(s.auto_launch_enabled ?? false);
     setRecordingPrunePolicy(s.recording_prune_policy ?? "never");
+    setLocalDataStoragePolicy(s.local_data_storage_policy ?? "store");
     setAnalyticsEnabled(s.analytics_enabled ?? true);
     setThemeModeRaw(s.theme_mode ?? "system");
   }, []);
@@ -577,6 +581,7 @@ export function useSettingsForm({
             autoUpdateEnabled,
             autoLaunchEnabled,
             recordingPrunePolicy,
+            localDataStoragePolicy,
             analyticsEnabled,
           },
         });
@@ -626,6 +631,7 @@ export function useSettingsForm({
     autoUpdateEnabled,
     autoLaunchEnabled,
     recordingPrunePolicy,
+    localDataStoragePolicy,
     analyticsEnabled,
     aiFeaturesReady,
   ]);
@@ -882,6 +888,8 @@ export function useSettingsForm({
     setAutoLaunchEnabled,
     recordingPrunePolicy,
     setRecordingPrunePolicy,
+    localDataStoragePolicy,
+    setLocalDataStoragePolicy,
     analyticsEnabled,
     setAnalyticsEnabled,
     platformCapabilities,

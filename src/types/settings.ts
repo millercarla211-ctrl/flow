@@ -12,6 +12,8 @@ export type RecordingPrunePolicy =
   | "three_months"
   | "year";
 
+export type LocalDataStoragePolicy = "store" | "day" | "never";
+
 export type LlmProvider =
   | "none"
   | "lmstudio"
@@ -80,6 +82,7 @@ export type StoredSettings = {
   auto_update_enabled: boolean;
   auto_launch_enabled: boolean;
   recording_prune_policy: RecordingPrunePolicy;
+  local_data_storage_policy: LocalDataStoragePolicy;
   analytics_enabled: boolean;
   analytics_install_id: string;
 };
