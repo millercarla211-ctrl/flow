@@ -37,8 +37,10 @@ import SnippetsView from "./features/snippets/components/SnippetsView";
 import TransformsView from "./features/transforms/components/TransformsView";
 import InsightsView from "./features/insights/components/InsightsView";
 import { useCurrentUser } from "./features/auth/queries";
-import { useSettings, useAppInfo } from "./features/settings/queries";
+import { useSettings, useAppInfo, useInputDevices } from "./features/settings/queries";
+import { useModelCatalog, useModelStatuses } from "./features/settings/models-queries";
 import { useUpdateStatus } from "./features/updates/queries";
+import { formatShortcutForDisplay } from "./shared/lib/shortcuts";
 import type { TranscriptionMode } from "./types";
 
 const SidebarItem = ({
@@ -71,6 +73,17 @@ const SidebarItem = ({
   </button>
 );
 
+const compactPath = (path: string) => {
+  const normalized = path.replace(/\//g, "\\");
+  const parts = normalized.split("\\").filter(Boolean);
+
+  if (parts.length <= 3) return normalized;
+
+  const drivePrefix = /^[A-Za-z]:$/.test(parts[0]) ? `${parts[0]}\\` : "";
+  const startIndex = drivePrefix ? 1 : 0;
+  return `${drivePrefix}...\\${parts.slice(Math.max(startIndex, parts.length - 2)).join("\\")}`;
+};
+
 const Home = () => {
   const { t } = useLingui();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -100,9 +113,16 @@ const Home = () => {
   const { data: settings } = useSettings();
   const { data: updateStatus } = useUpdateStatus();
   const { data: appInfoData } = useAppInfo();
+  const { data: inputDevices = [] } = useInputDevices();
+  const { data: modelCatalog = [] } = useModelCatalog();
 
   const transcriptionMode: TranscriptionMode = settings?.transcription_mode ?? "local";
   const llmEnabled = settings?.llm_enabled ?? false;
+  const localModelKey = settings?.local_model ?? "";
+  const { statusByModel } = useModelStatuses(
+    localModelKey ? [localModelKey] : [],
+    Boolean(localModelKey),
+  );
   const appVersion = appInfoData?.version ?? "-";
   const updateAvailable = updateStatus?.available ?? false;
 
@@ -249,6 +269,62 @@ const Home = () => {
   const isCloudMode = transcriptionMode === "cloud";
 
   const showCleanupButtons = isCloudMode || llmEnabled;
+  const selectedModel = modelCatalog.find((model) => model.key === localModelKey);
+  const selectedModelStatus = localModelKey ? statusByModel[localModelKey] : undefined;
+  const modelReady =
+    transcriptionMode === "local"
+      ? Boolean(selectedModelStatus?.installed)
+      : transcriptionMode === "cloud";
+  const modelLabel = selectedModel
+    ? selectedModelStatus?.installed
+      ? `${selectedModel.label} ready`
+      : `${selectedModel.label} missing`
+    : localModelKey
+      ? `${localModelKey} missing`
+      : "No local model selected";
+  const selectedMicrophoneName = settings?.microphone_device
+    ? inputDevices.find((device) => device.id === settings.microphone_device)?.name
+    : inputDevices.find((device) => device.is_default)?.name;
+  const microphoneReady = inputDevices.length > 0;
+  const microphoneLabel = microphoneReady
+    ? (selectedMicrophoneName ?? "System default")
+    : "No input device";
+  const activeShortcuts = [
+    settings?.smart_enabled
+      ? {
+          label: "Smart",
+          shortcut: settings.smart_shortcut,
+        }
+      : null,
+    settings?.hold_enabled
+      ? {
+          label: "Hold",
+          shortcut: settings.hold_shortcut,
+        }
+      : null,
+    settings?.toggle_enabled
+      ? {
+          label: "Toggle",
+          shortcut: settings.toggle_shortcut,
+        }
+      : null,
+  ].filter(Boolean) as { label: string; shortcut: string }[];
+  const shortcutReady = activeShortcuts.length > 0;
+  const shortcutLabel = shortcutReady
+    ? `${activeShortcuts[0].label}: ${formatShortcutForDisplay(activeShortcuts[0].shortcut)}${
+        activeShortcuts.length > 1 ? ` +${activeShortcuts.length - 1}` : ""
+      }`
+    : "No shortcut enabled";
+  const aiRequested = Boolean(settings?.cleanup_enabled || settings?.edit_mode_enabled);
+  const aiReady = !aiRequested || llmEnabled || isCloudMode;
+  const aiLabel = aiRequested ? (aiReady ? "Cleanup/Edit ready" : "Provider needed") : "Optional";
+  const storageLabel = appInfoData?.data_dir_path
+    ? `Data: ${compactPath(appInfoData.data_dir_path)}`
+    : "Data path loading";
+  const readinessChecks = [modelReady, microphoneReady, shortcutReady, aiReady];
+  const readinessPercent = Math.round(
+    (readinessChecks.filter(Boolean).length / readinessChecks.length) * 100,
+  );
   const currentModeLabel = isCloudMode
     ? t({
         id: "home.mode.cloud",
@@ -638,7 +714,27 @@ const Home = () => {
               {getGreeting()}
             </h1>
 
-            <FlowVoicePanel modeLabel={currentModeLabel} />
+            <FlowVoicePanel
+              modeLabel={currentModeLabel}
+              modelLabel={modelLabel}
+              modelReady={modelReady}
+              microphoneLabel={microphoneLabel}
+              microphoneReady={microphoneReady}
+              shortcutLabel={shortcutLabel}
+              shortcutReady={shortcutReady}
+              aiLabel={aiLabel}
+              aiReady={aiReady}
+              storageLabel={storageLabel}
+              readinessPercent={readinessPercent}
+              onOpenGeneralSettings={() => {
+                setSettingsTab("general");
+                setIsSettingsOpen(true);
+              }}
+              onOpenModels={() => {
+                setSettingsTab("models");
+                setIsSettingsOpen(true);
+              }}
+            />
 
             <TranscriptionList
               showLlmButtons={showCleanupButtons}
