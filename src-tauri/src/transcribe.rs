@@ -76,15 +76,21 @@ fn apply_dictionary_and_snippets(
     }
 }
 
+#[derive(Debug, Clone)]
+struct AppliedAutoTransform {
+    preset_id: String,
+    label: String,
+}
+
 async fn apply_auto_transform_if_enabled(
     app: &AppHandle<AppRuntime>,
     transcript: &str,
     settings: &UserSettings,
     should_auto_transform: bool,
-) -> (String, bool) {
+) -> (String, Option<AppliedAutoTransform>) {
     let trimmed = transcript.trim();
     if !should_auto_transform || trimmed.is_empty() {
-        return (transcript.to_string(), false);
+        return (transcript.to_string(), None);
     }
 
     let Some(preset) = transforms::default_transform_presets()
@@ -95,7 +101,7 @@ async fn apply_auto_transform_if_enabled(
             "Auto Transform skipped: unknown preset {}",
             settings.auto_transform_preset_id
         );
-        return (transcript.to_string(), false);
+        return (transcript.to_string(), None);
     };
 
     let state = app.state::<AppState>();
@@ -104,25 +110,31 @@ async fn apply_auto_transform_if_enabled(
     {
         Ok(transformed) if !transformed.trim().is_empty() => {
             if let Err(err) = state.storage().save_transform_history(
-                preset.label,
-                Some(preset.id),
-                Some(preset.instruction),
+                preset.label.clone(),
+                Some(preset.id.clone()),
+                Some(preset.instruction.clone()),
                 trimmed.to_string(),
                 transformed.clone(),
             ) {
                 eprintln!("Auto Transform succeeded but history could not be saved: {err}");
             }
-            (transformed, true)
+            (
+                transformed,
+                Some(AppliedAutoTransform {
+                    preset_id: preset.id,
+                    label: preset.label,
+                }),
+            )
         }
         Ok(_) => {
             eprintln!("Auto Transform returned empty text, keeping transcript");
-            (transcript.to_string(), false)
+            (transcript.to_string(), None)
         }
         Err(err) => {
             eprintln!("Auto Transform failed, keeping transcript: {err}");
             llm_cleanup::note_preflight_failure();
             maybe_warn_llm_unavailable(app, false);
-            (transcript.to_string(), false)
+            (transcript.to_string(), None)
         }
     }
 }
@@ -322,14 +334,14 @@ pub(crate) fn queue_transcription(
                     (raw_transcript.clone(), false)
                 };
 
-                let (transformed, auto_transformed) = apply_auto_transform_if_enabled(
+                let (transformed, auto_transform) = apply_auto_transform_if_enabled(
                     &app_handle,
                     &final_transcript,
                     &settings,
                     should_auto_transform,
                 )
                 .await;
-                if auto_transformed {
+                if auto_transform.is_some() {
                     final_transcript = transformed;
                     llm_cleaned = true;
                     used_postprocess = true;
@@ -377,6 +389,12 @@ pub(crate) fn queue_transcription(
                     total_elapsed_ms: Some(elapsed_ms(total_started)),
                     auto_paste_requested,
                     auto_paste_succeeded: auto_paste_requested.then_some(pasted),
+                    auto_transform_preset_id: auto_transform
+                        .as_ref()
+                        .map(|transform| transform.preset_id.clone()),
+                    auto_transform_label: auto_transform
+                        .as_ref()
+                        .map(|transform| transform.label.clone()),
                 });
 
                 emit_transcription_complete_with_cleanup(
@@ -607,6 +625,8 @@ pub(crate) fn retry_transcription_async(
                     total_elapsed_ms: Some(elapsed_ms(total_started)),
                     auto_paste_requested: false,
                     auto_paste_succeeded: None,
+                    auto_transform_preset_id: None,
+                    auto_transform_label: None,
                 };
 
                 let raw_text = if llm_cleaned {
@@ -906,6 +926,8 @@ struct TranscriptionMetadataInput<'a> {
     total_elapsed_ms: Option<u32>,
     auto_paste_requested: bool,
     auto_paste_succeeded: Option<bool>,
+    auto_transform_preset_id: Option<String>,
+    auto_transform_label: Option<String>,
 }
 
 fn build_transcription_metadata(
@@ -924,6 +946,8 @@ fn build_transcription_metadata(
         total_elapsed_ms,
         auto_paste_requested,
         auto_paste_succeeded,
+        auto_transform_preset_id,
+        auto_transform_label,
     } = input;
 
     storage::TranscriptionMetadata {
@@ -944,6 +968,8 @@ fn build_transcription_metadata(
         total_elapsed_ms,
         auto_paste_requested,
         auto_paste_succeeded,
+        auto_transform_preset_id,
+        auto_transform_label,
     }
 }
 
@@ -1364,14 +1390,14 @@ pub(crate) fn finalize_streaming_transcription(
             (raw_transcript.clone(), false)
         };
 
-        let (transformed, auto_transformed) = apply_auto_transform_if_enabled(
+        let (transformed, auto_transform) = apply_auto_transform_if_enabled(
             &app_handle,
             &final_transcript,
             &settings,
             should_auto_transform,
         )
         .await;
-        if auto_transformed {
+        if auto_transform.is_some() {
             final_transcript = transformed;
             llm_cleaned = true;
             used_postprocess = true;
@@ -1426,6 +1452,12 @@ pub(crate) fn finalize_streaming_transcription(
             total_elapsed_ms: Some(elapsed_ms(total_started)),
             auto_paste_requested,
             auto_paste_succeeded: auto_paste_requested.then_some(pasted),
+            auto_transform_preset_id: auto_transform
+                .as_ref()
+                .map(|transform| transform.preset_id.clone()),
+            auto_transform_label: auto_transform
+                .as_ref()
+                .map(|transform| transform.label.clone()),
         };
 
         crate::pill::collapse_expanded_pill(&app_handle);

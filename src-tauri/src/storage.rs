@@ -57,6 +57,10 @@ pub struct TranscriptionRecord {
     pub auto_paste_requested: bool,
     #[serde(default)]
     pub auto_paste_succeeded: Option<bool>,
+    #[serde(default)]
+    pub auto_transform_preset_id: Option<String>,
+    #[serde(default)]
+    pub auto_transform_label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -196,6 +200,8 @@ pub struct TranscriptionMetadata {
     pub total_elapsed_ms: Option<u32>,
     pub auto_paste_requested: bool,
     pub auto_paste_succeeded: Option<bool>,
+    pub auto_transform_preset_id: Option<String>,
+    pub auto_transform_label: Option<String>,
 }
 
 impl Default for TranscriptionMetadata {
@@ -214,6 +220,8 @@ impl Default for TranscriptionMetadata {
             total_elapsed_ms: None,
             auto_paste_requested: false,
             auto_paste_succeeded: None,
+            auto_transform_preset_id: None,
+            auto_transform_label: None,
         }
     }
 }
@@ -273,6 +281,8 @@ impl StorageManager {
             total_elapsed_ms: metadata.total_elapsed_ms,
             auto_paste_requested: metadata.auto_paste_requested,
             auto_paste_succeeded: metadata.auto_paste_succeeded,
+            auto_transform_preset_id: metadata.auto_transform_preset_id,
+            auto_transform_label: metadata.auto_transform_label,
         };
 
         let conn = self.connection.lock();
@@ -311,6 +321,8 @@ impl StorageManager {
             total_elapsed_ms: metadata.total_elapsed_ms,
             auto_paste_requested: metadata.auto_paste_requested,
             auto_paste_succeeded: metadata.auto_paste_succeeded,
+            auto_transform_preset_id: metadata.auto_transform_preset_id,
+            auto_transform_label: metadata.auto_transform_label,
         };
 
         let conn = self.connection.lock();
@@ -738,8 +750,10 @@ impl StorageManager {
                 paste_elapsed_ms = ?15,
                 total_elapsed_ms = ?16,
                 auto_paste_requested = ?17,
-                auto_paste_succeeded = ?18
-             WHERE id = ?19",
+                auto_paste_succeeded = ?18,
+                auto_transform_preset_id = ?19,
+                auto_transform_label = ?20
+             WHERE id = ?21",
             params![
                 text,
                 raw_text,
@@ -761,6 +775,8 @@ impl StorageManager {
                 metadata
                     .auto_paste_succeeded
                     .map(|succeeded| if succeeded { 1 } else { 0 }),
+                metadata.auto_transform_preset_id,
+                metadata.auto_transform_label,
                 id,
             ],
         )?;
@@ -776,7 +792,7 @@ impl StorageManager {
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
                     speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name,
                     stt_elapsed_ms, cleanup_elapsed_ms, paste_elapsed_ms, total_elapsed_ms,
-                    auto_paste_requested, auto_paste_succeeded
+                    auto_paste_requested, auto_paste_succeeded, auto_transform_preset_id, auto_transform_label
              FROM transcriptions
              {}
              ORDER BY timestamp DESC",
@@ -804,7 +820,7 @@ impl StorageManager {
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
                     speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name,
                     stt_elapsed_ms, cleanup_elapsed_ms, paste_elapsed_ms, total_elapsed_ms,
-                    auto_paste_requested, auto_paste_succeeded
+                    auto_paste_requested, auto_paste_succeeded, auto_transform_preset_id, auto_transform_label
              FROM transcriptions
              WHERE status = ?1 AND text <> ''
              ORDER BY timestamp DESC
@@ -828,7 +844,7 @@ impl StorageManager {
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
                     speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name,
                     stt_elapsed_ms, cleanup_elapsed_ms, paste_elapsed_ms, total_elapsed_ms,
-                    auto_paste_requested, auto_paste_succeeded
+                    auto_paste_requested, auto_paste_succeeded, auto_transform_preset_id, auto_transform_label
              FROM transcriptions
              WHERE status = ?1 AND text <> ''
              ORDER BY timestamp DESC",
@@ -916,8 +932,10 @@ impl StorageManager {
                 paste_elapsed_ms,
                 total_elapsed_ms,
                 auto_paste_requested,
-                auto_paste_succeeded
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
+                auto_paste_succeeded,
+                auto_transform_preset_id,
+                auto_transform_label
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
             params![
                 record.id,
                 timestamp,
@@ -942,6 +960,8 @@ impl StorageManager {
                 record
                     .auto_paste_succeeded
                     .map(|succeeded| if succeeded { 1 } else { 0 }),
+                record.auto_transform_preset_id,
+                record.auto_transform_label,
             ],
         )?;
         Ok(())
@@ -960,12 +980,16 @@ impl StorageManager {
             record.text = cleaned_text.to_string();
             record.llm_cleaned = true;
             record.llm_model = llm_model.map(|value| value.to_string());
+            record.auto_transform_preset_id = None;
+            record.auto_transform_label = None;
             record.word_count = count_words(&record.text);
             record.synced = false;
 
             conn.execute(
                 "UPDATE transcriptions
-                 SET text = ?1, raw_text = ?2, llm_cleaned = 1, llm_model = ?3, word_count = ?4, synced = 0
+                 SET text = ?1, raw_text = ?2, llm_cleaned = 1, llm_model = ?3,
+                     auto_transform_preset_id = NULL, auto_transform_label = NULL,
+                     word_count = ?4, synced = 0
                  WHERE id = ?5",
                 params![
                     record.text,
@@ -989,10 +1013,14 @@ impl StorageManager {
                 record.llm_cleaned = false;
                 record.word_count = count_words(&record.text);
                 record.llm_model = None;
+                record.auto_transform_preset_id = None;
+                record.auto_transform_label = None;
                 record.synced = false;
                 conn.execute(
                     "UPDATE transcriptions
-                     SET text = ?1, raw_text = NULL, llm_cleaned = 0, llm_model = NULL, word_count = ?2, synced = 0
+                     SET text = ?1, raw_text = NULL, llm_cleaned = 0, llm_model = NULL,
+                         auto_transform_preset_id = NULL, auto_transform_label = NULL,
+                         word_count = ?2, synced = 0
                      WHERE id = ?3",
                     params![record.text, record.word_count as i64, id],
                 )?;
@@ -1007,7 +1035,7 @@ impl StorageManager {
             "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
                     speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name,
                     stt_elapsed_ms, cleanup_elapsed_ms, paste_elapsed_ms, total_elapsed_ms,
-                    auto_paste_requested, auto_paste_succeeded
+                    auto_paste_requested, auto_paste_succeeded, auto_transform_preset_id, auto_transform_label
              FROM transcriptions WHERE id = ?1",
             params![id],
             Self::record_from_row,
@@ -1104,6 +1132,8 @@ impl StorageManager {
                 .map(|value| value.max(0) as u32),
             auto_paste_requested: row.get::<_, i64>("auto_paste_requested").unwrap_or(0) == 1,
             auto_paste_succeeded,
+            auto_transform_preset_id: row.get("auto_transform_preset_id").unwrap_or(None),
+            auto_transform_label: row.get("auto_transform_label").unwrap_or(None),
         })
     }
 
@@ -1204,7 +1234,9 @@ impl StorageManager {
                 paste_elapsed_ms INTEGER NULL,
                 total_elapsed_ms INTEGER NULL,
                 auto_paste_requested INTEGER NOT NULL DEFAULT 0,
-                auto_paste_succeeded INTEGER NULL
+                auto_paste_succeeded INTEGER NULL,
+                auto_transform_preset_id TEXT NULL,
+                auto_transform_label TEXT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_transcriptions_timestamp ON transcriptions(timestamp);
             CREATE INDEX IF NOT EXISTS idx_transcriptions_status ON transcriptions(status);
@@ -1362,6 +1394,18 @@ impl StorageManager {
             "transcriptions",
             "auto_paste_succeeded",
             "ALTER TABLE transcriptions ADD COLUMN auto_paste_succeeded INTEGER NULL",
+        )?;
+        Self::ensure_column(
+            conn,
+            "transcriptions",
+            "auto_transform_preset_id",
+            "ALTER TABLE transcriptions ADD COLUMN auto_transform_preset_id TEXT NULL",
+        )?;
+        Self::ensure_column(
+            conn,
+            "transcriptions",
+            "auto_transform_label",
+            "ALTER TABLE transcriptions ADD COLUMN auto_transform_label TEXT NULL",
         )?;
         Self::ensure_column(
             conn,
@@ -1973,6 +2017,8 @@ mod tests {
             total_elapsed_ms: None,
             auto_paste_requested: false,
             auto_paste_succeeded: None,
+            auto_transform_preset_id: None,
+            auto_transform_label: None,
         }
     }
 
@@ -2033,6 +2079,43 @@ mod tests {
             normalize_optional_short_text("  custom   prompt ".to_string()).as_deref(),
             Some("custom prompt")
         );
+    }
+
+    #[test]
+    fn transcription_records_persist_auto_transform_metadata() {
+        let db_path =
+            std::env::temp_dir().join(format!("flow-auto-transform-{}.sqlite", Uuid::new_v4()));
+        let storage = StorageManager::new(db_path.clone()).unwrap();
+        let metadata = TranscriptionMetadata {
+            speech_model: "Parakeet TDT 0.6B v3 INT8".to_string(),
+            word_count: 2,
+            auto_transform_preset_id: Some("terminal_command".to_string()),
+            auto_transform_label: Some("Terminal command".to_string()),
+            ..Default::default()
+        };
+
+        let saved = storage
+            .save_transcription_with_cleanup(
+                "list the files".to_string(),
+                "ls".to_string(),
+                String::new(),
+                metadata,
+                None,
+            )
+            .unwrap();
+        let loaded = storage.get_by_id(&saved.id).unwrap();
+
+        assert_eq!(
+            loaded.auto_transform_preset_id.as_deref(),
+            Some("terminal_command")
+        );
+        assert_eq!(
+            loaded.auto_transform_label.as_deref(),
+            Some("Terminal command")
+        );
+
+        drop(storage);
+        let _ = std::fs::remove_file(db_path);
     }
 
     #[test]

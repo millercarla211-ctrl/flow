@@ -21,4 +21,6 @@ export type TranscriptionRecord = {
   total_elapsed_ms?: number | null;
   auto_paste_requested: boolean;
   auto_paste_succeeded?: boolean | null;
+  auto_transform_preset_id?: string | null;
+  auto_transform_label?: string | null;
 };

@@ -357,6 +357,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
     : null;
   const llmModelLabel = record.llm_model?.trim() || null;
   const modeLabel = record.mode_name?.trim() || null;
+  const autoTransformLabel = record.auto_transform_label?.trim() || null;
   const allowContextMenu = !selectionMode && !isRetryingLlm && !isUndoingLlm;
   const hasSelection = selectionText.trim().length > 0;
   const wordCount = Math.max(0, record.word_count ?? 0);
@@ -456,6 +457,16 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   }
 
   if (!isError && record.llm_cleaned) {
+    if (autoTransformLabel) {
+      diagnostics.push({
+        key: "auto-transform",
+        icon: WandSparkles,
+        label: `Auto ${autoTransformLabel}`,
+        title: "Auto Transform applied before paste",
+        tone: "local",
+      });
+    }
+
     diagnostics.push({
       key: "cleanup",
       icon: WandSparkles,

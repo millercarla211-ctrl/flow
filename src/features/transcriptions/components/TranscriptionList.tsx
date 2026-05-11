@@ -36,7 +36,7 @@ interface TranscriptionListProps {
 }
 
 type SortKey = "recent" | "oldest" | "longest" | "shortest";
-type FilterKey = "all" | "success" | "failed" | "paste_fallback" | "cleaned";
+type FilterKey = "all" | "success" | "failed" | "paste_fallback" | "cleaned" | "transformed";
 
 type ListEntry =
   | { type: "header"; id: string; label: string }
@@ -105,6 +105,9 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
             counts.paste_fallback += 1;
           }
           if (record.llm_cleaned) counts.cleaned += 1;
+          if (record.auto_transform_preset_id || record.auto_transform_label) {
+            counts.transformed += 1;
+          }
           return counts;
         },
         {
@@ -113,6 +116,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
           failed: 0,
           paste_fallback: 0,
           cleaned: 0,
+          transformed: 0,
         } satisfies Record<FilterKey, number>,
       ),
     [transcriptions],
@@ -130,6 +134,10 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
         );
       case "cleaned":
         return transcriptions.filter((record) => record.llm_cleaned);
+      case "transformed":
+        return transcriptions.filter(
+          (record) => record.auto_transform_preset_id || record.auto_transform_label,
+        );
       case "all":
       default:
         return transcriptions;
@@ -453,6 +461,14 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
         message: "Cleaned",
       }),
       count: filterCounts.cleaned,
+    },
+    {
+      value: "transformed",
+      label: t({
+        id: "transcriptions.filter.transformed",
+        message: "Transformed",
+      }),
+      count: filterCounts.transformed,
     },
   ];
   const activeFilterLabel =
