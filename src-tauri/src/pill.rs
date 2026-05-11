@@ -937,14 +937,6 @@ pub(crate) fn handle_registered_hotkey_event(
     }
 }
 
-fn default_paste_last_transcript_shortcut() -> &'static str {
-    if cfg!(target_os = "macos") {
-        "Cmd+Ctrl+V"
-    } else {
-        "Shift+Alt+Z"
-    }
-}
-
 pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
     let state = app.state::<AppState>();
     if state.is_shortcut_capture_active() {
@@ -1012,8 +1004,8 @@ pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
     );
     add_binding(
         "Paste last transcript",
-        true,
-        default_paste_last_transcript_shortcut(),
+        settings.paste_last_transcript_enabled,
+        &settings.paste_last_transcript_shortcut,
         hotkeys::ShortcutAction::PasteLastTranscript,
     );
 

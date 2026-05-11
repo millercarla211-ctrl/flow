@@ -16,6 +16,8 @@ const KEY_TOGGLE_SHORTCUT: &str = "toggle_shortcut";
 const KEY_TOGGLE_ENABLED: &str = "toggle_enabled";
 const KEY_COMMAND_SHORTCUT: &str = "command_shortcut";
 const KEY_COMMAND_ENABLED: &str = "command_enabled";
+const KEY_PASTE_LAST_TRANSCRIPT_SHORTCUT: &str = "paste_last_transcript_shortcut";
+const KEY_PASTE_LAST_TRANSCRIPT_ENABLED: &str = "paste_last_transcript_enabled";
 const KEY_TRANSCRIPTION_MODE: &str = "transcription_mode";
 const KEY_LOCAL_MODEL: &str = "local_model";
 const KEY_MICROPHONE_DEVICE: &str = "microphone_device";
@@ -93,6 +95,10 @@ pub struct UserSettings {
     pub command_shortcut: String,
     #[serde(default)]
     pub command_enabled: bool,
+    #[serde(default = "default_paste_last_transcript_shortcut")]
+    pub paste_last_transcript_shortcut: String,
+    #[serde(default = "default_true")]
+    pub paste_last_transcript_enabled: bool,
     #[serde(default = "default_transcription_mode")]
     pub transcription_mode: TranscriptionMode,
     #[serde(default = "default_local_model")]
@@ -175,6 +181,14 @@ fn default_toggle_shortcut() -> String {
 
 fn default_command_shortcut() -> String {
     "Control+Alt+E".to_string()
+}
+
+fn default_paste_last_transcript_shortcut() -> String {
+    if cfg!(target_os = "macos") {
+        "Cmd+Ctrl+V".to_string()
+    } else {
+        "Shift+Alt+Z".to_string()
+    }
 }
 
 fn default_true() -> bool {
@@ -382,6 +396,8 @@ impl Default for UserSettings {
             toggle_enabled: false,
             command_shortcut: default_command_shortcut(),
             command_enabled: false,
+            paste_last_transcript_shortcut: default_paste_last_transcript_shortcut(),
+            paste_last_transcript_enabled: true,
             transcription_mode: default_transcription_mode(),
             local_model: default_local_model(),
             microphone_device: None,
@@ -653,6 +669,16 @@ impl SettingsStore {
             )?;
             settings.command_enabled =
                 self.read_value(&conn, KEY_COMMAND_ENABLED, settings.command_enabled)?;
+            settings.paste_last_transcript_shortcut = self.read_value(
+                &conn,
+                KEY_PASTE_LAST_TRANSCRIPT_SHORTCUT,
+                settings.paste_last_transcript_shortcut.clone(),
+            )?;
+            settings.paste_last_transcript_enabled = self.read_value(
+                &conn,
+                KEY_PASTE_LAST_TRANSCRIPT_ENABLED,
+                settings.paste_last_transcript_enabled,
+            )?;
             settings.transcription_mode = self.read_value(
                 &conn,
                 KEY_TRANSCRIPTION_MODE,
@@ -893,6 +919,16 @@ impl SettingsStore {
         self.write_value(&conn, KEY_TOGGLE_ENABLED, &settings.toggle_enabled)?;
         self.write_value(&conn, KEY_COMMAND_SHORTCUT, &settings.command_shortcut)?;
         self.write_value(&conn, KEY_COMMAND_ENABLED, &settings.command_enabled)?;
+        self.write_value(
+            &conn,
+            KEY_PASTE_LAST_TRANSCRIPT_SHORTCUT,
+            &settings.paste_last_transcript_shortcut,
+        )?;
+        self.write_value(
+            &conn,
+            KEY_PASTE_LAST_TRANSCRIPT_ENABLED,
+            &settings.paste_last_transcript_enabled,
+        )?;
         self.write_value(&conn, KEY_TRANSCRIPTION_MODE, &settings.transcription_mode)?;
         self.write_value(&conn, KEY_LOCAL_MODEL, &settings.local_model)?;
         self.write_value(&conn, KEY_MICROPHONE_DEVICE, &settings.microphone_device)?;

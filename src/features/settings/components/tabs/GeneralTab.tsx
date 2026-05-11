@@ -12,7 +12,7 @@ import type {
   TranscriptionLanguageOption,
 } from "../../../../shared/lib/transcriptionLanguages";
 
-type CaptureMode = "smart" | "hold" | "toggle" | "command" | null;
+type CaptureMode = "smart" | "hold" | "toggle" | "command" | "paste-last" | null;
 type HelpTooltipId = "edit-mode" | "auto-transform" | "cleanup";
 type MicrophoneTestStatus = "idle" | "starting" | "listening" | "error";
 type MicrophoneTestLevels = {
@@ -89,6 +89,9 @@ type GeneralTabProps = {
   commandShortcut: string;
   commandEnabled: boolean;
   setCommandEnabled: (value: boolean) => void;
+  pasteLastTranscriptShortcut: string;
+  pasteLastTranscriptEnabled: boolean;
+  setPasteLastTranscriptEnabled: (value: boolean) => void;
   captureActive: CaptureMode;
   capturePreview: string;
   onStartCapture: (mode: Exclude<CaptureMode, null>) => void;
@@ -133,6 +136,9 @@ const GeneralTab = ({
   commandShortcut,
   commandEnabled,
   setCommandEnabled,
+  pasteLastTranscriptShortcut,
+  pasteLastTranscriptEnabled,
+  setPasteLastTranscriptEnabled,
   captureActive,
   capturePreview,
   onStartCapture,
@@ -615,6 +621,27 @@ const GeneralTab = ({
               canDisable
               disabled={aiFeaturesDisabled}
               icon={<Sparkles size={12} aria-hidden="true" />}
+            />
+            <ShortcutRow
+              label={t({
+                id: "settings.general.shortcuts.paste_last",
+                message: "Paste Last",
+              })}
+              description={t({
+                id: "settings.general.shortcuts.paste_last_description",
+                message: "recover the last transcript",
+              })}
+              shortcut={pasteLastTranscriptShortcut}
+              enabled={pasteLastTranscriptEnabled}
+              isCapturing={captureActive === "paste-last"}
+              capturePreview={capturePreview}
+              onToggle={() => setPasteLastTranscriptEnabled(!pasteLastTranscriptEnabled)}
+              onCapture={() => {
+                if (!pasteLastTranscriptEnabled) return;
+                onStartCapture("paste-last");
+              }}
+              canDisable
+              icon={<Copy size={12} aria-hidden="true" />}
             />
           </div>
         </div>

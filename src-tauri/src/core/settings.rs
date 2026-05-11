@@ -20,6 +20,8 @@ pub(crate) struct UpdateSettingsArgs {
     pub toggle_enabled: bool,
     pub command_shortcut: String,
     pub command_enabled: bool,
+    pub paste_last_transcript_shortcut: String,
+    pub paste_last_transcript_enabled: bool,
     pub transcription_mode: TranscriptionMode,
     pub local_model: String,
     pub microphone_device: Option<String>,
@@ -72,6 +74,10 @@ fn validate_update_settings_args(args: &UpdateSettingsArgs) -> Result<(), String
         return Err("Command Mode shortcut cannot be empty when enabled".into());
     }
 
+    if args.paste_last_transcript_enabled && args.paste_last_transcript_shortcut.trim().is_empty() {
+        return Err("Paste last transcript shortcut cannot be empty when enabled".into());
+    }
+
     if !args.smart_enabled && !args.hold_enabled && !args.toggle_enabled {
         return Err("At least one recording mode must be enabled".into());
     }
@@ -100,6 +106,12 @@ fn validate_update_settings_args(args: &UpdateSettingsArgs) -> Result<(), String
         let normalized = hotkeys::parse_shortcut(raw)
             .map_err(|err| format!("Command Mode shortcut is invalid: {err}"))?;
         enabled_shortcuts.push(("Command Mode", normalized));
+    }
+    if args.paste_last_transcript_enabled {
+        let raw = args.paste_last_transcript_shortcut.trim();
+        let normalized = hotkeys::parse_shortcut(raw)
+            .map_err(|err| format!("Paste last transcript shortcut is invalid: {err}"))?;
+        enabled_shortcuts.push(("Paste Last Transcript", normalized));
     }
 
     for i in 0..enabled_shortcuts.len() {
@@ -247,6 +259,12 @@ pub(crate) fn update_settings(
         args.command_shortcut
     };
     next.command_enabled = args.command_enabled;
+    next.paste_last_transcript_shortcut = if args.paste_last_transcript_enabled {
+        canonicalize_shortcut_for_storage(&args.paste_last_transcript_shortcut)?
+    } else {
+        args.paste_last_transcript_shortcut
+    };
+    next.paste_last_transcript_enabled = args.paste_last_transcript_enabled;
     next.transcription_mode = args.transcription_mode;
     next.local_model = args.local_model;
     next.microphone_device = args.microphone_device;
@@ -351,6 +369,8 @@ mod tests {
             toggle_enabled: false,
             command_shortcut: "Control+Alt+E".to_string(),
             command_enabled: false,
+            paste_last_transcript_shortcut: "Shift+Alt+Z".to_string(),
+            paste_last_transcript_enabled: true,
             transcription_mode: TranscriptionMode::Local,
             local_model: default_local_model(),
             microphone_device: None,
@@ -447,6 +467,19 @@ mod tests {
         let err = validate_update_settings_args(&args).unwrap_err();
 
         assert_eq!(err, "Smart and Command Mode shortcuts cannot be the same");
+    }
+
+    #[test]
+    fn rejects_paste_last_transcript_shortcut_overlap() {
+        let mut args = base_args();
+        args.paste_last_transcript_shortcut = "Ctrl+Space".to_string();
+
+        let err = validate_update_settings_args(&args).unwrap_err();
+
+        assert_eq!(
+            err,
+            "Smart and Paste Last Transcript shortcuts cannot be the same"
+        );
     }
 
     #[test]
