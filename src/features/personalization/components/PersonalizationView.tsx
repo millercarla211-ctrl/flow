@@ -5,9 +5,11 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   AlertTriangle,
   AppWindow,
+  Crosshair,
   Download,
   Globe2,
   Plus,
+  RefreshCw,
   Route,
   Sparkles,
   Upload,
@@ -55,6 +57,21 @@ type StyleCoverage = {
   assignedApps: number;
   assignedSites: number;
   conflicts: StyleAssignmentConflict[];
+};
+
+type ActiveStyleMatch = {
+  id: string;
+  name: string;
+  instruction_count: number;
+};
+
+type ActiveStylePreview = {
+  permission_granted: boolean;
+  context_available: boolean;
+  app_name: string | null;
+  window_title: string | null;
+  url: string | null;
+  matches: ActiveStyleMatch[];
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -160,6 +177,9 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const [importingBackup, setImportingBackup] = useState(false);
+  const [activeStylePreview, setActiveStylePreview] = useState<ActiveStylePreview | null>(null);
+  const [activeStylePreviewLoading, setActiveStylePreviewLoading] = useState(false);
+  const [activeStylePreviewError, setActiveStylePreviewError] = useState<string | null>(null);
   const hasRequestedIconRefreshRef = useRef(false);
   const websiteIconRefreshKeyRef = useRef<string | null>(null);
   const persistVersionRef = useRef(0);
@@ -278,10 +298,25 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
     }
   }, []);
 
+  const loadActiveStylePreview = useCallback(async () => {
+    setActiveStylePreviewLoading(true);
+    setActiveStylePreviewError(null);
+    try {
+      const preview = await invoke<ActiveStylePreview>("get_active_style_preview");
+      setActiveStylePreview(preview);
+    } catch (err) {
+      console.error(err);
+      setActiveStylePreviewError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActiveStylePreviewLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isActive) return;
     load();
-  }, [isActive, load]);
+    void loadActiveStylePreview();
+  }, [isActive, load, loadActiveStylePreview]);
 
   const websiteDomains = useMemo(() => {
     const seen = new Set<string>();
@@ -689,7 +724,18 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
         </div>
       )}
 
-      {!loading && personalities.length > 0 && <StyleCoveragePanel coverage={styleCoverage} />}
+      {!loading && personalities.length > 0 && (
+        <>
+          <ActiveStylePreviewPanel
+            preview={activeStylePreview}
+            loading={activeStylePreviewLoading}
+            error={activeStylePreviewError}
+            onRefresh={loadActiveStylePreview}
+            onOpenStyle={(id) => setActivePersonalityId(id)}
+          />
+          <StyleCoveragePanel coverage={styleCoverage} />
+        </>
+      )}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <div className="mr-1 flex items-center gap-1.5 ui-text-meta-strong ui-color-muted">
@@ -987,6 +1033,129 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+};
+
+const ActiveStylePreviewPanel = ({
+  preview,
+  loading,
+  error,
+  onRefresh,
+  onOpenStyle,
+}: {
+  preview: ActiveStylePreview | null;
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void | Promise<void>;
+  onOpenStyle: (id: string) => void;
+}) => {
+  const { t } = useLingui();
+  const matchCount = preview?.matches.length ?? 0;
+  const primaryContext =
+    preview?.url || preview?.window_title || preview?.app_name || "No target detected";
+  const statusText = error
+    ? error
+    : loading
+      ? t({
+          id: "personalization.active_preview.loading",
+          message: "Checking active target...",
+        })
+      : !preview?.permission_granted
+        ? t({
+            id: "personalization.active_preview.permission_needed",
+            message: "Accessibility permission is needed to inspect the active app.",
+          })
+        : !preview?.context_available
+          ? t({
+              id: "personalization.active_preview.context_missing",
+              message: "No active app context is available yet.",
+            })
+          : matchCount > 0
+            ? t({
+                id: "personalization.active_preview.matched",
+                message: "Flow will apply matched style guidance.",
+              })
+            : t({
+                id: "personalization.active_preview.no_match",
+                message: "No style matches this target yet.",
+              });
+
+  return (
+    <div className="mb-3 rounded-xl border border-border-primary bg-surface-secondary px-3 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 ui-text-body-sm-strong ui-color-primary">
+            <Crosshair size={14} aria-hidden="true" />
+            {t({
+              id: "personalization.active_preview.title",
+              message: "Active target preview",
+            })}
+          </div>
+          <p className="mt-1 truncate ui-text-meta ui-color-muted" title={primaryContext}>
+            {statusText}
+          </p>
+          {preview?.context_available && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {preview.app_name && (
+                <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-border-primary bg-surface-surface px-2 py-1 ui-text-meta ui-color-secondary">
+                  <AppWindow size={11} aria-hidden="true" />
+                  <span className="max-w-[150px] truncate font-mono">{preview.app_name}</span>
+                </span>
+              )}
+              {preview.url && (
+                <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-border-primary bg-surface-surface px-2 py-1 ui-text-meta ui-color-secondary">
+                  <Globe2 size={11} aria-hidden="true" />
+                  <span className="max-w-[210px] truncate font-mono">{preview.url}</span>
+                </span>
+              )}
+              {preview.window_title && (
+                <span className="inline-flex max-w-full items-center rounded-full border border-border-primary bg-surface-surface px-2 py-1 ui-text-meta ui-color-muted">
+                  <span className="max-w-[280px] truncate">{preview.window_title}</span>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => void onRefresh()}
+          disabled={loading}
+          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border-primary bg-surface-surface px-3 ui-text-button-sm ui-color-secondary transition-colors hover:border-border-hover hover:bg-surface-elevated hover:text-content-primary disabled:opacity-50"
+        >
+          <RefreshCw size={13} aria-hidden="true" className={loading ? "animate-spin" : ""} />
+          {t({
+            id: "personalization.active_preview.refresh",
+            message: "Refresh",
+          })}
+        </button>
+      </div>
+
+      {matchCount > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {preview?.matches.map((match, index) => (
+            <button
+              key={match.id}
+              type="button"
+              onClick={() => onOpenStyle(match.id)}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border-primary bg-surface-surface px-2 py-1 ui-text-meta ui-color-secondary transition-colors hover:border-border-hover hover:bg-surface-elevated hover:text-content-primary"
+              title={`${match.name} - ${match.instruction_count} instructions`}
+            >
+              <Sparkles size={11} aria-hidden="true" />
+              <span className="max-w-[150px] truncate">{match.name}</span>
+              {index === 0 && (
+                <span className="ui-color-disabled">
+                  {t({
+                    id: "personalization.active_preview.primary",
+                    message: "primary",
+                  })}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,10 +1,28 @@
 use crate::settings::{Personality, UserSettings};
 use crate::{accessibility_context, permissions};
+use serde::Serialize;
 
 #[derive(Debug, Clone)]
 pub struct ModeContextMode {
     pub name: String,
     pub instructions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ActiveStyleMatch {
+    pub id: String,
+    pub name: String,
+    pub instruction_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ActiveStylePreview {
+    pub permission_granted: bool,
+    pub context_available: bool,
+    pub app_name: Option<String>,
+    pub window_title: Option<String>,
+    pub url: Option<String>,
+    pub matches: Vec<ActiveStyleMatch>,
 }
 
 fn extract_host(candidate: &str) -> Option<String> {
@@ -175,4 +193,53 @@ pub fn resolve_active_personality(settings: &UserSettings) -> Option<Personality
         .filter(|mode| mode.enabled)
         .find(|mode| mode_matches(mode, &context))
         .cloned()
+}
+
+pub fn inspect_active_style_preview(settings: &UserSettings) -> ActiveStylePreview {
+    if !permissions::check_accessibility_permission() {
+        return ActiveStylePreview {
+            permission_granted: false,
+            context_available: false,
+            app_name: None,
+            window_title: None,
+            url: None,
+            matches: Vec::new(),
+        };
+    }
+
+    let Some(context) = accessibility_context::get_active_context() else {
+        return ActiveStylePreview {
+            permission_granted: true,
+            context_available: false,
+            app_name: None,
+            window_title: None,
+            url: None,
+            matches: Vec::new(),
+        };
+    };
+
+    let matches = settings
+        .personalities
+        .iter()
+        .filter(|mode| mode.enabled)
+        .filter(|mode| mode_matches(mode, &context))
+        .map(|mode| ActiveStyleMatch {
+            id: mode.id.clone(),
+            name: mode.name.clone(),
+            instruction_count: mode
+                .instructions
+                .iter()
+                .filter(|instruction| !instruction.trim().is_empty())
+                .count(),
+        })
+        .collect();
+
+    ActiveStylePreview {
+        permission_granted: true,
+        context_available: true,
+        app_name: Some(context.app_name),
+        window_title: (!context.window_title.trim().is_empty()).then_some(context.window_title),
+        url: context.url,
+        matches,
+    }
 }

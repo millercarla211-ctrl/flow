@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 pub use icons::{InstalledApp, WebsiteIcon};
 
+use crate::mode_context::ActiveStylePreview;
 use crate::settings::Personality;
 use crate::{AppRuntime, AppState, EVENT_SETTINGS_CHANGED};
 
@@ -148,4 +149,12 @@ pub fn list_website_icons(
     app: AppHandle<AppRuntime>,
 ) -> Result<Vec<WebsiteIcon>, String> {
     icons::list_website_icons(sites, app)
+}
+
+#[tauri::command]
+pub fn get_active_style_preview(
+    state: tauri::State<AppState>,
+) -> Result<ActiveStylePreview, String> {
+    let settings = state.current_settings();
+    Ok(crate::mode_context::inspect_active_style_preview(&settings))
 }

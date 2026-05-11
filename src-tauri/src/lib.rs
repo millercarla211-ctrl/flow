@@ -427,6 +427,7 @@ pub fn run() {
             personalization::set_personalities,
             personalization::list_installed_apps,
             personalization::list_website_icons,
+            personalization::get_active_style_preview,
             get_app_info,
             open_data_dir,
             get_transcriptions,
