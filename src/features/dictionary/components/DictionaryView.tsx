@@ -9,7 +9,7 @@ import {
   type CSSProperties,
   type SetStateAction,
 } from "react";
-import { AlertTriangle, ArrowRight, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Download, Trash2, Upload } from "lucide-react";
 import DotMatrix from "../../../shared/ui/DotMatrix";
 import {
   hasModelCapability,
@@ -28,6 +28,55 @@ import type { Replacement } from "../../../types";
 
 const normalizeEntry = (value: string) => value.trim();
 const toErrorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value && typeof value === "object" && !Array.isArray(value));
+
+type DictionaryBackup = {
+  entries: string[];
+  replacements: Replacement[];
+};
+
+const normalizeDictionaryBackup = (value: unknown): DictionaryBackup => {
+  if (!isObject(value)) {
+    throw new Error("Clipboard does not contain a Flow dictionary backup.");
+  }
+
+  const rawEntries = Array.isArray(value.entries) ? value.entries : [];
+  const rawReplacements = Array.isArray(value.replacements) ? value.replacements : [];
+  const entrySet = new Set<string>();
+  const entries: string[] = [];
+
+  for (const entry of rawEntries) {
+    if (typeof entry !== "string") continue;
+    const normalized = normalizeEntry(entry);
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (entrySet.has(key)) continue;
+    entrySet.add(key);
+    entries.push(normalized);
+  }
+
+  const replacementSet = new Set<string>();
+  const replacements: Replacement[] = [];
+
+  for (const item of rawReplacements) {
+    if (!isObject(item)) continue;
+    const from = typeof item.from === "string" ? normalizeEntry(item.from) : "";
+    const to = typeof item.to === "string" ? normalizeEntry(item.to) : "";
+    if (!from) continue;
+    const key = from.toLowerCase();
+    if (replacementSet.has(key)) continue;
+    replacementSet.add(key);
+    replacements.push({ from, to });
+  }
+
+  if (entries.length === 0 && replacements.length === 0) {
+    throw new Error("No usable dictionary entries or replacements were found.");
+  }
+
+  return { entries, replacements };
+};
 
 type QueuedPersistOptions<T> = {
   value: T;
@@ -108,6 +157,9 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
   const [editingTo, setEditingTo] = useState("");
 
   const [error, setError] = useState<string | null>(null);
+  const [backupStatus, setBackupStatus] = useState<string | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const [importingBackup, setImportingBackup] = useState(false);
   const warningTooltipId = useId();
 
   const settings = settingsQuery.data ?? null;
@@ -166,6 +218,72 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     },
     [persistReplacementsNext],
   );
+
+  const flashBackupStatus = (message: string) => {
+    setBackupStatus(message);
+    setBackupError(null);
+    window.setTimeout(() => setBackupStatus(null), 2400);
+  };
+
+  const handleExportBackup = async () => {
+    const payload = {
+      app: "Flow",
+      type: "dictionary",
+      version: 1,
+      exported_at: new Date().toISOString(),
+      entries,
+      replacements,
+    };
+    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+    flashBackupStatus(
+      t({
+        id: "dictionary.backup.exported",
+        message: "Dictionary backup copied as JSON",
+      }),
+    );
+  };
+
+  const handleImportBackup = async () => {
+    if (importingBackup) return;
+    setImportingBackup(true);
+    setBackupError(null);
+    setBackupStatus(null);
+
+    try {
+      const raw = await navigator.clipboard.readText();
+      const backup = normalizeDictionaryBackup(JSON.parse(raw));
+      const mergedEntryByKey = new Map(
+        entriesRef.current.map((entry) => [entry.toLowerCase(), entry]),
+      );
+      for (const entry of backup.entries) {
+        mergedEntryByKey.set(entry.toLowerCase(), entry);
+      }
+
+      const mergedReplacementByKey = new Map(
+        replacementsRef.current.map((replacement) => [replacement.from.toLowerCase(), replacement]),
+      );
+      for (const replacement of backup.replacements) {
+        mergedReplacementByKey.set(replacement.from.toLowerCase(), replacement);
+      }
+
+      await persistEntries(
+        Array.from(mergedEntryByKey.values()).sort((a, b) => a.localeCompare(b)),
+      );
+      await persistReplacements(
+        Array.from(mergedReplacementByKey.values()).sort((a, b) => a.from.localeCompare(b.from)),
+      );
+      flashBackupStatus(
+        t({
+          id: "dictionary.backup.imported",
+          message: `Imported ${backup.entries.length} entries and ${backup.replacements.length} replacements`,
+        }),
+      );
+    } catch (importError) {
+      setBackupError(toErrorMessage(importError));
+    } finally {
+      setImportingBackup(false);
+    }
+  };
 
   const handleAdd = async () => {
     const value = normalizeEntry(newEntry);
@@ -367,7 +485,42 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
             })}
           </p>
         </div>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={handleExportBackup}
+            disabled={entries.length === 0 && replacements.length === 0}
+            className="ui-button-ghost h-9 gap-2 rounded-full border border-border-primary px-4 ui-text-button-sm disabled:opacity-40"
+          >
+            <Download size={15} aria-hidden="true" />
+            {t({ id: "dictionary.export", message: "Export" })}
+          </button>
+          <button
+            type="button"
+            onClick={handleImportBackup}
+            disabled={importingBackup}
+            className="ui-button-ghost h-9 gap-2 rounded-full border border-border-primary px-4 ui-text-button-sm disabled:opacity-40"
+          >
+            <Upload size={15} aria-hidden="true" />
+            {importingBackup
+              ? t({ id: "dictionary.importing", message: "Importing" })
+              : t({ id: "dictionary.import", message: "Import" })}
+          </button>
+        </div>
       </div>
+
+      {(backupStatus || backupError) && (
+        <div
+          className={`mb-4 rounded-lg border px-3 py-2 ui-text-body-sm ${
+            backupError
+              ? "border-red-500/30 bg-red-500/10 ui-color-error-soft"
+              : "border-border-primary bg-surface-surface ui-color-secondary"
+          }`}
+          role="status"
+        >
+          {backupError ?? backupStatus}
+        </div>
+      )}
 
       <div className="grid w-full min-w-0 grid-cols-1 gap-0 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
         {/* Dictionary Column */}
