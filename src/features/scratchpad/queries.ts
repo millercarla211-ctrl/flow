@@ -4,6 +4,7 @@ import * as scratchpadApi from "./api";
 export const scratchpadKeys = {
   all: ["scratchpad"] as const,
   list: (search: string) => [...scratchpadKeys.all, "list", search] as const,
+  versions: (entryId: string | null) => [...scratchpadKeys.all, "versions", entryId] as const,
 };
 
 export function useScratchpadEntries(searchQuery: string = "", enabled: boolean = true) {
@@ -11,6 +12,15 @@ export function useScratchpadEntries(searchQuery: string = "", enabled: boolean 
     queryKey: scratchpadKeys.list(searchQuery),
     queryFn: () => scratchpadApi.listScratchpadEntries(searchQuery || null),
     enabled,
+    gcTime: 60_000,
+  });
+}
+
+export function useScratchpadVersions(entryId: string | null, enabled: boolean = true) {
+  return useQuery({
+    queryKey: scratchpadKeys.versions(entryId),
+    queryFn: () => scratchpadApi.listScratchpadVersions(entryId ?? ""),
+    enabled: enabled && Boolean(entryId),
     gcTime: 60_000,
   });
 }

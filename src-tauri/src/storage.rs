@@ -1,10 +1,11 @@
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{bail, Context, Result};
-use chrono::{DateTime, Local, TimeZone};
+use chrono::{DateTime, Datelike, Local, NaiveDate, TimeZone};
 use parking_lot::Mutex;
 use regex::Regex;
 use rusqlite::{params, types::Type, Connection, OptionalExtension, Row, ToSql};
@@ -86,6 +87,15 @@ pub struct ScratchpadEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScratchpadVersion {
+    pub id: String,
+    pub entry_id: String,
+    pub body: String,
+    pub created_at: DateTime<Local>,
+    pub version: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snippet {
     pub id: String,
     pub trigger: String,
@@ -101,6 +111,43 @@ pub struct FlowFetchLink {
     pub label: String,
     pub created_at: DateTime<Local>,
     pub last_seen_at: DateTime<Local>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyInsight {
+    pub date: String,
+    pub label: String,
+    pub words: u32,
+    pub transcriptions: u32,
+    pub audio_duration_seconds: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InsightBreakdown {
+    pub label: String,
+    pub count: u32,
+    pub words: u32,
+    pub audio_duration_seconds: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InsightsSummary {
+    pub days: usize,
+    pub total_transcriptions: u32,
+    pub total_words: u32,
+    pub words_today: u32,
+    pub words_this_week: u32,
+    pub total_audio_seconds: f32,
+    pub average_words_per_minute: f32,
+    pub average_words_per_day: f32,
+    pub current_streak_days: u32,
+    pub best_day_words: u32,
+    pub best_day_label: String,
+    pub local_percent: f32,
+    pub cleanup_percent: f32,
+    pub daily: Vec<DailyInsight>,
+    pub top_modes: Vec<InsightBreakdown>,
+    pub top_models: Vec<InsightBreakdown>,
 }
 
 #[derive(Debug, Clone)]
@@ -292,6 +339,19 @@ impl StorageManager {
              ORDER BY updated_at DESC",
         )?;
         let rows = stmt.query_map([], Self::scratchpad_entry_from_row)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
+    }
+
+    pub fn get_scratchpad_versions(&self, entry_id: &str) -> Result<Vec<ScratchpadVersion>> {
+        let conn = self.connection.lock();
+        let mut stmt = conn.prepare(
+            "SELECT id, entry_id, body, created_at, version
+             FROM scratchpad_versions
+             WHERE entry_id = ?1
+             ORDER BY version DESC, created_at DESC",
+        )?;
+        let rows = stmt.query_map(params![entry_id], Self::scratchpad_version_from_row)?;
         rows.collect::<rusqlite::Result<Vec<_>>>()
             .map_err(Into::into)
     }
@@ -617,6 +677,31 @@ impl StorageManager {
         Ok(records)
     }
 
+    pub fn get_insights(&self, days: usize) -> Result<InsightsSummary> {
+        let days = days.clamp(7, 90);
+        let conn = self.connection.lock();
+        let mut stmt = conn.prepare(
+            "SELECT id, timestamp, text, raw_text, audio_path, status, error_message, llm_cleaned,
+                    speech_model, llm_model, word_count, audio_duration_seconds, synced, mode_id, mode_name
+             FROM transcriptions
+             WHERE status = ?1 AND text <> ''
+             ORDER BY timestamp DESC",
+        )?;
+
+        let records = stmt
+            .query_map(
+                params![TranscriptionStatus::Success.as_str()],
+                Self::record_from_row,
+            )?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        Ok(build_insights_summary(
+            &records,
+            days,
+            Local::now().date_naive(),
+        ))
+    }
+
     pub fn delete(&self, id: &str) -> Result<Option<String>> {
         let conn = self.connection.lock();
         let record = Self::get_record(&conn, id)?;
@@ -854,6 +939,18 @@ impl StorageManager {
             source: row.get("source")?,
             created_at: local_datetime_from_millis(created_ms, 0)?,
             updated_at: local_datetime_from_millis(updated_ms, 0)?,
+            version: row.get::<_, i64>("version")? as u32,
+        })
+    }
+
+    fn scratchpad_version_from_row(row: &Row<'_>) -> rusqlite::Result<ScratchpadVersion> {
+        let created_ms: i64 = row.get("created_at")?;
+
+        Ok(ScratchpadVersion {
+            id: row.get("id")?,
+            entry_id: row.get("entry_id")?,
+            body: row.get("body")?,
+            created_at: local_datetime_from_millis(created_ms, 0)?,
             version: row.get::<_, i64>("version")? as u32,
         })
     }
@@ -1287,6 +1384,200 @@ fn derive_flow_fetch_label(url: &str) -> String {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+struct InsightBucket {
+    words: u32,
+    transcriptions: u32,
+    audio_duration_seconds: f32,
+}
+
+fn build_insights_summary(
+    records: &[TranscriptionRecord],
+    days: usize,
+    today: NaiveDate,
+) -> InsightsSummary {
+    let days = days.clamp(7, 90);
+    let week_start = today - chrono::Duration::days(today.weekday().num_days_from_monday() as i64);
+    let window_start = today - chrono::Duration::days(days.saturating_sub(1) as i64);
+    let mut daily_map: HashMap<NaiveDate, InsightBucket> = HashMap::new();
+    let mut mode_map: HashMap<String, InsightBucket> = HashMap::new();
+    let mut model_map: HashMap<String, InsightBucket> = HashMap::new();
+    let mut active_days = HashSet::new();
+
+    let mut total_words = 0u32;
+    let mut words_today = 0u32;
+    let mut words_this_week = 0u32;
+    let mut total_audio_seconds = 0.0f32;
+    let mut window_words = 0u32;
+    let mut local_count = 0u32;
+    let mut cleanup_count = 0u32;
+
+    for record in records {
+        let words = effective_word_count(record);
+        let day = record.timestamp.date_naive();
+        let audio_seconds = record.audio_duration_seconds.max(0.0);
+
+        total_words = total_words.saturating_add(words);
+        total_audio_seconds += audio_seconds;
+
+        if day == today {
+            words_today = words_today.saturating_add(words);
+        }
+        if day >= week_start && day <= today {
+            words_this_week = words_this_week.saturating_add(words);
+        }
+        if day >= window_start && day <= today {
+            window_words = window_words.saturating_add(words);
+            let entry = daily_map.entry(day).or_default();
+            entry.words = entry.words.saturating_add(words);
+            entry.transcriptions = entry.transcriptions.saturating_add(1);
+            entry.audio_duration_seconds += audio_seconds;
+        }
+        if words > 0 {
+            active_days.insert(day);
+        }
+        if is_local_speech_model(&record.speech_model) {
+            local_count = local_count.saturating_add(1);
+        }
+        if record.llm_cleaned {
+            cleanup_count = cleanup_count.saturating_add(1);
+        }
+
+        let mode_label = record
+            .mode_name
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .or(record.mode_id.as_deref())
+            .unwrap_or("Default")
+            .to_string();
+        add_breakdown(&mut mode_map, mode_label, words, audio_seconds);
+
+        let model_label = if record.speech_model.trim().is_empty() {
+            "Unknown".to_string()
+        } else {
+            record.speech_model.clone()
+        };
+        add_breakdown(&mut model_map, model_label, words, audio_seconds);
+    }
+
+    let daily = (0..days)
+        .rev()
+        .map(|offset| {
+            let day = today - chrono::Duration::days(offset as i64);
+            let bucket = daily_map.remove(&day).unwrap_or_default();
+            DailyInsight {
+                date: day.to_string(),
+                label: format!("{} {}", day.format("%b"), day.day()),
+                words: bucket.words,
+                transcriptions: bucket.transcriptions,
+                audio_duration_seconds: bucket.audio_duration_seconds,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let (best_day_words, best_day_label) = daily
+        .iter()
+        .max_by_key(|day| day.words)
+        .map(|day| (day.words, day.label.clone()))
+        .unwrap_or((0, String::new()));
+
+    let total_transcriptions = records.len() as u32;
+    let average_words_per_minute = if total_audio_seconds > 0.0 {
+        total_words as f32 / (total_audio_seconds / 60.0)
+    } else {
+        0.0
+    };
+    let average_words_per_day = window_words as f32 / days as f32;
+
+    InsightsSummary {
+        days,
+        total_transcriptions,
+        total_words,
+        words_today,
+        words_this_week,
+        total_audio_seconds,
+        average_words_per_minute,
+        average_words_per_day,
+        current_streak_days: compute_current_streak_days(&active_days, today),
+        best_day_words,
+        best_day_label,
+        local_percent: percentage(local_count, total_transcriptions),
+        cleanup_percent: percentage(cleanup_count, total_transcriptions),
+        daily,
+        top_modes: sorted_breakdowns(mode_map, 5),
+        top_models: sorted_breakdowns(model_map, 5),
+    }
+}
+
+fn effective_word_count(record: &TranscriptionRecord) -> u32 {
+    if record.word_count > 0 {
+        record.word_count
+    } else {
+        count_words(&record.text)
+    }
+}
+
+fn add_breakdown(
+    map: &mut HashMap<String, InsightBucket>,
+    label: String,
+    words: u32,
+    audio_seconds: f32,
+) {
+    let entry = map.entry(label).or_default();
+    entry.transcriptions = entry.transcriptions.saturating_add(1);
+    entry.words = entry.words.saturating_add(words);
+    entry.audio_duration_seconds += audio_seconds;
+}
+
+fn sorted_breakdowns(map: HashMap<String, InsightBucket>, limit: usize) -> Vec<InsightBreakdown> {
+    let mut items = map
+        .into_iter()
+        .map(|(label, bucket)| InsightBreakdown {
+            label,
+            count: bucket.transcriptions,
+            words: bucket.words,
+            audio_duration_seconds: bucket.audio_duration_seconds,
+        })
+        .collect::<Vec<_>>();
+    items.sort_by(|a, b| {
+        b.words
+            .cmp(&a.words)
+            .then_with(|| b.count.cmp(&a.count))
+            .then_with(|| a.label.cmp(&b.label))
+    });
+    items.truncate(limit);
+    items
+}
+
+fn compute_current_streak_days(active_days: &HashSet<NaiveDate>, today: NaiveDate) -> u32 {
+    let mut streak = 0u32;
+    loop {
+        let day = today - chrono::Duration::days(streak as i64);
+        if !active_days.contains(&day) {
+            return streak;
+        }
+        streak = streak.saturating_add(1);
+    }
+}
+
+fn percentage(count: u32, total: u32) -> f32 {
+    if total == 0 {
+        0.0
+    } else {
+        count as f32 * 100.0 / total as f32
+    }
+}
+
+fn is_local_speech_model(model: &str) -> bool {
+    let value = model.to_ascii_lowercase();
+    !value.contains("cloud")
+        && !value.contains("deepgram")
+        && !value.contains("elevenlabs")
+        && !value.contains("groq")
+        && !value.contains("nim")
+        && !value.contains("openai")
+}
+
 fn local_datetime_from_millis(
     timestamp_ms: i64,
     column_index: usize,
@@ -1309,6 +1600,40 @@ fn local_datetime_from_millis(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn record_on(
+        day: NaiveDate,
+        words: u32,
+        model: &str,
+        mode_name: Option<&str>,
+    ) -> TranscriptionRecord {
+        let timestamp = Local
+            .with_ymd_and_hms(day.year(), day.month(), day.day(), 12, 0, 0)
+            .single()
+            .unwrap_or_else(Local::now);
+
+        TranscriptionRecord {
+            id: Uuid::new_v4().to_string(),
+            timestamp,
+            text: (0..words)
+                .map(|index| format!("word{index}"))
+                .collect::<Vec<_>>()
+                .join(" "),
+            raw_text: None,
+            audio_path: String::new(),
+            audio_available: false,
+            status: TranscriptionStatus::Success,
+            error_message: None,
+            llm_cleaned: false,
+            speech_model: model.to_string(),
+            llm_model: None,
+            word_count: words,
+            audio_duration_seconds: 30.0,
+            synced: false,
+            mode_id: None,
+            mode_name: mode_name.map(str::to_string),
+        }
+    }
 
     fn snippet(trigger: &str, expansion: &str) -> Snippet {
         let now = Local::now();
@@ -1353,5 +1678,37 @@ mod tests {
             normalize_flow_fetch_url(" https://example.com/path. ".to_string()).unwrap(),
             "https://example.com/path"
         );
+    }
+
+    #[test]
+    fn insights_include_daily_history_and_current_streak() {
+        let today = Local::now().date_naive();
+        let records = vec![
+            record_on(today, 10, "parakeet-tdt-0.6b-v3-int8", Some("Default")),
+            record_on(
+                today - chrono::Duration::days(1),
+                20,
+                "parakeet-tdt-0.6b-v3-int8",
+                Some("Default"),
+            ),
+            record_on(
+                today - chrono::Duration::days(3),
+                30,
+                "openai-whisper",
+                Some("Meeting"),
+            ),
+        ];
+
+        let summary = build_insights_summary(&records, 7, today);
+
+        assert_eq!(summary.total_transcriptions, 3);
+        assert_eq!(summary.total_words, 60);
+        assert_eq!(summary.words_today, 10);
+        assert_eq!(summary.current_streak_days, 2);
+        assert_eq!(summary.best_day_words, 30);
+        assert_eq!(summary.daily.len(), 7);
+        assert_eq!(summary.top_modes[0].label, "Default");
+        assert!(summary.local_percent > 60.0);
+        assert!(summary.local_percent < 70.0);
     }
 }

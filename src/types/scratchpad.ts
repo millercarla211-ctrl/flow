@@ -7,3 +7,11 @@ export type ScratchpadEntry = {
   updated_at: string;
   version: number;
 };
+
+export type ScratchpadVersion = {
+  id: string;
+  entry_id: string;
+  body: string;
+  created_at: string;
+  version: number;
+};

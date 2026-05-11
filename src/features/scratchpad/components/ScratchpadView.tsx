@@ -1,14 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Clipboard, Copy, FileText, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Check,
+  Clipboard,
+  Copy,
+  FileText,
+  History,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import DotMatrix from "../../../shared/ui/DotMatrix";
 import { useDebouncedValue } from "../../../shared/hooks/useDebouncedValue";
-import type { ScratchpadEntry } from "../../../types";
+import type { ScratchpadEntry, ScratchpadVersion } from "../../../types";
 import {
   useCreateScratchpadEntry,
   useDeleteScratchpadEntry,
   useScratchpadEntries,
+  useScratchpadVersions,
   useUpdateScratchpadEntry,
 } from "../queries";
 
@@ -22,6 +33,17 @@ const formatRelativeTime = (value: string) => {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
+};
+
+const formatDetailedTime = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 };
 
 const sourceLabel = (source: string) => {
@@ -45,18 +67,24 @@ export default function ScratchpadView({ isActive = true }: { isActive?: boolean
   const [draftBody, setDraftBody] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
   const debouncedSearch = useDebouncedValue(searchQuery, 200);
 
   const entriesQuery = useScratchpadEntries(debouncedSearch, isActive);
-  const createMutation = useCreateScratchpadEntry();
-  const updateMutation = useUpdateScratchpadEntry();
-  const deleteMutation = useDeleteScratchpadEntry();
-
   const entries = entriesQuery.data ?? [];
   const selectedEntry = useMemo(
     () => entries.find((entry) => entry.id === selectedId) ?? null,
     [entries, selectedId],
   );
+  const versionsQuery = useScratchpadVersions(
+    selectedEntry?.id ?? null,
+    isActive && showVersions && Boolean(selectedEntry),
+  );
+  const createMutation = useCreateScratchpadEntry();
+  const updateMutation = useUpdateScratchpadEntry();
+  const deleteMutation = useDeleteScratchpadEntry();
+
+  const versions = versionsQuery.data ?? [];
 
   useEffect(() => {
     if (!isActive || selectedId || entries.length === 0 || isCreating) return;
@@ -80,11 +108,13 @@ export default function ScratchpadView({ isActive = true }: { isActive?: boolean
     setDraftTitle("");
     setDraftBody("");
     setCopied(false);
+    setShowVersions(false);
   };
 
   const handleSelect = (entry: ScratchpadEntry) => {
     setIsCreating(false);
     setCopied(false);
+    setShowVersions(false);
     setSelectedId(entry.id);
   };
 
@@ -117,6 +147,10 @@ export default function ScratchpadView({ isActive = true }: { isActive?: boolean
     await navigator.clipboard.writeText(draftBody);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  const handleRestoreVersion = (version: ScratchpadVersion) => {
+    setDraftBody(version.body);
   };
 
   const empty = !entriesQuery.isLoading && entries.length === 0;
@@ -219,6 +253,17 @@ export default function ScratchpadView({ isActive = true }: { isActive?: boolean
               className="min-w-0 flex-1 bg-transparent ui-text-body-lg ui-color-primary placeholder:text-content-disabled focus:outline-none"
             />
             <div className="flex items-center gap-2">
+              {selectedEntry && (
+                <button
+                  type="button"
+                  onClick={() => setShowVersions((value) => !value)}
+                  data-active={showVersions}
+                  className="ui-button-ghost h-8 w-8 disabled:opacity-40 data-[active=true]:border data-[active=true]:border-border-secondary"
+                  aria-label={t({ id: "scratchpad.versions", message: "Show version history" })}
+                >
+                  <History size={16} />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleCopy}
@@ -268,6 +313,67 @@ export default function ScratchpadView({ isActive = true }: { isActive?: boolean
           </div>
 
           <AnimatePresence>
+            {showVersions && selectedEntry && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                className="max-h-56 overflow-y-auto border-t border-border-primary bg-[var(--surface-interactive)] px-4 py-3"
+              >
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="ui-text-meta-strong ui-color-primary">Version history</div>
+                    <div className="ui-text-micro ui-color-muted">
+                      Restore a previous body into the editor, then save when ready.
+                    </div>
+                  </div>
+                  <div className="ui-text-micro ui-color-disabled">v{selectedEntry.version}</div>
+                </div>
+
+                {versionsQuery.isLoading ? (
+                  <div className="flex h-20 items-center justify-center">
+                    <DotMatrix cols={10} rows={4} dotSize={2} gap={5} />
+                  </div>
+                ) : versions.length === 0 ? (
+                  <div className="rounded-md border border-border-primary bg-surface-elevated px-3 py-6 text-center ui-text-meta ui-color-muted">
+                    No saved versions yet.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {versions.map((version) => (
+                      <article
+                        key={version.id}
+                        className="grid grid-cols-[1fr_auto] gap-3 rounded-md border border-border-primary bg-surface-surface p-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="ui-text-meta-strong ui-color-primary">
+                              v{version.version}
+                            </span>
+                            <span className="ui-text-micro ui-color-disabled">
+                              {formatDetailedTime(version.created_at)}
+                            </span>
+                          </div>
+                          <div className="mt-1 line-clamp-2 ui-text-meta ui-color-muted">
+                            {version.body}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRestoreVersion(version)}
+                          disabled={draftBody.trim() === version.body.trim()}
+                          className="ui-button-ghost h-8 gap-2 rounded-full border border-border-primary px-3 ui-text-button-sm disabled:opacity-40"
+                        >
+                          <RotateCcw size={14} />
+                          Restore
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            )}
+
             {hasChanges && hasDraft && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}

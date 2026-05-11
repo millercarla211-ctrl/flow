@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import * as transcriptionsApi from "./api";
+import { insightsKeys } from "../insights/queries";
 
 export const transcriptionKeys = {
   all: ["transcriptions"] as const,
@@ -24,6 +25,7 @@ export function useDeleteTranscription() {
     mutationFn: transcriptionsApi.deleteTranscription,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transcriptionKeys.all });
+      queryClient.invalidateQueries({ queryKey: insightsKeys.all });
     },
   });
 }
@@ -73,6 +75,7 @@ export function useRetryTranscription(enabled: boolean = true) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: transcriptionKeys.all });
+      queryClient.invalidateQueries({ queryKey: insightsKeys.all });
     },
   });
 
@@ -93,6 +96,7 @@ export function useRetryLlmCleanup() {
     mutationFn: transcriptionsApi.retryLlmCleanup,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transcriptionKeys.all });
+      queryClient.invalidateQueries({ queryKey: insightsKeys.all });
     },
   });
 }
@@ -104,6 +108,7 @@ export function useUndoLlmCleanup() {
     mutationFn: transcriptionsApi.undoLlmCleanup,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transcriptionKeys.all });
+      queryClient.invalidateQueries({ queryKey: insightsKeys.all });
     },
   });
 }
@@ -115,6 +120,7 @@ export function useDeleteAllTranscriptions() {
     mutationFn: transcriptionsApi.deleteAllTranscriptions,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transcriptionKeys.all });
+      queryClient.invalidateQueries({ queryKey: insightsKeys.all });
     },
   });
 }

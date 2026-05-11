@@ -37,6 +37,17 @@ pub(crate) fn list_scratchpad_entries(
 }
 
 #[tauri::command]
+pub(crate) fn list_scratchpad_versions(
+    state: tauri::State<AppState>,
+    entry_id: String,
+) -> Result<Vec<storage::ScratchpadVersion>, String> {
+    state
+        .storage()
+        .get_scratchpad_versions(&entry_id)
+        .map_err(|err| format!("Failed to list Scratchpad versions: {err}"))
+}
+
+#[tauri::command]
 pub(crate) fn create_scratchpad_entry(
     app: AppHandle<AppRuntime>,
     state: tauri::State<AppState>,

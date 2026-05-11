@@ -10,6 +10,7 @@ import { transcriptionKeys } from "../features/transcriptions/queries";
 import { scratchpadKeys } from "../features/scratchpad/queries";
 import { snippetKeys } from "../features/snippets/queries";
 import { flowFetchKeys } from "../features/flow-fetch/queries";
+import { insightsKeys } from "../features/insights/queries";
 import { updateKeys } from "../features/updates/queries";
 import { isTauriRuntime } from "../platform/tauriRuntime";
 import type { StoredSettings } from "../types";
@@ -63,6 +64,12 @@ function QuerySyncBridge() {
     register("flow-fetch:link-captured", () => {
       queryClient.invalidateQueries({ queryKey: flowFetchKeys.all });
     });
+    register("transcription:complete", () => {
+      queryClient.invalidateQueries({ queryKey: insightsKeys.all });
+    });
+    register("transcription:error", () => {
+      queryClient.invalidateQueries({ queryKey: insightsKeys.all });
+    });
 
     if (isSettingsWindow) {
       register("auth:changed", () => {
@@ -76,9 +83,11 @@ function QuerySyncBridge() {
       });
       register("transcription:complete", () => {
         queryClient.invalidateQueries({ queryKey: transcriptionKeys.all });
+        queryClient.invalidateQueries({ queryKey: insightsKeys.all });
       });
       register("transcription:error", () => {
         queryClient.invalidateQueries({ queryKey: transcriptionKeys.all });
+        queryClient.invalidateQueries({ queryKey: insightsKeys.all });
       });
       register("audio:input-devices-changed", () => {
         queryClient.invalidateQueries({ queryKey: settingsKeys.devices() });

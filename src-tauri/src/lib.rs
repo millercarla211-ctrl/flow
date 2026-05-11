@@ -8,6 +8,7 @@ mod crypto;
 mod dictionary;
 mod downloader;
 mod flow_fetch;
+mod insights;
 mod library;
 mod llm_cleanup;
 mod local_transcription;
@@ -436,6 +437,7 @@ pub fn run() {
             undo_llm_cleanup,
             cancel_retry_transcription,
             scratchpad::list_scratchpad_entries,
+            scratchpad::list_scratchpad_versions,
             scratchpad::create_scratchpad_entry,
             scratchpad::update_scratchpad_entry,
             scratchpad::delete_scratchpad_entry,
@@ -446,6 +448,7 @@ pub fn run() {
             flow_fetch::list_flow_fetch_links,
             flow_fetch::delete_flow_fetch_link,
             flow_fetch::copy_flow_fetch_link,
+            insights::get_insights,
             transforms::get_transform_presets,
             transforms::transform_text,
             library::commands::create_library_item,

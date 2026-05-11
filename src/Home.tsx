@@ -17,6 +17,7 @@ import {
   Link2,
   NotebookText,
   TextQuote,
+  BarChart3,
 } from "lucide-react";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import SettingsModal from "./features/settings/components/SettingsModal";
@@ -33,6 +34,7 @@ import FlowFetchView from "./features/flow-fetch/components/FlowFetchView";
 import ScratchpadView from "./features/scratchpad/components/ScratchpadView";
 import SnippetsView from "./features/snippets/components/SnippetsView";
 import TransformsView from "./features/transforms/components/TransformsView";
+import InsightsView from "./features/insights/components/InsightsView";
 import { useCurrentUser } from "./features/auth/queries";
 import { useSettings, useAppInfo } from "./features/settings/queries";
 import { useUpdateStatus } from "./features/updates/queries";
@@ -77,6 +79,7 @@ const Home = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [activeView, setActiveView] = useState<
     | "home"
+    | "insights"
     | "dictionary"
     | "snippets"
     | "scratchpad"
@@ -305,6 +308,16 @@ const Home = () => {
               active={activeView === "home"}
               collapsed={isSidebarCollapsed}
               onClick={() => setActiveView("home")}
+            />
+            <SidebarItem
+              icon={<BarChart3 size={18} />}
+              label={t({
+                id: "home.sidebar.insights",
+                message: "Insights",
+              })}
+              active={activeView === "insights"}
+              collapsed={isSidebarCollapsed}
+              onClick={() => setActiveView("insights")}
             />
             <SidebarItem
               icon={<Book size={18} />}
@@ -626,6 +639,12 @@ const Home = () => {
             className={`w-full max-w-6xl mx-auto min-w-0 pt-8 ${activeView === "dictionary" ? "" : "hidden"}`}
           >
             <DictionaryView isActive={activeView === "dictionary"} />
+          </div>
+
+          <div
+            className={`w-full max-w-6xl mx-auto min-w-0 pt-8 flex-1 min-h-0 ${activeView === "insights" ? "" : "hidden"}`}
+          >
+            <InsightsView isActive={activeView === "insights"} />
           </div>
 
           <div

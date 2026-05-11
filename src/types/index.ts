@@ -10,3 +10,4 @@ export * from "./scratchpad";
 export * from "./snippets";
 export * from "./flowFetch";
 export * from "./transforms";
+export * from "./insights";

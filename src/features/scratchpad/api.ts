@@ -1,10 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ScratchpadEntry } from "../../types";
+import type { ScratchpadEntry, ScratchpadVersion } from "../../types";
 
 export async function listScratchpadEntries(
   searchQuery: string | null,
 ): Promise<ScratchpadEntry[]> {
   return invoke<ScratchpadEntry[]>("list_scratchpad_entries", { searchQuery });
+}
+
+export async function listScratchpadVersions(entryId: string): Promise<ScratchpadVersion[]> {
+  return invoke<ScratchpadVersion[]>("list_scratchpad_versions", { entryId });
 }
 
 export async function createScratchpadEntry(
