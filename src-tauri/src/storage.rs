@@ -183,6 +183,7 @@ pub struct InsightsSummary {
     pub daily: Vec<DailyInsight>,
     pub top_modes: Vec<InsightBreakdown>,
     pub top_models: Vec<InsightBreakdown>,
+    pub top_transforms: Vec<InsightBreakdown>,
 }
 
 #[derive(Debug, Clone)]
@@ -1730,6 +1731,7 @@ fn build_insights_summary(
     let mut daily_map: HashMap<NaiveDate, InsightBucket> = HashMap::new();
     let mut mode_map: HashMap<String, InsightBucket> = HashMap::new();
     let mut model_map: HashMap<String, InsightBucket> = HashMap::new();
+    let mut transform_map: HashMap<String, InsightBucket> = HashMap::new();
     let mut active_days = HashSet::new();
 
     let mut total_words = 0u32;
@@ -1821,6 +1823,21 @@ fn build_insights_summary(
             record.speech_model.clone()
         };
         add_breakdown(&mut model_map, model_label, words, audio_seconds);
+
+        if let Some(transform_label) = record
+            .auto_transform_label
+            .as_deref()
+            .or(record.auto_transform_preset_id.as_deref())
+            .map(str::trim)
+            .filter(|label| !label.is_empty())
+        {
+            add_breakdown(
+                &mut transform_map,
+                transform_label.to_string(),
+                words,
+                audio_seconds,
+            );
+        }
     }
 
     let daily = (0..days)
@@ -1877,6 +1894,7 @@ fn build_insights_summary(
         daily,
         top_modes: sorted_breakdowns(mode_map, 5),
         top_models: sorted_breakdowns(model_map, 5),
+        top_transforms: sorted_breakdowns(transform_map, 5),
     }
 }
 
@@ -2160,6 +2178,8 @@ mod tests {
         first.total_elapsed_ms = Some(1_700);
         first.auto_paste_requested = true;
         first.auto_paste_succeeded = Some(true);
+        first.auto_transform_preset_id = Some("terminal_command".to_string());
+        first.auto_transform_label = Some("Terminal command".to_string());
 
         let mut second = record_on(today, 20, "parakeet-tdt-0.6b-v3-int8", Some("Default"));
         second.stt_elapsed_ms = Some(800);
@@ -2168,6 +2188,8 @@ mod tests {
         second.total_elapsed_ms = Some(1_300);
         second.auto_paste_requested = true;
         second.auto_paste_succeeded = Some(false);
+        second.auto_transform_preset_id = Some("terminal_command".to_string());
+        second.auto_transform_label = Some("Terminal command".to_string());
 
         let summary = build_insights_summary(&[first, second], 7, today);
 
@@ -2179,5 +2201,8 @@ mod tests {
         assert_eq!(summary.auto_paste_attempts, 2);
         assert_eq!(summary.auto_paste_success_percent, 50.0);
         assert_eq!(summary.paste_fallback_count, 1);
+        assert_eq!(summary.top_transforms[0].label, "Terminal command");
+        assert_eq!(summary.top_transforms[0].count, 2);
+        assert_eq!(summary.top_transforms[0].words, 30);
     }
 }

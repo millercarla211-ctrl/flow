@@ -330,12 +330,17 @@ export default function InsightsView({ isActive = true }: { isActive?: boolean }
             </div>
           </section>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 xl:grid-cols-3">
             <BreakdownList title="Top modes" items={summary.top_modes} empty="No modes yet" />
             <BreakdownList
               title="Speech models"
               items={summary.top_models}
               empty="No model usage yet"
+            />
+            <BreakdownList
+              title="Auto transforms"
+              items={summary.top_transforms}
+              empty="No auto transforms yet"
             />
           </div>
 

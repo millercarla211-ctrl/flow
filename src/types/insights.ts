@@ -38,4 +38,5 @@ export type InsightsSummary = {
   daily: DailyInsight[];
   top_modes: InsightBreakdown[];
   top_models: InsightBreakdown[];
+  top_transforms: InsightBreakdown[];
 };
