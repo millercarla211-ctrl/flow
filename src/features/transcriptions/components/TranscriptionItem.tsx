@@ -6,8 +6,13 @@ import remarkBreaks from "remark-breaks";
 import { invoke } from "@tauri-apps/api/core";
 import {
   CheckSquare,
+  Clock3,
+  Cloud,
   Copy,
   FileText,
+  Gauge,
+  HardDrive,
+  Mic2,
   Trash2,
   RotateCw,
   Check,
@@ -19,6 +24,7 @@ import {
   WandSparkles,
   Square,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import type { TranscriptionRecord } from "../../../types";
 import DotMatrix from "../../../shared/ui/DotMatrix";
@@ -59,6 +65,63 @@ interface TranscriptionItemProps {
   selected?: boolean;
   onSelectionChange?: (id: string, selected: boolean) => void;
 }
+
+type DiagnosticTone = "neutral" | "local" | "cloud" | "warning" | "error";
+
+interface DiagnosticItem {
+  key: string;
+  icon: LucideIcon;
+  label: string;
+  title: string;
+  tone?: DiagnosticTone;
+}
+
+const diagnosticToneClass: Record<DiagnosticTone, string> = {
+  neutral: "border-border-primary bg-surface-surface ui-color-muted",
+  local: "border-local/30 bg-local/10 text-local",
+  cloud: "border-border-primary bg-surface-elevated ui-color-secondary",
+  warning: "border-border-primary bg-surface-elevated ui-color-secondary",
+  error: "border-red-500/20 bg-red-500/5 ui-color-error-strong",
+};
+
+const formatDiagnosticDuration = (seconds: number) => {
+  const safeSeconds = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  if (safeSeconds < 0.1) return "0s";
+  if (safeSeconds < 10) return `${safeSeconds.toFixed(1)}s`;
+  if (safeSeconds < 60) return `${Math.round(safeSeconds)}s`;
+
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = Math.round(safeSeconds % 60);
+  return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+};
+
+const formatWordCount = (wordCount: number) => (wordCount === 1 ? "1 word" : `${wordCount} words`);
+
+const formatWordsPerMinute = (wordCount: number, seconds: number) => {
+  if (!Number.isFinite(seconds) || seconds < 1 || wordCount <= 0) return null;
+  const wordsPerMinute = Math.round(wordCount / (seconds / 60));
+  return wordsPerMinute > 0 ? `${wordsPerMinute} wpm` : null;
+};
+
+const truncateDiagnosticLabel = (label: string) =>
+  label.length > 28 ? `${label.slice(0, 25)}...` : label;
+
+type DiagnosticsChipProps = Omit<DiagnosticItem, "key">;
+
+const DiagnosticsChip: React.FC<DiagnosticsChipProps> = ({
+  icon: Icon,
+  label,
+  title,
+  tone = "neutral",
+}) => (
+  <span
+    className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 ui-text-micro ${diagnosticToneClass[tone]}`}
+    title={title}
+  >
+    <Icon size={10} aria-hidden="true" className="shrink-0 opacity-80" />
+    <span className="truncate">{truncateDiagnosticLabel(label)}</span>
+  </span>
+);
 
 const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   record,
@@ -286,6 +349,76 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
   const modeLabel = record.mode_name?.trim() || null;
   const allowContextMenu = !selectionMode && !isRetryingLlm && !isUndoingLlm;
   const hasSelection = selectionText.trim().length > 0;
+  const wordCount = Math.max(0, record.word_count ?? 0);
+  const audioDurationSeconds = Math.max(0, record.audio_duration_seconds ?? 0);
+  const wpmLabel = formatWordsPerMinute(wordCount, audioDurationSeconds);
+  const diagnostics: DiagnosticItem[] = [];
+
+  if (audioDurationSeconds > 0) {
+    diagnostics.push({
+      key: "duration",
+      icon: Clock3,
+      label: `${formatDiagnosticDuration(audioDurationSeconds)} audio`,
+      title: "Captured audio length",
+    });
+  }
+
+  if (!isError && wordCount > 0) {
+    diagnostics.push({
+      key: "words",
+      icon: FileText,
+      label: formatWordCount(wordCount),
+      title: "Transcript size",
+    });
+  }
+
+  if (!isError && wpmLabel) {
+    diagnostics.push({
+      key: "speed",
+      icon: Gauge,
+      label: wpmLabel,
+      title: "Estimated speaking pace",
+    });
+  }
+
+  if (speechModelLabel) {
+    diagnostics.push({
+      key: "speech-model",
+      icon: isCloudModel ? Cloud : Mic2,
+      label: speechModelLabel,
+      title: isCloudModel ? "Cloud speech model" : "Local speech model",
+      tone: isCloudModel ? "cloud" : "local",
+    });
+  }
+
+  if (!isError && record.llm_cleaned) {
+    diagnostics.push({
+      key: "cleanup",
+      icon: WandSparkles,
+      label: llmModelLabel ? `Cleaned by ${llmModelLabel}` : "Cleaned",
+      title: "AI cleanup applied",
+      tone: "local",
+    });
+  }
+
+  if (modeLabel) {
+    diagnostics.push({
+      key: "mode",
+      icon: HardDrive,
+      label: modeLabel,
+      title: "Matched dictation style",
+    });
+  }
+
+  if (isError && canRetryFromAudio) {
+    diagnostics.push({
+      key: "retry-audio",
+      icon: RotateCw,
+      label: "Audio saved",
+      title: "This failed recording can be retried from saved audio",
+      tone: "warning",
+    });
+  }
 
   const captureSelectionText = () => {
     const selection = window.getSelection();
@@ -481,6 +614,13 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                 </button>
               )}
             </>
+          )}
+          {diagnostics.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 pr-2">
+              {diagnostics.map(({ key, ...item }) => (
+                <DiagnosticsChip key={key} {...item} />
+              ))}
+            </div>
           )}
         </div>
 
