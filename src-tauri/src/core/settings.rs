@@ -22,6 +22,8 @@ pub(crate) struct UpdateSettingsArgs {
     pub command_enabled: bool,
     pub paste_last_transcript_shortcut: String,
     pub paste_last_transcript_enabled: bool,
+    pub cancel_shortcut: String,
+    pub cancel_enabled: bool,
     pub transcription_mode: TranscriptionMode,
     pub local_model: String,
     pub microphone_device: Option<String>,
@@ -78,6 +80,10 @@ fn validate_update_settings_args(args: &UpdateSettingsArgs) -> Result<(), String
         return Err("Paste last transcript shortcut cannot be empty when enabled".into());
     }
 
+    if args.cancel_enabled && args.cancel_shortcut.trim().is_empty() {
+        return Err("Cancel shortcut cannot be empty when enabled".into());
+    }
+
     if !args.smart_enabled && !args.hold_enabled && !args.toggle_enabled {
         return Err("At least one recording mode must be enabled".into());
     }
@@ -112,6 +118,12 @@ fn validate_update_settings_args(args: &UpdateSettingsArgs) -> Result<(), String
         let normalized = hotkeys::parse_shortcut(raw)
             .map_err(|err| format!("Paste last transcript shortcut is invalid: {err}"))?;
         enabled_shortcuts.push(("Paste Last Transcript", normalized));
+    }
+    if args.cancel_enabled {
+        let raw = args.cancel_shortcut.trim();
+        let normalized = hotkeys::parse_shortcut(raw)
+            .map_err(|err| format!("Cancel shortcut is invalid: {err}"))?;
+        enabled_shortcuts.push(("Cancel", normalized));
     }
 
     for i in 0..enabled_shortcuts.len() {
@@ -265,6 +277,12 @@ pub(crate) fn update_settings(
         args.paste_last_transcript_shortcut
     };
     next.paste_last_transcript_enabled = args.paste_last_transcript_enabled;
+    next.cancel_shortcut = if args.cancel_enabled {
+        canonicalize_shortcut_for_storage(&args.cancel_shortcut)?
+    } else {
+        args.cancel_shortcut
+    };
+    next.cancel_enabled = args.cancel_enabled;
     next.transcription_mode = args.transcription_mode;
     next.local_model = args.local_model;
     next.microphone_device = args.microphone_device;
@@ -371,6 +389,8 @@ mod tests {
             command_enabled: false,
             paste_last_transcript_shortcut: "Shift+Alt+Z".to_string(),
             paste_last_transcript_enabled: true,
+            cancel_shortcut: "Control+Alt+Escape".to_string(),
+            cancel_enabled: false,
             transcription_mode: TranscriptionMode::Local,
             local_model: default_local_model(),
             microphone_device: None,
@@ -480,6 +500,17 @@ mod tests {
             err,
             "Smart and Paste Last Transcript shortcuts cannot be the same"
         );
+    }
+
+    #[test]
+    fn rejects_cancel_shortcut_overlap() {
+        let mut args = base_args();
+        args.cancel_enabled = true;
+        args.cancel_shortcut = "Ctrl+Space".to_string();
+
+        let err = validate_update_settings_args(&args).unwrap_err();
+
+        assert_eq!(err, "Smart and Cancel shortcuts cannot be the same");
     }
 
     #[test]

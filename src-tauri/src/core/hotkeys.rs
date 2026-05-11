@@ -28,6 +28,7 @@ pub(crate) enum ShortcutAction {
     Toggle,
     Command,
     PasteLastTranscript,
+    Cancel,
 }
 
 #[derive(Debug, Clone, Copy)]

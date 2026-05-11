@@ -934,6 +934,21 @@ pub(crate) fn handle_registered_hotkey_event(
                 crate::recent_transcriptions::paste_latest_transcription_from_menu(app);
             }
         }
+        hotkeys::ShortcutAction::Cancel => {
+            if state != HotkeyState::Pressed {
+                return;
+            }
+
+            match pill.status() {
+                PillStatus::Listening => pill.cancel(app),
+                PillStatus::Processing => pill.cancel_processing(app),
+                PillStatus::Error => {
+                    toast::hide(app);
+                    pill.reset(app);
+                }
+                PillStatus::Idle => {}
+            }
+        }
     }
 }
 
@@ -1007,6 +1022,12 @@ pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
         settings.paste_last_transcript_enabled,
         &settings.paste_last_transcript_shortcut,
         hotkeys::ShortcutAction::PasteLastTranscript,
+    );
+    add_binding(
+        "Cancel",
+        settings.cancel_enabled,
+        &settings.cancel_shortcut,
+        hotkeys::ShortcutAction::Cancel,
     );
 
     state.hotkeys.replace_registrations(app, bindings)

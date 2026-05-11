@@ -386,6 +386,8 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
           commandEnabled: false,
           pasteLastTranscriptShortcut: "Shift+Alt+Z",
           pasteLastTranscriptEnabled: true,
+          cancelShortcut: "Control+Alt+Escape",
+          cancelEnabled: false,
           transcriptionMode: ctx.selectedMode,
           localModel: resolvedLocalModel,
           microphoneDevice: null,

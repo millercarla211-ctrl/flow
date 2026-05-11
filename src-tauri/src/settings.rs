@@ -18,6 +18,8 @@ const KEY_COMMAND_SHORTCUT: &str = "command_shortcut";
 const KEY_COMMAND_ENABLED: &str = "command_enabled";
 const KEY_PASTE_LAST_TRANSCRIPT_SHORTCUT: &str = "paste_last_transcript_shortcut";
 const KEY_PASTE_LAST_TRANSCRIPT_ENABLED: &str = "paste_last_transcript_enabled";
+const KEY_CANCEL_SHORTCUT: &str = "cancel_shortcut";
+const KEY_CANCEL_ENABLED: &str = "cancel_enabled";
 const KEY_TRANSCRIPTION_MODE: &str = "transcription_mode";
 const KEY_LOCAL_MODEL: &str = "local_model";
 const KEY_MICROPHONE_DEVICE: &str = "microphone_device";
@@ -99,6 +101,10 @@ pub struct UserSettings {
     pub paste_last_transcript_shortcut: String,
     #[serde(default = "default_true")]
     pub paste_last_transcript_enabled: bool,
+    #[serde(default = "default_cancel_shortcut")]
+    pub cancel_shortcut: String,
+    #[serde(default)]
+    pub cancel_enabled: bool,
     #[serde(default = "default_transcription_mode")]
     pub transcription_mode: TranscriptionMode,
     #[serde(default = "default_local_model")]
@@ -189,6 +195,10 @@ fn default_paste_last_transcript_shortcut() -> String {
     } else {
         "Shift+Alt+Z".to_string()
     }
+}
+
+fn default_cancel_shortcut() -> String {
+    "Control+Alt+Escape".to_string()
 }
 
 fn default_true() -> bool {
@@ -398,6 +408,8 @@ impl Default for UserSettings {
             command_enabled: false,
             paste_last_transcript_shortcut: default_paste_last_transcript_shortcut(),
             paste_last_transcript_enabled: true,
+            cancel_shortcut: default_cancel_shortcut(),
+            cancel_enabled: false,
             transcription_mode: default_transcription_mode(),
             local_model: default_local_model(),
             microphone_device: None,
@@ -679,6 +691,10 @@ impl SettingsStore {
                 KEY_PASTE_LAST_TRANSCRIPT_ENABLED,
                 settings.paste_last_transcript_enabled,
             )?;
+            settings.cancel_shortcut =
+                self.read_value(&conn, KEY_CANCEL_SHORTCUT, settings.cancel_shortcut.clone())?;
+            settings.cancel_enabled =
+                self.read_value(&conn, KEY_CANCEL_ENABLED, settings.cancel_enabled)?;
             settings.transcription_mode = self.read_value(
                 &conn,
                 KEY_TRANSCRIPTION_MODE,
@@ -929,6 +945,8 @@ impl SettingsStore {
             KEY_PASTE_LAST_TRANSCRIPT_ENABLED,
             &settings.paste_last_transcript_enabled,
         )?;
+        self.write_value(&conn, KEY_CANCEL_SHORTCUT, &settings.cancel_shortcut)?;
+        self.write_value(&conn, KEY_CANCEL_ENABLED, &settings.cancel_enabled)?;
         self.write_value(&conn, KEY_TRANSCRIPTION_MODE, &settings.transcription_mode)?;
         self.write_value(&conn, KEY_LOCAL_MODEL, &settings.local_model)?;
         self.write_value(&conn, KEY_MICROPHONE_DEVICE, &settings.microphone_device)?;

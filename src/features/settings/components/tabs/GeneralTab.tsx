@@ -2,7 +2,7 @@ import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
-import { Check, Copy, Info, Mic, Sparkles, Square, WandSparkles } from "lucide-react";
+import { Check, Copy, Info, Mic, Sparkles, Square, WandSparkles, X } from "lucide-react";
 import ToggleSwitch from "../../../../shared/ui/ToggleSwitch";
 import { Dropdown } from "../../../../shared/ui/Dropdown";
 import { formatShortcutForDisplay } from "../../../../shared/lib/shortcuts";
@@ -12,7 +12,7 @@ import type {
   TranscriptionLanguageOption,
 } from "../../../../shared/lib/transcriptionLanguages";
 
-type CaptureMode = "smart" | "hold" | "toggle" | "command" | "paste-last" | null;
+type CaptureMode = "smart" | "hold" | "toggle" | "command" | "paste-last" | "cancel" | null;
 type HelpTooltipId = "edit-mode" | "auto-transform" | "cleanup";
 type MicrophoneTestStatus = "idle" | "starting" | "listening" | "error";
 type MicrophoneTestLevels = {
@@ -92,6 +92,9 @@ type GeneralTabProps = {
   pasteLastTranscriptShortcut: string;
   pasteLastTranscriptEnabled: boolean;
   setPasteLastTranscriptEnabled: (value: boolean) => void;
+  cancelShortcut: string;
+  cancelEnabled: boolean;
+  setCancelEnabled: (value: boolean) => void;
   captureActive: CaptureMode;
   capturePreview: string;
   onStartCapture: (mode: Exclude<CaptureMode, null>) => void;
@@ -139,6 +142,9 @@ const GeneralTab = ({
   pasteLastTranscriptShortcut,
   pasteLastTranscriptEnabled,
   setPasteLastTranscriptEnabled,
+  cancelShortcut,
+  cancelEnabled,
+  setCancelEnabled,
   captureActive,
   capturePreview,
   onStartCapture,
@@ -642,6 +648,27 @@ const GeneralTab = ({
               }}
               canDisable
               icon={<Copy size={12} aria-hidden="true" />}
+            />
+            <ShortcutRow
+              label={t({
+                id: "settings.general.shortcuts.cancel",
+                message: "Cancel",
+              })}
+              description={t({
+                id: "settings.general.shortcuts.cancel_description",
+                message: "stop recording or processing",
+              })}
+              shortcut={cancelShortcut}
+              enabled={cancelEnabled}
+              isCapturing={captureActive === "cancel"}
+              capturePreview={capturePreview}
+              onToggle={() => setCancelEnabled(!cancelEnabled)}
+              onCapture={() => {
+                if (!cancelEnabled) return;
+                onStartCapture("cancel");
+              }}
+              canDisable
+              icon={<X size={12} aria-hidden="true" />}
             />
           </div>
         </div>

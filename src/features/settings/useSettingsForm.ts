@@ -39,7 +39,7 @@ import type {
 const TEXT_SIZE_MODE_STORAGE_KEY = "flow_text_size_mode";
 
 type ActiveTab = "general" | "models" | "about" | "account" | "app" | "vibe";
-type ShortcutCaptureMode = "smart" | "hold" | "toggle" | "command" | "paste-last";
+type ShortcutCaptureMode = "smart" | "hold" | "toggle" | "command" | "paste-last" | "cancel";
 
 interface UseSettingsFormOptions {
   isOpen: boolean;
@@ -68,6 +68,8 @@ export function useSettingsForm({
   const [commandEnabled, setCommandEnabled] = useState(false);
   const [pasteLastTranscriptShortcut, setPasteLastTranscriptShortcut] = useState("Shift+Alt+Z");
   const [pasteLastTranscriptEnabled, setPasteLastTranscriptEnabled] = useState(true);
+  const [cancelShortcut, setCancelShortcut] = useState("Control+Alt+Escape");
+  const [cancelEnabled, setCancelEnabled] = useState(false);
   const [transcriptionMode, setTranscriptionModeRaw] =
     useState<TranscriptionMode>(initialTranscriptionMode);
   const [localModel, setLocalModel] = useState("");
@@ -197,6 +199,8 @@ export function useSettingsForm({
     setCommandEnabled(s.command_enabled ?? false);
     setPasteLastTranscriptShortcut(s.paste_last_transcript_shortcut ?? "Shift+Alt+Z");
     setPasteLastTranscriptEnabled(s.paste_last_transcript_enabled ?? true);
+    setCancelShortcut(s.cancel_shortcut ?? "Control+Alt+Escape");
+    setCancelEnabled(s.cancel_enabled ?? false);
     setTranscriptionModeRaw(s.transcription_mode);
     setLocalModel(s.local_model);
     setMicrophoneDevice(s.microphone_device);
@@ -301,6 +305,8 @@ export function useSettingsForm({
         setCommandShortcut(combo);
       } else if (captureActive === "paste-last") {
         setPasteLastTranscriptShortcut(combo);
+      } else if (captureActive === "cancel") {
+        setCancelShortcut(combo);
       }
       setError(null);
     },
@@ -578,6 +584,8 @@ export function useSettingsForm({
             commandEnabled: aiFeaturesReady ? commandEnabled : false,
             pasteLastTranscriptShortcut,
             pasteLastTranscriptEnabled,
+            cancelShortcut,
+            cancelEnabled,
             transcriptionMode,
             localModel,
             microphoneDevice,
@@ -633,6 +641,8 @@ export function useSettingsForm({
     commandEnabled,
     pasteLastTranscriptShortcut,
     pasteLastTranscriptEnabled,
+    cancelShortcut,
+    cancelEnabled,
     transcriptionMode,
     localModel,
     microphoneDevice,
@@ -859,6 +869,9 @@ export function useSettingsForm({
     pasteLastTranscriptShortcut,
     pasteLastTranscriptEnabled,
     setPasteLastTranscriptEnabled,
+    cancelShortcut,
+    cancelEnabled,
+    setCancelEnabled,
     transcriptionMode,
     setTranscriptionMode,
     localModel,
