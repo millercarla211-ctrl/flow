@@ -418,6 +418,7 @@ pub fn run() {
             get_settings,
             set_shortcut_capture_active,
             update_settings,
+            set_auto_transform_setting,
             preview_recording_prune,
             set_user_name,
             dictionary::set_dictionary,
@@ -1180,6 +1181,44 @@ fn update_settings(
     state: tauri::State<AppState>,
 ) -> Result<UserSettings, String> {
     core::settings::update_settings(args, &app, &state)
+}
+
+#[tauri::command]
+fn set_auto_transform_setting(
+    enabled: bool,
+    preset_id: Option<String>,
+    app: AppHandle<AppRuntime>,
+    state: tauri::State<AppState>,
+) -> Result<UserSettings, String> {
+    let mut next = state.current_settings();
+    let resolved_preset_id = preset_id
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| next.auto_transform_preset_id.clone());
+
+    if !transforms::transform_preset_exists(&resolved_preset_id) {
+        return Err("Unknown auto transform preset".to_string());
+    }
+
+    if enabled && !llm_cleanup::is_llm_available(&next) {
+        return Err(
+            "Configure a language model in Settings -> Models before enabling Auto Transform."
+                .to_string(),
+        );
+    }
+
+    next.auto_transform_enabled = enabled;
+    next.auto_transform_preset_id = resolved_preset_id;
+    let saved = state
+        .persist_settings(next)
+        .map_err(|err| err.to_string())?;
+
+    state.request_preflight_refresh();
+    if let Err(err) = app.emit(EVENT_SETTINGS_CHANGED, &saved) {
+        eprintln!("Failed to emit settings change: {err}");
+    }
+
+    Ok(saved)
 }
 
 #[derive(Serialize)]

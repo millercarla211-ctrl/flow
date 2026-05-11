@@ -6,8 +6,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useMachine } from "@xstate/react";
 import { LiveWaveform } from "@/components/ui/live-waveform";
+import { useSettings } from "../settings/queries";
 import { pillMachine } from "./machine";
-import type { PillStatus } from "../../types";
+import type { PillStatus, StoredSettings } from "../../types";
 
 /* ───────────────────────── Constants ───────────────────────── */
 
@@ -27,6 +28,14 @@ const RECORDING_WIDTH = 156;
 const RECORDING_HEIGHT = 42;
 const VOICE_BAR_HEIGHTS = [6, 11, 16, 9, 20, 13, 23, 15, 10, 18, 12, 21];
 const DOT_SPACING = 3;
+const AUTO_TRANSFORM_PRESET_LABELS: Record<string, string> = {
+  polish: "Polish",
+  professional: "Professional",
+  fix_grammar: "Grammar",
+  shorter: "Shorter",
+  turn_to_list: "List",
+  vibe_coding: "Coding",
+};
 const DOT_RADIUS = {
   base: 0.9,
   icon: 1.2,
@@ -165,7 +174,7 @@ type TranscriptionCompletePayload = {
   auto_paste?: boolean;
 };
 
-type QuickActionStatus = "copied" | "saved" | "opened" | "error" | null;
+type QuickActionStatus = "copied" | "saved" | "opened" | "auto_on" | "auto_off" | "error" | null;
 
 function getExpandedTextSegments(text: string): ExpandedTextSegment[] {
   let offset = 0;
@@ -198,6 +207,17 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const [showFirstTip, setShowFirstTip] = useState(false);
   const [lastTranscript, setLastTranscript] = useState("");
   const [quickActionStatus, setQuickActionStatus] = useState<QuickActionStatus>(null);
+  const autoTransformQuery = useSettings(
+    (settings) => ({
+      enabled: settings.auto_transform_enabled,
+      presetId: settings.auto_transform_preset_id || "polish",
+      llmReady:
+        settings.llm_enabled &&
+        settings.llm_provider !== "none" &&
+        Boolean(settings.llm_model?.trim()),
+    }),
+    true,
+  );
 
   // Primary canvas (small pill dots)
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -809,9 +829,16 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
       : PILL_HEIGHT;
   const shellRadius = EXPANDED_BORDER_RADIUS;
   const displayText = expandedText || visibleStatusMessage;
-  const showQuickActions = Boolean(lastTranscript.trim()) && !isActiveStatus;
+  const transcriptAvailable = Boolean(lastTranscript.trim());
+  const autoTransformEnabled = autoTransformQuery.data?.enabled ?? false;
+  const autoTransformPresetId = autoTransformQuery.data?.presetId ?? "polish";
+  const autoTransformLabel = AUTO_TRANSFORM_PRESET_LABELS[autoTransformPresetId] ?? "Transform";
+  const autoTransformReady = autoTransformQuery.data?.llmReady ?? false;
+  const showAutoTransformControl =
+    showRecordingUi && !isActiveStatus && Boolean(autoTransformQuery.data);
+  const showQuickActions = !isActiveStatus && (transcriptAvailable || showAutoTransformControl);
   const showFirstUseTip =
-    showFirstTip && !isActiveStatus && !hasTranscriptPreview && !lastTranscript.trim();
+    showFirstTip && !isActiveStatus && !hasTranscriptPreview && !showQuickActions;
   const showIdleHandle = !showRecordingUi && !hasTranscriptPreview;
   const bubbleTitle =
     pillStatus === "error"
@@ -842,9 +869,13 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
         ? "Saved"
         : quickActionStatus === "opened"
           ? "Opened"
-          : quickActionStatus === "error"
-            ? "Try again"
-            : "";
+          : quickActionStatus === "auto_on"
+            ? "Auto on"
+            : quickActionStatus === "auto_off"
+              ? "Auto off"
+              : quickActionStatus === "error"
+                ? "Try again"
+                : "";
 
   const flashQuickStatus = (status: QuickActionStatus) => {
     setQuickActionStatus(status);
@@ -911,6 +942,34 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     }
   };
 
+  const handleToggleAutoTransform = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const nextEnabled = !autoTransformEnabled;
+    if (nextEnabled && !autoTransformReady) {
+      try {
+        await invoke("open_llm_cleanup_settings");
+        flashQuickStatus("opened");
+      } catch (error) {
+        console.error("Failed to open model settings:", error);
+        flashQuickStatus("error");
+      }
+      return;
+    }
+
+    try {
+      await invoke<StoredSettings>("set_auto_transform_setting", {
+        enabled: nextEnabled,
+        presetId: autoTransformPresetId,
+      });
+      flashQuickStatus(nextEnabled ? "auto_on" : "auto_off");
+    } catch (error) {
+      console.error("Failed to toggle Auto Transform:", error);
+      flashQuickStatus("error");
+    }
+  };
+
   const renderRecordIcon = () => {
     if (pillStatus === "processing") {
       return <Loader2 size={14} className="animate-spin" aria-hidden="true" />;
@@ -970,51 +1029,92 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
                 </span>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    aria-label="Copy transcript"
-                    title="Copy transcript"
-                    onClick={handleCopyLastTranscript}
-                    className="flex h-7 w-7 items-center justify-center rounded-full border"
-                    style={{
-                      backgroundColor:
-                        "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
-                      borderColor: "var(--ui-pill-shell-border)",
-                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    <Copy size={13} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Save transcript"
-                    title="Save transcript"
-                    onClick={handleSaveLastTranscript}
-                    className="flex h-7 w-7 items-center justify-center rounded-full border"
-                    style={{
-                      backgroundColor:
-                        "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
-                      borderColor: "var(--ui-pill-shell-border)",
-                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    <FileText size={13} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Transform transcript"
-                    title="Transform transcript"
-                    onClick={handleTransformLastTranscript}
-                    className="flex h-7 w-7 items-center justify-center rounded-full border"
-                    style={{
-                      backgroundColor:
-                        "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
-                      borderColor: "var(--ui-pill-shell-border)",
-                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    <WandSparkles size={13} aria-hidden="true" />
-                  </button>
+                  {showAutoTransformControl && (
+                    <button
+                      type="button"
+                      aria-label={
+                        autoTransformEnabled
+                          ? `Disable Auto Transform (${autoTransformLabel})`
+                          : `Enable Auto Transform (${autoTransformLabel})`
+                      }
+                      title={
+                        autoTransformEnabled
+                          ? `Auto Transform on: ${autoTransformLabel}`
+                          : autoTransformReady
+                            ? `Auto Transform off: ${autoTransformLabel}`
+                            : "Configure a language model to use Auto Transform"
+                      }
+                      onClick={handleToggleAutoTransform}
+                      className="flex h-7 items-center gap-1.5 rounded-full border px-2.5"
+                      style={{
+                        backgroundColor: autoTransformEnabled
+                          ? "color-mix(in srgb, var(--surface-interactive-strong) 86%, transparent)"
+                          : "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
+                        borderColor: autoTransformEnabled
+                          ? "var(--color-border-hover)"
+                          : "var(--ui-pill-shell-border)",
+                        color: autoTransformEnabled
+                          ? "var(--color-text-primary)"
+                          : "var(--color-text-secondary)",
+                        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
+                        fontFamily: "var(--font-mono), 'JetBrains Mono', ui-monospace, monospace",
+                        fontSize: 10,
+                        letterSpacing: 0,
+                      }}
+                    >
+                      <WandSparkles size={12} aria-hidden="true" />
+                      <span>{autoTransformEnabled ? autoTransformLabel : "Auto"}</span>
+                    </button>
+                  )}
+                  {transcriptAvailable && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Copy transcript"
+                        title="Copy transcript"
+                        onClick={handleCopyLastTranscript}
+                        className="flex h-7 w-7 items-center justify-center rounded-full border"
+                        style={{
+                          backgroundColor:
+                            "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
+                          borderColor: "var(--ui-pill-shell-border)",
+                          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
+                        }}
+                      >
+                        <Copy size={13} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Save transcript"
+                        title="Save transcript"
+                        onClick={handleSaveLastTranscript}
+                        className="flex h-7 w-7 items-center justify-center rounded-full border"
+                        style={{
+                          backgroundColor:
+                            "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
+                          borderColor: "var(--ui-pill-shell-border)",
+                          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
+                        }}
+                      >
+                        <FileText size={13} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Transform transcript"
+                        title="Transform transcript"
+                        onClick={handleTransformLastTranscript}
+                        className="flex h-7 w-7 items-center justify-center rounded-full border"
+                        style={{
+                          backgroundColor:
+                            "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
+                          borderColor: "var(--ui-pill-shell-border)",
+                          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
+                        }}
+                      >
+                        <WandSparkles size={13} aria-hidden="true" />
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </motion.div>
