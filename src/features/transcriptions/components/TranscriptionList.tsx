@@ -11,6 +11,7 @@ import {
   Copy,
   Filter,
   FileText,
+  RotateCw,
   Trash2,
   WandSparkles,
 } from "lucide-react";
@@ -58,9 +59,9 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [batchStatus, setBatchStatus] = useState<string | null>(null);
   const [batchError, setBatchError] = useState<string | null>(null);
-  const [batchBusy, setBatchBusy] = useState<"copy" | "scratchpad" | "transform" | "delete" | null>(
-    null,
-  );
+  const [batchBusy, setBatchBusy] = useState<
+    "copy" | "scratchpad" | "transform" | "retry" | "delete" | null
+  >(null);
   const sortRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -163,6 +164,11 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
         (record) => record.status === "success" && record.text.trim().length > 0,
       ),
     [selectedRecords],
+  );
+  const selectedRetryableRecords = useMemo(
+    () =>
+      selectedRecords.filter((record) => record.audio_available && !retryingIdSet.has(record.id)),
+    [selectedRecords, retryingIdSet],
   );
   const allVisibleSelected =
     sortedTranscriptions.length > 0 &&
@@ -300,7 +306,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   };
 
   const runBatchAction = async (
-    action: "copy" | "scratchpad" | "transform" | "delete",
+    action: "copy" | "scratchpad" | "transform" | "retry" | "delete",
     work: () => Promise<string>,
   ) => {
     if (batchBusy || selectedRecords.length === 0) return;
@@ -347,6 +353,20 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
       return t({
         id: "transcriptions.batch.opened_transform",
         message: "Opened selected transcripts in Transforms",
+      });
+    });
+
+  const retrySelected = () =>
+    runBatchAction("retry", async () => {
+      if (selectedRetryableRecords.length === 0) {
+        throw new Error("Selected items do not have saved audio to retry.");
+      }
+      for (const record of selectedRetryableRecords) {
+        await retryMutation.mutateAsync(record.id);
+      }
+      return t({
+        id: "transcriptions.batch.retrying",
+        message: `Retrying ${selectedRetryableRecords.length} transcripts`,
       });
     });
 
@@ -526,6 +546,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const showEmptyState = totalCount === 0 && !debouncedSearchQuery && !isLoading;
   const hasSelectedRecords = selectedRecords.length > 0;
   const hasSelectedText = selectedTextRecords.length > 0;
+  const hasSelectedRetryable = selectedRetryableRecords.length > 0;
   const noResultsMessage =
     filterKey !== "all"
       ? t({
@@ -610,6 +631,26 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
                   })}
                 >
                   <WandSparkles size={13} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={retrySelected}
+                  disabled={!hasSelectedRetryable || batchBusy !== null}
+                  className="ui-button-ghost h-7 w-7 disabled:opacity-40"
+                  aria-label={t({
+                    id: "transcriptions.batch.retry",
+                    message: "Retry selected",
+                  })}
+                  title={t({
+                    id: "transcriptions.batch.retry",
+                    message: "Retry selected",
+                  })}
+                >
+                  <RotateCw
+                    size={13}
+                    aria-hidden="true"
+                    className={batchBusy === "retry" ? "animate-spin" : undefined}
+                  />
                 </button>
                 <button
                   type="button"
