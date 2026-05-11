@@ -2,7 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import { useShiftHeld } from "../../../shared/hooks/useShiftHeld";
 import ToggleSwitch from "../../../shared/ui/ToggleSwitch";
 import DotMatrix from "../../../shared/ui/DotMatrix";
@@ -21,6 +21,12 @@ import PersonalityModal, {
   type PendingDeletePersonality,
 } from "./PersonalityModal";
 
+type StyleTemplate = {
+  name: string;
+  description: string;
+  instructions: string[];
+};
+
 const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   const { t } = useLingui();
   const [personalities, setPersonalities] = useState<Personality[]>([]);
@@ -36,6 +42,72 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   const persistVersionRef = useRef(0);
   const saveTimeoutRef = useRef<number | null>(null);
   const shiftHeld = useShiftHeld(isActive);
+
+  const styleTemplates: StyleTemplate[] = useMemo(
+    () => [
+      {
+        name: t({
+          id: "personalization.template.professional.name",
+          message: "Professional",
+        }),
+        description: t({
+          id: "personalization.template.professional.description",
+          message: "Crisp, clear, and work-ready.",
+        }),
+        instructions: [
+          "Use a crisp professional tone.",
+          "Preserve facts, names, numbers, and intent.",
+          "Prefer concise sentences and clear next actions.",
+        ],
+      },
+      {
+        name: t({
+          id: "personalization.template.casual.name",
+          message: "Casual",
+        }),
+        description: t({
+          id: "personalization.template.casual.description",
+          message: "Natural, friendly, and low-friction.",
+        }),
+        instructions: [
+          "Use a natural casual tone.",
+          "Keep the wording warm and conversational.",
+          "Do not add extra claims or change the user's intent.",
+        ],
+      },
+      {
+        name: t({
+          id: "personalization.template.concise.name",
+          message: "Concise",
+        }),
+        description: t({
+          id: "personalization.template.concise.description",
+          message: "Shorter, tighter, easier to scan.",
+        }),
+        instructions: [
+          "Make the writing shorter and more scannable.",
+          "Remove filler while preserving important details.",
+          "Prefer plain language and direct structure.",
+        ],
+      },
+      {
+        name: t({
+          id: "personalization.template.engineering.name",
+          message: "Engineering",
+        }),
+        description: t({
+          id: "personalization.template.engineering.description",
+          message: "Precise notes for code and product work.",
+        }),
+        instructions: [
+          "Write with precise engineering language.",
+          "State behavior, constraints, risks, and verification clearly.",
+          "Avoid vague praise and keep action items concrete.",
+        ],
+      },
+    ],
+    [t],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -241,6 +313,20 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
     setActivePersonalityId(id);
   };
 
+  const handleAddTemplate = (template: StyleTemplate) => {
+    const id = createId();
+    const nextMode: Personality = {
+      id,
+      name: template.name,
+      enabled: true,
+      apps: [],
+      websites: [],
+      instructions: template.instructions,
+    };
+    updatePersonalities((prev) => [...prev, nextMode]);
+    setActivePersonalityId(id);
+  };
+
   const handleDeleteMode = useCallback(
     (id: string) => {
       updatePersonalities((prev) => prev.filter((mode) => mode.id !== id));
@@ -350,6 +436,27 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
             })}
           </button>
         </div>
+      </div>
+
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <div className="mr-1 flex items-center gap-1.5 ui-text-meta-strong ui-color-muted">
+          <Sparkles size={13} aria-hidden="true" />
+          {t({
+            id: "personalization.templates.label",
+            message: "Starter styles",
+          })}
+        </div>
+        {styleTemplates.map((template) => (
+          <button
+            key={template.name}
+            type="button"
+            onClick={() => handleAddTemplate(template)}
+            title={template.description}
+            className="rounded-full border border-border-primary bg-surface-surface px-3 py-1.5 ui-text-button-sm ui-color-secondary transition-colors hover:border-border-hover hover:bg-surface-elevated hover:text-content-primary"
+          >
+            {template.name}
+          </button>
+        ))}
       </div>
 
       {loading ? (
