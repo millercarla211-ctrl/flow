@@ -466,6 +466,7 @@ pub fn run() {
             library::commands::get_library_tags,
             model_manager::list_models,
             model_manager::check_model_status,
+            get_local_model_runtime_status,
             model_manager::download_model,
             model_manager::delete_model,
             model_manager::cancel_download,
@@ -1205,6 +1206,27 @@ struct AppInfo {
     version: String,
     data_dir_size_bytes: u64,
     data_dir_path: String,
+}
+
+#[derive(Serialize)]
+struct LocalModelRuntimeStatus {
+    selected_model: String,
+    loaded_model: Option<String>,
+    warming: bool,
+}
+
+#[tauri::command]
+fn get_local_model_runtime_status(state: tauri::State<AppState>) -> LocalModelRuntimeStatus {
+    let settings = state.current_settings();
+    let selected_model = settings.local_model;
+    let loaded_model = state.local_transcriber.loaded_model_key();
+    let warming = state.preload_models.lock().contains(&selected_model);
+
+    LocalModelRuntimeStatus {
+        selected_model,
+        loaded_model,
+        warming,
+    }
 }
 
 #[tauri::command]

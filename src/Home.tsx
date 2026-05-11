@@ -38,7 +38,11 @@ import TransformsView from "./features/transforms/components/TransformsView";
 import InsightsView from "./features/insights/components/InsightsView";
 import { useCurrentUser } from "./features/auth/queries";
 import { useSettings, useAppInfo, useInputDevices } from "./features/settings/queries";
-import { useModelCatalog, useModelStatuses } from "./features/settings/models-queries";
+import {
+  useLocalModelRuntimeStatus,
+  useModelCatalog,
+  useModelStatuses,
+} from "./features/settings/models-queries";
 import { useUpdateStatus } from "./features/updates/queries";
 import { formatShortcutForDisplay } from "./shared/lib/shortcuts";
 import type { TranscriptionMode } from "./types";
@@ -115,8 +119,8 @@ const Home = () => {
   const { data: appInfoData } = useAppInfo();
   const { data: inputDevices = [] } = useInputDevices();
   const { data: modelCatalog = [] } = useModelCatalog();
-
   const transcriptionMode: TranscriptionMode = settings?.transcription_mode ?? "local";
+  const { data: localRuntimeStatus } = useLocalModelRuntimeStatus(transcriptionMode === "local");
   const llmEnabled = settings?.llm_enabled ?? false;
   const localModelKey = settings?.local_model ?? "";
   const { statusByModel } = useModelStatuses(
@@ -271,14 +275,22 @@ const Home = () => {
   const showCleanupButtons = isCloudMode || llmEnabled;
   const selectedModel = modelCatalog.find((model) => model.key === localModelKey);
   const selectedModelStatus = localModelKey ? statusByModel[localModelKey] : undefined;
+  const selectedModelIsWarm =
+    Boolean(localRuntimeStatus?.loaded_model) && localRuntimeStatus?.loaded_model === localModelKey;
+  const selectedModelIsWarming =
+    Boolean(localRuntimeStatus?.warming) && localRuntimeStatus?.selected_model === localModelKey;
   const modelReady =
     transcriptionMode === "local"
       ? Boolean(selectedModelStatus?.installed)
       : transcriptionMode === "cloud";
   const modelLabel = selectedModel
-    ? selectedModelStatus?.installed
-      ? `${selectedModel.label} ready`
-      : `${selectedModel.label} missing`
+    ? selectedModelIsWarm
+      ? `${selectedModel.label} warm`
+      : selectedModelIsWarming
+        ? `${selectedModel.label} warming`
+        : selectedModelStatus?.installed
+          ? `${selectedModel.label} installed`
+          : `${selectedModel.label} missing`
     : localModelKey
       ? `${localModelKey} missing`
       : "No local model selected";

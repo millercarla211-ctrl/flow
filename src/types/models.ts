@@ -23,6 +23,12 @@ export type ModelStatus = {
   directory: string;
 };
 
+export type LocalModelRuntimeStatus = {
+  selected_model: string;
+  loaded_model: string | null;
+  warming: boolean;
+};
+
 export type DownloadProgressPayload = {
   model: string;
   file: string;

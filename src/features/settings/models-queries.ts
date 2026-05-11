@@ -7,6 +7,7 @@ export const modelKeys = {
   all: ["models"] as const,
   catalog: () => [...modelKeys.all, "catalog"] as const,
   status: (model: string) => [...modelKeys.all, "status", model] as const,
+  runtimeStatus: () => [...modelKeys.all, "runtime-status"] as const,
 };
 
 export function useModelCatalog(enabled: boolean = true) {
@@ -42,4 +43,13 @@ export function useModelStatuses(models: readonly string[], enabled: boolean = t
     isLoading: queries.some((query) => query.isLoading),
     isFetching: queries.some((query) => query.isFetching),
   };
+}
+
+export function useLocalModelRuntimeStatus(enabled: boolean = true) {
+  return useQuery({
+    queryKey: modelKeys.runtimeStatus(),
+    queryFn: modelsApi.getLocalModelRuntimeStatus,
+    enabled,
+    refetchInterval: 1_500,
+  });
 }

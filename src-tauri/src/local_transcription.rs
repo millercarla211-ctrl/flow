@@ -382,6 +382,10 @@ impl LocalTranscriber {
         *last_used = None;
         self.idle_wait.notify_one();
     }
+
+    pub fn loaded_model_key(&self) -> Option<String> {
+        self.inner.lock().as_ref().map(|loaded| loaded.key.clone())
+    }
 }
 
 impl Default for LocalTranscriber {
