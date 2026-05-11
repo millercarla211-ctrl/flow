@@ -1,7 +1,7 @@
 use tauri::{AppHandle, Manager};
 
 use crate::{
-    assistive, storage, AppRuntime, AppState, EVENT_SCRATCHPAD_CHANGED,
+    assistive, storage, AppRuntime, AppState, EVENT_NAVIGATE_SCRATCHPAD, EVENT_SCRATCHPAD_CHANGED,
     EVENT_SCRATCHPAD_ENTRY_CREATED,
 };
 
@@ -22,6 +22,7 @@ pub(crate) fn save_paste_fallback(
 
     crate::emit_event(app, EVENT_SCRATCHPAD_ENTRY_CREATED, entry.clone());
     crate::emit_event(app, EVENT_SCRATCHPAD_CHANGED, ());
+    crate::emit_event(app, EVENT_NAVIGATE_SCRATCHPAD, ());
     Ok(entry)
 }
 

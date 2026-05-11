@@ -145,6 +145,7 @@ const Home = () => {
     let unlistenNavigate: UnlistenFn | null = null;
     let unlistenModels: UnlistenFn | null = null;
     let unlistenSnippets: UnlistenFn | null = null;
+    let unlistenScratchpad: UnlistenFn | null = null;
     let unlistenTransforms: UnlistenFn | null = null;
     let unlistenDragEnter: UnlistenFn | null = null;
     let unlistenDragOver: UnlistenFn | null = null;
@@ -186,6 +187,14 @@ const Home = () => {
     }).then((fn) => {
       if (cancelled) fn();
       else unlistenSnippets = fn;
+    });
+
+    listen("navigate:scratchpad", () => {
+      setActiveView("scratchpad");
+      setIsSettingsOpen(false);
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlistenScratchpad = fn;
     });
 
     listen<{ paths?: string[] }>("tauri://drag-enter", (event) => {
@@ -247,6 +256,7 @@ const Home = () => {
       unlistenNavigate?.();
       unlistenModels?.();
       unlistenSnippets?.();
+      unlistenScratchpad?.();
       unlistenTransforms?.();
       unlistenDragEnter?.();
       unlistenDragOver?.();

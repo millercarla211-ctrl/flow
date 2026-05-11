@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { motion, AnimatePresence } from "framer-motion";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import {
   Check,
   Clipboard,
@@ -85,6 +86,31 @@ export default function ScratchpadView({ isActive = true }: { isActive?: boolean
   const deleteMutation = useDeleteScratchpadEntry();
 
   const versions = versionsQuery.data ?? [];
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlistenEntryCreated: UnlistenFn | null = null;
+
+    listen<ScratchpadEntry>("scratchpad:entry-created", (event) => {
+      const entry = event.payload;
+      if (entry.source !== "local" && entry.source !== "streaming") return;
+
+      setIsCreating(false);
+      setCopied(false);
+      setShowVersions(false);
+      setSelectedId(entry.id);
+      setDraftTitle(entry.title);
+      setDraftBody(entry.body);
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlistenEntryCreated = fn;
+    });
+
+    return () => {
+      cancelled = true;
+      unlistenEntryCreated?.();
+    };
+  }, []);
 
   useEffect(() => {
     if (!isActive || selectedId || entries.length === 0 || isCreating) return;

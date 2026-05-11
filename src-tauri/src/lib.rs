@@ -79,6 +79,7 @@ pub(crate) const EVENT_TRANSCRIPTION_COMPLETE: &str = "transcription:complete";
 pub(crate) const EVENT_TRANSCRIPTION_ERROR: &str = "transcription:error";
 pub(crate) const EVENT_SCRATCHPAD_CHANGED: &str = "scratchpad:changed";
 pub(crate) const EVENT_SCRATCHPAD_ENTRY_CREATED: &str = "scratchpad:entry-created";
+pub(crate) const EVENT_NAVIGATE_SCRATCHPAD: &str = "navigate:scratchpad";
 pub(crate) const EVENT_SNIPPETS_CHANGED: &str = "snippets:changed";
 pub(crate) const EVENT_FLOW_FETCH_CHANGED: &str = "flow-fetch:changed";
 pub(crate) const EVENT_FLOW_FETCH_LINK_CAPTURED: &str = "flow-fetch:link-captured";
