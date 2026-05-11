@@ -69,6 +69,21 @@ pub(crate) fn default_transform_presets() -> Vec<TransformPreset> {
             "Summarize this into the clearest useful version. Preserve names, numbers, and decisions.",
         ),
         preset(
+            "meeting_notes",
+            "Meeting notes",
+            "Convert this into structured meeting notes with concise sections for summary, decisions, action items, owners, and deadlines. Preserve uncertainty instead of inventing missing details.",
+        ),
+        preset(
+            "email_reply",
+            "Email reply",
+            "Rewrite this as a polished email reply. Keep it concise, warm, and specific. Include a greeting or sign-off only if the source text implies one.",
+        ),
+        preset(
+            "chat_reply",
+            "Chat reply",
+            "Rewrite this as a clear Slack or Teams-style chat reply. Keep it natural, brief, and easy to send.",
+        ),
+        preset(
             "casual",
             "Casual",
             "Rewrite this in a natural casual tone while preserving all facts.",
@@ -92,6 +107,11 @@ pub(crate) fn default_transform_presets() -> Vec<TransformPreset> {
             "turn_to_table",
             "Turn to table",
             "Convert this into a compact markdown table when the content supports it. Preserve facts.",
+        ),
+        preset(
+            "translate_english",
+            "Translate to English",
+            "Translate this into natural English while preserving names, numbers, code, URLs, formatting intent, and the original meaning.",
         ),
         preset(
             "prompt_engineer",
@@ -331,5 +351,21 @@ mod tests {
         assert!(terminal
             .instruction
             .contains("Output only the command text"));
+    }
+
+    #[test]
+    fn default_presets_include_writing_workflow_transforms() {
+        let presets = default_transform_presets();
+        for id in [
+            "meeting_notes",
+            "email_reply",
+            "chat_reply",
+            "translate_english",
+        ] {
+            assert!(
+                presets.iter().any(|preset| preset.id == id),
+                "missing preset {id}"
+            );
+        }
     }
 }

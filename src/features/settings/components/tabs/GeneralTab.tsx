@@ -31,6 +31,26 @@ const AUTO_TRANSFORM_PRESET_OPTIONS = [
   { value: "shorter", label: "Shorter", description: "Make transcripts compact and scannable." },
   { value: "turn_to_list", label: "Turn to list", description: "Convert speech into bullets." },
   {
+    value: "meeting_notes",
+    label: "Meeting notes",
+    description: "Structure speech into summary, decisions, and action items.",
+  },
+  {
+    value: "email_reply",
+    label: "Email reply",
+    description: "Turn rough speech into a polished reply.",
+  },
+  {
+    value: "chat_reply",
+    label: "Chat reply",
+    description: "Make dictated replies brief and sendable.",
+  },
+  {
+    value: "translate_english",
+    label: "Translate to English",
+    description: "Translate while preserving details and formatting intent.",
+  },
+  {
     value: "terminal_command",
     label: "Terminal command",
     description: "Turn spoken terminal intent into command text.",
