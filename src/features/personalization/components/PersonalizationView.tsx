@@ -230,7 +230,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
       id,
       name: t({
         id: "personalization.new_mode.default_name",
-        message: "New Mode",
+        message: "New Style",
       }),
       enabled: true,
       apps: [],
@@ -319,13 +319,14 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
             <p className="ui-text-screen-title ui-color-primary tracking-tight">
               {t({
                 id: "personalization.title",
-                message: "Personalization",
+                message: "Style",
               })}
             </p>
             <p className="mt-1 ui-text-body-sm ui-color-secondary">
               {t({
                 id: "personalization.description",
-                message: "Tailor language model behavior to apps, sites, and custom instructions.",
+                message:
+                  "Tailor writing behavior for apps, sites, cleanup, Edit Mode, and transforms.",
               })}
             </p>
           </div>
@@ -334,7 +335,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
             onClick={handleAddMode}
             aria-label={t({
               id: "personalization.new_mode",
-              message: "New mode",
+              message: "New style",
             })}
             className="group inline-flex shrink-0 self-start items-center gap-1.5 rounded-lg border border-border-primary bg-surface-secondary px-3 py-1.5 ui-text-button ui-color-secondary transition-colors hover:border-border-hover hover:bg-surface-elevated hover:text-content-primary"
           >
@@ -345,7 +346,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
             />
             {t({
               id: "personalization.new_mode",
-              message: "New mode",
+              message: "New style",
             })}
           </button>
         </div>
@@ -369,13 +370,13 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
           <p className="ui-text-body-lg-strong">
             {t({
               id: "personalization.empty.title",
-              message: "No modes yet",
+              message: "No styles yet",
             })}
           </p>
           <p className="ui-text-body-sm ui-color-muted">
             {t({
               id: "personalization.empty.description",
-              message: "Create a mode to start customizing your apps and websites.",
+              message: "Create a style to customize writing behavior for apps and websites.",
             })}
           </p>
         </div>
@@ -444,11 +445,11 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
                             personality.enabled
                               ? t({
                                   id: "personalization.disable_mode",
-                                  message: "Disable mode",
+                                  message: "Disable style",
                                 })
                               : t({
                                   id: "personalization.enable_mode",
-                                  message: "Enable mode",
+                                  message: "Enable style",
                                 })
                           }
                         />
@@ -591,7 +592,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
               <h3 id="delete-mode-title" className="ui-text-title-strong ui-color-primary">
                 {t({
                   id: "personalization.delete_mode.title",
-                  message: "Delete mode?",
+                  message: "Delete style?",
                 })}
               </h3>
               <p className="mt-2 ui-text-body-sm ui-color-secondary">

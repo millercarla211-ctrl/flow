@@ -329,7 +329,7 @@ const PersonalityModal = ({
                 <p className="ui-text-section-label ui-color-disabled tracking-[0.18em]">
                   {t({
                     id: "personalization.modal.header",
-                    message: "Personalization",
+                    message: "Style",
                   })}
                 </p>
                 <div className="h-[28px] flex items-center">
@@ -342,7 +342,7 @@ const PersonalityModal = ({
                         autoFocus
                         aria-label={t({
                           id: "personalization.modal.edit_name",
-                          message: "Edit mode name",
+                          message: "Edit style name",
                         })}
                         onKeyDown={(event) => {
                           if (event.key === "Enter") {
@@ -377,7 +377,7 @@ const PersonalityModal = ({
                           personality.name ===
                           t({
                             id: "personalization.new_mode.default_name",
-                            message: "New Mode",
+                            message: "New Style",
                           })
                         ) {
                           setNameDraft("");
@@ -408,11 +408,11 @@ const PersonalityModal = ({
                 className="p-2 rounded-lg ui-color-error-strong hover:bg-red-500/10 transition-colors"
                 title={t({
                   id: "personalization.modal.delete_mode",
-                  message: "Delete mode",
+                  message: "Delete style",
                 })}
                 aria-label={t({
                   id: "personalization.modal.delete_mode",
-                  message: "Delete mode",
+                  message: "Delete style",
                 })}
               >
                 <Trash2 size={14} aria-hidden="true" />

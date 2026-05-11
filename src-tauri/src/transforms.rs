@@ -42,6 +42,26 @@ pub(crate) fn default_transform_presets() -> Vec<TransformPreset> {
             "Rewrite this in a crisp professional tone while preserving all facts.",
         ),
         preset(
+            "fix_grammar",
+            "Fix grammar",
+            "Fix grammar, spelling, punctuation, and obvious wording issues without changing the meaning.",
+        ),
+        preset(
+            "shorter",
+            "Shorter",
+            "Make this shorter and easier to scan while preserving the important facts.",
+        ),
+        preset(
+            "longer",
+            "More detailed",
+            "Expand this with useful detail and clearer transitions without adding unsupported claims.",
+        ),
+        preset(
+            "summarize",
+            "Summarize",
+            "Summarize this into the clearest useful version. Preserve names, numbers, and decisions.",
+        ),
+        preset(
             "casual",
             "Casual",
             "Rewrite this in a natural casual tone while preserving all facts.",
@@ -70,6 +90,16 @@ pub(crate) fn default_transform_presets() -> Vec<TransformPreset> {
             "prompt_engineer",
             "Prompt engineer",
             "Rewrite this as a precise prompt for an AI assistant. Keep the user's intent intact.",
+        ),
+        preset(
+            "code_review",
+            "Code review note",
+            "Rewrite this as a concise engineering review comment with clear action, risk, and context.",
+        ),
+        preset(
+            "vibe_coding",
+            "Vibe coding",
+            "Turn this into a clear implementation request for a coding assistant, including expected behavior and constraints.",
         ),
     ]
 }

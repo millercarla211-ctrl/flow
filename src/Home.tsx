@@ -7,6 +7,7 @@ import {
   Home as HomeIcon,
   Book,
   WandSparkles,
+  Palette,
   User,
   Info,
   HelpCircle,
@@ -85,7 +86,7 @@ const Home = () => {
     | "scratchpad"
     | "flowFetch"
     | "transforms"
-    | "brain"
+    | "style"
     | "library"
   >("home");
   const { user: currentUser, refresh: refreshUser } = useCurrentUser();
@@ -380,14 +381,14 @@ const Home = () => {
               onClick={() => setActiveView("transforms")}
             />
             <SidebarItem
-              icon={<User size={18} />}
+              icon={<Palette size={18} />}
               label={t({
-                id: "home.sidebar.personalization",
-                message: "Personalization",
+                id: "home.sidebar.style",
+                message: "Style",
               })}
-              active={activeView === "brain"}
+              active={activeView === "style"}
               collapsed={isSidebarCollapsed}
-              onClick={() => setActiveView("brain")}
+              onClick={() => setActiveView("style")}
             />
             <SidebarItem
               icon={<Library size={18} />}
@@ -682,9 +683,9 @@ const Home = () => {
           </div>
 
           <div
-            className={`w-full max-w-5xl mx-auto pt-8 ${activeView === "brain" ? "" : "hidden"}`}
+            className={`w-full max-w-5xl mx-auto pt-8 ${activeView === "style" ? "" : "hidden"}`}
           >
-            <PersonalizationView isActive={activeView === "brain"} />
+            <PersonalizationView isActive={activeView === "style"} />
           </div>
 
           <div
