@@ -1,5 +1,5 @@
-use std::fs;
 use std::path::{Path, PathBuf};
+use std::{collections::HashSet, fs};
 
 use crate::AppRuntime;
 use anyhow::{anyhow, Context, Result};
@@ -114,7 +114,7 @@ pub const MODEL_DEFINITIONS: &[ModelDefinition] = &[
         storage: ModelStorage::File {
             artifact: "ggml-large-v3-turbo-q8_0.bin",
         },
-        tags: &["Recommended", "Dictionary", "Multilingual"],
+        tags: &["High Accuracy", "Dictionary", "Multilingual"],
         capabilities: &[MODEL_CAPABILITY_DICTIONARY, MODEL_CAPABILITY_TIMESTAMPS],
     },
     #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
@@ -128,7 +128,7 @@ pub const MODEL_DEFINITIONS: &[ModelDefinition] = &[
         engine: LocalModelEngine::Parakeet,
         variant: "Int8",
         storage: ModelStorage::Directory,
-        tags: &["Multilingual", "Fast"],
+        tags: &["Recommended", "Fast", "Multilingual"],
         capabilities: &[MODEL_CAPABILITY_TIMESTAMPS],
     },
     #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
@@ -136,7 +136,7 @@ pub const MODEL_DEFINITIONS: &[ModelDefinition] = &[
         key: "nemotron_streaming_en",
         label: "Nemotron Streaming 0.6B",
         description: "Real-time streaming transcription. Text appears as you speak.",
-        size_mb: 895.0,
+        size_mb: 3328.0,
         files: &NEMOTRON_STREAMING_FILES,
         engine: LocalModelEngine::Nemotron,
         variant: "Int8",
@@ -160,25 +160,119 @@ pub const MODEL_DEFINITIONS: &[ModelDefinition] = &[
     },
 ];
 
+fn is_available_in_build(def: &ModelDefinition) -> bool {
+    match def.engine {
+        LocalModelEngine::Whisper => cfg!(feature = "with-whisper"),
+        _ => true,
+    }
+}
+
 pub fn definition(key: &str) -> Option<&'static ModelDefinition> {
-    MODEL_DEFINITIONS.iter().find(|def| def.key == key)
+    MODEL_DEFINITIONS
+        .iter()
+        .find(|def| def.key == key && is_available_in_build(def))
 }
 
 pub fn get_model_dir<R: Runtime>(app: &AppHandle<R>, key: &str) -> Result<PathBuf> {
-    let mut dir = app
-        .path()
-        .app_data_dir()
-        .context("Unable to resolve app data directory")?;
+    let mut dir = crate::app_paths::app_data_dir(app)?;
     dir.push(MODELS_ROOT);
     dir.push(key);
     Ok(dir)
 }
 
+fn push_unique_model_dir(seen: &mut HashSet<PathBuf>, dirs: &mut Vec<PathBuf>, dir: PathBuf) {
+    if seen.insert(dir.clone()) {
+        dirs.push(dir);
+    }
+}
+
+fn push_data_root_candidate(
+    seen: &mut HashSet<PathBuf>,
+    dirs: &mut Vec<PathBuf>,
+    root: PathBuf,
+    key: &str,
+) {
+    push_unique_model_dir(seen, dirs, root.join(MODELS_ROOT).join(key));
+}
+
+fn push_ancestor_appdata_candidates(
+    seen: &mut HashSet<PathBuf>,
+    dirs: &mut Vec<PathBuf>,
+    start: PathBuf,
+    key: &str,
+) {
+    for ancestor in start.ancestors().take(10) {
+        push_data_root_candidate(
+            seen,
+            dirs,
+            ancestor.join("appdata").join("Flow").join("data"),
+            key,
+        );
+    }
+}
+
+fn model_dir_candidates<R: Runtime>(app: &AppHandle<R>, key: &str) -> Result<Vec<PathBuf>> {
+    let primary = get_model_dir(app, key)?;
+    let mut dirs = Vec::new();
+    let mut seen = HashSet::new();
+
+    push_unique_model_dir(&mut seen, &mut dirs, primary);
+
+    for env_name in ["FLOW_DATA_DIR"] {
+        if let Some(root) = std::env::var_os(env_name).map(PathBuf::from) {
+            push_data_root_candidate(&mut seen, &mut dirs, root, key);
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        for letter in b'D'..=b'Z' {
+            let root = PathBuf::from(format!("{}:\\", letter as char));
+            if root.exists() {
+                push_data_root_candidate(&mut seen, &mut dirs, root.join("Flow").join("data"), key);
+            }
+        }
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        push_ancestor_appdata_candidates(&mut seen, &mut dirs, cwd, key);
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        push_ancestor_appdata_candidates(&mut seen, &mut dirs, exe, key);
+    }
+
+    Ok(dirs)
+}
+
+fn model_status_from_candidates<R: Runtime>(
+    app: &AppHandle<R>,
+    model: &str,
+    def: &ModelDefinition,
+) -> Result<(PathBuf, ModelStatus)> {
+    let candidates = model_dir_candidates(app, model)?;
+    let primary = candidates
+        .first()
+        .cloned()
+        .ok_or_else(|| anyhow!("No model directory candidates"))?;
+    let primary_status = ModelStatus::from_definition(&primary, def);
+
+    if primary_status.installed {
+        return Ok((primary, primary_status));
+    }
+
+    for candidate in candidates.into_iter().skip(1) {
+        let status = ModelStatus::from_definition(&candidate, def);
+        if status.installed {
+            return Ok((candidate, status));
+        }
+    }
+
+    Ok((primary, primary_status))
+}
+
 fn ensure_models_root<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf> {
-    let mut dir = app
-        .path()
-        .app_data_dir()
-        .context("Unable to resolve app data directory")?;
+    let mut dir = crate::app_paths::app_data_dir(app)?;
     dir.push(MODELS_ROOT);
     fs::create_dir_all(&dir).context("Failed to prepare models directory")?;
     Ok(dir)
@@ -279,13 +373,38 @@ fn missing_files(dir: &Path, def: &ModelDefinition) -> Vec<String> {
         .iter()
         .filter_map(|descriptor| {
             let file_path = dir.join(descriptor.name);
-            if file_path.exists() {
+            let is_ready = file_path
+                .metadata()
+                .map(|metadata| {
+                    if !metadata.is_file() || metadata.len() == 0 {
+                        return false;
+                    }
+
+                    expected_file_len(def.key, descriptor.name)
+                        .map_or(true, |expected_len| metadata.len() == expected_len)
+                })
+                .unwrap_or(false);
+
+            if is_ready {
                 None
             } else {
                 Some(descriptor.name.to_string())
             }
         })
         .collect()
+}
+
+fn expected_file_len(model_key: &str, file_name: &str) -> Option<u64> {
+    match (model_key, file_name) {
+        ("parakeet_tdt_int8", "encoder-model.int8.onnx") => Some(652_183_999),
+        ("parakeet_tdt_int8", "decoder_joint-model.int8.onnx") => Some(18_202_004),
+        ("parakeet_tdt_int8", "vocab.txt") => Some(93_939),
+        ("nemotron_streaming_en", "encoder.onnx") => Some(880_555_453),
+        ("nemotron_streaming_en", "encoder.onnx.data") => Some(2_436_567_040),
+        ("nemotron_streaming_en", "decoder_joint.onnx") => Some(10_962_697),
+        ("nemotron_streaming_en", "tokenizer.model") => Some(251_056),
+        _ => None,
+    }
 }
 
 fn calculate_dir_size(dir: &Path) -> Result<u64> {
@@ -328,6 +447,7 @@ pub fn is_streaming_model(model_key: &str) -> bool {
 pub fn list_models() -> Vec<ModelInfo> {
     MODEL_DEFINITIONS
         .iter()
+        .filter(|def| is_available_in_build(def))
         .map(|def| ModelInfo {
             key: def.key.to_string(),
             label: def.label.to_string(),
@@ -387,25 +507,39 @@ pub fn check_model_status<R: Runtime>(
     model: String,
 ) -> Result<ModelStatus, String> {
     let def = definition(&model).ok_or_else(|| "Unknown model".to_string())?;
-    let dir = get_model_dir(&app, &model).map_err(|err| err.to_string())?;
-    Ok(ModelStatus::from_definition(&dir, def))
+    let (_, status) =
+        model_status_from_candidates(&app, &model, def).map_err(|err| err.to_string())?;
+    Ok(status)
 }
 
 #[tauri::command]
 pub async fn download_model(
     app: AppHandle<AppRuntime>,
-    state: tauri::State<'_, crate::AppState>,
+    _state: tauri::State<'_, crate::AppState>,
+    model: String,
+) -> Result<ModelStatus, String> {
+    download_model_internal(app, model).await
+}
+
+pub async fn download_model_internal(
+    app: AppHandle<AppRuntime>,
     model: String,
 ) -> Result<ModelStatus, String> {
     let def = definition(&model).ok_or_else(|| "Unknown model".to_string())?;
     ensure_models_root(&app).map_err(|err| err.to_string())?;
     let dir = get_model_dir(&app, &model).map_err(|err| err.to_string())?;
-    let client = state.http();
-    let cancel_token = state.create_download_token(&model);
+    if let Ok((_, status)) = model_status_from_candidates(&app, &model, def) {
+        if status.installed {
+            return Ok(status);
+        }
+    }
+
+    let client = app.state::<crate::AppState>().http();
+    let cancel_token = app.state::<crate::AppState>().create_download_token(&model);
 
     let result = download_model_files(&app, &client, &model, def.files, &dir, &cancel_token).await;
 
-    state.clear_download_token(&model);
+    app.state::<crate::AppState>().clear_download_token(&model);
 
     result.map_err(|err| err.to_string())?;
 
@@ -413,7 +547,7 @@ pub async fn download_model(
 
     let status = ModelStatus::from_definition(&dir, def);
 
-    let settings = state.current_settings();
+    let settings = app.state::<crate::AppState>().current_settings();
     if let Err(err) = crate::tray::refresh_tray_menu(&app, &settings) {
         eprintln!("Failed to refresh tray menu after download: {err}");
     }
@@ -424,10 +558,13 @@ pub async fn download_model(
 #[tauri::command]
 pub fn delete_model(app: AppHandle<AppRuntime>, model: String) -> Result<ModelStatus, String> {
     let def = definition(&model).ok_or_else(|| "Unknown model".to_string())?;
-    let dir = get_model_dir(&app, &model).map_err(|err| err.to_string())?;
-    if dir.exists() {
-        fs::remove_dir_all(&dir).map_err(|err| err.to_string())?;
+    let dirs = model_dir_candidates(&app, &model).map_err(|err| err.to_string())?;
+    for dir in dirs {
+        if dir.exists() {
+            fs::remove_dir_all(&dir).map_err(|err| err.to_string())?;
+        }
     }
+    let dir = get_model_dir(&app, &model).map_err(|err| err.to_string())?;
     let status = ModelStatus::from_definition(&dir, def);
 
     if let Some(state) = app.try_state::<crate::AppState>() {
@@ -450,8 +587,7 @@ pub fn cancel_download(
 
 pub fn ensure_model_ready<R: Runtime>(app: &AppHandle<R>, model: &str) -> Result<ReadyModel> {
     let def = definition(model).ok_or_else(|| anyhow!("Unknown model"))?;
-    let dir = get_model_dir(app, model)?;
-    let status = ModelStatus::from_definition(&dir, def);
+    let (dir, status) = model_status_from_candidates(app, model, def)?;
     if !status.installed {
         return Err(anyhow!(
             "{} is not fully installed. Missing: {}",

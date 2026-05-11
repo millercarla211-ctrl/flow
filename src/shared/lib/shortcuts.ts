@@ -81,9 +81,7 @@ export function formatShortcutForDisplay(shortcut: string): string {
     .sort((left, right) => modifierRank(left) - modifierRank(right))
     .map(humanizeModifierToken);
 
-  const keys = tokens
-    .filter((token) => !isModifierToken(token))
-    .map(humanizeKeyToken);
+  const keys = tokens.filter((token) => !isModifierToken(token)).map(humanizeKeyToken);
 
   return [...modifiers, ...keys].join(" + ");
 }

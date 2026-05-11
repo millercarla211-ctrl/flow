@@ -8,14 +8,10 @@ export const transcriptionKeys = {
   list: (search: string) => [...transcriptionKeys.all, "list", search] as const,
 };
 
-export function useTranscriptionList(
-  searchQuery: string = "",
-  enabled: boolean = true,
-) {
+export function useTranscriptionList(searchQuery: string = "", enabled: boolean = true) {
   return useQuery({
     queryKey: transcriptionKeys.list(searchQuery),
-    queryFn: () =>
-      transcriptionsApi.getTranscriptions(searchQuery || null),
+    queryFn: () => transcriptionsApi.getTranscriptions(searchQuery || null),
     enabled,
     gcTime: 60_000,
   });

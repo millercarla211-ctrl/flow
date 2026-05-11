@@ -1,10 +1,10 @@
 mod accessibility_context;
 mod analytics;
+mod app_paths;
 mod assistive;
 mod audio;
 mod core;
 mod crypto;
-mod data_migration;
 mod dictionary;
 mod downloader;
 mod library;
@@ -29,7 +29,7 @@ mod transcription_api;
 mod tray;
 mod update_checker;
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -71,12 +71,14 @@ pub(crate) const EVENT_AUDIO_SPECTRUM: &str = "audio:spectrum";
 pub(crate) const EVENT_TRANSCRIPTION_COMPLETE: &str = "transcription:complete";
 pub(crate) const EVENT_TRANSCRIPTION_ERROR: &str = "transcription:error";
 pub(crate) const EVENT_SETTINGS_CHANGED: &str = "settings:changed";
-pub(crate) const FEEDBACK_URL: &str = "https://github.com/LegendarySpy/Glimpse/issues/new/choose";
+pub(crate) const FEEDBACK_URL: &str =
+    "https://github.com/essencefromexistence/flow/issues/new/choose";
 #[cfg(target_os = "windows")]
 pub(crate) const FFMPEG_HELP_URL: &str =
-    "https://github.com/LegendarySpy/Glimpse/wiki/ffmpeg-windows";
+    "https://github.com/essencefromexistence/flow/wiki/ffmpeg-windows";
 #[cfg(not(target_os = "windows"))]
-pub(crate) const FFMPEG_HELP_URL: &str = "https://github.com/LegendarySpy/Glimpse/wiki/ffmpeg-mac";
+pub(crate) const FFMPEG_HELP_URL: &str =
+    "https://github.com/essencefromexistence/flow/wiki/ffmpeg-mac";
 
 fn launched_via_autostart() -> bool {
     std::env::args_os().any(|arg| arg == "--autostart")
@@ -135,7 +137,7 @@ fn handle_app_menu_event(app: &AppHandle<AppRuntime>, id: &str) {
         MENU_ID_WEBSITE => {
             let _ = app
                 .opener()
-                .open_url("https://github.com/LegendarySpy/Glimpse", None::<&str>);
+                .open_url("https://github.com/essencefromexistence/flow", None::<&str>);
         }
         MENU_ID_REPORT_ISSUE => {
             let _ = app.opener().open_url(FEEDBACK_URL, None::<&str>);
@@ -303,9 +305,6 @@ pub fn run() {
             app.set_activation_policy(ActivationPolicy::Accessory);
 
             let handle = app.handle();
-            if let Err(err) = data_migration::migrate_legacy_app_dirs(handle) {
-                eprintln!("Failed to migrate legacy app directories: {err}");
-            }
             let settings_store = Arc::new(SettingsStore::new(handle)?);
             let mut settings = settings_store.load().unwrap_or_default();
             if model_manager::definition(&settings.local_model).is_none() {
@@ -316,6 +315,12 @@ pub fn run() {
             }
 
             app.manage(AppState::new(Arc::clone(&settings_store), settings, handle));
+            {
+                let state = handle.state::<AppState>();
+                let settings = state.current_settings();
+                state.download_default_local_model_if_missing(handle, &settings, "startup");
+                state.preload_local_model_if_needed(handle, &settings, "startup");
+            }
             library::commands::recover_interrupted_library_items(handle);
 
             #[cfg(target_os = "macos")]
@@ -367,6 +372,7 @@ pub fn run() {
             if let Err(err) = pill::register_shortcuts(handle) {
                 eprintln!("Failed to register shortcuts: {err}");
             }
+            pill::show_overlay(handle);
 
             if !launched_via_autostart() {
                 let h = handle.clone();
@@ -443,6 +449,7 @@ pub fn run() {
             open_ffmpeg_install,
             complete_onboarding,
             cancel_recording,
+            toggle_recording,
             pill::set_pill_expanded,
             reset_onboarding,
             toast::debug_show_toast,
@@ -493,7 +500,7 @@ pub fn run() {
 
 pub(crate) type AppRuntime = Wry;
 
-type GlimpseResult<T> = Result<T>;
+type FlowResult<T> = Result<T>;
 
 #[derive(Clone)]
 pub struct LibraryJob {
@@ -531,6 +538,7 @@ pub struct AppState {
     library_queue: parking_lot::Mutex<VecDeque<LibraryJob>>,
     library_active: parking_lot::Mutex<Option<String>>,
     retry_tokens: parking_lot::Mutex<HashMap<String, CancellationToken>>,
+    preload_models: parking_lot::Mutex<HashSet<String>>,
     update_state: update_checker::SharedUpdateState,
     auto_update_completed: AtomicBool,
     preflight_cancel: CancellationToken,
@@ -557,9 +565,7 @@ impl AppState {
             .build()
             .expect("Failed to build HTTP client");
 
-        let storage_path = app_handle
-            .path()
-            .app_data_dir()
+        let storage_path = app_paths::app_data_dir(app_handle)
             .expect("Failed to resolve app data directory")
             .join("transcriptions.db");
 
@@ -592,6 +598,7 @@ impl AppState {
             library_queue: parking_lot::Mutex::new(VecDeque::new()),
             library_active: parking_lot::Mutex::new(None),
             retry_tokens: parking_lot::Mutex::new(HashMap::new()),
+            preload_models: parking_lot::Mutex::new(HashSet::new()),
             update_state: update_checker::create_state(),
             auto_update_completed: AtomicBool::new(false),
             preflight_cancel: CancellationToken::new(),
@@ -663,7 +670,7 @@ impl AppState {
         }
     }
 
-    pub fn persist_settings(&self, mut next: UserSettings) -> GlimpseResult<UserSettings> {
+    pub fn persist_settings(&self, mut next: UserSettings) -> FlowResult<UserSettings> {
         if matches!(next.transcription_mode, TranscriptionMode::Cloud) {
             next.transcription_mode = TranscriptionMode::Local;
         }
@@ -675,6 +682,127 @@ impl AppState {
 
     pub fn pill(&self) -> &PillController {
         &self.pill
+    }
+
+    pub fn download_default_local_model_if_missing(
+        &self,
+        app: &AppHandle<AppRuntime>,
+        settings: &UserSettings,
+        reason: &'static str,
+    ) {
+        if !matches!(settings.transcription_mode, TranscriptionMode::Local) {
+            return;
+        }
+
+        let model_key = settings.local_model.clone();
+        if model_key != default_local_model() {
+            return;
+        }
+
+        match model_manager::check_model_status(app.clone(), model_key.clone()) {
+            Ok(status) if status.installed => return,
+            Ok(_) => {}
+            Err(err) => {
+                eprintln!("[ModelManager] Could not check {reason} status for {model_key}: {err}");
+            }
+        }
+
+        if self.download_tokens.lock().contains_key(&model_key) {
+            return;
+        }
+
+        let app_handle = app.clone();
+        async_runtime::spawn(async move {
+            eprintln!("[ModelManager] Downloading default STT model {model_key} for {reason}");
+            match model_manager::download_model_internal(app_handle.clone(), model_key.clone())
+                .await
+            {
+                Ok(status) if status.installed => {
+                    eprintln!("[ModelManager] Default STT model {model_key} is ready");
+                    let state = app_handle.state::<AppState>();
+                    let settings = state.current_settings();
+                    state.preload_local_model_if_needed(&app_handle, &settings, "download");
+                }
+                Ok(status) => {
+                    eprintln!(
+                        "[ModelManager] Default STT model {model_key} is still incomplete: {}",
+                        status.missing_files.join(", ")
+                    );
+                }
+                Err(err) => {
+                    eprintln!(
+                        "[ModelManager] Failed to download default STT model {model_key}: {err}"
+                    );
+                }
+            }
+        });
+    }
+
+    pub fn preload_local_model_if_needed(
+        &self,
+        app: &AppHandle<AppRuntime>,
+        settings: &UserSettings,
+        reason: &'static str,
+    ) {
+        if !matches!(settings.transcription_mode, TranscriptionMode::Local) {
+            return;
+        }
+
+        let model_key = settings.local_model.clone();
+        if model_key.trim().is_empty() {
+            return;
+        }
+
+        {
+            let mut preload_models = self.preload_models.lock();
+            if !preload_models.insert(model_key.clone()) {
+                return;
+            }
+        }
+
+        let app_handle = app.clone();
+        let transcriber = self.local_transcriber();
+        let preload_key = model_key.clone();
+        if let Err(err) = std::thread::Builder::new()
+            .name(format!("flow-stt-preload-{model_key}"))
+            .spawn(move || {
+                let started = Instant::now();
+                let ready_model = match model_manager::ensure_model_ready(&app_handle, &preload_key)
+                {
+                    Ok(model) => model,
+                    Err(err) => {
+                        eprintln!(
+                            "[LocalTranscriber] Skipping {reason} preload for {preload_key}: {err}"
+                        );
+                        app_handle
+                            .state::<AppState>()
+                            .preload_models
+                            .lock()
+                            .remove(&preload_key);
+                        return;
+                    }
+                };
+
+                match transcriber.preload_and_warm(&ready_model) {
+                    Ok(()) => eprintln!(
+                        "[LocalTranscriber] Warmed {preload_key} for {reason} in {:.2}s",
+                        started.elapsed().as_secs_f32()
+                    ),
+                    Err(err) => eprintln!(
+                        "[LocalTranscriber] {reason} preload warmup failed for {preload_key}: {err}"
+                    ),
+                }
+
+                app_handle
+                    .state::<AppState>()
+                    .preload_models
+                    .lock()
+                    .remove(&preload_key);
+            })
+        {
+            eprintln!("[LocalTranscriber] Failed to start {reason} preload thread: {err}");
+            self.preload_models.lock().remove(&model_key);
+        }
     }
 
     pub fn set_shortcut_capture_active(&self, active: bool) {
@@ -1051,10 +1179,8 @@ struct AppInfo {
 fn get_app_info(app: AppHandle<AppRuntime>) -> Result<AppInfo, String> {
     let version = env!("CARGO_PKG_VERSION").to_string();
 
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    let data_dir =
+        app_paths::app_data_dir(&app).map_err(|e| format!("Failed to get app data dir: {}", e))?;
 
     let data_dir_path = data_dir.display().to_string();
 
@@ -1120,10 +1246,8 @@ fn open_data_dir(path: Option<String>, app: AppHandle<AppRuntime>) -> Result<(),
     let path = path.ok_or_else(|| "Path is empty".to_string())?;
     let path = PathBuf::from(&path);
 
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {e}"))?;
+    let data_dir =
+        app_paths::app_data_dir(&app).map_err(|e| format!("Failed to get app data dir: {e}"))?;
 
     let canonical_path = path
         .canonicalize()
@@ -1290,6 +1414,11 @@ fn cancel_recording(app: AppHandle<AppRuntime>) {
     }
 }
 
+#[tauri::command]
+fn toggle_recording(app: AppHandle<AppRuntime>) {
+    app.state::<AppState>().pill().toggle_from_overlay(&app);
+}
+
 pub(crate) fn persist_recording_async(app: AppHandle<AppRuntime>, recording: CompletedRecording) {
     let base_dir = match recordings_root(&app) {
         Ok(path) => path,
@@ -1365,11 +1494,8 @@ pub(crate) fn emit_event<T: Serialize + Clone>(
     }
 }
 
-fn recordings_root(app: &AppHandle<AppRuntime>) -> GlimpseResult<PathBuf> {
-    let mut data_dir = app
-        .path()
-        .app_data_dir()
-        .context("App data directory not found")?;
+fn recordings_root(app: &AppHandle<AppRuntime>) -> FlowResult<PathBuf> {
+    let mut data_dir = app_paths::app_data_dir(app).context("App data directory not found")?;
     data_dir.push("recordings");
     Ok(data_dir)
 }
@@ -1406,7 +1532,7 @@ pub(crate) fn schedule_recording_prune(app: AppHandle<AppRuntime>, settings: Use
 fn prune_recordings_for_settings(
     app: &AppHandle<AppRuntime>,
     settings: &UserSettings,
-) -> GlimpseResult<u32> {
+) -> FlowResult<u32> {
     count_or_prune_recordings(
         app,
         settings.recording_prune_policy,
@@ -1418,7 +1544,7 @@ fn prune_recordings_for_settings(
 fn preview_recording_prune_for_policy(
     app: &AppHandle<AppRuntime>,
     policy: RecordingPrunePolicy,
-) -> GlimpseResult<u32> {
+) -> FlowResult<u32> {
     count_or_prune_recordings(app, policy, Local::now(), RecordingPruneAction::Count)
 }
 
@@ -1432,7 +1558,7 @@ fn count_or_prune_recordings(
     policy: RecordingPrunePolicy,
     now: DateTime<Local>,
     action: RecordingPruneAction,
-) -> GlimpseResult<u32> {
+) -> FlowResult<u32> {
     let root = recordings_root(app)?;
     if !root.exists() || matches!(policy, RecordingPrunePolicy::Never) {
         return Ok(0);
@@ -1465,7 +1591,7 @@ fn prune_recording_tree(
     path: &Path,
     policy: RecordingPrunePolicy,
     cutoff: Option<DateTime<Local>>,
-) -> GlimpseResult<(u32, bool)> {
+) -> FlowResult<(u32, bool)> {
     let mut deleted_count = 0;
     let mut is_empty = true;
 
@@ -1508,7 +1634,7 @@ fn count_prunable_recording_tree(
     path: &Path,
     policy: RecordingPrunePolicy,
     cutoff: Option<DateTime<Local>>,
-) -> GlimpseResult<(u32, bool)> {
+) -> FlowResult<(u32, bool)> {
     let mut candidate_count = 0;
     let mut is_empty = true;
 

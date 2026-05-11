@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Glimpse",
-  "identifier": "com.glimpse.data",
+  "productName": "Flow",
+  "identifier": "com.flow.data",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:8735",
@@ -12,9 +12,9 @@
     "windows": [
       {
         "label": "main",
-        "title": "Glimpse",
-        "width": 300,
-        "height": 190,
+        "title": "Flow",
+        "width": 238,
+        "height": 120,
         "x": -9999,
         "y": -9999,
         "resizable": false,
@@ -29,7 +29,7 @@
       },
       {
         "label": "settings",
-        "title": "Glimpse",
+        "title": "Flow",
         "width": 900,
         "height": 750,
         "minWidth": 900,
@@ -41,7 +41,7 @@
       },
       {
         "label": "toast",
-        "title": "Glimpse Toast",
+        "title": "Flow Toast",
         "width": 420,
         "height": 200,
         "x": 0,
@@ -97,7 +97,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIwRjZFNTY4MTZGNjc3RkQKUldUOWQvWVdhT1gySUtvN0IwSUQxTW8rWitVeHRlMC9FcjZ0TWp6RlVld0ltUnA5QVc2S0N0TVUK",
       "endpoints": [
-        "https://github.com/LegendarySpy/Glimpse/releases/latest/download/latest.json"
+        "https://github.com/essencefromexistence/flow/releases/latest/download/latest.json"
       ]
     }
   }

@@ -27,10 +27,7 @@ export async function getLibraryItemsPage(
   });
 }
 
-export async function updateLibraryItem(
-  id: string,
-  patch: LibraryItemPatch,
-): Promise<LibraryItem> {
+export async function updateLibraryItem(id: string, patch: LibraryItemPatch): Promise<LibraryItem> {
   return invoke<LibraryItem>("update_library_item", { id, patch });
 }
 

@@ -32,21 +32,15 @@ for (const locale of SUPPORTED_APP_LOCALES) {
   }
 }
 
-function resolveRequestedLocale(
-  localeSetting?: AppLocaleSetting | string | null,
-): string | null {
+function resolveRequestedLocale(localeSetting?: AppLocaleSetting | string | null): string | null {
   if (!localeSetting || localeSetting === DEFAULT_APP_LOCALE) {
     return typeof navigator !== "undefined" ? navigator.language : DEFAULT_LOCALE;
   }
   return localeSetting;
 }
 
-export function activateLocale(
-  localeSetting?: AppLocaleSetting | string | null,
-): AppLocale {
-  const nextLocale = normalizeSupportedAppLocale(
-    resolveRequestedLocale(localeSetting),
-  );
+export function activateLocale(localeSetting?: AppLocaleSetting | string | null): AppLocale {
+  const nextLocale = normalizeSupportedAppLocale(resolveRequestedLocale(localeSetting));
 
   i18n.loadAndActivate({
     locale: nextLocale,

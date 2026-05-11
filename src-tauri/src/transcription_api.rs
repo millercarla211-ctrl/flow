@@ -5,7 +5,7 @@ pub struct TranscriptionSuccess {
 }
 
 pub fn auto_paste_enabled() -> bool {
-    env_flag("GLIMPSE_AUTO_PASTE", true)
+    env_flag("FLOW_AUTO_PASTE", true)
 }
 
 fn env_flag(key: &str, default: bool) -> bool {

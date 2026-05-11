@@ -70,9 +70,8 @@ function getLocaleAutonym(locale: string): string {
   try {
     const canonicalLocale = Intl.getCanonicalLocales(locale)[0] ?? locale;
     return (
-      new Intl.DisplayNames([canonicalLocale], { type: "language" }).of(
-        canonicalLocale,
-      ) ?? canonicalLocale
+      new Intl.DisplayNames([canonicalLocale], { type: "language" }).of(canonicalLocale) ??
+      canonicalLocale
     );
   } catch {
     return locale;

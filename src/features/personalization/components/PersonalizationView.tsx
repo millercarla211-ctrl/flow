@@ -25,14 +25,10 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   const { t } = useLingui();
   const [personalities, setPersonalities] = useState<Personality[]>([]);
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
-  const [websiteIconBySite, setWebsiteIconBySite] = useState<
-    Record<string, string>
-  >({});
+  const [websiteIconBySite, setWebsiteIconBySite] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activePersonalityId, setActivePersonalityId] = useState<string | null>(
-    null,
-  );
+  const [activePersonalityId, setActivePersonalityId] = useState<string | null>(null);
   const [pendingDeletePersonality, setPendingDeletePersonality] =
     useState<PendingDeletePersonality | null>(null);
   const hasRequestedIconRefreshRef = useRef(false);
@@ -105,9 +101,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
       return;
     }
 
-    const hasMissingIcons = websiteDomains.some(
-      (site) => !websiteIconBySite[site],
-    );
+    const hasMissingIcons = websiteDomains.some((site) => !websiteIconBySite[site]);
     if (!hasMissingIcons) {
       websiteIconRefreshKeyRef.current = websiteDomains.join("|");
       return;
@@ -138,11 +132,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   useEffect(() => {
     if (!isActive) return;
 
-    if (
-      hasRequestedIconRefreshRef.current ||
-      loading ||
-      installedApps.length === 0
-    ) {
+    if (hasRequestedIconRefreshRef.current || loading || installedApps.length === 0) {
       return;
     }
 
@@ -170,11 +160,11 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   const persistPersonalities = useCallback((next: Personality[]) => {
     const persistVersion = persistVersionRef.current + 1;
     persistVersionRef.current = persistVersion;
-    
+
     if (saveTimeoutRef.current !== null) {
       window.clearTimeout(saveTimeoutRef.current);
     }
-    
+
     saveTimeoutRef.current = window.setTimeout(async () => {
       setError(null);
       try {
@@ -228,9 +218,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   const updatePersonalityList = useCallback(
     (id: string, updater: (current: Personality) => Personality) => {
       updatePersonalities((prev) =>
-        prev.map((personality) =>
-          personality.id === id ? updater(personality) : personality,
-        ),
+        prev.map((personality) => (personality.id === id ? updater(personality) : personality)),
       );
     },
     [updatePersonalities],
@@ -275,17 +263,11 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
   }, [pendingDeletePersonality, handleDeleteMode]);
 
   const activePersonality = useMemo(() => {
-    return (
-      personalities.find(
-        (personality) => personality.id === activePersonalityId,
-      ) || null
-    );
+    return personalities.find((personality) => personality.id === activePersonalityId) || null;
   }, [personalities, activePersonalityId]);
 
   const installedAppByName = useMemo(() => {
-    const entries = installedApps.map(
-      (app) => [app.name.toLowerCase(), app] as const,
-    );
+    const entries = installedApps.map((app) => [app.name.toLowerCase(), app] as const);
     return new Map(entries);
   }, [installedApps]);
 
@@ -402,14 +384,8 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
           {personalities.map((personality, index) => {
             const appsPreview = personality.apps.slice(0, 3);
             const sitesPreview = personality.websites.slice(0, 2);
-            const moreApps = Math.max(
-              0,
-              personality.apps.length - appsPreview.length,
-            );
-            const moreSites = Math.max(
-              0,
-              personality.websites.length - sitesPreview.length,
-            );
+            const moreApps = Math.max(0, personality.apps.length - appsPreview.length);
+            const moreSites = Math.max(0, personality.websites.length - sitesPreview.length);
             return (
               <div
                 key={personality.id || `personality-${index}`}
@@ -433,17 +409,13 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
                 role="button"
                 tabIndex={0}
                 className={`ui-card-liftable group relative p-2.5 text-left ${
-                  shiftHeld
-                    ? "!border-red-500/30 hover:!border-red-500/60 hover:!bg-red-500/5"
-                    : ""
+                  shiftHeld ? "!border-red-500/30 hover:!border-red-500/60 hover:!bg-red-500/5" : ""
                 }`}
               >
                 <div className="relative space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="ui-text-body-lg-strong ui-color-primary">
-                        {personality.name}
-                      </p>
+                      <p className="ui-text-body-lg-strong ui-color-primary">{personality.name}</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <div
@@ -502,25 +474,17 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
                           </span>
                         ) : (
                           appsPreview.map((app, index) => (
-                            <div
-                              key={`app-preview-${index}-${app || "empty"}`}
-                              title={app}
-                            >
+                            <div key={`app-preview-${index}-${app || "empty"}`} title={app}>
                               <AppIconBadge
                                 appName={app}
-                                iconPath={
-                                  installedAppByName.get(app.toLowerCase())
-                                    ?.icon_path
-                                }
+                                iconPath={installedAppByName.get(app.toLowerCase())?.icon_path}
                                 size="chip"
                               />
                             </div>
                           ))
                         )}
                         {moreApps > 0 && (
-                          <span className="ui-text-meta font-mono ui-color-muted">
-                            +{moreApps}
-                          </span>
+                          <span className="ui-text-meta font-mono ui-color-muted">+{moreApps}</span>
                         )}
                       </div>
                     </div>
@@ -548,9 +512,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
                             >
                               <WebsiteFavicon
                                 site={site}
-                                iconPath={
-                                  websiteIconBySite[normalizeWebsite(site)]
-                                }
+                                iconPath={websiteIconBySite[normalizeWebsite(site)]}
                                 size="chip"
                               />
                               <span className="min-w-0 truncate font-mono">
@@ -591,9 +553,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
         </div>
       )}
 
-      {error && (
-        <div className="mt-4 ui-text-body-sm ui-color-error-soft">{error}</div>
-      )}
+      {error && <div className="mt-4 ui-text-body-sm ui-color-error-soft">{error}</div>}
 
       {activePersonality && (
         <PersonalityModal
@@ -602,9 +562,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
           websiteIconBySite={websiteIconBySite}
           onClose={() => setActivePersonalityId(null)}
           onUpdate={(patch) => updatePersonality(activePersonality.id, patch)}
-          onUpdateList={(updater) =>
-            updatePersonalityList(activePersonality.id, updater)
-          }
+          onUpdateList={(updater) => updatePersonalityList(activePersonality.id, updater)}
           onDelete={() => requestDeleteModeConfirm(activePersonality)}
         />
       )}
@@ -630,10 +588,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
               aria-modal="true"
               aria-labelledby="delete-mode-title"
             >
-              <h3
-                id="delete-mode-title"
-                className="ui-text-title-strong ui-color-primary"
-              >
+              <h3 id="delete-mode-title" className="ui-text-title-strong ui-color-primary">
                 {t({
                   id: "personalization.delete_mode.title",
                   message: "Delete mode?",

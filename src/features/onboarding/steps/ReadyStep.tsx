@@ -95,7 +95,7 @@ export function ReadyStep({
                 })}
               </span>
             </div>
-            <span className="shrink-0 rounded-md bg-amber-400/20 px-1.5 py-0.5 ui-text-micro font-medium ui-color-warning-strong">
+            <span className="shrink-0 rounded-md bg-accent/10 px-1.5 py-0.5 ui-text-micro font-medium text-accent">
               {t({
                 id: "onboarding.ready.smart.badge",
                 message: "Default",
@@ -122,7 +122,7 @@ export function ReadyStep({
               {captureActive ? (
                 <>
                   <motion.span
-                    className="h-1 w-1 rounded-full bg-cloud"
+                    className="h-1 w-1 rounded-full bg-accent"
                     animate={{ opacity: [0.3, 1, 0.3] }}
                     transition={{ duration: 1, repeat: Infinity }}
                   />
@@ -137,9 +137,7 @@ export function ReadyStep({
                   </span>
                 </>
               ) : (
-                <span className="block truncate">
-                  {formatShortcutForDisplay(smartShortcut)}
-                </span>
+                <span className="block truncate">{formatShortcutForDisplay(smartShortcut)}</span>
               )}
             </div>
           </motion.button>
@@ -163,7 +161,7 @@ export function ReadyStep({
         onClick={onComplete}
         disabled={captureActive || isCompleting}
         aria-busy={isCompleting}
-        className="mt-6 flex items-center gap-2 rounded-lg bg-amber-400 px-6 py-2.5 ui-text-body-lg font-semibold ui-color-on-warning hover:bg-amber-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="mt-6 flex items-center gap-2 rounded-lg bg-content-primary px-6 py-2.5 ui-text-body-lg font-semibold text-surface-secondary hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isCompleting
           ? t({
@@ -180,14 +178,12 @@ export function ReadyStep({
         {t({
           id: "onboarding.ready.analytics_notice",
           message:
-            "Glimpse sends anonymous usage analytics to help improve the app. You can disable this anytime in Settings -> App.",
+            "Flow sends anonymous usage analytics to help improve the app. You can disable this anytime in Settings -> App.",
         })}
       </p>
 
       {completionError && (
-        <p className="mt-3 ui-text-label text-error text-center">
-          {completionError}
-        </p>
+        <p className="mt-3 ui-text-label text-error text-center">{completionError}</p>
       )}
     </motion.div>
   );

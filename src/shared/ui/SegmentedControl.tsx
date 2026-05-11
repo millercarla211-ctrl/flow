@@ -41,11 +41,7 @@ const SegmentedControl = <T extends string>({
   activeIndicatorLayoutId = "segmented-control-active",
 }: SegmentedControlProps<T>) => {
   return (
-    <div
-      className={className ?? DEFAULT_GROUP_CLASS_NAME}
-      role="radiogroup"
-      aria-label={ariaLabel}
-    >
+    <div className={className ?? DEFAULT_GROUP_CLASS_NAME} role="radiogroup" aria-label={ariaLabel}>
       {options.map((option) => {
         const isActive = option.value === value;
         return (
@@ -58,16 +54,14 @@ const SegmentedControl = <T extends string>({
             className={[
               buttonClassName ?? DEFAULT_BUTTON_CLASS_NAME,
               isActive
-                ? activeButtonClassName ?? DEFAULT_ACTIVE_BUTTON_CLASS_NAME
-                : inactiveButtonClassName ?? DEFAULT_INACTIVE_BUTTON_CLASS_NAME,
+                ? (activeButtonClassName ?? DEFAULT_ACTIVE_BUTTON_CLASS_NAME)
+                : (inactiveButtonClassName ?? DEFAULT_INACTIVE_BUTTON_CLASS_NAME),
             ].join(" ")}
           >
             {isActive && (
               <motion.div
                 layoutId={activeIndicatorLayoutId}
-                className={
-                  activeIndicatorClassName ?? DEFAULT_ACTIVE_INDICATOR_CLASS_NAME
-                }
+                className={activeIndicatorClassName ?? DEFAULT_ACTIVE_INDICATOR_CLASS_NAME}
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
               />
             )}

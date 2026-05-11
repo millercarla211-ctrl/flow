@@ -30,3 +30,4 @@ notes/
 *.njsproj
 *.sln
 *.sw?
+.vercel

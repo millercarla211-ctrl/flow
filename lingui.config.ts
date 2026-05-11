@@ -3,15 +3,10 @@ import { resolve } from "node:path";
 import { defineConfig } from "@lingui/cli";
 import { formatter } from "@lingui/format-po";
 
-const SUPPORTED_APP_LOCALES_PATH = resolve(
-  process.cwd(),
-  "supported-app-locales.json",
-);
+const SUPPORTED_APP_LOCALES_PATH = resolve(process.cwd(), "supported-app-locales.json");
 
 // Main source of truth for shipped app translations.
-const SUPPORTED_APP_LOCALES = JSON.parse(
-  readFileSync(SUPPORTED_APP_LOCALES_PATH, "utf8"),
-);
+const SUPPORTED_APP_LOCALES = JSON.parse(readFileSync(SUPPORTED_APP_LOCALES_PATH, "utf8"));
 
 if (!Array.isArray(SUPPORTED_APP_LOCALES) || SUPPORTED_APP_LOCALES.length === 0) {
   throw new Error("supported-app-locales.json must be a non-empty array");

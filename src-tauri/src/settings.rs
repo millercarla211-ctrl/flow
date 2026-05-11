@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 const SETTINGS_DB_FILE_NAME: &str = "settings.db";
 const KEY_ONBOARDING_COMPLETED: &str = "onboarding_completed";
@@ -389,9 +389,9 @@ fn default_recording_prune_policy() -> RecordingPrunePolicy {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ThemeMode {
-    #[default]
     System,
     Light,
+    #[default]
     Dark,
 }
 
@@ -866,12 +866,8 @@ impl SettingsStore {
 }
 
 fn db_path(app: &AppHandle) -> Result<PathBuf> {
-    let resolver = app.path();
-    let mut dir = resolver
-        .app_config_dir()
-        .or_else(|_| resolver.app_data_dir())
-        .context("Unable to resolve config directory")?;
-    dir.push("Glimpse");
+    let mut dir = crate::app_paths::app_config_dir(app)?;
+    dir.push("Flow");
     dir.push(SETTINGS_DB_FILE_NAME);
     Ok(dir)
 }

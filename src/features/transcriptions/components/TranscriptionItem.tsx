@@ -31,14 +31,10 @@ const markdownComponents: Components = {
     </code>
   ),
   ul: ({ children }) => (
-    <ul className="list-disc list-inside mb-2 last:mb-0 space-y-0.5">
-      {children}
-    </ul>
+    <ul className="list-disc list-inside mb-2 last:mb-0 space-y-0.5">{children}</ul>
   ),
   ol: ({ children }) => (
-    <ol className="list-decimal list-inside mb-2 last:mb-0 space-y-0.5">
-      {children}
-    </ol>
+    <ol className="list-decimal list-inside mb-2 last:mb-0 space-y-0.5">{children}</ol>
   ),
   li: ({ children }) => <li className="ui-text-body">{children}</li>,
 };
@@ -170,9 +166,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
     }
   };
 
-  const handleCancelRetry = async (
-    event: React.MouseEvent<HTMLButtonElement>,
-  ) => {
+  const handleCancelRetry = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     if (isCancellingRetry || !onCancelRetry) return;
     setIsCancellingRetry(true);
@@ -251,8 +245,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
     const focus = selection.focusNode;
     if (
       textRef.current &&
-      ((anchor && textRef.current.contains(anchor)) ||
-        (focus && textRef.current.contains(focus)))
+      ((anchor && textRef.current.contains(anchor)) || (focus && textRef.current.contains(focus)))
     ) {
       return text;
     }
@@ -297,11 +290,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                   ·
                 </span>
                 <span className="flex items-center gap-1 ui-color-error-strong font-medium">
-                  <AlertTriangle
-                    size={10}
-                    aria-hidden="true"
-                    className="opacity-80"
-                  />
+                  <AlertTriangle size={10} aria-hidden="true" className="opacity-80" />
                   {t({
                     id: "transcriptions.item.failed",
                     message: "Failed",
@@ -319,7 +308,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                     void handleCancelRetry(event);
                   }}
                   disabled={isCancellingRetry || !onCancelRetry}
-                  className="flex items-center gap-1 ui-color-cloud font-medium group/stop hover:text-cloud-hover transition-colors"
+                  className="flex items-center gap-1 ui-color-primary font-medium group/stop hover:text-content-primary transition-colors"
                   aria-label={t({
                     id: "transcriptions.item.stop_retry",
                     message: "Stop transcription",
@@ -336,7 +325,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                       activeDots={[0]}
                       dotSize={3}
                       gap={1}
-                      color="var(--color-warning)"
+                      color="var(--color-text-muted)"
                       className="opacity-80 transition-opacity group-hover/stop:opacity-0"
                     />
                     <X
@@ -355,9 +344,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
           </div>
 
           {isError ? (
-            <p className="ui-text-body-sm ui-color-error-soft">
-              {errorMessage}
-            </p>
+            <p className="ui-text-body-sm ui-color-error-soft">{errorMessage}</p>
           ) : (
             <>
               <div
@@ -366,10 +353,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                 onMouseUp={() => setSelectionText(captureSelectionText())}
                 onKeyUp={() => setSelectionText(captureSelectionText())}
               >
-                <ReactMarkdown
-                  components={markdownComponents}
-                  remarkPlugins={[remarkBreaks]}
-                >
+                <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkBreaks]}>
                   {displayText || ""}
                 </ReactMarkdown>
               </div>
@@ -417,10 +401,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
         </div>
 
         {!isRetrying && !isRetryingLlm && !isUndoingLlm && (
-          <div
-            className="relative shrink-0 flex items-center gap-1"
-            ref={menuRef}
-          >
+          <div className="relative shrink-0 flex items-center gap-1" ref={menuRef}>
             {!isError && (
               <motion.button
                 onClick={handleCopy}
@@ -452,17 +433,9 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                 }
               >
                 {copied ? (
-                  <Check
-                    size={14}
-                    className="text-success"
-                    aria-hidden="true"
-                  />
+                  <Check size={14} className="text-success" aria-hidden="true" />
                 ) : (
-                  <Copy
-                    size={14}
-                    className="text-content-secondary"
-                    aria-hidden="true"
-                  />
+                  <Copy size={14} className="text-content-secondary" aria-hidden="true" />
                 )}
               </motion.button>
             )}
@@ -512,11 +485,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
               {shiftHeld ? (
                 <Trash2 size={14} className="text-red-400" aria-hidden="true" />
               ) : (
-                <MoreVertical
-                  size={14}
-                  className="text-content-muted"
-                  aria-hidden="true"
-                />
+                <MoreVertical size={14} className="text-content-muted" aria-hidden="true" />
               )}
             </motion.button>
 
@@ -537,7 +506,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                         </div>
                         {speechModelLabel && (
                           <div
-                            className={`ui-text-meta truncate ${isCloudModel ? "ui-color-cloud" : "ui-color-secondary"}`}
+                            className={`ui-text-meta truncate ${isCloudModel ? "ui-color-primary" : "ui-color-secondary"}`}
                           >
                             {speechModelLabel}
                           </div>
@@ -579,7 +548,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                       disabled={isRetrying}
                       className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors disabled:opacity-50"
                     >
-                      <RotateCw size={12} className="text-cloud" />
+                      <RotateCw size={12} className="text-content-muted" />
                       <span>
                         {t({
                           id: "transcriptions.item.retry",
@@ -589,29 +558,26 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                     </button>
                   )}
 
-                  {!isError &&
-                    onRetryLlm &&
-                    showLlmButtons &&
-                    !isCloudModel && (
-                      <button
-                        onClick={handleRetryLlm}
-                        disabled={isRetryingLlm}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors disabled:opacity-50"
-                      >
-                        <RotateCw size={12} className="text-local" />
-                        <span>
-                          {record.llm_cleaned
-                            ? t({
-                                id: "transcriptions.item.retry_cleanup",
-                                message: "Retry cleanup",
-                              })
-                            : t({
-                                id: "transcriptions.item.run_cleanup",
-                                message: "Run cleanup",
-                              })}
-                        </span>
-                      </button>
-                    )}
+                  {!isError && onRetryLlm && showLlmButtons && !isCloudModel && (
+                    <button
+                      onClick={handleRetryLlm}
+                      disabled={isRetryingLlm}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors disabled:opacity-50"
+                    >
+                      <RotateCw size={12} className="text-local" />
+                      <span>
+                        {record.llm_cleaned
+                          ? t({
+                              id: "transcriptions.item.retry_cleanup",
+                              message: "Retry cleanup",
+                            })
+                          : t({
+                              id: "transcriptions.item.run_cleanup",
+                              message: "Run cleanup",
+                            })}
+                      </span>
+                    </button>
+                  )}
 
                   {!isError &&
                     record.llm_cleaned &&
@@ -624,7 +590,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                         disabled={isUndoingLlm}
                         className="flex w-full items-center gap-2.5 px-3 py-2 ui-text-menu-item ui-color-secondary hover:bg-surface-elevated transition-colors disabled:opacity-50"
                       >
-                        <Undo2 size={12} className="text-warning" />
+                        <Undo2 size={12} className="text-content-muted" />
                         <span>
                           {t({
                             id: "transcriptions.item.restore_original",
@@ -635,18 +601,13 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
                     )}
 
                   {(canRetryFromAudio ||
-                    (!isError &&
-                      onRetryLlm &&
-                      showLlmButtons &&
-                      !isCloudModel) ||
+                    (!isError && onRetryLlm && showLlmButtons && !isCloudModel) ||
                     (!isError &&
                       record.llm_cleaned &&
                       record.raw_text &&
                       onUndoLlm &&
                       showLlmButtons &&
-                      !isCloudModel)) && (
-                    <div className="h-px bg-border-secondary mx-2" />
-                  )}
+                      !isCloudModel)) && <div className="h-px bg-border-secondary mx-2" />}
                   <button
                     onClick={handleDelete}
                     disabled={isDeleting}
@@ -678,7 +639,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
           </div>
         )}
         {isUndoingLlm && (
-          <div className="flex items-center gap-1.5 ui-text-meta ui-color-warning">
+          <div className="flex items-center gap-1.5 ui-text-meta ui-color-muted">
             <Undo2 size={12} className="animate-pulse" />
             <span>
               {t({

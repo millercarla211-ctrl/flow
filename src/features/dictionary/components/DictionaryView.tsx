@@ -27,8 +27,7 @@ import {
 import type { Replacement } from "../../../types";
 
 const normalizeEntry = (value: string) => value.trim();
-const toErrorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : String(error);
+const toErrorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 type QueuedPersistOptions<T> = {
   value: T;
@@ -37,12 +36,7 @@ type QueuedPersistOptions<T> = {
   setValue: (next: T) => void;
 };
 
-function useQueuedPersist<T>({
-  value,
-  persist,
-  setError,
-  setValue,
-}: QueuedPersistOptions<T>) {
+function useQueuedPersist<T>({ value, persist, setError, setValue }: QueuedPersistOptions<T>) {
   const [pending, setPending] = useState(false);
   const currentRef = useRef(value);
   const persistedRef = useRef(value);
@@ -71,10 +65,7 @@ function useQueuedPersist<T>({
           const queuedValue = queuedRef.current;
           queuedRef.current = null;
           const cleaned = await persist(queuedValue);
-          if (
-            queuedRef.current === null ||
-            Object.is(queuedRef.current, queuedValue)
-          ) {
+          if (queuedRef.current === null || Object.is(queuedRef.current, queuedValue)) {
             currentRef.current = cleaned;
             persistedRef.current = cleaned;
             setValue(cleaned);
@@ -112,9 +103,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
 
   const [newFrom, setNewFrom] = useState("");
   const [newTo, setNewTo] = useState("");
-  const [editingReplacementIndex, setEditingReplacementIndex] = useState<
-    number | null
-  >(null);
+  const [editingReplacementIndex, setEditingReplacementIndex] = useState<number | null>(null);
   const [editingFrom, setEditingFrom] = useState("");
   const [editingTo, setEditingTo] = useState("");
 
@@ -125,11 +114,9 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
   const models = modelsQuery.data ?? [];
   const entries = settings?.dictionary ?? [];
   const replacements = replacementsQuery.data ?? [];
-  const bootstrapError =
-    settingsQuery.error ?? modelsQuery.error ?? replacementsQuery.error;
+  const bootstrapError = settingsQuery.error ?? modelsQuery.error ?? replacementsQuery.error;
   const loading =
-    isActive &&
-    (settingsQuery.isLoading || modelsQuery.isLoading || replacementsQuery.isLoading);
+    isActive && (settingsQuery.isLoading || modelsQuery.isLoading || replacementsQuery.isLoading);
 
   const {
     currentRef: entriesRef,
@@ -158,21 +145,27 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     : entries;
   const isSearching = searchQuery.length > 0;
 
-  const persistEntries = useCallback(async (next: string[]) => {
-    setEditingIndex(null);
-    setEditingValue("");
-    setNewEntry("");
-    await persistEntriesNext(next);
-  }, [persistEntriesNext]);
+  const persistEntries = useCallback(
+    async (next: string[]) => {
+      setEditingIndex(null);
+      setEditingValue("");
+      setNewEntry("");
+      await persistEntriesNext(next);
+    },
+    [persistEntriesNext],
+  );
 
-  const persistReplacements = useCallback(async (next: Replacement[]) => {
-    setEditingReplacementIndex(null);
-    setEditingFrom("");
-    setEditingTo("");
-    setNewFrom("");
-    setNewTo("");
-    await persistReplacementsNext(next);
-  }, [persistReplacementsNext]);
+  const persistReplacements = useCallback(
+    async (next: Replacement[]) => {
+      setEditingReplacementIndex(null);
+      setEditingFrom("");
+      setEditingTo("");
+      setNewFrom("");
+      setNewTo("");
+      await persistReplacementsNext(next);
+    },
+    [persistReplacementsNext],
+  );
 
   const handleAdd = async () => {
     const value = normalizeEntry(newEntry);
@@ -190,9 +183,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
       await persistEntries(next);
       return;
     }
-    const next = currentEntries.map((entry, idx) =>
-      idx === editingIndex ? value : entry,
-    );
+    const next = currentEntries.map((entry, idx) => (idx === editingIndex ? value : entry));
     await persistEntries(next);
   };
 
@@ -212,9 +203,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     const from = normalizeEntry(newFrom);
     const to = normalizeEntry(newTo);
     if (!from) return;
-    const exists = currentReplacements.some(
-      (r) => r.from.toLowerCase() === from.toLowerCase(),
-    );
+    const exists = currentReplacements.some((r) => r.from.toLowerCase() === from.toLowerCase());
     if (exists) return;
     await persistReplacements([...currentReplacements, { from, to }]);
   };
@@ -225,9 +214,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
     const from = normalizeEntry(editingFrom);
     const to = normalizeEntry(editingTo);
     if (!from) {
-      const next = currentReplacements.filter(
-        (_, idx) => idx !== editingReplacementIndex,
-      );
+      const next = currentReplacements.filter((_, idx) => idx !== editingReplacementIndex);
       await persistReplacements(next);
       return;
     }
@@ -251,10 +238,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
 
   const currentModel = models.find((m) => m.key === settings?.local_model);
   const isLocal = settings?.transcription_mode === "local";
-  const supportsDictionary = hasModelCapability(
-    currentModel,
-    MODEL_CAPABILITY_DICTIONARY,
-  );
+  const supportsDictionary = hasModelCapability(currentModel, MODEL_CAPABILITY_DICTIONARY);
   const showWarning = Boolean(isLocal && currentModel && !supportsDictionary);
   const entryCountLabel =
     entries.length === 1
@@ -308,18 +292,15 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
       });
   const panelBodyClassName =
     "mt-4 min-h-[16rem] max-h-[calc(100vh-330px)] overflow-x-hidden overflow-y-auto custom-scrollbar";
-  const panelBodyFadeClassName =
-    "pb-20";
+  const panelBodyFadeClassName = "pb-20";
   const itemRowClassName =
     "group relative flex min-h-[42px] items-center overflow-hidden rounded-lg transition-colors hover:bg-[var(--surface-interactive)]";
   const editRowClassName =
     "group relative flex min-h-[42px] items-center rounded-lg bg-[var(--surface-interactive)]";
   const actionGradientStyle: CSSProperties = {
-    backgroundImage:
-      "linear-gradient(to left, var(--color-row-action-fade) 62%, transparent)",
+    backgroundImage: "linear-gradient(to left, var(--color-row-action-fade) 62%, transparent)",
   };
-  const resolvedError =
-    error ?? (bootstrapError ? toErrorMessage(bootstrapError) : null);
+  const resolvedError = error ?? (bootstrapError ? toErrorMessage(bootstrapError) : null);
   const deleteButtonClassName =
     "rounded p-1 text-content-muted transition-colors hover:bg-[color-mix(in_srgb,var(--color-error)_16%,transparent)] hover:text-error";
   const deleteButtonActiveClassName =
@@ -346,9 +327,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
               })}
             </p>
             {showWarning && (
-              <span
-                className="group relative inline-flex shrink-0 items-center justify-center self-center translate-y-[3px]"
-              >
+              <span className="group relative inline-flex shrink-0 items-center justify-center self-center translate-y-[3px]">
                 <button
                   type="button"
                   aria-describedby={warningTooltipId}
@@ -367,7 +346,9 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                 >
                   <span
                     className="block rounded-lg border bg-surface-overlay p-3 ui-color-warning shadow-xl leading-relaxed ui-text-body-sm shadow-[0_8px_30px_rgb(0,0,0,0.12)]"
-                    style={{ borderColor: "color-mix(in srgb, var(--color-warning) 30%, transparent)" }}
+                    style={{
+                      borderColor: "color-mix(in srgb, var(--color-warning) 30%, transparent)",
+                    }}
                   >
                     {t({
                       id: "dictionary.warning",
@@ -401,7 +382,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
             <p className="mt-1 ui-text-body-sm ui-color-muted text-pretty">
               {t({
                 id: "dictionary.section.dictionary_description",
-                message: "Add custom words Glimpse should recognize.",
+                message: "Add custom words Flow should recognize.",
               })}
             </p>
           </div>
@@ -520,8 +501,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                             onBlur={() => handleEditCommit()}
                             className="flex-1 min-w-0 bg-transparent border-0 px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
                             style={{
-                              boxShadow:
-                                "inset 0 -1px 0 var(--color-border-hover)",
+                              boxShadow: "inset 0 -1px 0 var(--color-border-hover)",
                             }}
                           />
                         </div>
@@ -534,9 +514,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                       >
                         <button
                           onClick={() =>
-                            shiftHeld
-                              ? handleDelete(originalIndex)
-                              : startEditing(originalIndex)
+                            shiftHeld ? handleDelete(originalIndex) : startEditing(originalIndex)
                           }
                           className="flex-1 min-w-0 text-left px-2.5 py-2"
                           title={
@@ -550,9 +528,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                         >
                           <p
                             className={`ui-text-body-lg ui-color-primary leading-tight font-medium truncate transition-colors duration-100 ease-out ${
-                              shiftHeld
-                                ? "group-hover:!text-error group-hover:line-through"
-                                : ""
+                              shiftHeld ? "group-hover:!text-error group-hover:line-through" : ""
                             }`}
                           >
                             {entry}
@@ -568,9 +544,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                           <button
                             onClick={() => handleDelete(originalIndex)}
                             className={
-                              shiftHeld
-                                ? deleteButtonActiveClassName
-                                : deleteButtonClassName
+                              shiftHeld ? deleteButtonActiveClassName : deleteButtonClassName
                             }
                             title={t({
                               id: "dictionary.delete",
@@ -594,13 +568,11 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
               <div
                 className="pointer-events-none absolute bottom-0 left-0 right-0 h-20"
                 style={{
-                  background:
-                    "linear-gradient(to bottom, transparent, var(--color-bg-tertiary))",
+                  background: "linear-gradient(to bottom, transparent, var(--color-bg-tertiary))",
                 }}
               />
             )}
           </div>
-
         </div>
 
         {/* Replacements Column */}
@@ -615,8 +587,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
             <p className="mt-1 ui-text-body-sm ui-color-muted text-pretty">
               {t({
                 id: "dictionary.section.replacements_description",
-                message:
-                  "Swap common phrases automatically after transcription.",
+                message: "Swap common phrases automatically after transcription.",
               })}
             </p>
           </div>
@@ -736,19 +707,14 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                               }
                             }}
                             onBlur={(e) => {
-                              const container = e.currentTarget.closest(
-                                "[data-replacement-edit]",
-                              );
-                              if (
-                                !container?.contains(e.relatedTarget as Node)
-                              ) {
+                              const container = e.currentTarget.closest("[data-replacement-edit]");
+                              if (!container?.contains(e.relatedTarget as Node)) {
                                 handleEditReplacementCommit();
                               }
                             }}
                             className="min-w-0 flex-1 basis-0 bg-transparent border-0 px-0 py-0 rounded-none ui-text-body-lg ui-color-primary font-medium outline-hidden focus:ring-0"
                             style={{
-                              boxShadow:
-                                "inset 0 -1px 0 var(--color-border-hover)",
+                              boxShadow: "inset 0 -1px 0 var(--color-border-hover)",
                             }}
                           />
                           <ArrowRight
@@ -772,12 +738,8 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                               }
                             }}
                             onBlur={(e) => {
-                              const container = e.currentTarget.closest(
-                                "[data-replacement-edit]",
-                              );
-                              if (
-                                !container?.contains(e.relatedTarget as Node)
-                              ) {
+                              const container = e.currentTarget.closest("[data-replacement-edit]");
+                              if (!container?.contains(e.relatedTarget as Node)) {
                                 handleEditReplacementCommit();
                               }
                             }}
@@ -787,23 +749,17 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                             })}
                             className="min-w-0 flex-1 basis-0 bg-transparent border-0 px-0 py-0 rounded-none ui-text-body-lg ui-color-primary placeholder-content-disabled outline-hidden focus:ring-0"
                             style={{
-                              boxShadow:
-                                "inset 0 -1px 0 var(--color-border-hover)",
+                              boxShadow: "inset 0 -1px 0 var(--color-border-hover)",
                             }}
                           />
                         </div>
                       );
                     }
                     return (
-                      <div
-                        key={`${replacement.from}-${idx}`}
-                        className={itemRowClassName}
-                      >
+                      <div key={`${replacement.from}-${idx}`} className={itemRowClassName}>
                         <button
                           onClick={() =>
-                            shiftHeld
-                              ? handleDeleteReplacement(idx)
-                              : startEditingReplacement(idx)
+                            shiftHeld ? handleDeleteReplacement(idx) : startEditingReplacement(idx)
                           }
                           className="flex flex-1 items-center text-left min-w-0 gap-2 px-2.5 py-2"
                           title={
@@ -817,9 +773,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                         >
                           <span
                             className={`ui-text-body-lg ui-color-primary font-medium truncate min-w-0 flex-1 basis-0 transition-colors duration-100 ease-out ${
-                              shiftHeld
-                                ? "group-hover:!text-error group-hover:line-through"
-                                : ""
+                              shiftHeld ? "group-hover:!text-error group-hover:line-through" : ""
                             }`}
                           >
                             {replacement.from}
@@ -833,9 +787,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                           />
                           <span
                             className={`ui-text-body-lg ui-color-primary truncate min-w-0 flex-1 basis-0 transition-colors duration-100 ease-out ${
-                              shiftHeld
-                                ? "group-hover:!text-error group-hover:line-through"
-                                : ""
+                              shiftHeld ? "group-hover:!text-error group-hover:line-through" : ""
                             }`}
                           >
                             {replacement.to || (
@@ -858,9 +810,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
                           <button
                             onClick={() => handleDeleteReplacement(idx)}
                             className={
-                              shiftHeld
-                                ? deleteButtonActiveClassName
-                                : deleteButtonClassName
+                              shiftHeld ? deleteButtonActiveClassName : deleteButtonClassName
                             }
                             title={t({
                               id: "dictionary.delete",
@@ -884,13 +834,11 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
               <div
                 className="pointer-events-none absolute bottom-0 left-0 right-0 h-20"
                 style={{
-                  background:
-                    "linear-gradient(to bottom, transparent, var(--color-bg-tertiary))",
+                  background: "linear-gradient(to bottom, transparent, var(--color-bg-tertiary))",
                 }}
               />
             )}
           </div>
-
         </div>
       </div>
 

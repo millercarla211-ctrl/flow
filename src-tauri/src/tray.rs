@@ -155,9 +155,8 @@ fn build_tray_menu(
     menu = menu.item(&send_feedback);
     menu = menu.separator();
 
-    let open_settings =
-        MenuItem::with_id(app, "open_settings", "Open Glimpse", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit_glimpse", "Quit Glimpse", true, None::<&str>)?;
+    let open_settings = MenuItem::with_id(app, "open_settings", "Open Flow", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit_flow", "Quit Flow", true, None::<&str>)?;
     menu = menu.item(&open_settings).item(&quit);
 
     menu.build()
@@ -185,6 +184,8 @@ fn set_transcription_mode_from_menu(app: &AppHandle<AppRuntime>, mode: Transcrip
     match state.persist_settings(settings.clone()) {
         Ok(saved) => {
             state.request_preflight_refresh();
+            state.download_default_local_model_if_missing(app, &saved, "tray");
+            state.preload_local_model_if_needed(app, &saved, "tray");
             if let Err(err) = refresh_tray_menu(app, &saved) {
                 eprintln!("Failed to refresh tray menu: {err}");
             }
@@ -226,6 +227,8 @@ fn set_local_model_from_menu(app: &AppHandle<AppRuntime>, model_key: &str) {
     settings.local_model = model_key.to_string();
     match state.persist_settings(settings.clone()) {
         Ok(saved) => {
+            state.download_default_local_model_if_missing(app, &saved, "tray");
+            state.preload_local_model_if_needed(app, &saved, "tray");
             if let Err(err) = refresh_tray_menu(app, &saved) {
                 eprintln!("Failed to refresh tray menu: {err}");
             }
@@ -325,7 +328,7 @@ pub fn build_tray(app: &AppHandle<AppRuntime>) -> tauri::Result<TrayIcon<AppRunt
                     eprintln!("Failed to open settings window: {err}");
                 }
             }
-            "quit_glimpse" => {
+            "quit_flow" => {
                 app.exit(0);
             }
             other => handle_tray_menu_event(app, other),
@@ -342,7 +345,7 @@ pub fn toggle_settings_window(app: &AppHandle<AppRuntime>) -> tauri::Result<()> 
     } else {
         reset_close_flag = true;
         let builder = WebviewWindowBuilder::new(app, SETTINGS_WINDOW_LABEL, WebviewUrl::default())
-            .title("Glimpse")
+            .title("Flow")
             .inner_size(900.0, 750.0)
             .min_inner_size(900.0, 750.0)
             .resizable(true)
@@ -377,7 +380,7 @@ pub fn toggle_settings_window(app: &AppHandle<AppRuntime>) -> tauri::Result<()> 
             crate::toast::Payload {
                 toast_type: "success".to_string(),
                 title: None,
-                message: format!("Glimpse updated to v{current_version}."),
+                message: format!("Flow updated to v{current_version}."),
                 auto_dismiss: Some(true),
                 duration: Some(5000),
                 retry_id: None,

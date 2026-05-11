@@ -21,8 +21,7 @@ export function useCurrentUser() {
     user,
     isAuthenticated: user !== null,
     isSubscriber: user?.labels?.includes("cloud") ?? false,
-    refresh: () =>
-      queryClient.invalidateQueries({ queryKey: authKeys.user() }),
+    refresh: () => queryClient.invalidateQueries({ queryKey: authKeys.user() }),
   };
 }
 

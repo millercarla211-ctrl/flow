@@ -1,5 +1,10 @@
 import { setup, assign, fromCallback } from "xstate";
-import type { PillStatus, AudioSpectrumPayload, PillStatePayload, PillModePayload } from "../../types";
+import type {
+  PillStatus,
+  AudioSpectrumPayload,
+  PillStatePayload,
+  PillModePayload,
+} from "../../types";
 
 export type PillContext = {
   spectrumBins: Uint8Array;
@@ -107,8 +112,7 @@ export const pillMachine = setup({
     stopErrorFlash: assign({ isErrorFlashing: false }),
     setExpanded: assign({
       isExpanded: true,
-      expandedText: ({ event }) =>
-        event.type === "EXPAND" ? (event.text ?? "") : "",
+      expandedText: ({ event }) => (event.type === "EXPAND" ? (event.text ?? "") : ""),
     }),
     clearExpanded: assign({
       isExpanded: false,
@@ -149,11 +153,17 @@ export const pillMachine = setup({
       on: {
         PILL_STATE: [
           {
-            guard: { type: "isListening", params: ({ event }) => ({ status: event.payload.status }) },
+            guard: {
+              type: "isListening",
+              params: ({ event }) => ({ status: event.payload.status }),
+            },
             target: "listening",
           },
           {
-            guard: { type: "isProcessing", params: ({ event }) => ({ status: event.payload.status }) },
+            guard: {
+              type: "isProcessing",
+              params: ({ event }) => ({ status: event.payload.status }),
+            },
             target: "processing",
           },
           {
@@ -176,7 +186,10 @@ export const pillMachine = setup({
         },
         PILL_STATE: [
           {
-            guard: { type: "isProcessing", params: ({ event }) => ({ status: event.payload.status }) },
+            guard: {
+              type: "isProcessing",
+              params: ({ event }) => ({ status: event.payload.status }),
+            },
             target: "processing",
           },
           {
@@ -203,7 +216,10 @@ export const pillMachine = setup({
             target: "error",
           },
           {
-            guard: { type: "isListening", params: ({ event }) => ({ status: event.payload.status }) },
+            guard: {
+              type: "isListening",
+              params: ({ event }) => ({ status: event.payload.status }),
+            },
             target: "listening",
           },
         ],
@@ -229,7 +245,10 @@ export const pillMachine = setup({
             target: "idle",
           },
           {
-            guard: { type: "isListening", params: ({ event }) => ({ status: event.payload.status }) },
+            guard: {
+              type: "isListening",
+              params: ({ event }) => ({ status: event.payload.status }),
+            },
             target: "listening",
           },
         ],

@@ -8,21 +8,15 @@ const args = process.argv.slice(2);
 
 if (process.platform === "win32" && !env.CARGO_TARGET_DIR) {
   env.CARGO_TARGET_DIR =
-    env.GLIMPSE_CARGO_TARGET_DIR ??
+    env.FLOW_CARGO_TARGET_DIR ??
     (env.CI && env.RUNNER_TEMP ? env.RUNNER_TEMP : defaultWindowsCargoTargetDir());
 }
 
 function defaultWindowsCargoTargetDir() {
-  return path.join(path.parse(process.cwd()).root, ".glimpse-cargo-target");
+  return path.join(path.parse(process.cwd()).root, ".flow-cargo-target");
 }
 
-const tauriCli = path.join(
-  process.cwd(),
-  "node_modules",
-  "@tauri-apps",
-  "cli",
-  "tauri.js",
-);
+const tauriCli = path.join(process.cwd(), "node_modules", "@tauri-apps", "cli", "tauri.js");
 
 const child = spawn(process.execPath, [tauriCli, ...args], {
   env,

@@ -1,11 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import React, {
-  useState,
-  useCallback,
-  useMemo,
-  useRef,
-  useEffect,
-} from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ArrowDownUp, Check } from "lucide-react";
 import { Virtuoso } from "react-virtuoso";
@@ -34,8 +28,7 @@ type ListEntry =
   | { type: "header"; id: string; label: string }
   | { type: "item"; record: TranscriptionRecord };
 
-const startOfDay = (date: Date) =>
-  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
 const TranscriptionList: React.FC<TranscriptionListProps> = ({
   showLlmButtons = false,
@@ -82,10 +75,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
     const copy = [...transcriptions];
     switch (sortKey) {
       case "oldest":
-        copy.sort(
-          (a, b) =>
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-        );
+        copy.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
         break;
       case "longest":
         copy.sort((a, b) => (b.word_count ?? 0) - (a.word_count ?? 0));
@@ -104,11 +94,8 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
       const now = new Date();
       const today = startOfDay(now);
       const target = startOfDay(date);
-      const diffDays = Math.round(
-        (today.getTime() - target.getTime()) / 86400000,
-      );
-      if (diffDays === 0)
-        return t({ id: "transcriptions.group.today", message: "Today" });
+      const diffDays = Math.round((today.getTime() - target.getTime()) / 86400000);
+      if (diffDays === 0) return t({ id: "transcriptions.group.today", message: "Today" });
       if (diffDays === 1)
         return t({
           id: "transcriptions.group.yesterday",
@@ -279,12 +266,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
     setSearchQuery("");
   };
 
-  if (
-    isLoading &&
-    transcriptions.length === 0 &&
-    !debouncedSearchQuery &&
-    !isFetched
-  ) {
+  if (isLoading && transcriptions.length === 0 && !debouncedSearchQuery && !isFetched) {
     return (
       <div className="flex items-center justify-center py-12">
         <DotMatrix
@@ -302,8 +284,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   }
 
   const hasAnyResults = sortedTranscriptions.length > 0;
-  const showEmptyState =
-    totalCount === 0 && !debouncedSearchQuery && !isLoading;
+  const showEmptyState = totalCount === 0 && !debouncedSearchQuery && !isLoading;
 
   return (
     <motion.div
@@ -323,11 +304,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
               transition={{ duration: 0.16, ease: "easeOut" }}
               className="flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border-primary bg-surface-secondary/60 overflow-hidden"
             >
-              <Search
-                size={12}
-                className="text-content-disabled shrink-0"
-                aria-hidden="true"
-              />
+              <Search size={12} className="text-content-disabled shrink-0" aria-hidden="true" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -436,16 +413,14 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
         <div
           className="pointer-events-none absolute left-0 right-3 top-0 h-6 z-10"
           style={{
-            background:
-              "linear-gradient(to bottom, var(--color-bg-tertiary), transparent)",
+            background: "linear-gradient(to bottom, var(--color-bg-tertiary), transparent)",
           }}
           aria-hidden="true"
         />
         <div
           className="pointer-events-none absolute left-0 right-3 bottom-0 h-8 z-10"
           style={{
-            background:
-              "linear-gradient(to top, var(--color-bg-tertiary), transparent)",
+            background: "linear-gradient(to top, var(--color-bg-tertiary), transparent)",
           }}
           aria-hidden="true"
         />
@@ -484,11 +459,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
           />
         ) : (
           <div className="h-full flex flex-col items-center justify-center">
-            <Search
-              size={18}
-              className="text-content-disabled mb-2"
-              aria-hidden="true"
-            />
+            <Search size={18} className="text-content-disabled mb-2" aria-hidden="true" />
             <p className="ui-text-body-sm ui-color-muted">
               {t({
                 id: "transcriptions.list.no_results",

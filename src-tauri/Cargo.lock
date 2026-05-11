@@ -3,61 +3,6 @@
 version = 4
 
 [[package]]
-name = "Glimpse"
-version = "0.8.4"
-dependencies = [
- "aes-gcm",
- "anyhow",
- "arboard",
- "base64 0.22.1",
- "chrono",
- "core-foundation 0.10.1",
- "core-graphics 0.25.0",
- "cpal",
- "crossbeam-channel",
- "dotenvy",
- "dotenvy_macro",
- "fs2",
- "glimpse-speech",
- "handy-keys",
- "hound",
- "mime_guess",
- "objc2-core-audio",
- "parking_lot",
- "pbkdf2",
- "png 0.18.1",
- "posthog-rs",
- "rand 0.10.1",
- "regex",
- "reqwest",
- "rusqlite",
- "rustfft",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "symphonia",
- "tauri",
- "tauri-build",
- "tauri-nspanel",
- "tauri-plugin-autostart",
- "tauri-plugin-deep-link",
- "tauri-plugin-dialog",
- "tauri-plugin-macos-permissions",
- "tauri-plugin-opener",
- "tauri-plugin-process",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "tokio",
- "tokio-util",
- "tracing",
- "urlencoding",
- "uuid",
- "webrtc-vad",
- "windows 0.62.2",
- "windows-future 0.3.2",
-]
-
-[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1798,6 +1743,61 @@ checksum = "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
+]
+
+[[package]]
+name = "flow"
+version = "0.8.4"
+dependencies = [
+ "aes-gcm",
+ "anyhow",
+ "arboard",
+ "base64 0.22.1",
+ "chrono",
+ "core-foundation 0.10.1",
+ "core-graphics 0.25.0",
+ "cpal",
+ "crossbeam-channel",
+ "dotenvy",
+ "dotenvy_macro",
+ "fs2",
+ "glimpse-speech",
+ "handy-keys",
+ "hound",
+ "mime_guess",
+ "objc2-core-audio",
+ "parking_lot",
+ "pbkdf2",
+ "png 0.18.1",
+ "posthog-rs",
+ "rand 0.10.1",
+ "regex",
+ "reqwest",
+ "rusqlite",
+ "rustfft",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "symphonia",
+ "tauri",
+ "tauri-build",
+ "tauri-nspanel",
+ "tauri-plugin-autostart",
+ "tauri-plugin-deep-link",
+ "tauri-plugin-dialog",
+ "tauri-plugin-macos-permissions",
+ "tauri-plugin-opener",
+ "tauri-plugin-process",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "urlencoding",
+ "uuid",
+ "webrtc-vad",
+ "windows 0.62.2",
+ "windows-future 0.3.2",
 ]
 
 [[package]]

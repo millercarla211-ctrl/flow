@@ -6,36 +6,36 @@ import ToastOverlay from "../features/toast/ToastOverlay";
 import Home from "../Home";
 import OnboardingScreen from "../features/onboarding/OnboardingScreen";
 import { useSettings } from "../features/settings/queries";
+import { isTauriRuntime } from "../platform/tauriRuntime";
 import type { TextSizeMode, ThemeMode } from "../types";
 import { detectAppPlatform } from "../platform/service";
 import { parseTextSizeMode, resolveTextScale } from "../shared/lib/textSize";
+import WebPreview from "./WebPreview";
 import "./App.css";
 
-const TEXT_SIZE_MODE_STORAGE_KEY = "glimpse_text_size_mode";
+const TEXT_SIZE_MODE_STORAGE_KEY = "flow_text_size_mode";
 
 const parseThemeMode = (value: string | null): ThemeMode =>
-  value === "light" || value === "dark" || value === "system" ? value : "system";
+  value === "light" || value === "dark" || value === "system" ? value : "dark";
 
 const resolveThemeAttribute = (mode: ThemeMode): "light" | "dark" => {
   if (mode === "system") {
-    return window.matchMedia("(prefers-color-scheme: light)").matches
-      ? "light"
-      : "dark";
+    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
   }
   return mode;
 };
 
 function App() {
+  if (!isTauriRuntime()) {
+    return <WebPreview />;
+  }
+
   const [windowLabel] = useState(() => getCurrentWindow().label);
 
   const isSettingsWindow = windowLabel === "settings";
 
-  const { data: settings, isLoading: settingsLoading } = useSettings(
-    undefined,
-    isSettingsWindow,
-  );
-  const showOnboarding =
-    isSettingsWindow && !!settings && !settings.onboarding_completed;
+  const { data: settings, isLoading: settingsLoading } = useSettings(undefined, isSettingsWindow);
+  const showOnboarding = isSettingsWindow && !!settings && !settings.onboarding_completed;
 
   useEffect(() => {
     const handleContextMenu = (event: MouseEvent) => {
@@ -75,13 +75,17 @@ function App() {
 
   useEffect(() => {
     const root = document.documentElement;
+    const setResolvedTheme = (theme: "light" | "dark") => {
+      root.dataset.theme = theme;
+      root.classList.toggle("dark", theme === "dark");
+    };
 
     // Pill & toast overlays always render in dark: they're transparent
     // floating chrome that lives on top of the user's workspace, not app UI.
     // The settings window also boots dark until onboarding state is known, and
     // onboarding itself stays dark regardless of the user's saved theme.
     if (windowLabel !== "settings" || settingsLoading || showOnboarding) {
-      root.dataset.theme = "dark";
+      setResolvedTheme("dark");
       return;
     }
 
@@ -89,7 +93,7 @@ function App() {
 
     const applyTheme = (mode: ThemeMode) => {
       currentMode = mode;
-      root.dataset.theme = resolveThemeAttribute(mode);
+      setResolvedTheme(resolveThemeAttribute(mode));
     };
 
     applyTheme(currentMode);
@@ -100,12 +104,9 @@ function App() {
     };
     mediaQuery.addEventListener("change", handleSystemChange);
 
-    const unlistenPromise = listen<{ mode?: ThemeMode }>(
-      "ui:theme_changed",
-      (event) => {
-        applyTheme(parseThemeMode(event.payload?.mode ?? null));
-      },
-    );
+    const unlistenPromise = listen<{ mode?: ThemeMode }>("ui:theme_changed", (event) => {
+      applyTheme(parseThemeMode(event.payload?.mode ?? null));
+    });
 
     return () => {
       mediaQuery.removeEventListener("change", handleSystemChange);
@@ -138,11 +139,7 @@ function App() {
 
     return (
       <div className="settings-view h-screen w-screen overflow-hidden">
-        {showOnboarding ? (
-          <OnboardingScreen onComplete={() => {}} />
-        ) : (
-          <Home />
-        )}
+        {showOnboarding ? <OnboardingScreen onComplete={() => {}} /> : <Home />}
       </div>
     );
   }

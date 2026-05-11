@@ -28,7 +28,7 @@ export function MicrophoneStep({
       className="flex flex-col items-center text-center max-w-sm"
     >
       <div className="mb-5">
-        <Mic size={32} className="ui-color-warning-strong" />
+        <Mic size={32} className="ui-color-accent" />
       </div>
 
       <h2 className="ui-text-title-lg font-semibold text-content-primary mb-1">
@@ -53,7 +53,7 @@ export function MicrophoneStep({
         <button
           onClick={onRequestAccess}
           disabled={isChecking}
-          className="flex items-center gap-2 rounded-lg bg-amber-400 px-5 py-2.5 ui-text-body-lg font-medium ui-color-on-warning hover:bg-amber-300 transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg bg-content-primary px-5 py-2.5 ui-text-body-lg font-medium text-surface-secondary hover:bg-white transition-colors disabled:opacity-50"
         >
           <Mic size={15} />
           {t({

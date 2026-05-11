@@ -1,23 +1,14 @@
 import { useLingui } from "@lingui/react/macro";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMachine } from "@xstate/react";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type QueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useModelDownloadEvents } from "../../shared/hooks/useModelDownloadEvents";
 import { requestMacAccessibilityPermission } from "../../shared/lib/macosPermissions";
 import { useSettings } from "../settings/queries";
-import {
-  modelKeys,
-  useModelCatalog,
-  useModelStatuses,
-} from "../settings/models-queries";
+import { modelKeys, useModelCatalog, useModelStatuses } from "../settings/models-queries";
 import { onboardingMachine, getSteps, type LocalDownloadStatus } from "./machine";
 import { WelcomeStep } from "./steps/WelcomeStep";
 import { ModelSelectionStep } from "./steps/ModelSelectionStep";
@@ -25,7 +16,7 @@ import { MicrophoneStep } from "./steps/MicrophoneStep";
 import { AccessibilityStep } from "./steps/AccessibilityStep";
 import { ReadyStep } from "./steps/ReadyStep";
 import { SigninStep } from "./steps/SigninStep";
-import { GlimpseLogo, StepIndicator } from "./steps/shared";
+import { FlowLogo, StepIndicator } from "./steps/shared";
 import FAQModal from "../../shared/ui/FAQModal";
 import WindowControls from "../../shared/ui/WindowControls";
 import type { ModelInfo, ModelStatus } from "../../types";
@@ -33,12 +24,10 @@ import type { ModelInfo, ModelStatus } from "../../types";
 const hasRecommendedTag = (model: Pick<ModelInfo, "tags">) =>
   model.tags.some((tag) => tag.toLowerCase() === "recommended");
 
-const PREFERRED_ONBOARDING_MODEL_KEYS = [
-  "whisper_large_v3_turbo_q8",
-  "parakeet_tdt_int8",
-] as const;
+const PREFERRED_ONBOARDING_MODEL_KEYS = ["parakeet_tdt_int8", "whisper_large_v3_turbo_q8"] as const;
 
 const ONBOARDING_MODEL_LIMIT = 2;
+const AUTO_DOWNLOAD_MODEL_KEYS = new Set<string>(["parakeet_tdt_int8"]);
 
 const onboardingPermissionKeys = {
   all: ["onboarding", "permissions"] as const,
@@ -64,29 +53,22 @@ const pickOnboardingModels = (models: ModelInfo[]) => {
   return [...preferred, ...fallback].slice(0, ONBOARDING_MODEL_LIMIT);
 };
 
-const pickDefaultOnboardingModel = (
-  models: ModelInfo[],
-  persistedModel: string,
-) => {
+const pickDefaultOnboardingModel = (models: ModelInfo[], persistedModel: string) => {
   if (persistedModel && models.some((model) => model.key === persistedModel)) {
     return persistedModel;
   }
   return models[0]?.key ?? persistedModel;
 };
 
-const checkMicrophonePermission = () =>
-  invoke<boolean>("check_microphone_permission");
+const checkMicrophonePermission = () => invoke<boolean>("check_microphone_permission");
 
-const checkAccessibilityPermission = () =>
-  invoke<boolean>("check_accessibility_permission");
+const checkAccessibilityPermission = () => invoke<boolean>("check_accessibility_permission");
 
 const stopShortcutCapture = () =>
   invoke("set_shortcut_capture_active", { active: false }).catch(() => {});
 
-const refreshModelStatus = (
-  queryClient: QueryClient,
-  model: string,
-) => queryClient.invalidateQueries({ queryKey: modelKeys.status(model) });
+const refreshModelStatus = (queryClient: QueryClient, model: string) =>
+  queryClient.invalidateQueries({ queryKey: modelKeys.status(model) });
 
 interface OnboardingScreenProps {
   onComplete: () => void;
@@ -101,9 +83,8 @@ const stepTransitionVariants = {
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const { t } = useLingui();
   const [state, send] = useMachine(onboardingMachine);
-  const [downloadStatus, setDownloadStatus] = useState<
-    Record<string, LocalDownloadStatus>
-  >({});
+  const [downloadStatus, setDownloadStatus] = useState<Record<string, LocalDownloadStatus>>({});
+  const autoDownloadStartedRef = useRef<Set<string>>(new Set());
   const ctx = state.context;
   const queryClient = useQueryClient();
 
@@ -112,7 +93,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     [ctx.platform, ctx.selectedMode],
   );
   const currentStep = state.value as string;
-  const currentStepIndex = steps.indexOf(currentStep as typeof steps[number]);
+  const currentStepIndex = steps.indexOf(currentStep as (typeof steps)[number]);
   const settingsQuery = useSettings();
   const modelCatalogQuery = useModelCatalog();
 
@@ -122,15 +103,14 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
   );
   const persistedLocalModel = settingsQuery.data?.local_model ?? "";
   const persistedThemeMode = settingsQuery.data?.theme_mode ?? "system";
-  const selectedModel = ctx.localModelChoice ||
-    pickDefaultOnboardingModel(onboardingModelCatalog, persistedLocalModel);
+  const selectedModel =
+    ctx.localModelChoice || pickDefaultOnboardingModel(onboardingModelCatalog, persistedLocalModel);
   const statusModelKeys = useMemo(
     () =>
       Array.from(
-        new Set([
-          ...onboardingModelCatalog.map((model) => model.key),
-          selectedModel,
-        ].filter(Boolean)),
+        new Set(
+          [...onboardingModelCatalog.map((model) => model.key), selectedModel].filter(Boolean),
+        ),
       ),
     [onboardingModelCatalog, selectedModel],
   );
@@ -155,64 +135,57 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     retry: false,
   });
 
-  const {
-    mutate: requestMicrophonePermission,
-    isPending: isRequestingMicrophonePermission,
-  } = useMutation({
-    mutationFn: async () => {
-      await invoke("request_microphone_permission").catch(() => {});
-      const granted = await checkMicrophonePermission().catch(() => false);
-      if (!granted) {
-        await invoke("open_microphone_settings").catch(() => {});
-      }
-      return granted;
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({
-        queryKey: onboardingPermissionKeys.microphone(),
-      });
-    },
-  });
-
-  const {
-    mutate: requestAccessibilityPermission,
-    isPending: isRequestingAccessibilityPermission,
-  } = useMutation({
-    mutationFn: async () => {
-      if (ctx.platform.id === "macos") {
-        await requestMacAccessibilityPermission().catch(() => {});
-      }
-      const granted = await checkAccessibilityPermission().catch(() => false);
-      if (!granted) {
-        await invoke("open_accessibility_settings").catch(() => {});
-      }
-      return granted;
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({
-        queryKey: onboardingPermissionKeys.accessibility(),
-      });
-    },
-  });
-
-  const updateDownloadStatus = useCallback(
-    (modelKey: string, status: LocalDownloadStatus) => {
-      setDownloadStatus((prev) => {
-        const current = prev[modelKey];
-        if (
-          current?.status === status.status &&
-          current?.percent === status.percent &&
-          current?.file === status.file &&
-          current?.message === status.message
-        ) {
-          return prev;
+  const { mutate: requestMicrophonePermission, isPending: isRequestingMicrophonePermission } =
+    useMutation({
+      mutationFn: async () => {
+        await invoke("request_microphone_permission").catch(() => {});
+        const granted = await checkMicrophonePermission().catch(() => false);
+        if (!granted) {
+          await invoke("open_microphone_settings").catch(() => {});
         }
+        return granted;
+      },
+      onSettled: () => {
+        void queryClient.invalidateQueries({
+          queryKey: onboardingPermissionKeys.microphone(),
+        });
+      },
+    });
 
-        return { ...prev, [modelKey]: status };
-      });
-    },
-    [],
-  );
+  const { mutate: requestAccessibilityPermission, isPending: isRequestingAccessibilityPermission } =
+    useMutation({
+      mutationFn: async () => {
+        if (ctx.platform.id === "macos") {
+          await requestMacAccessibilityPermission().catch(() => {});
+        }
+        const granted = await checkAccessibilityPermission().catch(() => false);
+        if (!granted) {
+          await invoke("open_accessibility_settings").catch(() => {});
+        }
+        return granted;
+      },
+      onSettled: () => {
+        void queryClient.invalidateQueries({
+          queryKey: onboardingPermissionKeys.accessibility(),
+        });
+      },
+    });
+
+  const updateDownloadStatus = useCallback((modelKey: string, status: LocalDownloadStatus) => {
+    setDownloadStatus((prev) => {
+      const current = prev[modelKey];
+      if (
+        current?.status === status.status &&
+        current?.percent === status.percent &&
+        current?.file === status.file &&
+        current?.message === status.message
+      ) {
+        return prev;
+      }
+
+      return { ...prev, [modelKey]: status };
+    });
+  }, []);
 
   useModelDownloadEvents({
     onProgress: (payload) => {
@@ -325,13 +298,10 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
       }
       return base ?? { status: "idle", percent: 0 };
     };
-    return onboardingModelCatalog.reduce<Record<string, LocalDownloadStatus>>(
-      (acc, model) => {
-        acc[model.key] = buildState(model.key);
-        return acc;
-      },
-      {},
-    );
+    return onboardingModelCatalog.reduce<Record<string, LocalDownloadStatus>>((acc, model) => {
+      acc[model.key] = buildState(model.key);
+      return acc;
+    }, {});
   }, [downloadStatus, modelStatus, onboardingModelCatalog]);
 
   const selectedModelReady = useMemo(() => {
@@ -346,15 +316,45 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
   const accessibilityPermission = ctx.platform.requiresAccessibilityPermission
     ? accessibilityPermissionQuery.data === true
     : true;
-  const isCheckingMic = ctx.platform.requiresMicrophonePermission &&
+  const isCheckingMic =
+    ctx.platform.requiresMicrophonePermission &&
     (microphonePermissionQuery.isPending || isRequestingMicrophonePermission);
-  const isCheckingAccessibility = ctx.platform.requiresAccessibilityPermission &&
-    (
-      accessibilityPermissionQuery.isPending ||
-      isRequestingAccessibilityPermission
-    );
+  const isCheckingAccessibility =
+    ctx.platform.requiresAccessibilityPermission &&
+    (accessibilityPermissionQuery.isPending || isRequestingAccessibilityPermission);
   const isModelCatalogLoading = modelCatalogQuery.isLoading || settingsQuery.isLoading;
   const modelCatalogUnavailable = modelCatalogQuery.isError;
+
+  useEffect(() => {
+    if (
+      isModelCatalogLoading ||
+      modelCatalogUnavailable ||
+      !selectedModel ||
+      !AUTO_DOWNLOAD_MODEL_KEYS.has(selectedModel)
+    ) {
+      return;
+    }
+
+    const displayState = displayStateByModel[selectedModel];
+    if (
+      modelStatus[selectedModel]?.installed ||
+      displayState?.status === "complete" ||
+      displayState?.status === "downloading" ||
+      autoDownloadStartedRef.current.has(selectedModel)
+    ) {
+      return;
+    }
+
+    autoDownloadStartedRef.current.add(selectedModel);
+    void handleDownload(selectedModel);
+  }, [
+    displayStateByModel,
+    handleDownload,
+    isModelCatalogLoading,
+    modelCatalogUnavailable,
+    modelStatus,
+    selectedModel,
+  ]);
 
   const handleComplete = useCallback(async () => {
     const resolvedLocalModel = selectedModel;
@@ -366,15 +366,14 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
         type: "COMPLETE_ERROR",
         error: t({
           id: "onboarding.complete.no_model",
-          message:
-            "Could not load a local model selection. Try reopening onboarding.",
+          message: "Could not load a local model selection. Try reopening onboarding.",
         }),
       });
       return;
     }
 
     try {
-      localStorage.setItem("glimpse_cloud_sync_enabled", "false");
+      localStorage.setItem("flow_cloud_sync_enabled", "false");
       await invoke("update_settings", {
         args: {
           smartShortcut: ctx.smartShortcut,
@@ -411,23 +410,15 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
       const message = typeof err === "string" ? err : String(err);
       send({
         type: "COMPLETE_ERROR",
-        error: message ||
+        error:
+          message ||
           t({
             id: "onboarding.complete.failed",
-            message:
-              "Could not finish setup. Check your settings and try again.",
+            message: "Could not finish setup. Check your settings and try again.",
           }),
       });
     }
-  }, [
-    ctx.selectedMode,
-    ctx.smartShortcut,
-    onComplete,
-    persistedThemeMode,
-    selectedModel,
-    send,
-    t,
-  ]);
+  }, [ctx.selectedMode, ctx.smartShortcut, onComplete, persistedThemeMode, selectedModel, send, t]);
 
   const goNext = useCallback(() => {
     send({ type: "NEXT" });
@@ -483,13 +474,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
           />
         );
       case "localSignin":
-        return (
-          <SigninStep
-            key="local-signin"
-            stepMotionProps={stepMotionProps}
-            onNext={goNext}
-          />
-        );
+        return <SigninStep key="local-signin" stepMotionProps={stepMotionProps} onNext={goNext} />;
       case "microphone":
         return (
           <MicrophoneStep
@@ -551,17 +536,20 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
 
       <div className="flex justify-center pb-5">
         <div className="flex items-center gap-2 text-content-disabled">
-          <GlimpseLogo size="sm" />
+          <FlowLogo size="sm" />
           <span className="ui-text-meta font-medium">
             {t({
               id: "onboarding.brand",
-              message: "Glimpse",
+              message: "Flow",
             })}
           </span>
         </div>
       </div>
 
-      <FAQModal isOpen={ctx.showFAQModal} onClose={() => send({ type: "TOGGLE_FAQ", show: false })} />
+      <FAQModal
+        isOpen={ctx.showFAQModal}
+        onClose={() => send({ type: "TOGGLE_FAQ", show: false })}
+      />
 
       {currentStepIndex > 0 && (
         <button

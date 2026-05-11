@@ -16,19 +16,14 @@ export function useReplacements(enabled: boolean = true) {
   });
 }
 
-export function setDictionaryEntriesCache(
-  queryClient: QueryClient,
-  entries: string[],
-) {
-  queryClient.setQueryData<StoredSettings | undefined>(
-    settingsKeys.detail(),
-    (current) =>
-      current
-        ? {
-            ...current,
-            dictionary: entries,
-          }
-        : current,
+export function setDictionaryEntriesCache(queryClient: QueryClient, entries: string[]) {
+  queryClient.setQueryData<StoredSettings | undefined>(settingsKeys.detail(), (current) =>
+    current
+      ? {
+          ...current,
+          dictionary: entries,
+        }
+      : current,
   );
 }
 
@@ -37,14 +32,12 @@ export function setDictionaryReplacementsCache(
   replacements: Replacement[],
 ) {
   queryClient.setQueryData(dictionaryKeys.replacements(), replacements);
-  queryClient.setQueryData<StoredSettings | undefined>(
-    settingsKeys.detail(),
-    (current) =>
-      current
-        ? {
-            ...current,
-            replacements,
-          }
-        : current,
+  queryClient.setQueryData<StoredSettings | undefined>(settingsKeys.detail(), (current) =>
+    current
+      ? {
+          ...current,
+          replacements,
+        }
+      : current,
   );
 }

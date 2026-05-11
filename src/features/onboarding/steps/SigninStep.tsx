@@ -41,7 +41,7 @@ export function SigninStep({ stepMotionProps, onNext }: SigninStepProps) {
         {t({
           id: "onboarding.signin.body",
           message:
-            "You can keep using Glimpse locally. This screen will be enabled in a future update.",
+            "You can keep using Flow locally. This screen will be enabled in a future update.",
         })}
       </p>
 

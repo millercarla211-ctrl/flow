@@ -121,12 +121,10 @@ const LanguageModelPanel = ({
                         }),
                         isHeader: true,
                       },
-                      ...LOCAL_PROVIDERS.filter((p) => p.id !== "custom").map(
-                        (p) => ({
-                          value: p.id,
-                          label: p.label,
-                        }),
-                      ),
+                      ...LOCAL_PROVIDERS.filter((p) => p.id !== "custom").map((p) => ({
+                        value: p.id,
+                        label: p.label,
+                      })),
                       {
                         value: "_cloud_header" as LlmProvider,
                         label: t({
@@ -211,11 +209,7 @@ const LanguageModelPanel = ({
                         )}
                       </label>
                       <div className="flex items-center gap-2 rounded-lg border border-border-primary bg-surface-surface px-3 py-1.5 min-h-[40px] focus-within:border-border-hover transition-colors">
-                        <Key
-                          size={12}
-                          className="text-content-muted shrink-0"
-                          aria-hidden="true"
-                        />
+                        <Key size={12} className="text-content-muted shrink-0" aria-hidden="true" />
                         <input
                           type="password"
                           value={llmApiKey}
@@ -244,9 +238,7 @@ const LanguageModelPanel = ({
                       <Dropdown
                         value={llmModel}
                         onChange={(val) => setLlmModel(val)}
-                        onOpen={
-                          hasSelectedProvider ? fetchAvailableModels : undefined
-                        }
+                        onOpen={hasSelectedProvider ? fetchAvailableModels : undefined}
                         options={[
                           ...uniqueModels.map((model) => ({
                             value: model,

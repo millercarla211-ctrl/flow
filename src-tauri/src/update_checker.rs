@@ -18,7 +18,7 @@ const AUTO_UPDATE_POLL_SECS: u64 = 30;
 const AUTO_UPDATE_IDLE_POLL_SECS: u64 = 5 * 60;
 const AUTO_UPDATE_MARKER_FILE: &str = ".auto_updated";
 const STABLE_UPDATE_ENDPOINT: &str =
-    "https://github.com/LegendarySpy/Glimpse/releases/latest/download/latest.json";
+    "https://github.com/essencefromexistence/flow/releases/latest/download/latest.json";
 const EVENT_UPDATE_DOWNLOAD_PROGRESS: &str = "update:download-progress";
 
 #[derive(Default)]
@@ -68,8 +68,7 @@ fn clear_update_state_and_emit(app: &AppHandle<AppRuntime>) {
 // --- Auto-update marker file (persists "just auto-updated" state across restarts) ---
 
 fn marker_path(app: &AppHandle<AppRuntime>) -> Option<PathBuf> {
-    app.path()
-        .app_data_dir()
+    crate::app_paths::app_data_dir(app)
         .ok()
         .map(|d| d.join(AUTO_UPDATE_MARKER_FILE))
 }

@@ -66,8 +66,7 @@ export function ModelSelectionStep({
         <p>
           {t({
             id: "onboarding.models.subtitle",
-            message:
-              "More models and language model setup available in Settings after setup.",
+            message: "More models and language model setup available in Settings after setup.",
           })}
         </p>
       </div>
@@ -83,8 +82,7 @@ export function ModelSelectionStep({
           <p className="mt-2 ui-text-body text-content-muted">
             {t({
               id: "onboarding.models.loading_body",
-              message:
-                "Fetching the available local transcription engines for this build.",
+              message: "Fetching the available local transcription engines for this build.",
             })}
           </p>
         </div>
@@ -106,7 +104,7 @@ export function ModelSelectionStep({
               ? t({
                   id: "onboarding.models.unavailable_body",
                   message:
-                    "Glimpse couldn't load the local model list. Setup can continue with the default local engine, and you can manage downloads later in Settings.",
+                    "Flow couldn't load the local model list. Setup can continue with the default local engine, and you can manage downloads later in Settings.",
                 })
               : t({
                   id: "onboarding.models.empty_body",
@@ -116,7 +114,9 @@ export function ModelSelectionStep({
           </p>
         </div>
       ) : (
-        <div className={`grid w-full items-start gap-4 ${modelCatalog.length > 1 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
+        <div
+          className={`grid w-full items-start gap-4 ${modelCatalog.length > 1 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}
+        >
           {modelCatalog.map((model, index) => {
             const displayState = displayStateByModel[model.key] ?? { status: "idle", percent: 0 };
             const installed = displayState.status === "complete";
@@ -127,17 +127,26 @@ export function ModelSelectionStep({
             const isSelected = selectedModel === model.key;
             const isActive = isSelected && installed;
             const isWhisper = model.engine_id === "whisper";
-            const accentTextClass = isWhisper ? "text-cloud" : "text-local";
-            const accentFillClass = "bg-cloud/15 text-cloud border-cloud/40";
-            const accentDotColor = isWhisper ? "var(--color-cloud)" : "var(--color-local)";
+            const accentTextClass = isWhisper ? "text-accent" : "text-local";
+            const accentFillClass = isWhisper
+              ? "bg-accent/10 text-accent border-accent/30"
+              : "bg-local/10 text-local border-local/30";
+            const accentDotColor = isWhisper ? "var(--color-accent)" : "var(--color-local)";
             const borderClass = isActive
-              ? "border-cloud-50 bg-surface-tertiary"
+              ? isWhisper
+                ? "border-accent-50 bg-surface-tertiary"
+                : "border-local-50 bg-surface-tertiary"
               : isSelected
-                ? "border-border-primary bg-surface-tertiary ring-1 ring-amber-400/30"
+                ? isWhisper
+                  ? "border-border-primary bg-surface-tertiary ring-1 ring-accent-30"
+                  : "border-border-primary bg-surface-tertiary ring-1 ring-local-20"
                 : "border-border-primary bg-surface-tertiary hover:border-border-hover";
             const heroDots = isWhisper
               ? [1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65]
-              : [0, 3, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68];
+              : [
+                  0, 3, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56, 59,
+                  62, 65, 68,
+                ];
             const headerDots = isWhisper ? [1, 2] : [0];
 
             return (
@@ -160,21 +169,48 @@ export function ModelSelectionStep({
                 className={`relative flex w-full self-start cursor-pointer flex-col overflow-hidden rounded-2xl border text-left transition-colors ${
                   isWhisper ? "ui-shadow-onboarding-model" : "ui-shadow-onboarding-model-alt"
                 } ${borderClass}`}
-                style={isActive ? { outline: "1px solid var(--color-cloud-50)", outlineOffset: "-1px" } : undefined}
+                style={
+                  isActive
+                    ? {
+                        outline: `1px solid ${
+                          isWhisper ? "var(--color-accent-50)" : "var(--color-local-50)"
+                        }`,
+                        outlineOffset: "-1px",
+                      }
+                    : undefined
+                }
               >
                 <div className="absolute inset-0 pointer-events-none">
                   <div className="absolute inset-0 opacity-10">
-                    <DotMatrix rows={6} cols={18} activeDots={heroDots} dotSize={2} gap={4} color="var(--color-border-primary)" />
+                    <DotMatrix
+                      rows={6}
+                      cols={18}
+                      activeDots={heroDots}
+                      dotSize={2}
+                      gap={4}
+                      color="var(--color-border-primary)"
+                    />
                   </div>
                 </div>
                 <div className="relative flex flex-col gap-3 p-4 pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2">
-                      <DotMatrix rows={2} cols={2} activeDots={headerDots} dotSize={3} gap={2} color={accentDotColor} />
-                      <span className="ui-text-body-lg font-semibold leading-tight text-content-primary text-balance">{model.label}</span>
+                      <DotMatrix
+                        rows={2}
+                        cols={2}
+                        activeDots={headerDots}
+                        dotSize={3}
+                        gap={2}
+                        color={accentDotColor}
+                      />
+                      <span className="ui-text-body-lg font-semibold leading-tight text-content-primary text-balance">
+                        {model.label}
+                      </span>
                     </div>
                     <span className="shrink-0 pt-0.5 ui-text-micro text-content-muted tabular-nums">
-                      {model.size_mb >= 1000 ? `${(model.size_mb / 1000).toFixed(1)} GB` : `${Math.round(model.size_mb)} MB`}
+                      {model.size_mb >= 1000
+                        ? `${(model.size_mb / 1000).toFixed(1)} GB`
+                        : `${Math.round(model.size_mb)} MB`}
                     </span>
                   </div>
                   <div className="flex items-center flex-wrap gap-1.5">
@@ -191,7 +227,9 @@ export function ModelSelectionStep({
                       </span>
                     ))}
                   </div>
-                  <p className="h-16 ui-text-label leading-relaxed text-content-muted text-pretty">{model.description}</p>
+                  <p className="h-16 ui-text-label leading-relaxed text-content-muted text-pretty">
+                    {model.description}
+                  </p>
                 </div>
 
                 <div className="relative flex items-center gap-3 px-4 pb-4 pt-1">
@@ -239,24 +277,35 @@ export function ModelSelectionStep({
                       <Download size={14} className={isCancelled ? "" : accentTextClass} />
                     )}
                   </button>
-                  <div className={`flex-1 min-w-0 flex flex-col justify-center gap-0.5${showProgress ? " translate-y-[2px]" : ""}`}>
+                  <div
+                    className={`flex-1 min-w-0 flex flex-col justify-center gap-0.5${showProgress ? " translate-y-[2px]" : ""}`}
+                  >
                     {showProgress ? (
                       <>
-                        <ModelProgress percent={displayState.percent} status={displayState.status} />
+                        <ModelProgress
+                          percent={displayState.percent}
+                          status={displayState.status}
+                        />
                         <p className="ui-text-micro tabular-nums truncate text-content-muted">
-                          {isDownloading && <>{displayState.percent.toFixed(0)}% · {displayState.file ?? ""}</>}
+                          {isDownloading && (
+                            <>
+                              {displayState.percent.toFixed(0)}% · {displayState.file ?? ""}
+                            </>
+                          )}
                           {showError && (
                             <span className="text-error">
-                              {displayState.message || t({
-                                id: "onboarding.models.download_failed",
-                                message: "Download failed",
-                              })}
+                              {displayState.message ||
+                                t({
+                                  id: "onboarding.models.download_failed",
+                                  message: "Download failed",
+                                })}
                             </span>
                           )}
-                          {isCancelled && t({
-                            id: "onboarding.models.cancelled",
-                            message: "Cancelled",
-                          })}
+                          {isCancelled &&
+                            t({
+                              id: "onboarding.models.cancelled",
+                              message: "Cancelled",
+                            })}
                         </p>
                       </>
                     ) : (
@@ -347,7 +396,7 @@ export function ModelSelectionStep({
                     onShowConfirm(false);
                     onNext();
                   }}
-                  className="rounded-lg bg-amber-400 px-4 py-2 ui-text-body-sm font-semibold ui-color-on-warning hover:bg-amber-300 transition-colors"
+                  className="rounded-lg bg-content-primary px-4 py-2 ui-text-body-sm font-semibold text-surface-secondary hover:bg-white transition-colors"
                 >
                   {t({
                     id: "onboarding.models.confirm_without_model.continue",

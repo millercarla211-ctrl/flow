@@ -31,15 +31,10 @@ type AppIconBadgeProps = {
   size?: "chip" | "list" | "option";
 };
 
-const AppIconBadge = ({
-  appName,
-  iconPath,
-  size = "chip",
-}: AppIconBadgeProps) => {
+const AppIconBadge = ({ appName, iconPath, size = "chip" }: AppIconBadgeProps) => {
   const iconUrl = iconPath ? convertFileSrc(iconPath) : null;
   const sizeClass = size === "chip" ? "h-7 w-7" : "h-[18px] w-[18px]";
-  const textClass =
-    size === "chip" ? "ui-text-micro" : "text-[9px] leading-none";
+  const textClass = size === "chip" ? "ui-text-micro" : "text-[9px] leading-none";
   const baseClass = `${sizeClass} shrink-0 flex items-center justify-center`;
 
   if (iconUrl) {
@@ -48,12 +43,7 @@ const AppIconBadge = ({
         className={`${baseClass} overflow-hidden rounded-md border border-border-secondary/70 bg-surface-overlay p-0.5`}
         aria-hidden="true"
       >
-        <img
-          src={iconUrl}
-          alt=""
-          className="h-full w-full object-contain"
-          loading="lazy"
-        />
+        <img src={iconUrl} alt="" className="h-full w-full object-contain" loading="lazy" />
       </span>
     );
   }
@@ -63,9 +53,7 @@ const AppIconBadge = ({
       className={`${baseClass} rounded-md border border-border-secondary bg-surface-overlay ui-color-secondary`}
       aria-hidden="true"
     >
-      <span className={`${textClass} font-semibold`}>
-        {getInitials(appName)}
-      </span>
+      <span className={`${textClass} font-semibold`}>{getInitials(appName)}</span>
     </span>
   );
 };
@@ -76,11 +64,7 @@ type WebsiteFaviconProps = {
   size?: "chip" | "list";
 };
 
-const WebsiteFavicon = ({
-  site,
-  iconPath,
-  size = "chip",
-}: WebsiteFaviconProps) => {
+const WebsiteFavicon = ({ site, iconPath, size = "chip" }: WebsiteFaviconProps) => {
   const sizeClass = size === "chip" ? "h-3.5 w-3.5" : "h-4 w-4";
   const fallbackTextClass = size === "chip" ? "text-[8px]" : "text-[9px]";
   if (!iconPath) {
@@ -130,15 +114,11 @@ const PersonalityModal = ({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(personality.name);
-  const [selectedAppOption, setSelectedAppOption] = useState<string | null>(
-    null,
-  );
+  const [selectedAppOption, setSelectedAppOption] = useState<string | null>(null);
   const [websiteInput, setWebsiteInput] = useState("");
   const [websiteError, setWebsiteError] = useState<string | null>(null);
   const [instructionsText, setInstructionsText] = useState("");
-  const [instructionsHeight, setInstructionsHeight] = useState(
-    DEFAULT_INSTRUCTIONS_HEIGHT,
-  );
+  const [instructionsHeight, setInstructionsHeight] = useState(DEFAULT_INSTRUCTIONS_HEIGHT);
   const [isResizingInstructions, setIsResizingInstructions] = useState(false);
   const resizeStartYRef = useRef(0);
   const resizeStartHeightRef = useRef(DEFAULT_INSTRUCTIONS_HEIGHT);
@@ -149,9 +129,7 @@ const PersonalityModal = ({
     setSelectedAppOption(null);
     setWebsiteInput("");
     setWebsiteError(null);
-    setInstructionsText(
-      clampInstructionsText(personality.instructions.join("\n")),
-    );
+    setInstructionsText(clampInstructionsText(personality.instructions.join("\n")));
     setInstructionsHeight(DEFAULT_INSTRUCTIONS_HEIGHT);
   }, [personality.id]);
 
@@ -190,22 +168,14 @@ const PersonalityModal = ({
     return appOptions.map((app) => ({
       value: app.name,
       label: app.name,
-      icon: (
-        <AppIconBadge
-          appName={app.name}
-          iconPath={app.icon_path}
-          size="option"
-        />
-      ),
+      icon: <AppIconBadge appName={app.name} iconPath={app.icon_path} size="option" />,
     }));
   }, [appOptions]);
 
   const addApp = (name: string) => {
     if (!name) return;
     onUpdateList((current) => {
-      const exists = current.apps.some(
-        (app) => app.toLowerCase() === name.toLowerCase(),
-      );
+      const exists = current.apps.some((app) => app.toLowerCase() === name.toLowerCase());
       if (exists) {
         return current;
       }
@@ -217,9 +187,7 @@ const PersonalityModal = ({
   const removeApp = (name: string) => {
     onUpdateList((current) => ({
       ...current,
-      apps: current.apps.filter(
-        (app) => app.toLowerCase() !== name.toLowerCase(),
-      ),
+      apps: current.apps.filter((app) => app.toLowerCase() !== name.toLowerCase()),
     }));
   };
 
@@ -238,9 +206,7 @@ const PersonalityModal = ({
       );
       return;
     }
-    const exists = personality.websites.some(
-      (site) => site.toLowerCase() === value.toLowerCase(),
-    );
+    const exists = personality.websites.some((site) => site.toLowerCase() === value.toLowerCase());
     if (exists) {
       setWebsiteError(
         t({
@@ -276,9 +242,7 @@ const PersonalityModal = ({
     [instructionsText],
   );
 
-  const handleInstructionsResizeStart = (
-    event: React.PointerEvent<HTMLButtonElement>,
-  ) => {
+  const handleInstructionsResizeStart = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) {
       return;
     }
@@ -296,9 +260,7 @@ const PersonalityModal = ({
 
     const handlePointerMove = (event: PointerEvent) => {
       const deltaY = event.clientY - resizeStartYRef.current;
-      setInstructionsHeight(
-        clampInstructionsHeight(resizeStartHeightRef.current + deltaY),
-      );
+      setInstructionsHeight(clampInstructionsHeight(resizeStartHeightRef.current + deltaY));
     };
 
     const handlePointerUp = () => {
@@ -411,10 +373,13 @@ const PersonalityModal = ({
                   ) : (
                     <div
                       onClick={() => {
-                        if (personality.name === t({
-                          id: "personalization.new_mode.default_name",
-                          message: "New Mode",
-                        })) {
+                        if (
+                          personality.name ===
+                          t({
+                            id: "personalization.new_mode.default_name",
+                            message: "New Mode",
+                          })
+                        ) {
                           setNameDraft("");
                         }
                         setIsEditingName(true);
@@ -476,9 +441,7 @@ const PersonalityModal = ({
               <div className="relative rounded-xl border border-border-primary bg-surface-surface p-2 px-3">
                 <textarea
                   value={instructionsText}
-                  onChange={(event) =>
-                    handleInstructionsChange(event.target.value)
-                  }
+                  onChange={(event) => handleInstructionsChange(event.target.value)}
                   placeholder={t({
                     id: "personalization.modal.custom_instructions.placeholder",
                     message: "Add custom instructions",
@@ -508,11 +471,7 @@ const PersonalityModal = ({
                     message: "Drag to resize",
                   })}
                 >
-                  <svg
-                    viewBox="0 0 20 20"
-                    className="h-full w-full"
-                    aria-hidden="true"
-                  >
+                  <svg viewBox="0 0 20 20" className="h-full w-full" aria-hidden="true">
                     <path
                       d="M7 13L13 7M9.5 13L13 9.5M12 13L13 12"
                       stroke="currentColor"
@@ -569,12 +528,8 @@ const PersonalityModal = ({
                       </div>
                     ) : (
                       personality.apps.map((app, index) => {
-                        const installedApp = installedAppByName.get(
-                          app.toLowerCase(),
-                        );
-                        const isMissing = !installedNameSet.has(
-                          app.toLowerCase(),
-                        );
+                        const installedApp = installedAppByName.get(app.toLowerCase());
+                        const isMissing = !installedNameSet.has(app.toLowerCase());
                         return (
                           <div
                             key={`app-${index}-${app || "empty"}`}
@@ -586,9 +541,7 @@ const PersonalityModal = ({
                                 iconPath={installedApp?.icon_path}
                                 size="list"
                               />
-                              <span className="ui-text-body-sm ui-color-primary">
-                                {app}
-                              </span>
+                              <span className="ui-text-body-sm ui-color-primary">{app}</span>
                               {isMissing && (
                                 <span className="ui-text-meta ui-color-disabled">
                                   {t({
@@ -672,9 +625,7 @@ const PersonalityModal = ({
                     })}
                   </button>
                 </div>
-                {websiteError && (
-                  <p className="ui-text-meta ui-color-error">{websiteError}</p>
-                )}
+                {websiteError && <p className="ui-text-meta ui-color-error">{websiteError}</p>}
                 <div className="relative flex-1 min-h-0">
                   <div className="space-y-1 h-full instructions-scroll pr-2">
                     {personality.websites.length === 0 ? (
@@ -693,14 +644,10 @@ const PersonalityModal = ({
                           <div className="flex items-center gap-2">
                             <WebsiteFavicon
                               site={site}
-                              iconPath={
-                                websiteIconBySite[normalizeWebsite(site)]
-                              }
+                              iconPath={websiteIconBySite[normalizeWebsite(site)]}
                               size="list"
                             />
-                            <span className="ui-text-label font-mono ui-color-primary">
-                              {site}
-                            </span>
+                            <span className="ui-text-label font-mono ui-color-primary">{site}</span>
                           </div>
                           <button
                             onClick={() => removeWebsite(site)}

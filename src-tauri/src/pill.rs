@@ -204,25 +204,8 @@ impl PillController {
     }
 
     fn preload_local_model_if_needed(&self, app: &AppHandle<AppRuntime>, settings: &UserSettings) {
-        let app_handle = app.clone();
-        let settings = settings.clone();
-
-        std::thread::spawn(move || {
-            let model_key = settings.local_model.clone();
-            let ready_model = match model_manager::ensure_model_ready(&app_handle, &model_key) {
-                Ok(model) => model,
-                Err(err) => {
-                    eprintln!("[LocalTranscriber] Skipping preload: {err}");
-                    return;
-                }
-            };
-
-            let state = app_handle.state::<AppState>();
-            let transcriber = state.local_transcriber();
-            if let Err(err) = transcriber.preload_and_warm(&ready_model) {
-                eprintln!("[LocalTranscriber] Preload warmup failed: {err}");
-            }
-        });
+        app.state::<AppState>()
+            .preload_local_model_if_needed(app, settings, "recording");
     }
 
     fn start_streaming_session_if_supported(&self, app: &AppHandle<AppRuntime>, local_model: &str) {
@@ -297,7 +280,8 @@ impl PillController {
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_millis(32));
                 if app_handle.state::<AppState>().pill().status() == PillStatus::Idle {
-                    hide_overlay(&app_handle);
+                    collapse_expanded_pill(&app_handle);
+                    show_overlay(&app_handle);
                 }
             });
             return;
@@ -719,6 +703,10 @@ impl PillController {
         toast::show(app, "info", None, "Transcription cancelled");
         self.reset(app);
     }
+
+    pub fn toggle_from_overlay(&self, app: &AppHandle<AppRuntime>) {
+        self.handle_toggle_press(app);
+    }
 }
 
 pub(crate) fn emit_pill_mode(app: &AppHandle<AppRuntime>, expanded: bool, text: &str) {
@@ -901,7 +889,7 @@ pub fn show_overlay(app: &AppHandle<AppRuntime>) {
         if !app.state::<AppState>().pill().is_expanded() {
             collapse_expanded_pill(app);
         }
-        position_overlay_on_cursor_screen(&window);
+        position_overlay(&window);
         platform::overlay::show(app, &window);
         app.state::<AppState>().pill().emit_state(app);
 
@@ -918,6 +906,7 @@ pub fn show_overlay(app: &AppHandle<AppRuntime>) {
     }
 }
 
+#[allow(dead_code)]
 pub fn hide_overlay(app: &AppHandle<AppRuntime>) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
         platform::overlay::hide(app, &window);
@@ -925,19 +914,25 @@ pub fn hide_overlay(app: &AppHandle<AppRuntime>) {
 }
 
 fn position_overlay(window: &WebviewWindow<AppRuntime>) {
-    if let Ok(Some(monitor)) = window.current_monitor() {
-        if let Ok(size) = window.outer_size() {
-            let scale_factor = monitor.scale_factor();
-            let screen = monitor.size();
-            let mon_pos = monitor.position();
-            let x = mon_pos.x + (screen.width.saturating_sub(size.width) / 2) as i32;
-            let bottom_padding_physical = (85.0 * scale_factor) as i32;
-            let y = mon_pos.y + screen.height as i32 - size.height as i32 - bottom_padding_physical;
-            let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
-        }
+    let monitor = window.current_monitor().ok().flatten().or_else(|| {
+        window
+            .available_monitors()
+            .ok()
+            .and_then(|monitors| monitors.into_iter().next())
+    });
+
+    if let (Some(monitor), Ok(size)) = (monitor, window.outer_size()) {
+        let scale_factor = monitor.scale_factor();
+        let screen = monitor.size();
+        let mon_pos = monitor.position();
+        let x = mon_pos.x + (screen.width.saturating_sub(size.width) / 2) as i32;
+        let bottom_padding_physical = (54.0 * scale_factor) as i32;
+        let y = mon_pos.y + screen.height as i32 - size.height as i32 - bottom_padding_physical;
+        let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
     }
 }
 
+#[allow(dead_code)]
 fn position_overlay_on_cursor_screen(window: &WebviewWindow<AppRuntime>) {
     let cursor_pos = match window.cursor_position() {
         Ok(pos) => pos,
@@ -977,7 +972,7 @@ fn position_overlay_on_cursor_screen(window: &WebviewWindow<AppRuntime>) {
         let mon_pos = monitor.position();
         let mon_size = monitor.size();
         let x = mon_pos.x + ((mon_size.width.saturating_sub(size.width)) / 2) as i32;
-        let bottom_padding_physical = (85.0 * scale_factor) as i32;
+        let bottom_padding_physical = (54.0 * scale_factor) as i32;
         let y = mon_pos.y + mon_size.height as i32 - size.height as i32 - bottom_padding_physical;
         let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
     }

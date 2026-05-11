@@ -15,15 +15,15 @@ const COLORS: Record<ToastType, { border: string; dot: string }> = {
   error: { border: "border-red-500/40", dot: "bg-red-500" },
   info: { border: "border-blue-500/30", dot: "bg-blue-400" },
   success: { border: "border-emerald-500/30", dot: "bg-emerald-400" },
-  warning: { border: "border-amber-500/40", dot: "bg-amber-400" },
+  warning: { border: "border-blue-500/30", dot: "bg-blue-400" },
   update: { border: "border-violet-500/40", dot: "bg-violet-400" },
-  celebration: { border: "border-amber-500/30", dot: "bg-amber-400" },
+  celebration: { border: "border-blue-500/30", dot: "bg-blue-400" },
 };
 
-const TwinklingGrid = React.memo(({ variant = "cloud" }: { variant?: "cloud" | "accent" }) => {
-  const color = variant === "accent" ? "var(--color-accent)" : "var(--color-cloud)";
+const TwinklingGrid = React.memo(({ variant = "accent" }: { variant?: "cloud" | "accent" }) => {
+  const color = variant === "accent" ? "var(--color-accent)" : "var(--color-text-primary)";
   const animationName = variant === "accent" ? "twinkle-accent" : "twinkle";
-  
+
   const dots = React.useMemo(() => {
     const cols = 50;
     const rows = 12;
@@ -52,14 +52,16 @@ const TwinklingGrid = React.memo(({ variant = "cloud" }: { variant?: "cloud" | "
               animation: `${animationName} ${duration}s ease-in-out infinite`,
               animationDelay: `-${delay}s`,
             }}
-          />
+          />,
         );
       }
     }
     return items;
   }, [color, animationName]);
 
-  return <div className="absolute inset-0 overflow-hidden opacity-60 pointer-events-none">{dots}</div>;
+  return (
+    <div className="absolute inset-0 overflow-hidden opacity-60 pointer-events-none">{dots}</div>
+  );
 });
 
 const ToastOverlay: React.FC = () => {
@@ -99,7 +101,9 @@ const ToastOverlay: React.FC = () => {
       setToast(null);
       try {
         await invoke("toast_dismissed");
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       await getCurrentWindow().hide();
     }, 120);
   };
@@ -136,16 +140,21 @@ const ToastOverlay: React.FC = () => {
     } catch (err) {
       console.error("Retry failed:", err);
       setIsRetrying(false);
-      setToast(prev => prev ? {
-        ...prev,
-        message: typeof err === "string"
-          ? err
-          : t({
-              id: "toast.retry_failed",
-              message: "Retry failed. Please try again.",
-            }),
-        type: "error",
-      } : null);
+      setToast((prev) =>
+        prev
+          ? {
+              ...prev,
+              message:
+                typeof err === "string"
+                  ? err
+                  : t({
+                      id: "toast.retry_failed",
+                      message: "Retry failed. Please try again.",
+                    }),
+              type: "error",
+            }
+          : null,
+      );
     }
   };
 
@@ -240,7 +249,9 @@ const ToastOverlay: React.FC = () => {
         setCopied(false);
         try {
           await invoke("toast_dismissed");
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         await getCurrentWindow().hide();
       }
     });
@@ -269,7 +280,7 @@ const ToastOverlay: React.FC = () => {
       className="fixed inset-0 flex flex-col justify-end items-center pb-6"
       onClick={handleBackgroundClick}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           handleBackgroundClick();
         }
@@ -306,24 +317,28 @@ const ToastOverlay: React.FC = () => {
               type="button"
               onClick={handleCopy}
               className="w-5 h-5 flex items-center justify-center rounded-md ui-color-gray-500 ui-hover-on-solid transition-colors"
-              title={copied
-                ? t({
-                    id: "toast.copied",
-                    message: "Copied",
-                  })
-                : t({
-                    id: "toast.copy_message",
-                    message: "Copy message",
-                  })}
-              aria-label={copied
-                ? t({
-                    id: "toast.copied",
-                    message: "Copied",
-                  })
-                : t({
-                    id: "toast.copy_message",
-                    message: "Copy message",
-                  })}
+              title={
+                copied
+                  ? t({
+                      id: "toast.copied",
+                      message: "Copied",
+                    })
+                  : t({
+                      id: "toast.copy_message",
+                      message: "Copy message",
+                    })
+              }
+              aria-label={
+                copied
+                  ? t({
+                      id: "toast.copied",
+                      message: "Copied",
+                    })
+                  : t({
+                      id: "toast.copy_message",
+                      message: "Copy message",
+                    })
+              }
             >
               {copied ? <Check size={12} /> : <Copy size={12} />}
             </button>
@@ -344,13 +359,17 @@ const ToastOverlay: React.FC = () => {
               />
             </div>
           ) : (
-            <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${colors.dot} ${toast.type === "error" ? "animate-pulse" : ""}`} />
+            <div
+              className={`w-2 h-2 rounded-full mt-1 shrink-0 ${colors.dot} ${toast.type === "error" ? "animate-pulse" : ""}`}
+            />
           )}
           <div className="flex-1 min-w-0">
             {toast.type === "update" && (
-              <p className="ui-text-label ui-color-accent font-medium mb-0.5">GLIMPSE</p>
+              <p className="ui-text-label ui-color-accent font-medium mb-0.5">FLOW</p>
             )}
-            <p className="ui-text-body ui-color-gray-200 leading-relaxed break-words">{toast.message}</p>
+            <p className="ui-text-body ui-color-gray-200 leading-relaxed break-words">
+              {toast.message}
+            </p>
             {showRetry && (
               <button
                 type="button"

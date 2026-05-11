@@ -18,10 +18,7 @@ export function useModelCatalog(enabled: boolean = true) {
 }
 
 export function useModelStatuses(models: readonly string[], enabled: boolean = true) {
-  const uniqueModels = useMemo(
-    () => Array.from(new Set(models.filter(Boolean))),
-    [models],
-  );
+  const uniqueModels = useMemo(() => Array.from(new Set(models.filter(Boolean))), [models]);
 
   const queries = useQueries({
     queries: uniqueModels.map((model) => ({
@@ -32,16 +29,13 @@ export function useModelStatuses(models: readonly string[], enabled: boolean = t
     })),
   });
 
-  const statusByModel = queries.reduce<Record<string, ModelStatus>>(
-    (acc, query, index) => {
-      const model = uniqueModels[index];
-      if (model && query.data) {
-        acc[model] = query.data;
-      }
-      return acc;
-    },
-    {},
-  );
+  const statusByModel = queries.reduce<Record<string, ModelStatus>>((acc, query, index) => {
+    const model = uniqueModels[index];
+    if (model && query.data) {
+      acc[model] = query.data;
+    }
+    return acc;
+  }, {});
 
   return {
     statusByModel,

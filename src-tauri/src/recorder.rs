@@ -107,7 +107,7 @@ impl Default for RecorderManager {
         let live_buffer_for_thread = Arc::clone(&live_buffer);
 
         std::thread::Builder::new()
-            .name("glimpse-recorder".into())
+            .name("flow-recorder".into())
             .spawn(move || {
                 let mut core = RecorderCore::new(spectrum_for_thread, live_buffer_for_thread);
                 while let Ok(cmd) = rx.recv() {

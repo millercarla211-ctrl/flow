@@ -11,7 +11,7 @@ use std::sync::OnceLock;
 
 const PBKDF2_ITERATIONS: u32 = 100_000;
 const NONCE_SIZE: usize = 12;
-const SALT: &[u8] = b"glimpse_api_key_v1";
+const SALT: &[u8] = b"flow_api_key_v1";
 
 static CACHED_KEY: OnceLock<(String, [u8; 32])> = OnceLock::new();
 

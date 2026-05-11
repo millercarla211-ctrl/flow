@@ -1,10 +1,9 @@
 [package]
-name = "Glimpse"
+name = "flow"
 version = "0.8.4"
-description = "Open-source voice-to-text productivity app built with Tauri"
-authors = ["LegendarySpy"]
+description = "Local-first voice-to-text productivity app built with Tauri"
+authors = ["essencefromexistence"]
 edition = "2021"
-repository = "https://github.com/LegendarySpy/Glimpse"
 license = "AGPL-3.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -13,11 +12,15 @@ license = "AGPL-3.0"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "glimpse_lib"
+name = "flow_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.6.0", features = [] }
+
+[features]
+default = []
+with-whisper = ["flow-speech/whisper"]
 
 [dependencies]
 tauri = { version = "2.11.0", features = ["protocol-asset", "macos-private-api", "tray-icon", "image-png"] }
@@ -41,7 +44,7 @@ dotenvy_macro = "0.15"
 posthog-rs = "0.5.3"
 arboard = "3"
 mime_guess = "2"
-glimpse-speech = { git = "https://github.com/LegendarySpy/Glimpse-Speech.git", tag = "1.2.5", features = ["whisper", "nvidia"] }
+flow-speech = { package = "glimpse-speech", git = "https://github.com/LegendarySpy/Glimpse-Speech.git", tag = "1.2.5", features = ["nvidia"] }
 uuid = { version = "1.23.1", features = ["v4"] }
 aes-gcm = "0.10"
 pbkdf2 = "0.13"

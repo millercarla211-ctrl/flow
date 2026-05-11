@@ -15,12 +15,7 @@ import {
 import DotMatrix from "../../../../shared/ui/DotMatrix";
 import { i18n } from "../../../../i18n";
 import LanguageModelPanel from "../LanguageModelPanel";
-import type {
-  DownloadEvent,
-  LlmProvider,
-  ModelInfo,
-  ModelStatus,
-} from "../../../../types";
+import type { DownloadEvent, LlmProvider, ModelInfo, ModelStatus } from "../../../../types";
 
 type ModelCategory = "speech" | "system";
 
@@ -69,7 +64,6 @@ const enginePriority = (engineId: string): number => {
   if (engineId === "nvidia") return 1;
   return 2;
 };
-
 
 type ModelsTabProps = {
   variants: Variants;
@@ -203,9 +197,7 @@ const ModelsTab = ({
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
                   className={`relative flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-[5px] ui-text-meta transition-colors ${
-                    isActive
-                      ? "ui-color-primary"
-                      : "ui-color-muted hover:text-content-primary"
+                    isActive ? "ui-color-primary" : "ui-color-muted hover:text-content-primary"
                   }`}
                 >
                   {isActive && (
@@ -304,9 +296,7 @@ const ModelsTab = ({
                               </span>
                             )}
                           </div>
-                          <p className="ui-text-label ui-color-disabled">
-                            {group.description}
-                          </p>
+                          <p className="ui-text-label ui-color-disabled">{group.description}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           {hasActiveModel && (
@@ -346,8 +336,7 @@ const ModelsTab = ({
                                   modelStatus={modelStatus[model.key]}
                                   downloadState={downloadState[model.key]}
                                   isActive={
-                                    localModel === model.key &&
-                                    modelStatus[model.key]?.installed
+                                    localModel === model.key && modelStatus[model.key]?.installed
                                   }
                                   onUse={() => setLocalModel(model.key)}
                                   onDownload={() => handleDownload(model.key)}
@@ -391,7 +380,8 @@ const ModelsTab = ({
                 <p className="mt-1 ui-text-body-sm ui-color-disabled max-w-[280px]">
                   {t({
                     id: "settings.models.system.empty_description",
-                    message: "Background processing models like speaker diarization will appear here as they become available.",
+                    message:
+                      "Background processing models like speaker diarization will appear here as they become available.",
                   })}
                 </p>
               </div>
@@ -432,21 +422,15 @@ const ModelRow = ({
   const isCancelled = progress?.status === "cancelled";
   const showError = progress?.status === "error";
   const percent = progress?.percent ?? (installed ? 100 : 0);
-  const isRecommended = model.tags.some(
-    (t) => t.toLowerCase() === "recommended",
-  );
-  const visibleTags = model.tags.filter(
-    (tag) => tag.toLowerCase() !== "recommended",
-  );
+  const isRecommended = model.tags.some((t) => t.toLowerCase() === "recommended");
+  const visibleTags = model.tags.filter((tag) => tag.toLowerCase() !== "recommended");
 
   return (
     <div className="group rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-elevated/50">
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="ui-text-body-sm-strong ui-color-primary">
-              {model.label}
-            </span>
+            <span className="ui-text-body-sm-strong ui-color-primary">{model.label}</span>
             {isRecommended && (
               <span className="ui-text-meta ui-color-local">
                 {t({
@@ -485,32 +469,19 @@ const ModelRow = ({
 
         {(isDownloading || showError || isCancelled) && (
           <div className="flex flex-col items-end justify-center mr-2 min-w-[160px]">
-            <ModelProgress
-              percent={percent}
-              status={progress?.status ?? "idle"}
-            />
+            <ModelProgress percent={percent} status={progress?.status ?? "idle"} />
             <div className="mt-1 flex h-3 w-full items-center justify-end">
               {isDownloading && (
                 <p className="ui-text-micro ui-color-disabled tabular-nums truncate max-w-[150px] text-right">
                   {progress?.percent?.toFixed(0)}% ·{" "}
-                  {
-                    (
-                      progress as Extract<
-                        DownloadEvent,
-                        { status: "downloading" }
-                      >
-                    ).file
-                  }
+                  {(progress as Extract<DownloadEvent, { status: "downloading" }>).file}
                 </p>
               )}
               {showError && (
                 <p className="ui-text-micro ui-color-error flex items-center justify-end gap-1 w-full">
                   <AlertCircle size={9} className="shrink-0" />
                   <span className="truncate">
-                    {
-                      (progress as Extract<DownloadEvent, { status: "error" }>)
-                        .message
-                    }
+                    {(progress as Extract<DownloadEvent, { status: "error" }>).message}
                   </span>
                 </p>
               )}
@@ -606,17 +577,14 @@ const ModelProgress = ({ percent, status }: ModelProgressProps) => {
   const totalDots = cols * rows;
   const activeCount = Math.round((percent / 100) * totalDots);
 
-  const activeDots = Array.from(
-    { length: Math.min(activeCount, totalDots) },
-    (_, i) => i,
-  );
+  const activeDots = Array.from({ length: Math.min(activeCount, totalDots) }, (_, i) => i);
 
   const color =
     status === "error"
       ? "var(--color-error)"
       : status === "complete"
         ? "var(--color-success)"
-        : "var(--color-cloud)";
+        : "var(--color-accent)";
 
   return (
     <DotMatrix

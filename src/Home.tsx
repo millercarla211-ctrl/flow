@@ -2,11 +2,11 @@ import { useLingui } from "@lingui/react/macro";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Settings,
+  Cog,
   ChevronLeft,
   Home as HomeIcon,
   Book,
-  Brain,
+  WandSparkles,
   User,
   Info,
   HelpCircle,
@@ -19,6 +19,8 @@ import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import SettingsModal from "./features/settings/components/SettingsModal";
 import FAQModal from "./shared/ui/FAQModal";
 import WindowControls from "./shared/ui/WindowControls";
+import { FlowLogo } from "./shared/ui/FlowLogo";
+import { FlowVoicePanel } from "./shared/ui/FlowVoicePanel";
 import { useClickOutside } from "./shared/hooks/useClickOutside";
 import TranscriptionList from "./features/transcriptions/components/TranscriptionList";
 import DictionaryView from "./features/dictionary/components/DictionaryView";
@@ -28,55 +30,6 @@ import { useCurrentUser } from "./features/auth/queries";
 import { useSettings, useAppInfo } from "./features/settings/queries";
 import { useUpdateStatus } from "./features/updates/queries";
 import type { TranscriptionMode } from "./types";
-
-const STATIC_LOGO_DOT_SIZE = 5;
-const STATIC_LOGO_GAP = 3;
-const STATIC_LOGO_DISTANCE = STATIC_LOGO_DOT_SIZE + STATIC_LOGO_GAP;
-const STATIC_LOGO_RADIUS = STATIC_LOGO_DOT_SIZE / 2;
-const STATIC_LOGO_GRID_SIZE = STATIC_LOGO_DOT_SIZE * 2 + STATIC_LOGO_GAP;
-const STATIC_LOGO_DOT_COLORS = [
-  "var(--color-cloud)",
-  "var(--color-local)",
-  "var(--color-local)",
-  "var(--color-cloud)",
-];
-const STATIC_LOGO_COORDS = [
-  { cx: STATIC_LOGO_RADIUS, cy: STATIC_LOGO_RADIUS },
-  { cx: STATIC_LOGO_RADIUS + STATIC_LOGO_DISTANCE, cy: STATIC_LOGO_RADIUS },
-  { cx: STATIC_LOGO_RADIUS, cy: STATIC_LOGO_RADIUS + STATIC_LOGO_DISTANCE },
-  {
-    cx: STATIC_LOGO_RADIUS + STATIC_LOGO_DISTANCE,
-    cy: STATIC_LOGO_RADIUS + STATIC_LOGO_DISTANCE,
-  },
-];
-
-const StaticGlimpseLogo = ({ isCloudMode }: { isCloudMode: boolean }) => {
-  return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      width={STATIC_LOGO_GRID_SIZE}
-      height={STATIC_LOGO_GRID_SIZE}
-      viewBox={`0 0 ${STATIC_LOGO_GRID_SIZE} ${STATIC_LOGO_GRID_SIZE}`}
-      style={{ overflow: "visible" }}
-    >
-      {STATIC_LOGO_COORDS.map((coord, i) => {
-        const isCloudDot = i === 0 || i === 3;
-        const isActive = isCloudMode ? isCloudDot : !isCloudDot;
-        return (
-          <circle
-            key={`dot-${i}`}
-            cx={coord.cx}
-            cy={coord.cy}
-            r={STATIC_LOGO_RADIUS}
-            fill={STATIC_LOGO_DOT_COLORS[i]}
-            opacity={isActive ? 1 : 0.15}
-          />
-        );
-      })}
-    </svg>
-  );
-};
 
 const SidebarItem = ({
   icon,
@@ -94,13 +47,9 @@ const SidebarItem = ({
   <button
     onClick={onClick}
     data-active={active ? "true" : "false"}
-    className={`ui-nav-item group h-9 pl-[17px] pr-3 mb-[2px] ${
-      collapsed ? "gap-0" : "gap-3"
-    }`}
+    className={`ui-nav-item group h-9 pl-[17px] pr-3 mb-[2px] ${collapsed ? "gap-0" : "gap-3"}`}
   >
-    <div className="flex items-center justify-center w-[18px] shrink-0">
-      {icon}
-    </div>
+    <div className="flex items-center justify-center w-[18px] shrink-0">{icon}</div>
     <span
       style={{ width: collapsed ? 0 : "auto", opacity: collapsed ? 0 : 1 }}
       className={`ui-text-nav-item whitespace-nowrap overflow-hidden transition-[width,opacity] duration-200 ease-out ${
@@ -119,18 +68,14 @@ const Home = () => {
     "general" | "account" | "models" | "about" | "app"
   >("general");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
-  const [activeView, setActiveView] = useState<
-    "home" | "dictionary" | "brain" | "library"
-  >("home");
+  const [activeView, setActiveView] = useState<"home" | "dictionary" | "brain" | "library">("home");
   const { user: currentUser, refresh: refreshUser } = useCurrentUser();
   const [showSupportPopup, setShowSupportPopup] = useState(false);
   const [showFAQ, setShowFAQ] = useState(false);
   const supportMenuRef = useRef<HTMLDivElement>(null);
 
   const [dragActive, setDragActive] = useState(false);
-  const [pendingImportPaths, setPendingImportPaths] = useState<string[] | null>(
-    null,
-  );
+  const [pendingImportPaths, setPendingImportPaths] = useState<string[] | null>(null);
 
   const { data: settings } = useSettings();
   const { data: updateStatus } = useUpdateStatus();
@@ -143,9 +88,7 @@ const Home = () => {
 
   const sidebarWidth = isSidebarCollapsed ? 68 : 200;
   const currentUserAvatar =
-    currentUser && typeof currentUser.prefs.avatar === "string"
-      ? currentUser.prefs.avatar
-      : null;
+    currentUser && typeof currentUser.prefs.avatar === "string" ? currentUser.prefs.avatar : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -244,11 +187,7 @@ const Home = () => {
     };
   }, []);
 
-  useClickOutside(
-    supportMenuRef,
-    () => setShowSupportPopup(false),
-    showSupportPopup,
-  );
+  useClickOutside(supportMenuRef, () => setShowSupportPopup(false), showSupportPopup);
 
   useEffect(() => {
     const handleCopy = (event: KeyboardEvent) => {
@@ -258,9 +197,7 @@ const Home = () => {
       const active = document.activeElement as HTMLElement | null;
       if (
         active &&
-        (active.tagName === "INPUT" ||
-          active.tagName === "TEXTAREA" ||
-          active.isContentEditable)
+        (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)
       ) {
         return;
       }
@@ -327,16 +264,16 @@ const Home = () => {
             className={`flex items-center h-6 pl-[17px] pr-3 ${isSidebarCollapsed ? "gap-0" : "gap-3"}`}
           >
             <div className="flex items-center justify-center w-[18px] shrink-0">
-              <StaticGlimpseLogo isCloudMode={isCloudMode} />
+              <FlowLogo size="sm" />
             </div>
             <span
               style={{
                 width: isSidebarCollapsed ? 0 : "auto",
                 opacity: isSidebarCollapsed ? 0 : 1,
               }}
-              className="ui-text-nav-brand ui-color-primary whitespace-nowrap overflow-hidden transition-[width,opacity] duration-200 ease-out"
+              className="flow-brand-word ui-text-nav-brand ui-color-primary whitespace-nowrap overflow-hidden transition-[width,opacity] duration-200 ease-out"
             >
-              Glimpse
+              Flow
             </span>
           </div>
         </div>
@@ -364,7 +301,7 @@ const Home = () => {
               onClick={() => setActiveView("dictionary")}
             />
             <SidebarItem
-              icon={<Brain size={18} />}
+              icon={<WandSparkles size={18} />}
               label={t({
                 id: "home.sidebar.personalization",
                 message: "Personalization",
@@ -476,10 +413,7 @@ const Home = () => {
                       }}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-elevated transition-colors group w-full text-left"
                     >
-                      <HelpCircle
-                        size={16}
-                        style={{ color: "var(--color-support-help)" }}
-                      />
+                      <HelpCircle size={16} style={{ color: "var(--color-support-help)" }} />
                       <div>
                         <div className="ui-text-body-sm-strong ui-color-primary">
                           {t({
@@ -496,7 +430,7 @@ const Home = () => {
                       </div>
                     </button>
                     <a
-                      href="https://github.com/LegendarySpy/Glimpse/issues/new/choose"
+                      href="https://github.com/essencefromexistence/flow/issues/new/choose"
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => setShowSupportPopup(false)}
@@ -526,10 +460,7 @@ const Home = () => {
                       }}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-elevated transition-colors group w-full text-left"
                     >
-                      <Info
-                        size={16}
-                        style={{ color: "var(--color-support-info)" }}
-                      />
+                      <Info size={16} style={{ color: "var(--color-support-info)" }} />
                       <div>
                         <div className="ui-text-body-sm-strong ui-color-primary">
                           {t({
@@ -579,7 +510,7 @@ const Home = () => {
           )}
 
           <SidebarItem
-            icon={<Settings size={18} />}
+            icon={<Cog size={18} />}
             label={t({
               id: "home.sidebar.settings",
               message: "Settings",
@@ -603,11 +534,7 @@ const Home = () => {
           >
             <div className="w-6 h-6 rounded-full bg-surface-elevated border border-border-secondary flex items-center justify-center overflow-hidden">
               {currentUserAvatar ? (
-                <img
-                  src={currentUserAvatar}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
+                <img src={currentUserAvatar} alt="" className="w-full h-full object-cover" />
               ) : (
                 <User size={14} className="text-content-muted" />
               )}
@@ -630,6 +557,8 @@ const Home = () => {
             <h1 className="ui-text-display font-normal ui-color-primary tracking-tight mb-8 shrink-0">
               {getGreeting()}
             </h1>
+
+            <FlowVoicePanel modeLabel={currentModeLabel} />
 
             <TranscriptionList
               showLlmButtons={showCleanupButtons}

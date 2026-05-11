@@ -4,15 +4,14 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
-use glimpse_speech::engines::nemotron::NemotronEngine;
+use flow_speech::engines::nemotron::NemotronEngine;
 #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
-use glimpse_speech::engines::parakeet::{
+use flow_speech::engines::parakeet::{
     ParakeetEngine, ParakeetInferenceParams, ParakeetModelParams, TimestampGranularity,
 };
-use glimpse_speech::{
-    engines::whisper::{WhisperEngine, WhisperInferenceParams},
-    TranscriptionEngine, TranscriptionResult, TranscriptionSegment,
-};
+#[cfg(feature = "with-whisper")]
+use flow_speech::engines::whisper::{WhisperEngine, WhisperInferenceParams};
+use flow_speech::{TranscriptionEngine, TranscriptionResult, TranscriptionSegment};
 use parking_lot::{Condvar, Mutex};
 
 use crate::{
@@ -42,16 +41,11 @@ struct LoadedEngine {
 
 enum EngineInstance {
     #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
-    Nemotron {
-        engine: Box<NemotronEngine>,
-    },
+    Nemotron { engine: Box<NemotronEngine> },
     #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
-    Parakeet {
-        engine: Box<ParakeetEngine>,
-    },
-    Whisper {
-        engine: Box<WhisperEngine>,
-    },
+    Parakeet { engine: Box<ParakeetEngine> },
+    #[cfg(feature = "with-whisper")]
+    Whisper { engine: Box<WhisperEngine> },
 }
 
 struct PreparedAudio {
@@ -151,6 +145,7 @@ impl LocalTranscriber {
             EngineInstance::Parakeet { engine, .. } => engine
                 .transcribe_samples(silence, None)
                 .map_err(|err| anyhow!("Parakeet warmup failed: {err}")),
+            #[cfg(feature = "with-whisper")]
             EngineInstance::Whisper { engine } => engine
                 .transcribe_samples(silence, None)
                 .map_err(|err| anyhow!("Whisper warmup failed: {err}")),
@@ -240,6 +235,7 @@ impl LocalTranscriber {
                     .transcribe_samples(prepared.data.clone(), params)
                     .map_err(|err| anyhow!("Parakeet transcription failed: {err}"))?
             }
+            #[cfg(feature = "with-whisper")]
             EngineInstance::Whisper { engine } => {
                 let params = if !dictionary.is_empty() || language.is_some() {
                     Some(WhisperInferenceParams {
@@ -307,12 +303,22 @@ impl LocalTranscriber {
                 }
             }
             LocalModelEngine::Whisper => {
-                let mut engine = WhisperEngine::new();
-                engine
-                    .load_model(model.path.as_path())
-                    .map_err(|err| anyhow!("Failed to load Whisper model: {err}"))?;
-                EngineInstance::Whisper {
-                    engine: Box::new(engine),
+                #[cfg(feature = "with-whisper")]
+                {
+                    let mut engine = WhisperEngine::new();
+                    engine
+                        .load_model(model.path.as_path())
+                        .map_err(|err| anyhow!("Failed to load Whisper model: {err}"))?;
+                    EngineInstance::Whisper {
+                        engine: Box::new(engine),
+                    }
+                }
+
+                #[cfg(not(feature = "with-whisper"))]
+                {
+                    return Err(anyhow!(
+                        "Whisper is disabled in this no-Vulkan lab build; use Parakeet or Nemotron"
+                    ));
                 }
             }
         };

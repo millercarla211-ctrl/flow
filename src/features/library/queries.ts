@@ -1,9 +1,4 @@
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import * as libraryApi from "./api";
@@ -23,8 +18,7 @@ const PAGE_SIZE = 30;
 
 export const libraryKeys = {
   all: ["library"] as const,
-  list: (filter: LibraryFilter) =>
-    [...libraryKeys.all, "list", filter] as const,
+  list: (filter: LibraryFilter) => [...libraryKeys.all, "list", filter] as const,
   tags: () => [...libraryKeys.all, "tags"] as const,
 };
 
@@ -36,27 +30,19 @@ function patchItemInCache(
   id: string,
   updater: (item: LibraryItem) => LibraryItem,
 ) {
-  queryClient.setQueryData<LibraryInfiniteData>(
-    libraryKeys.list(filter),
-    (old) => {
-      if (!old) return old;
-      return {
-        ...old,
-        pages: old.pages.map((page) => ({
-          ...page,
-          items: page.items.map((item) =>
-            item.id === id ? updater(item) : item,
-          ),
-        })),
-      };
-    },
-  );
+  queryClient.setQueryData<LibraryInfiniteData>(libraryKeys.list(filter), (old) => {
+    if (!old) return old;
+    return {
+      ...old,
+      pages: old.pages.map((page) => ({
+        ...page,
+        items: page.items.map((item) => (item.id === id ? updater(item) : item)),
+      })),
+    };
+  });
 }
 
-export function useLibraryItems(
-  filter: LibraryFilter = {},
-  enabled: boolean = true,
-) {
+export function useLibraryItems(filter: LibraryFilter = {}, enabled: boolean = true) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -66,57 +52,46 @@ export function useLibraryItems(
     const unlisteners: UnlistenFn[] = [];
 
     const isProgressable = (status: LibraryItemStatus) =>
-      status.type === "pending" ||
-      status.type === "importing" ||
-      status.type === "transcribing";
+      status.type === "pending" || status.type === "importing" || status.type === "transcribing";
 
-    listen<LibraryProgressPayload>(
-      "library:transcription_progress",
-      (event) => {
-        if (cancelled) return;
-        const {
-          id,
-          progress,
-          chunk_text,
-          chunk_segments,
-          current_chunk,
-          total_chunks,
-        } = event.payload;
-        patchItemInCache(queryClient, filter, id, (item) => {
-          if (!isProgressable(item.status)) return item;
-          let nextTranscript = item.transcript;
-          let updateTranscript = false;
-          const isReset = current_chunk === 0 && total_chunks === 0;
-          if (isReset) {
-            nextTranscript = "";
-            updateTranscript = true;
-          }
-          if (chunk_text && chunk_text.trim().length > 0) {
-            const base = isReset ? "" : (item.transcript ?? "");
-            const separator = base.trim().length > 0 ? " " : "";
-            nextTranscript = `${base}${separator}${chunk_text}`;
-            updateTranscript = true;
-          }
-          let nextSegments = item.segments;
-          let updateSegments = false;
-          if (isReset) {
-            nextSegments = [];
-            updateSegments = true;
-          }
-          if (chunk_segments && chunk_segments.length > 0) {
-            const base = isReset ? [] : (item.segments ?? []);
-            nextSegments = [...base, ...chunk_segments];
-            updateSegments = true;
-          }
-          return {
-            ...item,
-            status: { type: "transcribing" as const, progress },
-            ...(updateTranscript ? { transcript: nextTranscript } : {}),
-            ...(updateSegments ? { segments: nextSegments } : {}),
-          };
-        });
-      },
-    ).then((fn) => {
+    listen<LibraryProgressPayload>("library:transcription_progress", (event) => {
+      if (cancelled) return;
+      const { id, progress, chunk_text, chunk_segments, current_chunk, total_chunks } =
+        event.payload;
+      patchItemInCache(queryClient, filter, id, (item) => {
+        if (!isProgressable(item.status)) return item;
+        let nextTranscript = item.transcript;
+        let updateTranscript = false;
+        const isReset = current_chunk === 0 && total_chunks === 0;
+        if (isReset) {
+          nextTranscript = "";
+          updateTranscript = true;
+        }
+        if (chunk_text && chunk_text.trim().length > 0) {
+          const base = isReset ? "" : (item.transcript ?? "");
+          const separator = base.trim().length > 0 ? " " : "";
+          nextTranscript = `${base}${separator}${chunk_text}`;
+          updateTranscript = true;
+        }
+        let nextSegments = item.segments;
+        let updateSegments = false;
+        if (isReset) {
+          nextSegments = [];
+          updateSegments = true;
+        }
+        if (chunk_segments && chunk_segments.length > 0) {
+          const base = isReset ? [] : (item.segments ?? []);
+          nextSegments = [...base, ...chunk_segments];
+          updateSegments = true;
+        }
+        return {
+          ...item,
+          status: { type: "transcribing" as const, progress },
+          ...(updateTranscript ? { transcript: nextTranscript } : {}),
+          ...(updateSegments ? { segments: nextSegments } : {}),
+        };
+      });
+    }).then((fn) => {
       if (cancelled) fn();
       else unlisteners.push(fn);
     });
@@ -138,45 +113,38 @@ export function useLibraryItems(
       else unlisteners.push(fn);
     });
 
-    listen<{ id: string; message: string }>(
-      "library:transcription_error",
-      (event) => {
-        if (cancelled) return;
-        const { id, message } = event.payload;
-        const isCancelledMsg =
-          message.toLowerCase().includes("cancelled") ||
-          message.toLowerCase().includes("canceled");
-        patchItemInCache(queryClient, filter, id, (item) => ({
-          ...item,
-          status: isCancelledMsg
-            ? { type: "cancelled" as const }
-            : { type: "error" as const, message },
-        }));
-        queryClient.invalidateQueries({ queryKey: libraryKeys.all });
-      },
-    ).then((fn) => {
+    listen<{ id: string; message: string }>("library:transcription_error", (event) => {
+      if (cancelled) return;
+      const { id, message } = event.payload;
+      const isCancelledMsg =
+        message.toLowerCase().includes("cancelled") || message.toLowerCase().includes("canceled");
+      patchItemInCache(queryClient, filter, id, (item) => ({
+        ...item,
+        status: isCancelledMsg
+          ? { type: "cancelled" as const }
+          : { type: "error" as const, message },
+      }));
+      queryClient.invalidateQueries({ queryKey: libraryKeys.all });
+    }).then((fn) => {
       if (cancelled) fn();
       else unlisteners.push(fn);
     });
 
-    listen<LibraryImportProgressPayload>(
-      "library:import_progress",
-      (event) => {
-        if (cancelled) return;
-        const { id, progress } = event.payload;
-        patchItemInCache(queryClient, filter, id, (item) => {
-          if (
-            item.status.type === "transcribing" ||
-            item.status.type === "complete" ||
-            item.status.type === "cancelling" ||
-            item.status.type === "cancelled"
-          ) {
-            return item;
-          }
-          return { ...item, status: { type: "importing" as const, progress } };
-        });
-      },
-    ).then((fn) => {
+    listen<LibraryImportProgressPayload>("library:import_progress", (event) => {
+      if (cancelled) return;
+      const { id, progress } = event.payload;
+      patchItemInCache(queryClient, filter, id, (item) => {
+        if (
+          item.status.type === "transcribing" ||
+          item.status.type === "complete" ||
+          item.status.type === "cancelling" ||
+          item.status.type === "cancelled"
+        ) {
+          return item;
+        }
+        return { ...item, status: { type: "importing" as const, progress } };
+      });
+    }).then((fn) => {
       if (cancelled) fn();
       else unlisteners.push(fn);
     });
@@ -189,8 +157,7 @@ export function useLibraryItems(
 
   return useInfiniteQuery({
     queryKey: libraryKeys.list(filter),
-    queryFn: ({ pageParam = 0 }) =>
-      libraryApi.getLibraryItemsPage(filter, PAGE_SIZE, pageParam),
+    queryFn: ({ pageParam = 0 }) => libraryApi.getLibraryItemsPage(filter, PAGE_SIZE, pageParam),
     enabled,
     gcTime: 60_000,
     initialPageParam: 0,
@@ -205,13 +172,8 @@ export function useCreateLibraryItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      path,
-      options,
-    }: {
-      path: string;
-      options: LibraryImportOptions;
-    }) => libraryApi.createLibraryItem(path, options),
+    mutationFn: ({ path, options }: { path: string; options: LibraryImportOptions }) =>
+      libraryApi.createLibraryItem(path, options),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: libraryKeys.all });
     },

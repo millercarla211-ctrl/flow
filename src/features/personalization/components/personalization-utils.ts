@@ -11,19 +11,14 @@ export type WebsiteIcon = {
 
 export const MAX_INSTRUCTIONS_CHARS = 3000;
 export const DEFAULT_INSTRUCTIONS_HEIGHT = 128;
-const MIN_INSTRUCTIONS_HEIGHT = Math.round(
-  DEFAULT_INSTRUCTIONS_HEIGHT * 0.8,
-);
-const MAX_INSTRUCTIONS_HEIGHT = Math.round(
-  DEFAULT_INSTRUCTIONS_HEIGHT * 2.5,
-);
+const MIN_INSTRUCTIONS_HEIGHT = Math.round(DEFAULT_INSTRUCTIONS_HEIGHT * 0.8);
+const MAX_INSTRUCTIONS_HEIGHT = Math.round(DEFAULT_INSTRUCTIONS_HEIGHT * 2.5);
 
 export const normalizeEntry = (value: string) => value.trim();
 
 const toCodePoints = (value: string) => Array.from(value);
 
-export const countInstructionsChars = (value: string) =>
-  toCodePoints(value).length;
+export const countInstructionsChars = (value: string) => toCodePoints(value).length;
 
 export const clampInstructionsText = (value: string) => {
   const codePoints = toCodePoints(value);
@@ -69,10 +64,7 @@ export const isValidDomain = (value: string) => {
 };
 
 export const createId = () => {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
   return `mode-${Date.now()}-${Math.random().toString(16).slice(2)}`;

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use crate::{platform, AppRuntime};
 
@@ -54,7 +54,7 @@ fn normalize_website_domain(value: &str) -> Option<String> {
 }
 
 pub(crate) fn app_icon_cache_dir(app: &AppHandle<AppRuntime>) -> Option<PathBuf> {
-    let mut dir = app.path().app_data_dir().ok()?;
+    let mut dir = crate::app_paths::app_data_dir(app).ok()?;
     dir.push("local");
     dir.push("cache");
     dir.push("appicons");
@@ -63,7 +63,7 @@ pub(crate) fn app_icon_cache_dir(app: &AppHandle<AppRuntime>) -> Option<PathBuf>
 }
 
 pub(crate) fn website_icon_cache_dir(app: &AppHandle<AppRuntime>) -> Option<PathBuf> {
-    let mut dir = app.path().app_data_dir().ok()?;
+    let mut dir = crate::app_paths::app_data_dir(app).ok()?;
     dir.push("local");
     dir.push("cache");
     dir.push("siteicons");

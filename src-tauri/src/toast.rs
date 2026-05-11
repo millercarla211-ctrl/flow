@@ -169,7 +169,7 @@ pub fn show_celebration_toast(app: AppHandle<AppRuntime>) {
         Payload {
             toast_type: "celebration".to_string(),
             title: Some("Upgrade Complete!".to_string()),
-            message: "Welcome to Glimpse Cloud!".to_string(),
+            message: "Welcome to Flow Cloud!".to_string(),
             auto_dismiss: Some(true),
             duration: Some(6000),
             retry_id: None,

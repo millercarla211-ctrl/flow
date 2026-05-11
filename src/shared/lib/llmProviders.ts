@@ -125,15 +125,9 @@ const LLM_PROVIDER_PRESETS: LlmProviderPreset[] = [
   },
 ];
 
-export const LOCAL_PROVIDERS = LLM_PROVIDER_PRESETS.filter(
-  (p) => !p.apiKeyRequired,
-);
-export const CLOUD_PROVIDERS = LLM_PROVIDER_PRESETS.filter(
-  (p) => p.apiKeyRequired,
-);
+export const LOCAL_PROVIDERS = LLM_PROVIDER_PRESETS.filter((p) => !p.apiKeyRequired);
+export const CLOUD_PROVIDERS = LLM_PROVIDER_PRESETS.filter((p) => p.apiKeyRequired);
 
-export function getProviderPreset(
-  id: LlmProvider,
-): LlmProviderPreset | undefined {
+export function getProviderPreset(id: LlmProvider): LlmProviderPreset | undefined {
   return LLM_PROVIDER_PRESETS.find((p) => p.id === id);
 }

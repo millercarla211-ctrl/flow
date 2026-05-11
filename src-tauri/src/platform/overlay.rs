@@ -31,6 +31,7 @@ pub fn show(app: &AppHandle<AppRuntime>, overlay_window: &WebviewWindow<AppRunti
     }
 }
 
+#[allow(dead_code)]
 pub fn hide(app: &AppHandle<AppRuntime>, overlay_window: &WebviewWindow<AppRuntime>) {
     #[cfg(target_os = "windows")]
     let _ = app;

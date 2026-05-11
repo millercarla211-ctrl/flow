@@ -34,9 +34,7 @@ const ToggleSwitch = ({
 }: ToggleSwitchProps) => {
   const config = sizeConfig[size];
 
-  const thumbOffset = enabled
-    ? config.trackWidth - config.thumbSize - config.padding * 2
-    : 0;
+  const thumbOffset = enabled ? config.trackWidth - config.thumbSize - config.padding * 2 : 0;
 
   return (
     <button

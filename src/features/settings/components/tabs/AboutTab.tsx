@@ -13,13 +13,7 @@ type AboutTabProps = {
   onOpenFAQ: () => void;
 };
 
-const AboutTab = ({
-  variants,
-  appInfo,
-  formatBytes,
-  onOpenDataDir,
-  onOpenFAQ,
-}: AboutTabProps) => {
+const AboutTab = ({ variants, appInfo, formatBytes, onOpenDataDir, onOpenFAQ }: AboutTabProps) => {
   const { t } = useLingui();
 
   return (

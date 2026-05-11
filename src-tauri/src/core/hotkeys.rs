@@ -265,7 +265,7 @@ fn normalize_legacy_shortcut_input(shortcut: &str) -> String {
             "rightalt" | "rightoption" => "OptRight".to_string(),
             "leftshift" => "ShiftLeft".to_string(),
             "rightshift" => "ShiftRight".to_string(),
-            // Glimpse historically stored `Delete` for the forward-delete key.
+            // Older builds stored `Delete` for the forward-delete key.
             "delete" => "ForwardDelete".to_string(),
             "arrowleft" => "Left".to_string(),
             "arrowright" => "Right".to_string(),

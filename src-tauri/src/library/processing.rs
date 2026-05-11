@@ -13,7 +13,7 @@ use symphonia::core::{
     audio::SampleBuffer, codecs::DecoderOptions, errors::Error as SymphoniaError,
     formats::FormatOptions, io::MediaSourceStream, meta::MetadataOptions, probe::Hint,
 };
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -255,10 +255,7 @@ fn sanitize_folder_name(value: &str) -> String {
 }
 
 pub(crate) fn library_root(app: &AppHandle<AppRuntime>) -> Result<PathBuf> {
-    let mut dir = app
-        .path()
-        .app_data_dir()
-        .context("App data directory not found")?;
+    let mut dir = crate::app_paths::app_data_dir(app).context("App data directory not found")?;
     dir.push("library");
     Ok(dir)
 }
@@ -1135,7 +1132,7 @@ fn wav_duration_seconds(path: &Path) -> Result<f32> {
 }
 
 pub(crate) fn convert_segments_to_ms(
-    segments: &[glimpse_speech::TranscriptionSegment],
+    segments: &[flow_speech::TranscriptionSegment],
 ) -> Vec<TranscriptSegment> {
     segments
         .iter()

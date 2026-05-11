@@ -1,11 +1,5 @@
 import { msg } from "@lingui/core/macro";
-import {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -41,8 +35,7 @@ import type {
   AppLocaleSetting,
 } from "../../types";
 
-
-const TEXT_SIZE_MODE_STORAGE_KEY = "glimpse_text_size_mode";
+const TEXT_SIZE_MODE_STORAGE_KEY = "flow_text_size_mode";
 
 type ActiveTab = "general" | "models" | "about" | "account" | "app";
 
@@ -75,17 +68,11 @@ export function useSettingsForm({
   const [microphoneDevice, setMicrophoneDevice] = useState<string | null>(null);
   const [language, setLanguage] = useState("en");
   const [appLocale, setAppLocale] = useState<AppLocaleSetting>("system");
-  const [modelStatus, setModelStatus] = useState<Record<string, ModelStatus>>(
-    {},
-  );
-  const [downloadState, setDownloadState] = useState<
-    Record<string, DownloadEvent>
-  >({});
+  const [modelStatus, setModelStatus] = useState<Record<string, ModelStatus>>({});
+  const [downloadState, setDownloadState] = useState<Record<string, DownloadEvent>>({});
   const [error, setError] = useState<string | null>(null);
   const [errorCopied, setErrorCopied] = useState(false);
-  const [captureActive, setCaptureActive] = useState<
-    "smart" | "hold" | "toggle" | null
-  >(null);
+  const [captureActive, setCaptureActive] = useState<"smart" | "hold" | "toggle" | null>(null);
   const [capturePreview, setCapturePreview] = useState<string>("");
   const captureActiveRef = useRef<"smart" | "hold" | "toggle" | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("general");
@@ -100,8 +87,7 @@ export function useSettingsForm({
   const [mediaControlEnabled, setMediaControlEnabled] = useState(false);
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(false);
   const [autoLaunchEnabled, setAutoLaunchEnabled] = useState(false);
-  const [recordingPrunePolicy, setRecordingPrunePolicy] =
-    useState<RecordingPrunePolicy>("never");
+  const [recordingPrunePolicy, setRecordingPrunePolicy] = useState<RecordingPrunePolicy>("never");
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [textSizeMode, setTextSizeModeRaw] = useState<TextSizeMode>(() =>
     parseTextSizeMode(localStorage.getItem(TEXT_SIZE_MODE_STORAGE_KEY)),
@@ -110,12 +96,8 @@ export function useSettingsForm({
   const [authLoading, setAuthLoading] = useState(false);
   const [showFAQModal, setShowFAQModal] = useState(false);
   const [micPermission, setMicPermission] = useState<boolean | null>(null);
-  const [accessibilityPermission, setAccessibilityPermission] = useState<
-    boolean | null
-  >(null);
-  const [inputMonitoringPermission, setInputMonitoringPermission] = useState<
-    boolean | null
-  >(null);
+  const [accessibilityPermission, setAccessibilityPermission] = useState<boolean | null>(null);
+  const [inputMonitoringPermission, setInputMonitoringPermission] = useState<boolean | null>(null);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const didHydrateRef = useRef(false);
   const settingsQuery = useSettings(undefined, isOpen);
@@ -134,7 +116,7 @@ export function useSettingsForm({
       appInfoQuery.isLoading);
 
   const [cloudSyncEnabled, setCloudSyncEnabledRaw] = useState(() => {
-    const stored = localStorage.getItem("glimpse_cloud_sync_enabled");
+    const stored = localStorage.getItem("flow_cloud_sync_enabled");
     return stored !== null ? stored === "true" : false;
   });
 
@@ -159,7 +141,7 @@ export function useSettingsForm({
 
   const setCloudSyncEnabled = useCallback((value: boolean) => {
     setCloudSyncEnabledRaw(value);
-    localStorage.setItem("glimpse_cloud_sync_enabled", String(value));
+    localStorage.setItem("flow_cloud_sync_enabled", String(value));
     emit("auth:changed").catch(() => {});
   }, []);
 
@@ -230,17 +212,11 @@ export function useSettingsForm({
     [modelCatalog],
   );
   const visibleTranscriptionEngines: TranscriptionEngineId[] = useMemo(() => {
-    if (installedTranscriptionEngines.length > 0)
-      return installedTranscriptionEngines;
+    if (installedTranscriptionEngines.length > 0) return installedTranscriptionEngines;
     if (activeTranscriptionEngine) return [activeTranscriptionEngine];
-    if (catalogTranscriptionEngines.length > 0)
-      return [catalogTranscriptionEngines[0]];
+    if (catalogTranscriptionEngines.length > 0) return [catalogTranscriptionEngines[0]];
     return [];
-  }, [
-    installedTranscriptionEngines,
-    activeTranscriptionEngine,
-    catalogTranscriptionEngines,
-  ]);
+  }, [installedTranscriptionEngines, activeTranscriptionEngine, catalogTranscriptionEngines]);
   const showLanguageSupportBadges = installedTranscriptionEngines.length > 1;
   const autoTranscriptionLanguageLabel = i18n._(
     msg({
@@ -266,15 +242,12 @@ export function useSettingsForm({
   const displayedLanguage = language;
   const displayedLanguageOptions = languageView.options;
 
-  const llmProviderPreset = useMemo(
-    () => getProviderPreset(llmProvider),
-    [llmProvider],
-  );
+  const llmProviderPreset = useMemo(() => getProviderPreset(llmProvider), [llmProvider]);
   const llmConfigReady = Boolean(
     llmProviderPreset &&
-      (llmProvider !== "custom" || llmEndpoint.trim()) &&
-      (!llmProviderPreset.apiKeyRequired || llmApiKey.trim()) &&
-      llmModel.trim(),
+    (llmProvider !== "custom" || llmEndpoint.trim()) &&
+    (!llmProviderPreset.apiKeyRequired || llmApiKey.trim()) &&
+    llmModel.trim(),
   );
   const aiFeaturesReady = llmEnabled && llmConfigReady;
 
@@ -482,9 +455,7 @@ export function useSettingsForm({
     }
 
     setLocalModel((current) =>
-      modelCatalog.some((model) => model.key === current)
-        ? current
-        : (modelCatalog[0]?.key ?? ""),
+      modelCatalog.some((model) => model.key === current) ? current : (modelCatalog[0]?.key ?? ""),
     );
   }, [isOpen, modelCatalog, refreshModelStatus]);
 
@@ -803,9 +774,7 @@ export function useSettingsForm({
     const sizes = ["B", "KB", "MB", "GB", "TB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     const decimals = i >= 3 ? 1 : 0;
-    return (
-      parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + " " + sizes[i]
-    );
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + " " + sizes[i];
   }, []);
 
   return {
@@ -838,7 +807,6 @@ export function useSettingsForm({
     languages: displayedLanguageOptions,
     languageBadgeColumns: languageView.badgeColumns,
     showLanguageSupportBadges,
-
 
     inputDevices,
     modelCatalog,

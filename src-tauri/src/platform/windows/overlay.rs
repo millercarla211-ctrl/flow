@@ -5,11 +5,11 @@ use windows::Win32::Foundation::{GetLastError, SetLastError, HWND, WIN32_ERROR};
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, HWND_TOPMOST,
     SWP_FRAMECHANGED, SWP_HIDEWINDOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
-    SW_SHOWNOACTIVATE, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    SW_SHOWNOACTIVATE, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
 };
 
 pub fn init(overlay_window: &WebviewWindow<AppRuntime>) -> Result<()> {
-    overlay_window.set_ignore_cursor_events(true)?;
+    overlay_window.set_ignore_cursor_events(false)?;
     configure_overlay_window(overlay_window)?;
     Ok(())
 }
@@ -35,6 +35,7 @@ pub fn show(overlay_window: &WebviewWindow<AppRuntime>) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn hide(overlay_window: &WebviewWindow<AppRuntime>) -> Result<()> {
     let hwnd = native_hwnd(overlay_window)?;
 
@@ -70,8 +71,7 @@ fn configure_overlay_window(overlay_window: &WebviewWindow<AppRuntime>) -> Resul
             }
         }
         let current = current as u32;
-        let next = (current | WS_EX_NOACTIVATE.0 | WS_EX_TOOLWINDOW.0 | WS_EX_TRANSPARENT.0)
-            & !WS_EX_APPWINDOW.0;
+        let next = (current | WS_EX_NOACTIVATE.0 | WS_EX_TOOLWINDOW.0) & !WS_EX_APPWINDOW.0;
 
         if next != current {
             SetLastError(WIN32_ERROR(0));

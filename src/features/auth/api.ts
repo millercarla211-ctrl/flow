@@ -63,10 +63,7 @@ export async function updateName(_name: string): Promise<User> {
   throw cloudDisabledError();
 }
 
-export async function updatePassword(
-  _newPassword: string,
-  _oldPassword: string,
-): Promise<User> {
+export async function updatePassword(_newPassword: string, _oldPassword: string): Promise<User> {
   throw cloudDisabledError();
 }
 
@@ -85,7 +82,7 @@ export type CloudUsageStats = {
   cloud_transcriptions_this_month: number;
 };
 
-const USAGE_CACHE_KEY = "glimpse_cloud_usage_cache";
+const USAGE_CACHE_KEY = "flow_cloud_usage_cache";
 
 const EMPTY_USAGE: CloudUsageStats = {
   cloud_minutes_this_month: 0,
@@ -125,9 +122,7 @@ export function getCachedUsageStats(userId: string): CloudUsageStats | null {
   }
 }
 
-export async function getCloudUsageStats(
-  userId: string,
-): Promise<CloudUsageStats> {
+export async function getCloudUsageStats(userId: string): Promise<CloudUsageStats> {
   const stats = getCachedUsageStats(userId) ?? EMPTY_USAGE;
   setCachedUsageStats(userId, stats);
   return stats;

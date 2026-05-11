@@ -416,7 +416,7 @@ msgstr ""
 #. js-lingui-explicit-id
 #: src/shared/ui/FAQModal.tsx
 #~ msgid "faq.cloud.question"
-#~ msgstr "What's Glimpse Cloud?"
+#~ msgstr "What's Flow Cloud?"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
@@ -662,7 +662,7 @@ msgstr "Add custom instructions"
 #. js-lingui-explicit-id
 #: src/features/dictionary/components/DictionaryView.tsx
 msgid "dictionary.section.dictionary_description"
-msgstr "Add custom words Glimpse should recognize."
+msgstr "Add custom words Flow should recognize."
 
 #. js-lingui-explicit-id
 #: src/features/dictionary/components/DictionaryView.tsx
@@ -1087,7 +1087,7 @@ msgstr "Common questions"
 #. js-lingui-explicit-id
 #: src/shared/ui/FAQModal.tsx
 msgid "faq.subtitle"
-msgstr "Common questions about Glimpse"
+msgstr "Common questions about Flow"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
@@ -1753,42 +1753,42 @@ msgstr "GitHub may be temporarily unavailable. Check your connection and try aga
 #. js-lingui-explicit-id
 #: src/shared/ui/FAQModal.tsx
 msgid "faq.brand"
-msgstr "Glimpse"
+msgstr "Flow"
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/OnboardingScreen.tsx
 msgid "onboarding.brand"
-msgstr "Glimpse"
+msgstr "Flow"
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/AccessibilityStep.tsx
 msgid "onboarding.accessibility.app_name"
-msgstr "Glimpse"
+msgstr "Flow"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AccountTab.tsx
 msgid "settings.account.cloud.title"
-msgstr "Glimpse Cloud"
+msgstr "Flow Cloud"
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/ModelSelectionStep.tsx
 msgid "onboarding.models.unavailable_body"
-msgstr "Glimpse couldn't load the local model list. Setup can continue with the default local engine, and you can manage downloads later in Settings."
+msgstr "Flow couldn't load the local model list. Setup can continue with the default local engine, and you can manage downloads later in Settings."
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/ReadyStep.tsx
 msgid "onboarding.ready.analytics_notice"
-msgstr "Glimpse sends anonymous usage analytics to help improve the app. You can disable this anytime in Settings -> App."
+msgstr "Flow sends anonymous usage analytics to help improve the app. You can disable this anytime in Settings -> App."
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
 msgid "settings.account.name.default"
-msgstr "Glimpse User"
+msgstr "Flow User"
 
 #. js-lingui-explicit-id
 #: src/shared/ui/FAQModal.tsx
 msgid "faq.free.answer"
-msgstr "Glimpse uses on-device OSS AI models for transcription, so there are no ongoing costs for the core experience."
+msgstr "Flow uses on-device OSS AI models for transcription, so there are no ongoing costs for the core experience."
 
 #. js-lingui-explicit-id
 #: src/Home.tsx
@@ -1843,7 +1843,7 @@ msgstr "Home"
 #. js-lingui-explicit-id
 #: src/shared/ui/FAQModal.tsx
 msgid "faq.free.question"
-msgstr "How is Glimpse free?"
+msgstr "How is Flow free?"
 
 #. js-lingui-explicit-id
 #: src/shared/ui/FAQModal.tsx
@@ -3108,7 +3108,7 @@ msgstr "starting..."
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
 msgid "settings.app.auto_launch.body"
-msgstr "starts Glimpse automatically when you sign in."
+msgstr "starts Flow automatically when you sign in."
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/ModelSelectionStep.tsx
@@ -3524,7 +3524,7 @@ msgstr "Yesterday"
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/SigninStep.tsx
 msgid "onboarding.signin.body"
-msgstr "You can keep using Glimpse locally. This screen will be enabled in a future update."
+msgstr "You can keep using Flow locally. This screen will be enabled in a future update."
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/ModelSelectionStep.tsx

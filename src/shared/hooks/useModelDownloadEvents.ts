@@ -31,10 +31,7 @@ export function useModelDownloadEvents({
     let cancelled = false;
     const unlisteners: UnlistenFn[] = [];
 
-    const register = <TPayload,>(
-      event: string,
-      handler: (payload: TPayload) => void,
-    ) => {
+    const register = <TPayload>(event: string, handler: (payload: TPayload) => void) => {
       listen<TPayload>(event, (eventPayload) => {
         if (!cancelled) {
           handler(eventPayload.payload);

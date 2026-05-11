@@ -1,8 +1,4 @@
-import type {
-  ButtonHTMLAttributes,
-  CSSProperties,
-  ReactNode,
-} from "react";
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 
 export type ActionCardAccent = {
   borderColor: string;
@@ -72,9 +68,7 @@ const ActionCardButton = ({
     "--action-card-hover-shadow": fullWidth
       ? "var(--ui-action-card-hover-shadow)"
       : "var(--shadow-sm)",
-    "--action-card-rest-shadow": fullWidth
-      ? "var(--ui-action-card-rest-shadow)"
-      : "none",
+    "--action-card-rest-shadow": fullWidth ? "var(--ui-action-card-rest-shadow)" : "none",
     ...style,
   } as CSSProperties;
 
@@ -124,10 +118,7 @@ const ActionCardButton = ({
           </span>
           {description ? (
             <span
-              className={joinClasses(
-                "ui-text-micro ui-color-disabled block",
-                descriptionClassName,
-              )}
+              className={joinClasses("ui-text-micro ui-color-disabled block", descriptionClassName)}
             >
               {description}
             </span>

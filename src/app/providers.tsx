@@ -8,6 +8,7 @@ import { activateLocale, i18n } from "../i18n";
 import { settingsKeys, useSettings } from "../features/settings/queries";
 import { transcriptionKeys } from "../features/transcriptions/queries";
 import { updateKeys } from "../features/updates/queries";
+import { isTauriRuntime } from "../platform/tauriRuntime";
 import type { StoredSettings } from "../types";
 
 const queryClient = new QueryClient({
@@ -27,10 +28,7 @@ function QuerySyncBridge() {
     let cancelled = false;
     const unlisteners: UnlistenFn[] = [];
 
-    const register = <TPayload,>(
-      event: string,
-      handler: (payload: TPayload) => void,
-    ) => {
+    const register = <TPayload,>(event: string, handler: (payload: TPayload) => void) => {
       listen<TPayload>(event, (eventPayload) => {
         if (!cancelled) {
           handler(eventPayload.payload);
@@ -89,11 +87,13 @@ function LocaleSyncBridge() {
 }
 
 export function AppProviders({ children }: { children: ReactNode }) {
+  const tauriRuntime = isTauriRuntime();
+
   return (
     <I18nProvider i18n={i18n}>
       <QueryClientProvider client={queryClient}>
-        <LocaleSyncBridge />
-        <QuerySyncBridge />
+        {tauriRuntime && <LocaleSyncBridge />}
+        {tauriRuntime && <QuerySyncBridge />}
         {children}
       </QueryClientProvider>
     </I18nProvider>

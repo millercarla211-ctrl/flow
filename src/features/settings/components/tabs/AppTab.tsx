@@ -128,9 +128,7 @@ const AppTab = ({
   platformCapabilities,
 }: AppTabProps) => {
   const { t } = useLingui();
-  const [draftPolicy, setDraftPolicy] = useState<RecordingPrunePolicy>(
-    recordingPrunePolicy,
-  );
+  const [draftPolicy, setDraftPolicy] = useState<RecordingPrunePolicy>(recordingPrunePolicy);
   const [isPreviewingPrune, setIsPreviewingPrune] = useState(false);
   const [pendingPruneConfirmation, setPendingPruneConfirmation] =
     useState<PendingPruneConfirmation | null>(null);
@@ -170,11 +168,17 @@ const AppTab = ({
     label: string;
   }> = [
     { value: "never", label: t({ id: "settings.app.prune.never", message: "Never" }) },
-    { value: "immediately", label: t({ id: "settings.app.prune.instantly", message: "Instantly" }) },
+    {
+      value: "immediately",
+      label: t({ id: "settings.app.prune.instantly", message: "Instantly" }),
+    },
     { value: "day", label: t({ id: "settings.app.prune.day", message: "1 Day" }) },
     { value: "week", label: t({ id: "settings.app.prune.week", message: "1 Week" }) },
     { value: "month", label: t({ id: "settings.app.prune.month", message: "1 Month" }) },
-    { value: "three_months", label: t({ id: "settings.app.prune.three_months", message: "3 Months" }) },
+    {
+      value: "three_months",
+      label: t({ id: "settings.app.prune.three_months", message: "3 Months" }),
+    },
     { value: "year", label: t({ id: "settings.app.prune.year", message: "1 Year" }) },
   ];
 
@@ -194,13 +198,10 @@ const AppTab = ({
   const isMoreAggressivePolicy = (
     nextPolicy: RecordingPrunePolicy,
     currentPolicy: RecordingPrunePolicy,
-  ) =>
-    recordingPrunePolicySeverity[nextPolicy] >
-    recordingPrunePolicySeverity[currentPolicy];
+  ) => recordingPrunePolicySeverity[nextPolicy] > recordingPrunePolicySeverity[currentPolicy];
 
   const getRecordingPrunePolicyLabel = (policy: RecordingPrunePolicy) =>
-    recordingPruneOptions.find((option) => option.value === policy)?.label ??
-    policy;
+    recordingPruneOptions.find((option) => option.value === policy)?.label ?? policy;
 
   const describeRecordingPruneThreshold = (policy: RecordingPrunePolicy) => {
     switch (policy) {
@@ -254,10 +255,13 @@ const AppTab = ({
       }
       return t({
         id: "settings.app.auto_delete_recordings.confirm.immediately.known_count",
-        message: `Changing auto-delete to ${{ policyLabel }} will immediately delete ${plural(candidateCount, {
-          one: "# existing local recording",
-          other: "# existing local recordings",
-        })}.`,
+        message: `Changing auto-delete to ${{ policyLabel }} will immediately delete ${plural(
+          candidateCount,
+          {
+            one: "# existing local recording",
+            other: "# existing local recordings",
+          },
+        )}.`,
       });
     }
 
@@ -275,10 +279,13 @@ const AppTab = ({
 
     return t({
       id: "settings.app.auto_delete_recordings.confirm.threshold.known_count",
-      message: `Changing auto-delete to ${{ policyLabel }} will immediately delete ${plural(candidateCount, {
-        one: `# local recording that is already older than ${{ threshold }}`,
-        other: `# local recordings that are already older than ${{ threshold }}`,
-      })}.`,
+      message: `Changing auto-delete to ${{ policyLabel }} will immediately delete ${plural(
+        candidateCount,
+        {
+          one: `# local recording that is already older than ${{ threshold }}`,
+          other: `# local recordings that are already older than ${{ threshold }}`,
+        },
+      )}.`,
     });
   };
 
@@ -295,12 +302,9 @@ const AppTab = ({
     const previewedPolicy = draftPolicy;
     setIsPreviewingPrune(true);
     try {
-      const preview = await invoke<RecordingPrunePreview>(
-        "preview_recording_prune",
-        {
-          policy: previewedPolicy,
-        },
-      );
+      const preview = await invoke<RecordingPrunePreview>("preview_recording_prune", {
+        policy: previewedPolicy,
+      });
 
       if (preview.candidate_count <= 0) {
         onRecordingPrunePolicyChange(previewedPolicy);
@@ -352,7 +356,8 @@ const AppTab = ({
     pendingPruneConfirmation?.candidateCount === null
       ? t({
           id: "settings.app.auto_delete_recordings.confirm.unknown_count",
-          message: "We couldn't count them right now, but the cleanup will still run as soon as you save this change.",
+          message:
+            "We couldn't count them right now, but the cleanup will still run as soon as you save this change.",
         })
       : t({
           id: "settings.app.auto_delete_recordings.confirm.audio_only",
@@ -419,11 +424,7 @@ const AppTab = ({
                   message: "Theme",
                 })}
               </span>
-              <Dropdown
-                value={themeMode}
-                onChange={onThemeModeChange}
-                options={themeOptions}
-              />
+              <Dropdown value={themeMode} onChange={onThemeModeChange} options={themeOptions} />
             </div>
             <div className="space-y-1.5">
               <span className="ui-text-label-strong ui-color-primary">
@@ -457,119 +458,115 @@ const AppTab = ({
 
             {hasPermissionRows && (
               <div className="space-y-3 rounded-lg bg-surface-surface p-2.5">
-                  {platformCapabilities.requiresNativeMicrophonePermission && (
-                    <div className="px-2 py-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="ui-text-label-strong ui-color-primary">
-                            {t({
-                              id: "settings.app.microphone",
-                              message: "Microphone",
-                            })}
-                          </span>
-                          <span className="truncate ui-text-meta ui-color-disabled">
-                            {t({
-                              id: "settings.app.microphone.description",
-                              message: "required for transcription",
-                            })}
-                          </span>
-                        </div>
-                        <PermissionStatus granted={micPermission} />
+                {platformCapabilities.requiresNativeMicrophonePermission && (
+                  <div className="px-2 py-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="ui-text-label-strong ui-color-primary">
+                          {t({
+                            id: "settings.app.microphone",
+                            message: "Microphone",
+                          })}
+                        </span>
+                        <span className="truncate ui-text-meta ui-color-disabled">
+                          {t({
+                            id: "settings.app.microphone.description",
+                            message: "required for transcription",
+                          })}
+                        </span>
                       </div>
-                      <button
-                        onClick={() => {
-                          void onRequestMicrophonePermission();
-                        }}
-                        className="mt-1.5 ui-text-meta ui-color-muted hover:text-content-secondary transition-colors"
-                      >
-                        {t({
-                          id: "settings.app.open_settings",
-                          message: "Open Settings",
-                        })}
-                      </button>
+                      <PermissionStatus granted={micPermission} />
                     </div>
-                  )}
+                    <button
+                      onClick={() => {
+                        void onRequestMicrophonePermission();
+                      }}
+                      className="mt-1.5 ui-text-meta ui-color-muted hover:text-content-secondary transition-colors"
+                    >
+                      {t({
+                        id: "settings.app.open_settings",
+                        message: "Open Settings",
+                      })}
+                    </button>
+                  </div>
+                )}
 
-                  {platformCapabilities.requiresAccessibilityPermission && (
-                    <div className="px-2 py-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="ui-text-label-strong ui-color-primary">
-                            {t({
-                              id: "settings.app.accessibility",
-                              message: "Accessibility",
-                            })}
-                          </span>
-                          <span className="truncate ui-text-meta ui-color-disabled">
-                            {t({
-                              id: "settings.app.accessibility.description",
-                              message: "required for auto-paste",
-                            })}
-                          </span>
-                        </div>
-                        <PermissionStatus granted={accessibilityPermission} />
+                {platformCapabilities.requiresAccessibilityPermission && (
+                  <div className="px-2 py-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="ui-text-label-strong ui-color-primary">
+                          {t({
+                            id: "settings.app.accessibility",
+                            message: "Accessibility",
+                          })}
+                        </span>
+                        <span className="truncate ui-text-meta ui-color-disabled">
+                          {t({
+                            id: "settings.app.accessibility.description",
+                            message: "required for auto-paste",
+                          })}
+                        </span>
                       </div>
-                      <button
-                        onClick={async () => {
-                          try {
-                            const granted =
-                              await requestMacAccessibilityPermission();
-                            if (!granted)
-                              await invoke("open_accessibility_settings");
-                          } catch {
-                            await invoke("open_accessibility_settings");
-                          }
-                        }}
-                        className="mt-1.5 ui-text-meta ui-color-muted hover:text-content-secondary transition-colors"
-                      >
-                        {t({
-                          id: "settings.app.open_settings",
-                          message: "Open Settings",
-                        })}
-                      </button>
+                      <PermissionStatus granted={accessibilityPermission} />
                     </div>
-                  )}
+                    <button
+                      onClick={async () => {
+                        try {
+                          const granted = await requestMacAccessibilityPermission();
+                          if (!granted) await invoke("open_accessibility_settings");
+                        } catch {
+                          await invoke("open_accessibility_settings");
+                        }
+                      }}
+                      className="mt-1.5 ui-text-meta ui-color-muted hover:text-content-secondary transition-colors"
+                    >
+                      {t({
+                        id: "settings.app.open_settings",
+                        message: "Open Settings",
+                      })}
+                    </button>
+                  </div>
+                )}
 
-                  {platformCapabilities.requiresInputMonitoringPermission && (
-                    <div className="px-2 py-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="ui-text-label-strong ui-color-primary">
-                            {t({
-                              id: "settings.app.input_monitoring",
-                              message: "Input Monitoring",
-                            })}
-                          </span>
-                          <span className="truncate ui-text-meta ui-color-disabled">
-                            {t({
-                              id: "settings.app.input_monitoring.description",
-                              message: "required for global shortcuts",
-                            })}
-                          </span>
-                        </div>
-                        <PermissionStatus granted={inputMonitoringPermission} />
+                {platformCapabilities.requiresInputMonitoringPermission && (
+                  <div className="px-2 py-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="ui-text-label-strong ui-color-primary">
+                          {t({
+                            id: "settings.app.input_monitoring",
+                            message: "Input Monitoring",
+                          })}
+                        </span>
+                        <span className="truncate ui-text-meta ui-color-disabled">
+                          {t({
+                            id: "settings.app.input_monitoring.description",
+                            message: "required for global shortcuts",
+                          })}
+                        </span>
                       </div>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await requestMacInputMonitoringPermission();
-                            const granted =
-                              await checkMacInputMonitoringPermission();
-                            if (!granted)
-                              await invoke("open_input_monitoring_settings");
-                          } catch {
-                            await invoke("open_input_monitoring_settings");
-                          }
-                        }}
-                        className="mt-1.5 ui-text-meta ui-color-muted hover:text-content-secondary transition-colors"
-                      >
-                        {t({
-                          id: "settings.app.open_settings",
-                          message: "Open Settings",
-                        })}
-                      </button>
+                      <PermissionStatus granted={inputMonitoringPermission} />
                     </div>
-                  )}
+                    <button
+                      onClick={async () => {
+                        try {
+                          await requestMacInputMonitoringPermission();
+                          const granted = await checkMacInputMonitoringPermission();
+                          if (!granted) await invoke("open_input_monitoring_settings");
+                        } catch {
+                          await invoke("open_input_monitoring_settings");
+                        }
+                      }}
+                      className="mt-1.5 ui-text-meta ui-color-muted hover:text-content-secondary transition-colors"
+                    >
+                      {t({
+                        id: "settings.app.open_settings",
+                        message: "Open Settings",
+                      })}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -598,9 +595,7 @@ const AppTab = ({
                   })}{" "}
                   <button
                     onClick={() =>
-                      openUrl(
-                        "https://github.com/LegendarySpy/Glimpse/wiki/Analytics",
-                      )
+                      openUrl("https://github.com/essencefromexistence/flow/wiki/Analytics")
                     }
                     className="ui-color-muted hover:text-content-secondary transition-colors underline"
                   >
@@ -643,9 +638,7 @@ const AppTab = ({
                     </span>
                     <ToggleSwitch
                       enabled={mediaControlEnabled}
-                      onToggle={() =>
-                        onMediaControlEnabledChange(!mediaControlEnabled)
-                      }
+                      onToggle={() => onMediaControlEnabledChange(!mediaControlEnabled)}
                       ariaLabel={t({
                         id: "settings.app.auto_pause_media.toggle_aria",
                         message: "Toggle auto-pause media while recording",
@@ -671,9 +664,7 @@ const AppTab = ({
                   </span>
                   <ToggleSwitch
                     enabled={autoUpdateEnabled}
-                    onToggle={() =>
-                      onAutoUpdateEnabledChange(!autoUpdateEnabled)
-                    }
+                    onToggle={() => onAutoUpdateEnabledChange(!autoUpdateEnabled)}
                     ariaLabel={t({
                       id: "settings.app.auto_update.toggle_aria",
                       message: "Toggle auto-update",
@@ -698,9 +689,7 @@ const AppTab = ({
                   </span>
                   <ToggleSwitch
                     enabled={autoLaunchEnabled}
-                    onToggle={() =>
-                      onAutoLaunchEnabledChange(!autoLaunchEnabled)
-                    }
+                    onToggle={() => onAutoLaunchEnabledChange(!autoLaunchEnabled)}
                     ariaLabel={t({
                       id: "settings.app.auto_launch.toggle_aria",
                       message: "Toggle launch at login",
@@ -710,7 +699,7 @@ const AppTab = ({
                 <span className="ui-text-micro ui-color-disabled block mt-0.5">
                   {t({
                     id: "settings.app.auto_launch.body",
-                    message: "starts Glimpse automatically when you sign in.",
+                    message: "starts Flow automatically when you sign in.",
                   })}
                 </span>
               </div>
@@ -745,34 +734,32 @@ const AppTab = ({
                 <div
                   className={`absolute right-2 bottom-1.5 flex items-center gap-1.5 transition-opacity ${isDirty ? "opacity-100" : "opacity-0 pointer-events-none"}`}
                 >
-                    <button
-                      type="button"
-                      onClick={handleCancel}
-                      disabled={isPreviewingPrune}
-                      className="rounded-md px-2 py-0.5 ui-text-meta ui-color-muted hover:bg-surface-elevated hover:text-content-secondary transition-colors disabled:opacity-50 disabled:pointer-events-none"
-                    >
-                      {t({
-                        id: "settings.app.cancel",
-                        message: "Cancel",
-                      })}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleApply();
-                      }}
-                      disabled={isPreviewingPrune}
-                      aria-label={confirmButtonAriaLabel}
-                      className="rounded-md border border-border-primary bg-surface-surface px-2.5 py-0.5 ui-text-meta font-medium ui-color-primary transition-colors hover:bg-surface-elevated hover:border-border-secondary active:bg-surface-tertiary disabled:opacity-60 disabled:pointer-events-none"
-                    >
-                      <span className="flex items-center gap-1.5">
-                        {isPreviewingPrune ? (
-                          <Loader2 size={10} className="animate-spin" />
-                        ) : null}
-                        <span>{confirmButtonLabel}</span>
-                      </span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={isPreviewingPrune}
+                    className="rounded-md px-2 py-0.5 ui-text-meta ui-color-muted hover:bg-surface-elevated hover:text-content-secondary transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    {t({
+                      id: "settings.app.cancel",
+                      message: "Cancel",
+                    })}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleApply();
+                    }}
+                    disabled={isPreviewingPrune}
+                    aria-label={confirmButtonAriaLabel}
+                    className="rounded-md border border-border-primary bg-surface-surface px-2.5 py-0.5 ui-text-meta font-medium ui-color-primary transition-colors hover:bg-surface-elevated hover:border-border-secondary active:bg-surface-tertiary disabled:opacity-60 disabled:pointer-events-none"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {isPreviewingPrune ? <Loader2 size={10} className="animate-spin" /> : null}
+                      <span>{confirmButtonLabel}</span>
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
             <p className="ui-text-micro px-0.5 invisible" aria-hidden="true">
@@ -791,25 +778,22 @@ const AppTab = ({
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-xs px-6"
             onClick={handleClosePruneConfirmation}
           >
-          <motion.div
-            initial={{ scale: 0.96, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.96, opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="w-full max-w-sm rounded-2xl border border-red-500/30 bg-surface-tertiary p-5 ui-shadow-modal-deep"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label={t({
-              id: "settings.app.auto_delete_recordings.confirm.title",
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="w-full max-w-sm rounded-2xl border border-red-500/30 bg-surface-tertiary p-5 ui-shadow-modal-deep"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label={t({
+                id: "settings.app.auto_delete_recordings.confirm.title",
                 message: "Delete older recordings now?",
               })}
             >
               <div className="mb-3 flex items-start gap-3">
-                <AlertTriangle
-                  size={20}
-                  className="mt-1 shrink-0 text-red-400"
-                />
+                <AlertTriangle size={20} className="mt-1 shrink-0 text-red-400" />
                 <div className="min-w-0">
                   <p className="ui-text-body-lg font-semibold ui-color-error-strong leading-tight">
                     {t({
@@ -822,9 +806,7 @@ const AppTab = ({
                   </p>
                 </div>
               </div>
-              <p className="ui-text-micro text-content-muted">
-                {pruneConfirmationFootnote}
-              </p>
+              <p className="ui-text-micro text-content-muted">{pruneConfirmationFootnote}</p>
               <div className="mt-4 flex justify-end gap-2">
                 <button
                   onClick={handleClosePruneConfirmation}

@@ -264,6 +264,13 @@ pub(crate) fn update_settings(
         || prev.local_model != next.local_model
         || prev.microphone_device != next.microphone_device
     {
+        if prev.transcription_mode != next.transcription_mode
+            || prev.local_model != next.local_model
+        {
+            state.download_default_local_model_if_missing(app, &next, "settings");
+            state.preload_local_model_if_needed(app, &next, "settings");
+        }
+
         if let Err(err) = tray::refresh_tray_menu(app, &next) {
             eprintln!("Failed to refresh tray menu: {err}");
         }
