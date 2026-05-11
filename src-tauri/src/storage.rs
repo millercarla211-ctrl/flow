@@ -114,6 +114,17 @@ pub struct FlowFetchLink {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransformHistoryEntry {
+    pub id: String,
+    pub label: String,
+    pub preset_id: Option<String>,
+    pub instruction: Option<String>,
+    pub original: String,
+    pub transformed: String,
+    pub created_at: DateTime<Local>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DailyInsight {
     pub date: String,
     pub label: String,
@@ -563,6 +574,77 @@ impl StorageManager {
         Self::prune_flow_fetch_links_inner(&conn)
     }
 
+    pub fn save_transform_history(
+        &self,
+        label: String,
+        preset_id: Option<String>,
+        instruction: Option<String>,
+        original: String,
+        transformed: String,
+    ) -> Result<TransformHistoryEntry> {
+        let original = normalize_transform_text(original)?;
+        let transformed = normalize_transform_text(transformed)?;
+        let now = Local::now();
+        let now_ms = now.timestamp_millis();
+        let entry = TransformHistoryEntry {
+            id: Uuid::new_v4().to_string(),
+            label: normalize_transform_label(&label),
+            preset_id: preset_id.and_then(normalize_optional_short_text),
+            instruction: instruction.and_then(normalize_optional_long_text),
+            original,
+            transformed,
+            created_at: now,
+        };
+
+        let conn = self.connection.lock();
+        conn.execute(
+            "INSERT INTO transform_history (id, label, preset_id, instruction, original, transformed, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                &entry.id,
+                &entry.label,
+                &entry.preset_id,
+                &entry.instruction,
+                &entry.original,
+                &entry.transformed,
+                now_ms,
+            ],
+        )?;
+        conn.execute(
+            "DELETE FROM transform_history
+             WHERE id NOT IN (
+                SELECT id FROM transform_history ORDER BY created_at DESC LIMIT 100
+             )",
+            [],
+        )?;
+
+        Ok(entry)
+    }
+
+    pub fn get_transform_history(&self, limit: usize) -> Result<Vec<TransformHistoryEntry>> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let limit = limit.min(100);
+        let conn = self.connection.lock();
+        let mut stmt = conn.prepare(
+            "SELECT id, label, preset_id, instruction, original, transformed, created_at
+             FROM transform_history
+             ORDER BY created_at DESC
+             LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(params![limit as i64], Self::transform_history_from_row)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
+    }
+
+    pub fn delete_transform_history_entry(&self, id: &str) -> Result<bool> {
+        let conn = self.connection.lock();
+        let affected = conn.execute("DELETE FROM transform_history WHERE id = ?1", params![id])?;
+        Ok(affected > 0)
+    }
+
     pub fn update_with_llm_cleanup(
         &self,
         id: &str,
@@ -981,6 +1063,20 @@ impl StorageManager {
         })
     }
 
+    fn transform_history_from_row(row: &Row<'_>) -> rusqlite::Result<TransformHistoryEntry> {
+        let created_ms: i64 = row.get("created_at")?;
+
+        Ok(TransformHistoryEntry {
+            id: row.get("id")?,
+            label: row.get("label")?,
+            preset_id: row.get("preset_id")?,
+            instruction: row.get("instruction")?,
+            original: row.get("original")?,
+            transformed: row.get("transformed")?,
+            created_at: local_datetime_from_millis(created_ms, 0)?,
+        })
+    }
+
     fn configure_connection(conn: &Connection) -> Result<()> {
         conn.execute_batch(
             "PRAGMA journal_mode = WAL;\nPRAGMA synchronous = NORMAL;\nPRAGMA foreign_keys = ON;",
@@ -1072,7 +1168,18 @@ impl StorageManager {
                 created_at INTEGER NOT NULL,
                 last_seen_at INTEGER NOT NULL
             );
-            CREATE INDEX IF NOT EXISTS idx_flow_fetch_links_last_seen_at ON flow_fetch_links(last_seen_at DESC);",
+            CREATE INDEX IF NOT EXISTS idx_flow_fetch_links_last_seen_at ON flow_fetch_links(last_seen_at DESC);
+
+            CREATE TABLE IF NOT EXISTS transform_history (
+                id TEXT PRIMARY KEY,
+                label TEXT NOT NULL,
+                preset_id TEXT NULL,
+                instruction TEXT NULL,
+                original TEXT NOT NULL,
+                transformed TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_transform_history_created_at ON transform_history(created_at DESC);",
         )?;
 
         Self::ensure_column(
@@ -1311,6 +1418,44 @@ fn normalize_snippet_expansion(expansion: String) -> Result<String> {
         bail!("Snippet expansion cannot be empty");
     }
     Ok(normalized)
+}
+
+fn normalize_transform_label(label: &str) -> String {
+    let normalized = label.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.is_empty() {
+        "Custom".to_string()
+    } else {
+        normalized.chars().take(80).collect()
+    }
+}
+
+fn normalize_transform_text(text: String) -> Result<String> {
+    let normalized = text.trim().to_string();
+    if normalized.is_empty() {
+        bail!("Transform text cannot be empty");
+    }
+    if normalized.chars().count() > 100_000 {
+        bail!("Transform text must be 100000 characters or fewer");
+    }
+    Ok(normalized)
+}
+
+fn normalize_optional_short_text(value: String) -> Option<String> {
+    let normalized = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized.chars().take(120).collect())
+    }
+}
+
+fn normalize_optional_long_text(value: String) -> Option<String> {
+    let normalized = value.trim().to_string();
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized.chars().take(2000).collect())
+    }
 }
 
 fn normalize_phrase_for_match(value: &str) -> String {
@@ -1677,6 +1822,20 @@ mod tests {
         assert_eq!(
             normalize_flow_fetch_url(" https://example.com/path. ".to_string()).unwrap(),
             "https://example.com/path"
+        );
+    }
+
+    #[test]
+    fn transform_history_normalizes_labels_and_rejects_empty_text() {
+        assert_eq!(
+            normalize_transform_label("  Make   shorter  "),
+            "Make shorter"
+        );
+        assert_eq!(normalize_transform_label("   "), "Custom");
+        assert!(normalize_transform_text("   ".to_string()).is_err());
+        assert_eq!(
+            normalize_optional_short_text("  custom   prompt ".to_string()).as_deref(),
+            Some("custom prompt")
         );
     }
 
