@@ -7,8 +7,8 @@ use tokio_util::sync::CancellationToken;
 use webrtc_vad::VadMode;
 
 use crate::{
-    accessibility_context, analytics, assistive, dictionary, llm_cleanup, mode_context,
-    model_manager,
+    accessibility_context, analytics, assistive, context_formatting, dictionary, llm_cleanup,
+    mode_context, model_manager,
     recorder::{speech_percentage_i16_with_mode, CompletedRecording, RecordingSaved},
     scratchpad,
     settings::{Personality, UserSettings},
@@ -94,12 +94,15 @@ fn apply_vibe_coding_postprocess(
     dictionary_replaced: bool,
 ) -> String {
     if !dictionary_replaced {
-        return vibe_coding::postprocess_coding_transcript(transcript, settings, mode);
+        let text = vibe_coding::postprocess_coding_transcript(transcript, settings, mode);
+        return context_formatting::apply_context_formatting(&text, mode);
     }
 
     let mut settings_without_file_tags = settings.clone();
     settings_without_file_tags.vibe_coding_file_tagging = false;
-    vibe_coding::postprocess_coding_transcript(transcript, &settings_without_file_tags, mode)
+    let text =
+        vibe_coding::postprocess_coding_transcript(transcript, &settings_without_file_tags, mode);
+    context_formatting::apply_context_formatting(&text, mode)
 }
 
 #[derive(Debug, Clone)]

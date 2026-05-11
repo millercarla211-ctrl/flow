@@ -3,6 +3,7 @@ mod analytics;
 mod app_paths;
 mod assistive;
 mod audio;
+mod context_formatting;
 mod core;
 mod crypto;
 mod dictionary;
