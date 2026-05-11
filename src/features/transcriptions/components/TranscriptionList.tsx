@@ -2,6 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
 import {
   Search,
   X,
@@ -9,6 +10,7 @@ import {
   Check,
   CheckSquare,
   Copy,
+  Download,
   Filter,
   FileText,
   Pin,
@@ -21,6 +23,7 @@ import { Virtuoso } from "react-virtuoso";
 import {
   useTranscriptionList,
   useDeleteTranscription,
+  useExportTranscriptions,
   useSetTranscriptionPinned,
   useRetryTranscription,
   useRetryLlmCleanup,
@@ -70,7 +73,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   const [batchStatus, setBatchStatus] = useState<string | null>(null);
   const [batchError, setBatchError] = useState<string | null>(null);
   const [batchBusy, setBatchBusy] = useState<
-    "copy" | "scratchpad" | "transform" | "pin" | "unpin" | "retry" | "delete" | null
+    "copy" | "scratchpad" | "transform" | "export" | "pin" | "unpin" | "retry" | "delete" | null
   >(null);
   const sortRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -96,6 +99,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   } = useTranscriptionList(debouncedSearchQuery, isActive);
   const totalCount = transcriptions.length;
   const deleteMutation = useDeleteTranscription();
+  const exportMutation = useExportTranscriptions();
   const pinMutation = useSetTranscriptionPinned();
   const {
     retry: retryMutation,
@@ -344,7 +348,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
   };
 
   const runBatchAction = async (
-    action: "copy" | "scratchpad" | "transform" | "pin" | "unpin" | "retry" | "delete",
+    action: "copy" | "scratchpad" | "transform" | "export" | "pin" | "unpin" | "retry" | "delete",
     work: () => Promise<string>,
   ) => {
     if (batchBusy || selectedRecords.length === 0) return;
@@ -391,6 +395,35 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
       return t({
         id: "transcriptions.batch.opened_transform",
         message: "Opened selected transcripts in Transforms",
+      });
+    });
+
+  const exportSelected = () =>
+    runBatchAction("export", async () => {
+      if (selectedRecords.length === 0) throw new Error("Choose transcripts to export.");
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      const outputPath = await save({
+        title: t({
+          id: "transcriptions.batch.export_title",
+          message: "Export selected transcripts",
+        }),
+        defaultPath: `flow-transcripts-${stamp}.md`,
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+      });
+      if (!outputPath) {
+        return t({
+          id: "transcriptions.batch.export_cancelled",
+          message: "Export cancelled",
+        });
+      }
+      const finalPath = outputPath.toLowerCase().endsWith(".md") ? outputPath : `${outputPath}.md`;
+      const exportedCount = await exportMutation.mutateAsync({
+        ids: selectedRecords.map((record) => record.id),
+        outputPath: finalPath,
+      });
+      return t({
+        id: "transcriptions.batch.exported",
+        message: `Exported ${exportedCount} transcripts`,
       });
     });
 
@@ -745,6 +778,26 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
                   })}
                 >
                   <WandSparkles size={13} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={exportSelected}
+                  disabled={!hasSelectedRecords || batchBusy !== null}
+                  className="ui-button-ghost h-7 w-7 disabled:opacity-40"
+                  aria-label={t({
+                    id: "transcriptions.batch.export",
+                    message: "Export selected",
+                  })}
+                  title={t({
+                    id: "transcriptions.batch.export",
+                    message: "Export selected",
+                  })}
+                >
+                  <Download
+                    size={13}
+                    aria-hidden="true"
+                    className={batchBusy === "export" ? "animate-pulse" : undefined}
+                  />
                 </button>
                 <button
                   type="button"

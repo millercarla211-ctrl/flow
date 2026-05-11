@@ -41,6 +41,12 @@ export function useSetTranscriptionPinned() {
   });
 }
 
+export function useExportTranscriptions() {
+  return useMutation({
+    mutationFn: transcriptionsApi.exportTranscriptionsToPath,
+  });
+}
+
 export function useRetryTranscription(enabled: boolean = true) {
   const [retryingIds, setRetryingIds] = useState<string[]>([]);
   const queryClient = useQueryClient();

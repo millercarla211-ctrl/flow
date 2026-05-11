@@ -433,6 +433,7 @@ pub fn run() {
             open_data_dir,
             get_transcriptions,
             set_transcription_pinned,
+            export_transcriptions_to_path,
             delete_transcription,
             delete_all_transcriptions,
             retry_transcription,
@@ -1417,6 +1418,115 @@ fn set_transcription_pinned(
         .set_pinned(&id, pinned)
         .map_err(|err| format!("Failed to update pinned transcription: {err}"))?
         .ok_or_else(|| "Transcription not found".to_string())
+}
+
+#[tauri::command]
+fn export_transcriptions_to_path(
+    ids: Vec<String>,
+    output_path: String,
+    state: tauri::State<AppState>,
+) -> Result<u32, String> {
+    if ids.is_empty() {
+        return Err("Choose at least one transcription to export.".to_string());
+    }
+
+    let mut records = Vec::new();
+    for id in ids {
+        if let Some(record) = state.storage().get_by_id(&id) {
+            records.push(record);
+        }
+    }
+
+    if records.is_empty() {
+        return Err("No selected transcriptions were found.".to_string());
+    }
+
+    let output_path = PathBuf::from(output_path);
+    if let Some(parent) = output_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("Failed to create export folder: {err}"))?;
+    }
+
+    let content = build_transcriptions_markdown_export(&records);
+    fs::write(&output_path, content.as_bytes())
+        .map_err(|err| format!("Failed to write export file: {err}"))?;
+
+    Ok(records.len() as u32)
+}
+
+fn build_transcriptions_markdown_export(records: &[storage::TranscriptionRecord]) -> String {
+    let mut output = String::new();
+    output.push_str("# Flow Transcripts\n\n");
+    output.push_str(&format!("Exported: {}\n\n", Local::now().to_rfc3339()));
+    output.push_str(&format!("Items: {}\n\n", records.len()));
+
+    for (index, record) in records.iter().enumerate() {
+        output.push_str(&format!(
+            "## {}. {}\n\n",
+            index + 1,
+            record.timestamp.format("%Y-%m-%d %H:%M")
+        ));
+        output.push_str(&format!("- Status: {:?}\n", record.status));
+        output.push_str(&format!(
+            "- Words: {}\n",
+            if record.word_count > 0 {
+                record.word_count
+            } else {
+                count_export_words(&record.text)
+            }
+        ));
+        if record.pinned {
+            output.push_str("- Pinned: yes\n");
+        }
+        if !record.speech_model.trim().is_empty() {
+            output.push_str(&format!("- Speech model: {}\n", record.speech_model.trim()));
+        }
+        if let Some(mode_name) = record
+            .mode_name
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
+            output.push_str(&format!("- Mode: {}\n", mode_name.trim()));
+        }
+        if let Some(transform_label) = record
+            .auto_transform_label
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
+            output.push_str(&format!("- Auto Transform: {}\n", transform_label.trim()));
+        }
+        output.push('\n');
+
+        let body = if record.text.trim().is_empty() {
+            record
+                .error_message
+                .as_deref()
+                .unwrap_or("No transcript text.")
+        } else {
+            record.text.trim()
+        };
+        output.push_str(body);
+        output.push_str("\n\n");
+
+        if let Some(raw_text) = record
+            .raw_text
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
+            output.push_str("<details>\n<summary>Original transcript</summary>\n\n");
+            output.push_str(raw_text.trim());
+            output.push_str("\n\n</details>\n\n");
+        }
+    }
+
+    output
+}
+
+fn count_export_words(text: &str) -> u32 {
+    text.split_whitespace().count().min(u32::MAX as usize) as u32
 }
 
 #[tauri::command]

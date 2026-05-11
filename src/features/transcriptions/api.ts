@@ -21,6 +21,16 @@ export async function setTranscriptionPinned({
   return invoke<TranscriptionRecord>("set_transcription_pinned", { id, pinned });
 }
 
+export async function exportTranscriptionsToPath({
+  ids,
+  outputPath,
+}: {
+  ids: string[];
+  outputPath: string;
+}): Promise<number> {
+  return invoke<number>("export_transcriptions_to_path", { ids, outputPath });
+}
+
 export async function retryTranscription(id: string): Promise<void> {
   await invoke("retry_transcription", { id });
 }
