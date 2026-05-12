@@ -90,7 +90,7 @@ type BetterAuthClient = {
 };
 
 const authClient = createAuthClient({
-  baseURL: import.meta.env.VITE_FLOW_AUTH_BASE_URL,
+  baseURL: process.env.NEXT_PUBLIC_FLOW_AUTH_BASE_URL,
 }) as unknown as BetterAuthClient;
 
 function emitAuthChanged() {

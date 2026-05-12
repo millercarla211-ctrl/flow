@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, ComponentType } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
@@ -11,7 +13,6 @@ import type { TextSizeMode, ThemeMode } from "../types";
 import { detectAppPlatform } from "../platform/service";
 import { parseTextSizeMode, resolveTextScale } from "../shared/lib/textSize";
 import WebPreview from "./WebPreview";
-import "./App.css";
 
 const TEXT_SIZE_MODE_STORAGE_KEY = "flow_text_size_mode";
 

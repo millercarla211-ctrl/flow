@@ -6,25 +6,13 @@ import {
   SUPPORTED_APP_LOCALES,
   normalizeSupportedAppLocale,
 } from "./shared/lib/appLocales";
-
-const localeCatalogs = import.meta.glob<Messages>("./locales/*/messages.po", {
-  eager: true,
-  import: "messages",
-});
-
-function extractLocaleCode(path: string): string | null {
-  const match = path.match(/^\.\/locales\/([^/]+)\/messages\.po$/);
-  return match?.[1]?.trim().toLowerCase() || null;
-}
+import enCatalog from "./locales/en/messages.js";
 
 export type AppLocale = string;
 
-const catalogs = Object.fromEntries(
-  Object.entries(localeCatalogs).flatMap(([path, messages]) => {
-    const locale = extractLocaleCode(path);
-    return locale ? [[locale, messages]] : [];
-  }),
-) as Record<string, Messages>;
+const catalogs: Record<string, Messages> = {
+  en: enCatalog.messages,
+};
 
 for (const locale of SUPPORTED_APP_LOCALES) {
   if (!catalogs[locale]) {
