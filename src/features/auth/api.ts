@@ -1,4 +1,5 @@
 import { emit } from "@tauri-apps/api/event";
+import { createAuthClient } from "better-auth/react";
 
 export type User = {
   $id: string;
@@ -27,51 +28,228 @@ export type Jwt = {
   jwt: string;
 };
 
+type AuthError = {
+  message?: string;
+  status?: number;
+  statusText?: string;
+};
+
+type AuthResult<T> = Promise<{
+  data: T | null;
+  error: AuthError | null;
+}>;
+
+type BetterAuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  image?: string | null;
+  createdAt: Date | string | number;
+  updatedAt: Date | string | number;
+};
+
+type BetterAuthSession = {
+  id: string;
+  token: string;
+  userId: string;
+  expiresAt: Date | string | number;
+  createdAt: Date | string | number;
+  updatedAt: Date | string | number;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+type BetterAuthClient = {
+  signUp: {
+    email(input: {
+      name: string;
+      email: string;
+      password: string;
+      rememberMe?: boolean;
+    }): AuthResult<{ token: string | null; user: BetterAuthUser }>;
+  };
+  signIn: {
+    email(input: {
+      email: string;
+      password: string;
+      rememberMe?: boolean;
+    }): AuthResult<{ redirect: boolean; token: string; user: BetterAuthUser }>;
+  };
+  signOut(): AuthResult<unknown>;
+  getSession(): AuthResult<{ session: BetterAuthSession; user: BetterAuthUser } | null>;
+  updateUser(input: { name?: string; image?: string | null }): AuthResult<{ status: boolean }>;
+  changePassword(input: {
+    currentPassword: string;
+    newPassword: string;
+    revokeOtherSessions?: boolean;
+  }): AuthResult<{ token: string | null; user: BetterAuthUser }>;
+  listSessions(): AuthResult<BetterAuthSession[]>;
+  revokeSession(input: { token: string }): AuthResult<{ status: boolean }>;
+  revokeSessions(): AuthResult<{ status: boolean }>;
+};
+
+const authClient = createAuthClient({
+  baseURL: import.meta.env.VITE_FLOW_AUTH_BASE_URL,
+}) as unknown as BetterAuthClient;
+
 function emitAuthChanged() {
   emit("auth:changed").catch(() => {});
 }
 
-function cloudDisabledError() {
-  return new Error("Cloud account features are currently unavailable.");
+function errorMessage(error: AuthError | null, fallback: string): string {
+  return error?.message || error?.statusText || fallback;
 }
 
-export async function createAccount(
-  _email: string,
-  _password: string,
-  _name?: string,
-): Promise<User> {
-  throw cloudDisabledError();
+async function unwrapAuth<T>(request: AuthResult<T>, fallback: string): Promise<T> {
+  const response = await request;
+  if (response.error) {
+    throw new Error(errorMessage(response.error, fallback));
+  }
+  if (response.data === null) {
+    throw new Error(fallback);
+  }
+  return response.data;
+}
+
+function toIsoString(value: Date | string | number | null | undefined): string {
+  if (!value) return new Date().toISOString();
+  if (value instanceof Date) return value.toISOString();
+  return new Date(value).toISOString();
+}
+
+function mapUser(user: BetterAuthUser): User {
+  return {
+    $id: user.id,
+    $createdAt: toIsoString(user.createdAt),
+    $updatedAt: toIsoString(user.updatedAt),
+    name: user.name,
+    email: user.email,
+    labels: ["cloud"],
+    prefs: user.image ? { avatar: user.image } : {},
+  };
+}
+
+function parseClientName(userAgent: string | null | undefined): string {
+  const ua = userAgent ?? "";
+  if (ua.includes("Edg/")) return "Microsoft Edge";
+  if (ua.includes("Chrome/")) return "Chrome";
+  if (ua.includes("Firefox/")) return "Firefox";
+  if (ua.includes("Safari/")) return "Safari";
+  if (ua.includes("Tauri")) return "Flow Desktop";
+  return "Flow";
+}
+
+function parseOsName(userAgent: string | null | undefined): string {
+  const ua = userAgent ?? "";
+  if (ua.includes("Windows")) return "Windows";
+  if (ua.includes("Mac OS") || ua.includes("Macintosh")) return "macOS";
+  if (ua.includes("Linux")) return "Linux";
+  if (ua.includes("Android")) return "Android";
+  if (ua.includes("iPhone") || ua.includes("iPad")) return "iOS";
+  return "Current device";
+}
+
+function mapSession(session: BetterAuthSession, currentToken: string | null): Session {
+  return {
+    $id: session.token,
+    current: session.token === currentToken,
+    osName: parseOsName(session.userAgent),
+    clientName: parseClientName(session.userAgent),
+    countryName: session.ipAddress ? "Network session" : "Local session",
+  };
+}
+
+export async function createAccount(email: string, password: string, name?: string): Promise<User> {
+  const data = await unwrapAuth(
+    authClient.signUp.email({
+      email,
+      password,
+      name: name?.trim() || email.split("@")[0] || "Flow User",
+      rememberMe: true,
+    }),
+    "Failed to create your Flow account.",
+  );
+  emitAuthChanged();
+  return mapUser(data.user);
+}
+
+export async function loginWithEmail(email: string, password: string): Promise<User> {
+  const data = await unwrapAuth(
+    authClient.signIn.email({
+      email,
+      password,
+      rememberMe: true,
+    }),
+    "Failed to sign in.",
+  );
+  emitAuthChanged();
+  return mapUser(data.user);
 }
 
 export async function logout(): Promise<void> {
+  await unwrapAuth(authClient.signOut(), "Failed to sign out.");
   emitAuthChanged();
 }
 
 export async function logoutAll(): Promise<void> {
+  await unwrapAuth(authClient.revokeSessions(), "Failed to sign out all sessions.");
   emitAuthChanged();
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  return null;
+  try {
+    const response = await authClient.getSession();
+    if (response.error || !response.data?.user) return null;
+    return mapUser(response.data.user);
+  } catch {
+    return null;
+  }
 }
 
 export async function createJwt(): Promise<Jwt> {
-  throw cloudDisabledError();
+  const data = await unwrapAuth(authClient.getSession(), "No active Flow auth session.");
+  if (!data?.session.token) throw new Error("No active Flow auth session.");
+  return { jwt: data.session.token };
 }
 
-export async function updateName(_name: string): Promise<User> {
-  throw cloudDisabledError();
+export async function updateName(name: string): Promise<User> {
+  await unwrapAuth(authClient.updateUser({ name }), "Failed to update your name.");
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Your Flow session expired.");
+  emitAuthChanged();
+  return user;
 }
 
-export async function updatePassword(_newPassword: string, _oldPassword: string): Promise<User> {
-  throw cloudDisabledError();
+export async function updatePassword(newPassword: string, oldPassword: string): Promise<User> {
+  const data = await unwrapAuth(
+    authClient.changePassword({
+      currentPassword: oldPassword,
+      newPassword,
+      revokeOtherSessions: false,
+    }),
+    "Failed to update your password.",
+  );
+  emitAuthChanged();
+  return mapUser(data.user);
 }
 
 export async function listSessions(): Promise<SessionList> {
-  return { total: 0, sessions: [] };
+  const [sessions, current] = await Promise.all([
+    unwrapAuth(authClient.listSessions(), "Failed to load sessions."),
+    authClient.getSession().catch(() => ({ data: null, error: null })),
+  ]);
+
+  const currentToken = current.data?.session.token ?? null;
+  return {
+    total: sessions.length,
+    sessions: sessions.map((session) => mapSession(session, currentToken)),
+  };
 }
 
-export async function deleteSessionById(_sessionId: string): Promise<void> {}
+export async function deleteSessionById(sessionId: string): Promise<void> {
+  await unwrapAuth(authClient.revokeSession({ token: sessionId }), "Failed to revoke session.");
+}
 
 // Cloud usage stats (localStorage cache)
 

@@ -2,7 +2,18 @@ import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
-import { Check, Copy, Info, Mic, Sparkles, Square, WandSparkles, X } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Info,
+  Mic,
+  MousePointer2,
+  Plus,
+  Sparkles,
+  Square,
+  WandSparkles,
+  X,
+} from "lucide-react";
 import ToggleSwitch from "../../../../shared/ui/ToggleSwitch";
 import { Dropdown } from "../../../../shared/ui/Dropdown";
 import { formatShortcutForDisplay } from "../../../../shared/lib/shortcuts";
@@ -12,7 +23,8 @@ import type {
   TranscriptionLanguageOption,
 } from "../../../../shared/lib/transcriptionLanguages";
 
-type CaptureMode = "smart" | "hold" | "toggle" | "command" | "paste-last" | "cancel" | null;
+type ShortcutMode = "smart" | "hold" | "toggle" | "command" | "paste-last" | "cancel";
+type CaptureMode = `${ShortcutMode}:${number}` | null;
 type HelpTooltipId = "edit-mode" | "auto-transform" | "cleanup";
 type MicrophoneTestStatus = "idle" | "starting" | "listening" | "error";
 type MicrophoneTestLevels = {
@@ -77,27 +89,34 @@ type GeneralTabProps = {
   languages: TranscriptionLanguageOption[];
   languageBadgeColumns: LanguageBadgeColumn[];
   showLanguageSupportBadges: boolean;
-  smartShortcut: string;
+  smartShortcuts: string[];
   smartEnabled: boolean;
   setSmartEnabled: (value: boolean) => void;
-  holdShortcut: string;
+  holdShortcuts: string[];
   holdEnabled: boolean;
   setHoldEnabled: (value: boolean) => void;
-  toggleShortcut: string;
+  toggleShortcuts: string[];
   toggleEnabled: boolean;
   setToggleEnabled: (value: boolean) => void;
-  commandShortcut: string;
+  commandShortcuts: string[];
   commandEnabled: boolean;
   setCommandEnabled: (value: boolean) => void;
-  pasteLastTranscriptShortcut: string;
+  pasteLastTranscriptShortcuts: string[];
   pasteLastTranscriptEnabled: boolean;
   setPasteLastTranscriptEnabled: (value: boolean) => void;
-  cancelShortcut: string;
+  cancelShortcuts: string[];
   cancelEnabled: boolean;
   setCancelEnabled: (value: boolean) => void;
+  wakeListeningEnabled: boolean;
+  setWakeListeningEnabled: (value: boolean) => void;
+  wakePhrases: string[];
+  setWakePhrases: (value: string[]) => void;
   captureActive: CaptureMode;
   capturePreview: string;
-  onStartCapture: (mode: Exclude<CaptureMode, null>) => void;
+  onStartCapture: (mode: ShortcutMode, index?: number) => void;
+  removeShortcut: (mode: ShortcutMode, index: number) => void;
+  addShortcutSlot: (mode: ShortcutMode) => void;
+  addMouseShortcut: (mode: ShortcutMode, shortcut: string) => void;
   error: string | null;
   errorCopied: boolean;
   setErrorCopied: (value: boolean) => void;
@@ -127,38 +146,42 @@ const GeneralTab = ({
   languages,
   languageBadgeColumns,
   showLanguageSupportBadges,
-  smartShortcut,
+  smartShortcuts,
   smartEnabled,
   setSmartEnabled,
-  holdShortcut,
+  holdShortcuts,
   holdEnabled,
   setHoldEnabled,
-  toggleShortcut,
+  toggleShortcuts,
   toggleEnabled,
   setToggleEnabled,
-  commandShortcut,
+  commandShortcuts,
   commandEnabled,
   setCommandEnabled,
-  pasteLastTranscriptShortcut,
+  pasteLastTranscriptShortcuts,
   pasteLastTranscriptEnabled,
   setPasteLastTranscriptEnabled,
-  cancelShortcut,
+  cancelShortcuts,
   cancelEnabled,
   setCancelEnabled,
+  wakeListeningEnabled,
+  setWakeListeningEnabled,
+  wakePhrases,
+  setWakePhrases,
   captureActive,
   capturePreview,
   onStartCapture,
+  removeShortcut,
+  addShortcutSlot,
+  addMouseShortcut,
   error,
   errorCopied,
   setErrorCopied,
   editModeEnabled,
   setEditModeEnabled,
   autoTransformEnabled,
-  setAutoTransformEnabled,
   autoTransformPresetId,
   setAutoTransformPresetId,
-  cleanupEnabled,
-  setCleanupEnabled,
   aiFeaturesReady,
 }: GeneralTabProps) => {
   const { t } = useLingui();
@@ -207,6 +230,13 @@ const GeneralTab = ({
     void startMicrophoneTest();
   };
 
+  const captureKey = (mode: ShortcutMode, index: number) => `${mode}:${index}` as const;
+  const updateWakePhrase = (index: number, value: string) => {
+    const next = [...wakePhrases];
+    next[index] = value;
+    setWakePhrases(next);
+  };
+
   return (
     <motion.div
       key="general"
@@ -238,7 +268,7 @@ const GeneralTab = ({
             aria-checked={transcriptionMode === "cloud"}
             aria-label={t({
               id: "settings.general.cloud.aria",
-              message: "Cloud processing (Coming soon)",
+              message: "Remote processing (optional)",
             })}
             className={`py-3 px-3.5 rounded-lg border text-left transition-all duration-100 opacity-60 cursor-not-allowed ${
               transcriptionMode === "cloud"
@@ -255,7 +285,7 @@ const GeneralTab = ({
               >
                 {t({
                   id: "settings.general.cloud.label",
-                  message: "Cloud",
+                  message: "Remote",
                 })}
               </span>
               <span
@@ -265,7 +295,7 @@ const GeneralTab = ({
               >
                 {t({
                   id: "settings.general.cloud.badge",
-                  message: "coming soon",
+                  message: "optional",
                 })}
               </span>
             </div>
@@ -276,7 +306,7 @@ const GeneralTab = ({
             >
               {t({
                 id: "settings.general.cloud.description",
-                message: "In development",
+                message: "Use only when you choose a provider",
               })}
             </p>
           </button>
@@ -308,7 +338,7 @@ const GeneralTab = ({
               >
                 {t({
                   id: "settings.general.local.badge",
-                  message: "private",
+                  message: "free",
                 })}
               </span>
             </div>
@@ -319,7 +349,7 @@ const GeneralTab = ({
             >
               {t({
                 id: "settings.general.local.description",
-                message: "Runs entirely on your device",
+                message: "Unlimited speech-to-text on your device",
               })}
             </p>
           </button>
@@ -533,18 +563,21 @@ const GeneralTab = ({
                 id: "settings.general.shortcuts.smart_description",
                 message: "tap to toggle, hold to talk",
               })}
-              shortcut={smartShortcut}
+              shortcuts={smartShortcuts}
               enabled={smartEnabled}
-              isCapturing={captureActive === "smart"}
+              isCapturing={(index) => captureActive === captureKey("smart", index)}
               capturePreview={capturePreview}
               onToggle={() => {
                 if (!smartEnabled && !holdEnabled && !toggleEnabled) return;
                 setSmartEnabled(!smartEnabled);
               }}
-              onCapture={() => {
+              onCapture={(index) => {
                 if (!smartEnabled) return;
-                onStartCapture("smart");
+                onStartCapture("smart", index);
               }}
+              onRemove={(index) => removeShortcut("smart", index)}
+              onAdd={() => addShortcutSlot("smart")}
+              onAddMouse={(shortcut) => addMouseShortcut("smart", shortcut)}
               canDisable={holdEnabled || toggleEnabled}
             />
             <ShortcutRow
@@ -556,18 +589,21 @@ const GeneralTab = ({
                 id: "settings.general.shortcuts.hold_description",
                 message: "hold to talk, release to stop",
               })}
-              shortcut={holdShortcut}
+              shortcuts={holdShortcuts}
               enabled={holdEnabled}
-              isCapturing={captureActive === "hold"}
+              isCapturing={(index) => captureActive === captureKey("hold", index)}
               capturePreview={capturePreview}
               onToggle={() => {
                 if (!holdEnabled && !toggleEnabled && !smartEnabled) return;
                 setHoldEnabled(!holdEnabled);
               }}
-              onCapture={() => {
+              onCapture={(index) => {
                 if (!holdEnabled) return;
-                onStartCapture("hold");
+                onStartCapture("hold", index);
               }}
+              onRemove={(index) => removeShortcut("hold", index)}
+              onAdd={() => addShortcutSlot("hold")}
+              onAddMouse={(shortcut) => addMouseShortcut("hold", shortcut)}
               canDisable={smartEnabled || toggleEnabled}
             />
             <ShortcutRow
@@ -579,18 +615,21 @@ const GeneralTab = ({
                 id: "settings.general.shortcuts.toggle_description",
                 message: "tap to start, tap to stop",
               })}
-              shortcut={toggleShortcut}
+              shortcuts={toggleShortcuts}
               enabled={toggleEnabled}
-              isCapturing={captureActive === "toggle"}
+              isCapturing={(index) => captureActive === captureKey("toggle", index)}
               capturePreview={capturePreview}
               onToggle={() => {
                 if (!toggleEnabled && !holdEnabled && !smartEnabled) return;
                 setToggleEnabled(!toggleEnabled);
               }}
-              onCapture={() => {
+              onCapture={(index) => {
                 if (!toggleEnabled) return;
-                onStartCapture("toggle");
+                onStartCapture("toggle", index);
               }}
+              onRemove={(index) => removeShortcut("toggle", index)}
+              onAdd={() => addShortcutSlot("toggle")}
+              onAddMouse={(shortcut) => addMouseShortcut("toggle", shortcut)}
               canDisable={smartEnabled || holdEnabled}
             />
             <ShortcutRow
@@ -602,16 +641,16 @@ const GeneralTab = ({
                 aiFeaturesDisabled
                   ? t({
                       id: "settings.general.shortcuts.command_configure",
-                      message: "configure AI to edit selected text",
+                      message: "configure local text enhancement",
                     })
                   : t({
                       id: "settings.general.shortcuts.command_description",
                       message: "hold to edit or generate",
                     })
               }
-              shortcut={commandShortcut}
+              shortcuts={commandShortcuts}
               enabled={commandEnabled}
-              isCapturing={captureActive === "command"}
+              isCapturing={(index) => captureActive === captureKey("command", index)}
               capturePreview={capturePreview}
               onToggle={() => {
                 if (aiFeaturesDisabled) {
@@ -620,10 +659,13 @@ const GeneralTab = ({
                 }
                 setCommandEnabled(!commandEnabled);
               }}
-              onCapture={() => {
+              onCapture={(index) => {
                 if (!commandEnabled) return;
-                onStartCapture("command");
+                onStartCapture("command", index);
               }}
+              onRemove={(index) => removeShortcut("command", index)}
+              onAdd={() => addShortcutSlot("command")}
+              onAddMouse={(shortcut) => addMouseShortcut("command", shortcut)}
               canDisable
               disabled={aiFeaturesDisabled}
               icon={<Sparkles size={12} aria-hidden="true" />}
@@ -637,15 +679,18 @@ const GeneralTab = ({
                 id: "settings.general.shortcuts.paste_last_description",
                 message: "recover the last transcript",
               })}
-              shortcut={pasteLastTranscriptShortcut}
+              shortcuts={pasteLastTranscriptShortcuts}
               enabled={pasteLastTranscriptEnabled}
-              isCapturing={captureActive === "paste-last"}
+              isCapturing={(index) => captureActive === captureKey("paste-last", index)}
               capturePreview={capturePreview}
               onToggle={() => setPasteLastTranscriptEnabled(!pasteLastTranscriptEnabled)}
-              onCapture={() => {
+              onCapture={(index) => {
                 if (!pasteLastTranscriptEnabled) return;
-                onStartCapture("paste-last");
+                onStartCapture("paste-last", index);
               }}
+              onRemove={(index) => removeShortcut("paste-last", index)}
+              onAdd={() => addShortcutSlot("paste-last")}
+              onAddMouse={(shortcut) => addMouseShortcut("paste-last", shortcut)}
               canDisable
               icon={<Copy size={12} aria-hidden="true" />}
             />
@@ -658,15 +703,18 @@ const GeneralTab = ({
                 id: "settings.general.shortcuts.cancel_description",
                 message: "stop recording or processing",
               })}
-              shortcut={cancelShortcut}
+              shortcuts={cancelShortcuts}
               enabled={cancelEnabled}
-              isCapturing={captureActive === "cancel"}
+              isCapturing={(index) => captureActive === captureKey("cancel", index)}
               capturePreview={capturePreview}
               onToggle={() => setCancelEnabled(!cancelEnabled)}
-              onCapture={() => {
+              onCapture={(index) => {
                 if (!cancelEnabled) return;
-                onStartCapture("cancel");
+                onStartCapture("cancel", index);
               }}
+              onRemove={(index) => removeShortcut("cancel", index)}
+              onAdd={() => addShortcutSlot("cancel")}
+              onAddMouse={(shortcut) => addMouseShortcut("cancel", shortcut)}
               canDisable
               icon={<X size={12} aria-hidden="true" />}
             />
@@ -682,6 +730,66 @@ const GeneralTab = ({
           </h2>
 
           <div className="space-y-3">
+            <div className="rounded-lg bg-surface-surface p-2.5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Mic size={12} className="ui-color-muted" aria-hidden="true" />
+                    <span className="ui-text-label-strong ui-color-primary">
+                      {t({
+                        id: "settings.general.wake_listening",
+                        message: "Wake / always listening",
+                      })}
+                    </span>
+                  </div>
+                  <p className="mt-1 ui-text-meta ui-color-muted">
+                    {t({
+                      id: "settings.general.wake_listening_description",
+                      message:
+                        "Local mic activity can wake the recorder, then silence stops it automatically.",
+                    })}
+                  </p>
+                </div>
+                <ToggleSwitch
+                  enabled={wakeListeningEnabled}
+                  onToggle={() => setWakeListeningEnabled(!wakeListeningEnabled)}
+                  ariaLabel={t({
+                    id: "settings.general.wake_listening_toggle",
+                    message: "Toggle wake listener",
+                  })}
+                />
+              </div>
+              <AnimatePresence>
+                {wakeListeningEnabled && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-3 overflow-hidden"
+                  >
+                    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                      {wakePhrases.slice(0, 6).map((phrase, index) => (
+                        <input
+                          key={index}
+                          value={phrase}
+                          onChange={(event) => updateWakePhrase(index, event.target.value)}
+                          className="h-7 min-w-0 rounded-md border border-border-primary bg-surface-elevated px-2 text-center ui-text-meta ui-color-primary outline-none transition-colors focus:border-border-hover"
+                          aria-label={`Wake phrase ${index + 1}`}
+                        />
+                      ))}
+                    </div>
+                    <p className="mt-2 ui-text-micro ui-color-disabled">
+                      {t({
+                        id: "settings.general.wake_listening_note",
+                        message:
+                          "Wake-word ONNX files can replace this low-power speech trigger later; these command names are already stored separately.",
+                      })}
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <div className="rounded-lg bg-surface-surface">
               <div className="py-2 px-2.5">
                 <div className="flex items-center justify-between">
@@ -797,19 +905,17 @@ const GeneralTab = ({
                   <span className="ui-text-label-strong ui-color-primary">
                     {t({
                       id: "settings.general.auto_transform",
-                      message: "Auto Transform",
+                      message: "Transform buttons",
                     })}
                   </span>
                   <ToggleSwitch
-                    enabled={autoTransformEnabled}
-                    onToggle={() =>
-                      aiFeaturesReady && setAutoTransformEnabled(!autoTransformEnabled)
-                    }
+                    enabled={false}
+                    onToggle={() => {}}
                     ariaLabel={t({
                       id: "settings.general.auto_transform.toggle_aria",
-                      message: "Toggle Auto Transform",
+                      message: "Transform buttons are manual",
                     })}
-                    disabled={aiFeaturesDisabled}
+                    disabled
                   />
                 </div>
                 <div className="mt-0.5 flex items-start justify-between gap-3">
@@ -832,13 +938,13 @@ const GeneralTab = ({
                         </button>{" "}
                         {t({
                           id: "settings.general.auto_transform.models_suffix",
-                          message: "to transform every dictation.",
+                          message: "to use transform buttons.",
                         })}
                       </>
                     ) : (
                       t({
                         id: "settings.general.auto_transform.body",
-                        message: "apply a transform preset after every dictation",
+                        message: "use action buttons to polish or transform a transcript after STT",
                       })
                     )}
                   </span>
@@ -883,7 +989,7 @@ const GeneralTab = ({
                           {t({
                             id: "settings.general.auto_transform.help",
                             message:
-                              "After speech recognition, Flow runs the selected Transform preset, saves it to Transform history, then pastes the result.",
+                              "Flow keeps dictation fast by showing raw STT first. Use the transform action buttons when you want polished text.",
                           })}
                         </p>
                       </div>
@@ -924,13 +1030,13 @@ const GeneralTab = ({
                     })}
                   </span>
                   <ToggleSwitch
-                    enabled={cleanupEnabled}
-                    onToggle={() => aiFeaturesReady && setCleanupEnabled(!cleanupEnabled)}
+                    enabled={false}
+                    onToggle={() => {}}
                     ariaLabel={t({
                       id: "settings.general.cleanup.toggle_aria",
-                      message: "Toggle Cleanup",
+                      message: "Cleanup runs from buttons only",
                     })}
-                    disabled={aiFeaturesDisabled}
+                    disabled
                   />
                 </div>
                 <div className="flex items-center justify-between mt-0.5">
@@ -959,7 +1065,7 @@ const GeneralTab = ({
                     ) : (
                       t({
                         id: "settings.general.cleanup.body",
-                        message: "remove filler words and polish transcripts",
+                        message: "run cleanup from transcript action buttons when needed",
                       })
                     )}
                   </span>
@@ -1004,7 +1110,7 @@ const GeneralTab = ({
                           {t({
                             id: "settings.general.cleanup.help",
                             message:
-                              "Cleans up transcripts after transcription while keeping the original meaning intact.",
+                              "Flow no longer cleans up every dictation automatically. Use Run cleanup after STT when you want the text enhanced.",
                           })}
                         </p>
                         {transcriptionMode === "local" && !aiFeaturesReady && (
@@ -1408,12 +1514,15 @@ const formatMicrophoneTestError = (err: unknown) => {
 type ShortcutRowProps = {
   label: string;
   description: string;
-  shortcut: string;
+  shortcuts: string[];
   enabled: boolean;
-  isCapturing: boolean;
+  isCapturing: (index: number) => boolean;
   capturePreview: string;
   onToggle: () => void;
-  onCapture: () => void;
+  onCapture: (index: number) => void;
+  onRemove: (index: number) => void;
+  onAdd: () => void;
+  onAddMouse: (shortcut: string) => void;
   canDisable: boolean;
   disabled?: boolean;
   icon?: ReactNode;
@@ -1422,18 +1531,22 @@ type ShortcutRowProps = {
 const ShortcutRow = ({
   label,
   description,
-  shortcut,
+  shortcuts,
   enabled,
   isCapturing,
   capturePreview,
   onToggle,
   onCapture,
+  onRemove,
+  onAdd,
+  onAddMouse,
   canDisable,
   disabled = false,
   icon,
 }: ShortcutRowProps) => {
   const { t } = useLingui();
-  const displayShortcut = formatShortcutForDisplay(shortcut);
+  const visibleShortcuts = shortcuts.length > 0 ? shortcuts : [""];
+  const canAddShortcut = visibleShortcuts.length < 4;
 
   return (
     <div
@@ -1457,44 +1570,91 @@ const ShortcutRow = ({
           disabled={disabled || (enabled && !canDisable)}
         />
       </div>
-      <motion.button
-        onClick={onCapture}
-        disabled={!enabled || disabled}
-        aria-label={t({
-          id: "settings.general.shortcut.record_aria",
-          message: `Record new shortcut for ${label}, currently ${displayShortcut}`,
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-border-primary pb-1 pt-1">
+        {visibleShortcuts.map((shortcut, index) => {
+          const capturing = isCapturing(index);
+          const displayShortcut = formatShortcutForDisplay(shortcut);
+          return (
+            <motion.button
+              key={`${shortcut}-${index}`}
+              onClick={() => onCapture(index)}
+              disabled={!enabled || disabled}
+              aria-label={t({
+                id: "settings.general.shortcut.record_aria",
+                message: `Record shortcut ${index + 1} for ${label}, currently ${displayShortcut}`,
+              })}
+              className={`group flex h-6 max-w-full items-center gap-1.5 rounded-full border px-2 ui-text-kbd transition-colors ${
+                capturing
+                  ? "border-border-hover bg-surface-elevated ui-color-primary"
+                  : enabled && !disabled
+                    ? "border-border-primary bg-surface-elevated ui-color-secondary hover:border-border-secondary hover:text-content-primary"
+                    : "border-border-primary bg-surface-elevated ui-color-disabled cursor-not-allowed"
+              }`}
+            >
+              {capturing ? (
+                <>
+                  <motion.span
+                    className="h-1 w-1 rounded-full bg-content-primary"
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                  />
+                  <span className={capturePreview ? "ui-color-primary" : "ui-color-muted"}>
+                    {capturePreview ||
+                      t({
+                        id: "settings.general.shortcut.capture_placeholder",
+                        message: "...",
+                      })}
+                  </span>
+                </>
+              ) : (
+                <span className="truncate">{displayShortcut}</span>
+              )}
+              {visibleShortcuts.length > 1 && (
+                <span
+                  role="button"
+                  tabIndex={-1}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRemove(index);
+                  }}
+                  className="rounded-full opacity-45 transition-opacity hover:opacity-100"
+                  aria-label={`Remove ${label} shortcut ${index + 1}`}
+                >
+                  <X size={9} aria-hidden="true" />
+                </span>
+              )}
+            </motion.button>
+          );
         })}
-        className={`w-full border-b pb-1 pt-1 text-left ui-text-kbd transition-colors flex items-center ${
-          isCapturing
-            ? "ui-color-primary border-border-hover"
-            : enabled && !disabled
-              ? "ui-color-secondary border-border-primary hover:border-border-secondary hover:text-content-primary"
-              : "ui-color-disabled border-border-primary cursor-not-allowed"
-        }`}
-      >
-        <div className="flex min-w-0 items-center gap-1.5 h-5">
-          {isCapturing ? (
-            <>
-              <motion.span
-                className="w-1 h-1 rounded-full bg-content-primary"
-                animate={{ opacity: [0.3, 1, 0.3] }}
-                transition={{ duration: 1, repeat: Infinity }}
-              />
-              <span
-                className={`truncate ${capturePreview ? "ui-color-primary" : "ui-color-muted"}`}
-              >
-                {capturePreview ||
-                  t({
-                    id: "settings.general.shortcut.capture_placeholder",
-                    message: "...",
-                  })}
-              </span>
-            </>
-          ) : (
-            <span className="block truncate">{displayShortcut}</span>
-          )}
-        </div>
-      </motion.button>
+        {canAddShortcut && (
+          <button
+            type="button"
+            onClick={onAdd}
+            disabled={!enabled || disabled}
+            className="flex h-6 items-center gap-1 rounded-full border border-border-primary bg-surface-elevated px-2 ui-text-meta ui-color-muted transition-colors hover:border-border-secondary hover:text-content-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus size={10} aria-hidden="true" />
+            Add
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-1 pt-0.5">
+        <span className="flex items-center gap-1 ui-text-micro ui-color-disabled">
+          <MousePointer2 size={9} aria-hidden="true" />
+          Mouse
+        </span>
+        {["MouseBack", "MouseForward", "MouseMiddle"].map((mouseShortcut) => (
+          <button
+            key={mouseShortcut}
+            type="button"
+            disabled={!enabled || disabled || shortcuts.length >= 4}
+            onClick={() => onAddMouse(mouseShortcut)}
+            className="rounded-full border border-border-primary px-1.5 py-0.5 ui-text-micro ui-color-muted transition-colors hover:border-border-secondary hover:text-content-primary disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            {formatShortcutForDisplay(mouseShortcut).replace("Mouse ", "")}
+          </button>
+        ))}
+      </div>
     </div>
   );
 };

@@ -2,6 +2,7 @@ import { I18nProvider } from "@lingui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, type ReactNode } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { authKeys } from "../features/auth/queries";
 import { activateLocale, i18n } from "../i18n";
@@ -113,6 +114,53 @@ function LocaleSyncBridge() {
   return null;
 }
 
+type TtsCompletePayload = {
+  path: string;
+  auto_play: boolean;
+  volume?: number;
+  audio_data_url?: string | null;
+};
+
+function TtsPlaybackBridge() {
+  const windowLabel = getCurrentWindow().label;
+
+  useEffect(() => {
+    if (windowLabel !== "main") {
+      return;
+    }
+
+    let cancelled = false;
+    let currentAudio: HTMLAudioElement | null = null;
+    let unlisten: UnlistenFn | null = null;
+
+    listen<TtsCompletePayload>("tts:complete", (event) => {
+      if (cancelled || !event.payload.auto_play || !event.payload.path) return;
+
+      currentAudio?.pause();
+      currentAudio = null;
+      currentAudio = new Audio(event.payload.audio_data_url ?? convertFileSrc(event.payload.path));
+      currentAudio.volume = Math.max(0, Math.min(1, event.payload.volume ?? 0.1));
+      currentAudio.play().catch((err) => {
+        console.error("Failed to play generated TTS audio:", err);
+      });
+    }).then((fn) => {
+      if (cancelled) fn();
+      else {
+        unlisten = fn;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+      currentAudio?.pause();
+      currentAudio = null;
+    };
+  }, [windowLabel]);
+
+  return null;
+}
+
 export function AppProviders({ children }: { children: ReactNode }) {
   const tauriRuntime = isTauriRuntime();
 
@@ -121,6 +169,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         {tauriRuntime && <LocaleSyncBridge />}
         {tauriRuntime && <QuerySyncBridge />}
+        {tauriRuntime && <TtsPlaybackBridge />}
         {children}
       </QueryClientProvider>
     </I18nProvider>

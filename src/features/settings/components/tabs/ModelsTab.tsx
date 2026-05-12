@@ -1,6 +1,7 @@
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import {
   AlertCircle,
@@ -11,11 +12,18 @@ import {
   Settings2,
   Square,
   Trash2,
+  Volume2,
 } from "lucide-react";
 import DotMatrix from "../../../../shared/ui/DotMatrix";
 import { i18n } from "../../../../i18n";
 import LanguageModelPanel from "../LanguageModelPanel";
-import type { DownloadEvent, LlmProvider, ModelInfo, ModelStatus } from "../../../../types";
+import type {
+  DownloadEvent,
+  LlmProvider,
+  ModelInfo,
+  ModelStatus,
+  TtsVoiceMode,
+} from "../../../../types";
 
 type ModelCategory = "speech" | "system";
 
@@ -81,11 +89,31 @@ type ModelsTabProps = {
   fetchAvailableModels: () => void;
   modelCatalog: ModelInfo[];
   modelStatus: Record<string, ModelStatus>;
+  ttsModelCatalog: ModelInfo[];
+  ttsModelStatus: Record<string, ModelStatus>;
   downloadState: Record<string, DownloadEvent>;
   localModel: string;
   setLocalModel: (value: string) => void;
+  ttsEnabled: boolean;
+  setTtsEnabled: (value: boolean) => void;
+  ttsAutoAfterStt: boolean;
+  setTtsAutoAfterStt: (value: boolean) => void;
+  ttsAutoPlay: boolean;
+  setTtsAutoPlay: (value: boolean) => void;
+  ttsVolume: number;
+  setTtsVolume: (value: number) => void;
+  ttsModel: string;
+  setTtsModel: (value: string) => void;
+  ttsVoiceMode: TtsVoiceMode;
+  setTtsVoiceMode: (value: TtsVoiceMode) => void;
+  ttsSpeaker: string;
+  setTtsSpeaker: (value: string) => void;
+  ttsInstruction: string;
+  setTtsInstruction: (value: string) => void;
   handleDownload: (modelKey: string) => void;
   handleDelete: (modelKey: string) => void;
+  handleTtsDownload: (modelKey: string) => void;
+  handleTtsDelete: (modelKey: string) => void;
   handleCancelDownload: (modelKey: string) => void;
   formatBytes: (bytes: number) => string;
 };
@@ -106,11 +134,31 @@ const ModelsTab = ({
   fetchAvailableModels,
   modelCatalog,
   modelStatus,
+  ttsModelCatalog,
+  ttsModelStatus,
   downloadState,
   localModel,
   setLocalModel,
+  ttsEnabled,
+  setTtsEnabled,
+  ttsAutoAfterStt,
+  setTtsAutoAfterStt,
+  ttsAutoPlay,
+  setTtsAutoPlay,
+  ttsVolume,
+  setTtsVolume,
+  ttsModel,
+  setTtsModel,
+  ttsVoiceMode,
+  setTtsVoiceMode,
+  ttsSpeaker,
+  setTtsSpeaker,
+  ttsInstruction,
+  setTtsInstruction,
   handleDownload,
   handleDelete,
+  handleTtsDownload,
+  handleTtsDelete,
   handleCancelDownload,
   formatBytes,
 }: ModelsTabProps) => {
@@ -185,7 +233,7 @@ const ModelsTab = ({
           <p className="ui-text-body-sm ui-color-muted">
             {t({
               id: "settings.models.description",
-              message: "Manage transcription engines and AI provider settings.",
+              message: "Manage local speech engines, voice output, and optional remote providers.",
             })}
           </p>
           <div className="flex gap-0.5 p-0.5 rounded-md bg-[var(--color-bg-primary)] border border-border-primary shrink-0">
@@ -241,6 +289,32 @@ const ModelsTab = ({
               setLlmModel={setLlmModel}
               availableModels={availableModels}
               fetchAvailableModels={fetchAvailableModels}
+            />
+
+            <VoiceOutputPanel
+              ttsModels={ttsModelCatalog}
+              ttsModelStatus={ttsModelStatus}
+              downloadState={downloadState}
+              selectedModel={ttsModel}
+              setSelectedModel={setTtsModel}
+              enabled={ttsEnabled}
+              setEnabled={setTtsEnabled}
+              autoAfterStt={ttsAutoAfterStt}
+              setAutoAfterStt={setTtsAutoAfterStt}
+              autoPlay={ttsAutoPlay}
+              setAutoPlay={setTtsAutoPlay}
+              volume={ttsVolume}
+              setVolume={setTtsVolume}
+              voiceMode={ttsVoiceMode}
+              setVoiceMode={setTtsVoiceMode}
+              speaker={ttsSpeaker}
+              setSpeaker={setTtsSpeaker}
+              instruction={ttsInstruction}
+              setInstruction={setTtsInstruction}
+              onDownload={handleTtsDownload}
+              onDelete={handleTtsDelete}
+              onCancel={handleCancelDownload}
+              formatBytes={formatBytes}
             />
 
             <div>
@@ -390,6 +464,371 @@ const ModelsTab = ({
         )}
       </AnimatePresence>
     </motion.div>
+  );
+};
+
+type VoiceOutputPanelProps = {
+  ttsModels: ModelInfo[];
+  ttsModelStatus: Record<string, ModelStatus>;
+  downloadState: Record<string, DownloadEvent>;
+  selectedModel: string;
+  setSelectedModel: (value: string) => void;
+  enabled: boolean;
+  setEnabled: (value: boolean) => void;
+  autoAfterStt: boolean;
+  setAutoAfterStt: (value: boolean) => void;
+  autoPlay: boolean;
+  setAutoPlay: (value: boolean) => void;
+  volume: number;
+  setVolume: (value: number) => void;
+  voiceMode: TtsVoiceMode;
+  setVoiceMode: (value: TtsVoiceMode) => void;
+  speaker: string;
+  setSpeaker: (value: string) => void;
+  instruction: string;
+  setInstruction: (value: string) => void;
+  onDownload: (modelKey: string) => void;
+  onDelete: (modelKey: string) => void;
+  onCancel: (modelKey: string) => void;
+  formatBytes: (bytes: number) => string;
+};
+
+type TtsTestStatus =
+  | { state: "idle" }
+  | { state: "running"; startedAt: number }
+  | { state: "ready"; message: string; elapsedMs: number; path: string }
+  | { state: "error"; message: string };
+
+type TtsCompletePayload = {
+  path: string;
+  transcript: string;
+  model: string;
+  elapsed_ms: number;
+  auto_play: boolean;
+  audio_data_url?: string | null;
+};
+
+const VoiceOutputPanel = ({
+  ttsModels,
+  ttsModelStatus,
+  downloadState,
+  selectedModel,
+  setSelectedModel,
+  enabled,
+  setEnabled,
+  autoAfterStt,
+  setAutoAfterStt,
+  autoPlay,
+  setAutoPlay,
+  volume,
+  setVolume,
+  voiceMode,
+  setVoiceMode,
+  speaker,
+  setSpeaker,
+  instruction,
+  setInstruction,
+  onDownload,
+  onDelete,
+  onCancel,
+  formatBytes,
+}: VoiceOutputPanelProps) => {
+  const { t } = useLingui();
+  const [testText, setTestText] = useState("Hello, this is Flow speaking with Kokoro TTS.");
+  const [testStatus, setTestStatus] = useState<TtsTestStatus>({ state: "idle" });
+  const currentModel = ttsModels.find((model) => model.key === selectedModel);
+  const currentInstalled = Boolean(selectedModel && ttsModelStatus[selectedModel]?.installed);
+  const supportsSourceAudio = Boolean(
+    currentModel?.capabilities.some((capability) => capability === "voice_clone"),
+  );
+  const supportsPreset = Boolean(
+    currentModel?.capabilities.some((capability) => capability === "custom_voice"),
+  );
+  const installedCustomVoiceModel = ttsModels.find(
+    (model) => model.capabilities.includes("custom_voice") && ttsModelStatus[model.key]?.installed,
+  );
+
+  const selectModel = (model: ModelInfo) => {
+    setSelectedModel(model.key);
+    if (voiceMode === "source_audio" && !model.capabilities.includes("voice_clone")) {
+      setVoiceMode("preset");
+    }
+    if (voiceMode === "preset" && !model.capabilities.includes("custom_voice")) {
+      setVoiceMode("source_audio");
+    }
+  };
+
+  const runTtsTest = async () => {
+    const text = testText.trim();
+    if (!text) {
+      setTestStatus({ state: "error", message: "Enter text to test TTS." });
+      return;
+    }
+
+    setTestStatus({ state: "running", startedAt: Date.now() });
+    try {
+      const testModel =
+        voiceMode === "source_audio" && installedCustomVoiceModel
+          ? installedCustomVoiceModel.key
+          : selectedModel;
+      const testVoiceMode =
+        voiceMode === "source_audio" && installedCustomVoiceModel ? "preset" : voiceMode;
+      const result = await invoke<TtsCompletePayload>("synthesize_tts", {
+        args: {
+          text,
+          referenceAudioPath: null,
+          referenceText: null,
+          model: testModel,
+          voiceMode: testVoiceMode,
+          speaker,
+          instruction,
+          autoPlay,
+          volume,
+        },
+      });
+      setTestStatus({
+        state: "ready",
+        message: `Generated and ${result.auto_play ? "played" : "saved"} in ${(result.elapsed_ms / 1000).toFixed(1)}s.`,
+        elapsedMs: result.elapsed_ms,
+        path: result.path,
+      });
+    } catch (error) {
+      setTestStatus({ state: "error", message: String(error) });
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-border-primary bg-surface-surface overflow-hidden shadow-[var(--shadow-sm)]">
+      <div className="px-4 py-3 border-b border-border-primary flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-elevated border border-border-primary">
+              <Volume2 size={14} className="ui-color-muted" aria-hidden="true" />
+            </span>
+            <div>
+              <h3 className="ui-text-body-strong ui-color-primary">
+                {t({ id: "settings.models.tts.title", message: "Voice Output" })}
+              </h3>
+              <p className="ui-text-label ui-color-disabled">
+                {t({
+                  id: "settings.models.tts.description",
+                  message: "Optionally turn each transcript back into speech with local TTS.",
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => setEnabled(!enabled)}
+          className={`relative h-6 w-11 rounded-full border transition-colors ${
+            enabled ? "border-local-30 bg-local/20" : "border-border-primary bg-surface-elevated"
+          }`}
+          aria-pressed={enabled}
+          aria-label={t({ id: "settings.models.tts.toggle", message: "Toggle voice output" })}
+        >
+          <motion.span
+            animate={{ x: enabled ? 20 : 2 }}
+            transition={{ type: "spring", stiffness: 500, damping: 32 }}
+            className="absolute top-1 h-4 w-4 rounded-full bg-content-primary"
+          />
+        </button>
+      </div>
+
+      <div className="p-4 space-y-4">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex items-center justify-between gap-3 rounded-lg border border-border-primary bg-surface-elevated/40 px-3 py-2">
+            <span className="ui-text-body-sm ui-color-primary">
+              {t({ id: "settings.models.tts.after_stt", message: "Auto after STT" })}
+            </span>
+            <input
+              type="checkbox"
+              checked={autoAfterStt}
+              onChange={(event) => setAutoAfterStt(event.target.checked)}
+              className="accent-[var(--color-accent)]"
+            />
+          </label>
+          <label className="flex items-center justify-between gap-3 rounded-lg border border-border-primary bg-surface-elevated/40 px-3 py-2">
+            <span className="ui-text-body-sm ui-color-primary">
+              {t({ id: "settings.models.tts.auto_play", message: "Auto play" })}
+            </span>
+            <input
+              type="checkbox"
+              checked={autoPlay}
+              onChange={(event) => setAutoPlay(event.target.checked)}
+              className="accent-[var(--color-accent)]"
+            />
+          </label>
+        </div>
+
+        <label className="flex items-center justify-between gap-4 rounded-lg border border-border-primary bg-surface-elevated/40 px-3 py-2">
+          <span>
+            <span className="block ui-text-body-sm ui-color-primary">
+              {t({ id: "settings.models.tts.volume", message: "Playback volume" })}
+            </span>
+            <span className="block ui-text-label ui-color-disabled">
+              {t({
+                id: "settings.models.tts.volume_hint",
+                message: "Default is quiet so generated speech does not overpower your system.",
+              })}
+            </span>
+          </span>
+          <span className="flex min-w-[190px] items-center gap-2">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={Math.round(Math.min(1, Math.max(0, volume)) * 100)}
+              onChange={(event) => setVolume(Number(event.target.value) / 100)}
+              className="h-1 w-32 accent-[var(--color-accent)]"
+            />
+            <span className="w-9 text-right ui-text-label-strong ui-color-primary">
+              {Math.round(Math.min(1, Math.max(0, volume)) * 100)}%
+            </span>
+          </span>
+        </label>
+
+        <div className="grid grid-cols-2 gap-2 rounded-lg border border-border-primary bg-surface-elevated/40 p-1">
+          {[
+            {
+              id: "source_audio" as TtsVoiceMode,
+              label: t({ id: "settings.models.tts.mode.source_audio", message: "Clone input" }),
+              disabled: currentModel ? !supportsSourceAudio : false,
+            },
+            {
+              id: "preset" as TtsVoiceMode,
+              label: t({ id: "settings.models.tts.mode.preset", message: "Preset voice" }),
+              disabled: currentModel ? !supportsPreset : false,
+            },
+          ].map((option) => {
+            const active = voiceMode === option.id;
+            return (
+              <button
+                key={option.id}
+                disabled={option.disabled}
+                onClick={() => setVoiceMode(option.id)}
+                className={`relative rounded-md px-3 py-1.5 ui-text-button-sm transition-colors ${
+                  active ? "ui-color-primary" : "ui-color-muted hover:text-content-primary"
+                } ${option.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="tts-voice-mode-pill"
+                    className="absolute inset-0 rounded-md bg-surface-surface border border-border-secondary"
+                    transition={{ type: "spring", stiffness: 500, damping: 36 }}
+                  />
+                )}
+                <span className="relative">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {voiceMode === "preset" && (
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              value={speaker}
+              onChange={(event) => setSpeaker(event.target.value)}
+              placeholder={t({
+                id: "settings.models.tts.speaker.placeholder",
+                message: "Speaker, or blank for first supported",
+              })}
+              className="h-8 rounded-md border border-border-primary bg-bg-primary px-3 ui-text-body-sm ui-color-primary outline-none focus:border-border-secondary"
+            />
+            <input
+              value={instruction}
+              onChange={(event) => setInstruction(event.target.value)}
+              placeholder={t({
+                id: "settings.models.tts.instruct.placeholder",
+                message: "Optional tone instruction",
+              })}
+              className="h-8 rounded-md border border-border-primary bg-bg-primary px-3 ui-text-body-sm ui-color-primary outline-none focus:border-border-secondary"
+            />
+          </div>
+        )}
+
+        {!currentInstalled && enabled && (
+          <div className="rounded-lg border border-border-primary bg-surface-elevated/50 px-3 py-2">
+            <p className="ui-text-label ui-color-muted">
+              {t({
+                id: "settings.models.tts.install_hint",
+                message:
+                  "Download a voice model first. Flow will use it locally for generated speech.",
+              })}
+            </p>
+          </div>
+        )}
+
+        <div className="rounded-lg border border-border-primary bg-surface-elevated/40 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="ui-text-body-sm-strong ui-color-primary">
+                {t({ id: "settings.models.tts.test.title", message: "Test TTS" })}
+              </p>
+              <p className="ui-text-label ui-color-disabled">
+                {voiceMode === "source_audio"
+                  ? t({
+                      id: "settings.models.tts.test.source_audio_hint",
+                      message:
+                        "Text-only tests need Preset voice. Source-audio clone runs after an STT recording.",
+                    })
+                  : t({
+                      id: "settings.models.tts.test.preset_hint",
+                      message: "Generates a short WAV and auto-plays it if Auto play is on.",
+                    })}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={runTtsTest}
+              disabled={!currentInstalled || testStatus.state === "running"}
+              className="h-8 rounded-md border border-border-primary bg-bg-primary px-3 ui-text-button-sm ui-color-primary disabled:opacity-45 disabled:cursor-not-allowed"
+            >
+              {testStatus.state === "running"
+                ? t({ id: "settings.models.tts.test.running", message: "Generating..." })
+                : t({ id: "settings.models.tts.test.button", message: "Play Test" })}
+            </button>
+          </div>
+          <textarea
+            value={testText}
+            onChange={(event) => setTestText(event.target.value)}
+            rows={2}
+            className="mt-3 w-full resize-none rounded-md border border-border-primary bg-bg-primary px-3 py-2 ui-text-body-sm ui-color-primary outline-none focus:border-border-secondary"
+          />
+          {testStatus.state !== "idle" && (
+            <p
+              className={`mt-2 ui-text-label ${
+                testStatus.state === "error" ? "ui-color-error" : "ui-color-muted"
+              }`}
+            >
+              {testStatus.state === "running"
+                ? "Loading the local voice engine and generating audio. Kokoro usually finishes in a few seconds after startup."
+                : testStatus.message}
+            </p>
+          )}
+          {testStatus.state === "ready" && (
+            <p className="mt-1 ui-text-micro ui-color-disabled truncate">{testStatus.path}</p>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          {ttsModels.map((model) => (
+            <ModelRow
+              key={model.key}
+              model={model}
+              modelStatus={ttsModelStatus[model.key]}
+              downloadState={downloadState[model.key]}
+              isActive={selectedModel === model.key && ttsModelStatus[model.key]?.installed}
+              onUse={() => selectModel(model)}
+              onDownload={() => onDownload(model.key)}
+              onDelete={() => onDelete(model.key)}
+              onCancel={() => onCancel(model.key)}
+              formatBytes={formatBytes}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 };
 

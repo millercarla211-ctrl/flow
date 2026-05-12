@@ -9,19 +9,36 @@ use tauri::AppHandle;
 const SETTINGS_DB_FILE_NAME: &str = "settings.db";
 const KEY_ONBOARDING_COMPLETED: &str = "onboarding_completed";
 const KEY_SMART_SHORTCUT: &str = "smart_shortcut";
+const KEY_SMART_SHORTCUTS: &str = "smart_shortcuts";
 const KEY_SMART_ENABLED: &str = "smart_enabled";
 const KEY_HOLD_SHORTCUT: &str = "hold_shortcut";
+const KEY_HOLD_SHORTCUTS: &str = "hold_shortcuts";
 const KEY_HOLD_ENABLED: &str = "hold_enabled";
 const KEY_TOGGLE_SHORTCUT: &str = "toggle_shortcut";
+const KEY_TOGGLE_SHORTCUTS: &str = "toggle_shortcuts";
 const KEY_TOGGLE_ENABLED: &str = "toggle_enabled";
 const KEY_COMMAND_SHORTCUT: &str = "command_shortcut";
+const KEY_COMMAND_SHORTCUTS: &str = "command_shortcuts";
 const KEY_COMMAND_ENABLED: &str = "command_enabled";
 const KEY_PASTE_LAST_TRANSCRIPT_SHORTCUT: &str = "paste_last_transcript_shortcut";
+const KEY_PASTE_LAST_TRANSCRIPT_SHORTCUTS: &str = "paste_last_transcript_shortcuts";
 const KEY_PASTE_LAST_TRANSCRIPT_ENABLED: &str = "paste_last_transcript_enabled";
 const KEY_CANCEL_SHORTCUT: &str = "cancel_shortcut";
+const KEY_CANCEL_SHORTCUTS: &str = "cancel_shortcuts";
 const KEY_CANCEL_ENABLED: &str = "cancel_enabled";
+const KEY_WAKE_LISTENING_ENABLED: &str = "wake_listening_enabled";
+const KEY_WAKE_PHRASES: &str = "wake_phrases";
 const KEY_TRANSCRIPTION_MODE: &str = "transcription_mode";
 const KEY_LOCAL_MODEL: &str = "local_model";
+const KEY_TTS_ENABLED: &str = "tts_enabled";
+const KEY_TTS_AUTO_AFTER_STT: &str = "tts_auto_after_stt";
+const KEY_TTS_AUTO_PLAY: &str = "tts_auto_play";
+const KEY_TTS_VOLUME: &str = "tts_volume";
+const KEY_TTS_MODEL: &str = "tts_model";
+const KEY_TTS_VOICE_MODE: &str = "tts_voice_mode";
+const KEY_TTS_SPEAKER: &str = "tts_speaker";
+const KEY_TTS_INSTRUCTION: &str = "tts_instruction";
+const KEY_TTS_AUTO_CONFIGURED: &str = "tts_auto_configured";
 const KEY_MICROPHONE_DEVICE: &str = "microphone_device";
 const KEY_LANGUAGE: &str = "language";
 const KEY_APP_LOCALE: &str = "app_locale";
@@ -82,33 +99,65 @@ pub struct UserSettings {
 
     #[serde(default = "default_smart_shortcut")]
     pub smart_shortcut: String,
+    #[serde(default = "default_smart_shortcuts")]
+    pub smart_shortcuts: Vec<String>,
     #[serde(default = "default_true")]
     pub smart_enabled: bool,
 
     #[serde(default = "default_hold_shortcut")]
     pub hold_shortcut: String,
+    #[serde(default = "default_hold_shortcuts")]
+    pub hold_shortcuts: Vec<String>,
     #[serde(default)]
     pub hold_enabled: bool,
     #[serde(default = "default_toggle_shortcut")]
     pub toggle_shortcut: String,
+    #[serde(default = "default_toggle_shortcuts")]
+    pub toggle_shortcuts: Vec<String>,
     #[serde(default)]
     pub toggle_enabled: bool,
     #[serde(default = "default_command_shortcut")]
     pub command_shortcut: String,
+    #[serde(default = "default_command_shortcuts")]
+    pub command_shortcuts: Vec<String>,
     #[serde(default)]
     pub command_enabled: bool,
     #[serde(default = "default_paste_last_transcript_shortcut")]
     pub paste_last_transcript_shortcut: String,
+    #[serde(default = "default_paste_last_transcript_shortcuts")]
+    pub paste_last_transcript_shortcuts: Vec<String>,
     #[serde(default = "default_true")]
     pub paste_last_transcript_enabled: bool,
     #[serde(default = "default_cancel_shortcut")]
     pub cancel_shortcut: String,
+    #[serde(default = "default_cancel_shortcuts")]
+    pub cancel_shortcuts: Vec<String>,
     #[serde(default)]
     pub cancel_enabled: bool,
+    #[serde(default)]
+    pub wake_listening_enabled: bool,
+    #[serde(default = "default_wake_phrases")]
+    pub wake_phrases: Vec<String>,
     #[serde(default = "default_transcription_mode")]
     pub transcription_mode: TranscriptionMode,
     #[serde(default = "default_local_model")]
     pub local_model: String,
+    #[serde(default = "default_true")]
+    pub tts_enabled: bool,
+    #[serde(default = "default_true")]
+    pub tts_auto_after_stt: bool,
+    #[serde(default = "default_true")]
+    pub tts_auto_play: bool,
+    #[serde(default = "default_tts_volume")]
+    pub tts_volume: f32,
+    #[serde(default = "crate::tts::default_tts_model")]
+    pub tts_model: String,
+    #[serde(default)]
+    pub tts_voice_mode: TtsVoiceMode,
+    #[serde(default)]
+    pub tts_speaker: String,
+    #[serde(default)]
+    pub tts_instruction: String,
     pub microphone_device: Option<String>,
     #[serde(default = "default_language")]
     pub language: String,
@@ -177,16 +226,32 @@ fn default_smart_shortcut() -> String {
     "Control+Space".to_string()
 }
 
+fn default_smart_shortcuts() -> Vec<String> {
+    vec![default_smart_shortcut(), "Win+Alt+1".to_string()]
+}
+
 fn default_hold_shortcut() -> String {
     "Control+Shift+Space".to_string()
+}
+
+fn default_hold_shortcuts() -> Vec<String> {
+    vec![default_hold_shortcut()]
 }
 
 fn default_toggle_shortcut() -> String {
     "Control+Alt+Space".to_string()
 }
 
+fn default_toggle_shortcuts() -> Vec<String> {
+    vec![default_toggle_shortcut()]
+}
+
 fn default_command_shortcut() -> String {
     "Control+Alt+E".to_string()
+}
+
+fn default_command_shortcuts() -> Vec<String> {
+    vec![default_command_shortcut()]
 }
 
 fn default_paste_last_transcript_shortcut() -> String {
@@ -197,12 +262,46 @@ fn default_paste_last_transcript_shortcut() -> String {
     }
 }
 
+fn default_paste_last_transcript_shortcuts() -> Vec<String> {
+    vec![default_paste_last_transcript_shortcut()]
+}
+
 fn default_cancel_shortcut() -> String {
     "Control+Alt+Escape".to_string()
 }
 
+fn default_cancel_shortcuts() -> Vec<String> {
+    vec![default_cancel_shortcut()]
+}
+
+pub(crate) fn default_wake_phrases() -> Vec<String> {
+    [
+        // "dx",
+        // "friday",
+        // "flow",
+        "hello",
+        // "aladdin",
+        // "arise",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect()
+}
+
 fn default_true() -> bool {
     true
+}
+
+pub(crate) fn default_tts_volume() -> f32 {
+    0.10
+}
+
+pub(crate) fn clamp_tts_volume(value: f32) -> f32 {
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        default_tts_volume()
+    }
 }
 
 fn default_personalities() -> Vec<Personality> {
@@ -396,33 +495,61 @@ fn seed_personality_notes(personalities: &mut [Personality]) {
 
 impl Default for UserSettings {
     fn default() -> Self {
+        let default_text_model = crate::local_text_model::default_model_id();
+        let default_text_model_ready =
+            crate::local_text_model::is_model_available(default_text_model);
+
         Self {
             onboarding_completed: false,
             smart_shortcut: default_smart_shortcut(),
+            smart_shortcuts: default_smart_shortcuts(),
             smart_enabled: true,
             hold_shortcut: default_hold_shortcut(),
+            hold_shortcuts: default_hold_shortcuts(),
             hold_enabled: false,
             toggle_shortcut: default_toggle_shortcut(),
+            toggle_shortcuts: default_toggle_shortcuts(),
             toggle_enabled: false,
             command_shortcut: default_command_shortcut(),
+            command_shortcuts: default_command_shortcuts(),
             command_enabled: false,
             paste_last_transcript_shortcut: default_paste_last_transcript_shortcut(),
+            paste_last_transcript_shortcuts: default_paste_last_transcript_shortcuts(),
             paste_last_transcript_enabled: true,
             cancel_shortcut: default_cancel_shortcut(),
+            cancel_shortcuts: default_cancel_shortcuts(),
             cancel_enabled: false,
+            wake_listening_enabled: true,
+            wake_phrases: default_wake_phrases(),
             transcription_mode: default_transcription_mode(),
             local_model: default_local_model(),
+            tts_enabled: true,
+            tts_auto_after_stt: true,
+            tts_auto_play: true,
+            tts_volume: default_tts_volume(),
+            tts_model: crate::tts::default_tts_model(),
+            tts_voice_mode: TtsVoiceMode::default(),
+            tts_speaker: String::new(),
+            tts_instruction: String::new(),
             microphone_device: None,
             language: default_language(),
             app_locale: default_app_locale(),
             theme_mode: ThemeMode::default(),
 
-            llm_enabled: false,
+            llm_enabled: default_text_model_ready,
             cleanup_enabled: false,
-            llm_provider: default_llm_provider(),
+            llm_provider: if default_text_model_ready {
+                LlmProvider::Local
+            } else {
+                default_llm_provider()
+            },
             llm_endpoint: String::new(),
             llm_api_key: String::new(),
-            llm_model: String::new(),
+            llm_model: if default_text_model_ready {
+                default_text_model.to_string()
+            } else {
+                String::new()
+            },
             user_name: String::new(),
             personalities_notes_seeded: false,
             dictionary: Vec::new(),
@@ -458,6 +585,14 @@ pub enum TranscriptionMode {
 
 fn default_transcription_mode() -> TranscriptionMode {
     TranscriptionMode::Local
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TtsVoiceMode {
+    SourceAudio,
+    #[default]
+    Preset,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -508,6 +643,7 @@ pub enum ThemeMode {
 pub enum LlmProvider {
     #[default]
     None,
+    Local,
     LmStudio,
     Ollama,
     OpenAI,
@@ -539,7 +675,7 @@ pub fn default_local_model() -> String {
 
     #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
     {
-        "parakeet_tdt_int8".to_string()
+        "parakeet_unified_en_int8".to_string()
     }
 }
 
@@ -608,14 +744,110 @@ pub fn canonicalize_app_locale_or_default(value: &str) -> String {
     canonicalize_app_locale(value).unwrap_or_else(default_app_locale)
 }
 
+fn normalize_shortcut_list(
+    primary: &mut String,
+    shortcuts: &mut Vec<String>,
+    fallback: String,
+) -> bool {
+    let original_primary = primary.clone();
+    let original_shortcuts = shortcuts.clone();
+
+    let mut seen = HashSet::new();
+    let mut normalized = Vec::new();
+    for shortcut in shortcuts.iter().chain(std::iter::once(&fallback)) {
+        let trimmed = shortcut.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let key = trimmed.to_ascii_lowercase();
+        if seen.insert(key) {
+            normalized.push(trimmed.to_string());
+        }
+        if normalized.len() >= 4 {
+            break;
+        }
+    }
+
+    if normalized.is_empty() {
+        normalized.push(fallback);
+    }
+
+    *primary = normalized[0].clone();
+    *shortcuts = normalized;
+
+    *primary != original_primary || *shortcuts != original_shortcuts
+}
+
+fn normalize_shortcut_settings(settings: &mut UserSettings) -> bool {
+    let mut changed = false;
+    changed |= normalize_shortcut_list(
+        &mut settings.smart_shortcut,
+        &mut settings.smart_shortcuts,
+        default_smart_shortcut(),
+    );
+    changed |= normalize_shortcut_list(
+        &mut settings.hold_shortcut,
+        &mut settings.hold_shortcuts,
+        default_hold_shortcut(),
+    );
+    changed |= normalize_shortcut_list(
+        &mut settings.toggle_shortcut,
+        &mut settings.toggle_shortcuts,
+        default_toggle_shortcut(),
+    );
+    changed |= normalize_shortcut_list(
+        &mut settings.command_shortcut,
+        &mut settings.command_shortcuts,
+        default_command_shortcut(),
+    );
+    changed |= normalize_shortcut_list(
+        &mut settings.paste_last_transcript_shortcut,
+        &mut settings.paste_last_transcript_shortcuts,
+        default_paste_last_transcript_shortcut(),
+    );
+    changed |= normalize_shortcut_list(
+        &mut settings.cancel_shortcut,
+        &mut settings.cancel_shortcuts,
+        default_cancel_shortcut(),
+    );
+
+    let original_phrases = settings.wake_phrases.clone();
+    let mut seen = HashSet::new();
+    settings.wake_phrases = settings
+        .wake_phrases
+        .iter()
+        .map(|phrase| phrase.trim().to_ascii_lowercase())
+        .filter(|phrase| !phrase.is_empty() && seen.insert(phrase.clone()))
+        .take(8)
+        .collect();
+    if settings.wake_phrases.is_empty() {
+        settings.wake_phrases = default_wake_phrases();
+    } else {
+        let defaults = default_wake_phrases();
+        let default_family = ["dx", "friday", "flow", "hello", "aladdin", "arise"];
+        let uses_default_family = settings
+            .wake_phrases
+            .iter()
+            .all(|phrase| default_family.iter().any(|default| default == phrase));
+        if uses_default_family {
+            settings.wake_phrases = defaults;
+        }
+    }
+    changed || settings.wake_phrases != original_phrases
+}
+
 pub struct SettingsStore {
     conn: Mutex<Connection>,
     llm_api_key_ciphertext: Mutex<Option<String>>,
+    tts_models_root: PathBuf,
 }
 
 impl SettingsStore {
     pub fn new(app: &AppHandle) -> Result<Self> {
         let path = db_path(app)?;
+        let tts_models_root = crate::app_paths::app_data_dir(app)?
+            .join("models")
+            .join("tts");
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)
                 .with_context(|| format!("Failed to create settings dir {}", parent.display()))?;
@@ -627,6 +859,7 @@ impl SettingsStore {
         let store = Self {
             conn: Mutex::new(conn),
             llm_api_key_ciphertext: Mutex::new(None),
+            tts_models_root,
         };
 
         store.init_schema()?;
@@ -654,6 +887,8 @@ impl SettingsStore {
         let llm_enabled_exists: bool;
         let cleanup_enabled_exists: bool;
         let theme_mode_exists: bool;
+        let tts_auto_configured: bool;
+        let mut should_mark_tts_auto_configured = false;
         {
             let conn = self.conn.lock();
 
@@ -664,14 +899,27 @@ impl SettingsStore {
             )?;
             settings.smart_shortcut =
                 self.read_value(&conn, KEY_SMART_SHORTCUT, settings.smart_shortcut.clone())?;
+            settings.smart_shortcuts = self
+                .read_optional_value(&conn, KEY_SMART_SHORTCUTS)?
+                .unwrap_or_else(|| {
+                    let mut defaults = default_smart_shortcuts();
+                    defaults[0] = settings.smart_shortcut.clone();
+                    defaults
+                });
             settings.smart_enabled =
                 self.read_value(&conn, KEY_SMART_ENABLED, settings.smart_enabled)?;
             settings.hold_shortcut =
                 self.read_value(&conn, KEY_HOLD_SHORTCUT, settings.hold_shortcut.clone())?;
+            settings.hold_shortcuts = self
+                .read_optional_value(&conn, KEY_HOLD_SHORTCUTS)?
+                .unwrap_or_else(|| vec![settings.hold_shortcut.clone()]);
             settings.hold_enabled =
                 self.read_value(&conn, KEY_HOLD_ENABLED, settings.hold_enabled)?;
             settings.toggle_shortcut =
                 self.read_value(&conn, KEY_TOGGLE_SHORTCUT, settings.toggle_shortcut.clone())?;
+            settings.toggle_shortcuts = self
+                .read_optional_value(&conn, KEY_TOGGLE_SHORTCUTS)?
+                .unwrap_or_else(|| vec![settings.toggle_shortcut.clone()]);
             settings.toggle_enabled =
                 self.read_value(&conn, KEY_TOGGLE_ENABLED, settings.toggle_enabled)?;
             settings.command_shortcut = self.read_value(
@@ -679,6 +927,9 @@ impl SettingsStore {
                 KEY_COMMAND_SHORTCUT,
                 settings.command_shortcut.clone(),
             )?;
+            settings.command_shortcuts = self
+                .read_optional_value(&conn, KEY_COMMAND_SHORTCUTS)?
+                .unwrap_or_else(|| vec![settings.command_shortcut.clone()]);
             settings.command_enabled =
                 self.read_value(&conn, KEY_COMMAND_ENABLED, settings.command_enabled)?;
             settings.paste_last_transcript_shortcut = self.read_value(
@@ -686,6 +937,9 @@ impl SettingsStore {
                 KEY_PASTE_LAST_TRANSCRIPT_SHORTCUT,
                 settings.paste_last_transcript_shortcut.clone(),
             )?;
+            settings.paste_last_transcript_shortcuts = self
+                .read_optional_value(&conn, KEY_PASTE_LAST_TRANSCRIPT_SHORTCUTS)?
+                .unwrap_or_else(|| vec![settings.paste_last_transcript_shortcut.clone()]);
             settings.paste_last_transcript_enabled = self.read_value(
                 &conn,
                 KEY_PASTE_LAST_TRANSCRIPT_ENABLED,
@@ -693,8 +947,18 @@ impl SettingsStore {
             )?;
             settings.cancel_shortcut =
                 self.read_value(&conn, KEY_CANCEL_SHORTCUT, settings.cancel_shortcut.clone())?;
+            settings.cancel_shortcuts = self
+                .read_optional_value(&conn, KEY_CANCEL_SHORTCUTS)?
+                .unwrap_or_else(|| vec![settings.cancel_shortcut.clone()]);
             settings.cancel_enabled =
                 self.read_value(&conn, KEY_CANCEL_ENABLED, settings.cancel_enabled)?;
+            settings.wake_listening_enabled = self.read_value(
+                &conn,
+                KEY_WAKE_LISTENING_ENABLED,
+                settings.wake_listening_enabled,
+            )?;
+            settings.wake_phrases =
+                self.read_value(&conn, KEY_WAKE_PHRASES, settings.wake_phrases.clone())?;
             settings.transcription_mode = self.read_value(
                 &conn,
                 KEY_TRANSCRIPTION_MODE,
@@ -702,6 +966,24 @@ impl SettingsStore {
             )?;
             settings.local_model =
                 self.read_value(&conn, KEY_LOCAL_MODEL, settings.local_model.clone())?;
+            settings.tts_enabled = self.read_value(&conn, KEY_TTS_ENABLED, settings.tts_enabled)?;
+            settings.tts_auto_after_stt =
+                self.read_value(&conn, KEY_TTS_AUTO_AFTER_STT, settings.tts_auto_after_stt)?;
+            settings.tts_auto_play =
+                self.read_value(&conn, KEY_TTS_AUTO_PLAY, settings.tts_auto_play)?;
+            settings.tts_volume =
+                clamp_tts_volume(self.read_value(&conn, KEY_TTS_VOLUME, settings.tts_volume)?);
+            settings.tts_model =
+                self.read_value(&conn, KEY_TTS_MODEL, settings.tts_model.clone())?;
+            settings.tts_voice_mode =
+                self.read_value(&conn, KEY_TTS_VOICE_MODE, settings.tts_voice_mode)?;
+            settings.tts_speaker =
+                self.read_value(&conn, KEY_TTS_SPEAKER, settings.tts_speaker.clone())?;
+            settings.tts_instruction =
+                self.read_value(&conn, KEY_TTS_INSTRUCTION, settings.tts_instruction.clone())?;
+            tts_auto_configured = self
+                .read_optional_value::<bool>(&conn, KEY_TTS_AUTO_CONFIGURED)?
+                .unwrap_or(false);
             settings.microphone_device = self.read_value(
                 &conn,
                 KEY_MICROPHONE_DEVICE,
@@ -756,6 +1038,14 @@ impl SettingsStore {
                 KEY_AUTO_TRANSFORM_ENABLED,
                 settings.auto_transform_enabled,
             )?;
+            if settings.cleanup_enabled {
+                settings.cleanup_enabled = false;
+                should_persist = true;
+            }
+            if settings.auto_transform_enabled {
+                settings.auto_transform_enabled = false;
+                should_persist = true;
+            }
             settings.auto_transform_preset_id = self.read_value(
                 &conn,
                 KEY_AUTO_TRANSFORM_PRESET_ID,
@@ -870,6 +1160,36 @@ impl SettingsStore {
             should_persist = true;
         }
 
+        if crate::tts::definition(&settings.tts_model).is_none() {
+            settings.tts_model = crate::tts::default_tts_model();
+            should_persist = true;
+        }
+
+        if !crate::tts::model_supports_voice_mode(&settings.tts_model, settings.tts_voice_mode) {
+            settings.tts_voice_mode = if crate::tts::model_supports_voice_mode(
+                &settings.tts_model,
+                TtsVoiceMode::SourceAudio,
+            ) {
+                TtsVoiceMode::SourceAudio
+            } else {
+                TtsVoiceMode::Preset
+            };
+            should_persist = true;
+        }
+
+        if !tts_auto_configured {
+            if let Some((model_key, voice_mode)) = self.installed_tts_default() {
+                settings.tts_enabled = true;
+                settings.tts_auto_after_stt = true;
+                settings.tts_auto_play = true;
+                settings.tts_volume = default_tts_volume();
+                settings.tts_model = model_key;
+                settings.tts_voice_mode = voice_mode;
+                should_mark_tts_auto_configured = true;
+                should_persist = true;
+            }
+        }
+
         if matches!(settings.transcription_mode, TranscriptionMode::Cloud) {
             settings.transcription_mode = TranscriptionMode::Local;
             should_persist = true;
@@ -886,8 +1206,22 @@ impl SettingsStore {
             should_persist = true;
         }
 
+        if normalize_shortcut_settings(&mut settings) {
+            should_persist = true;
+        }
+
+        if !settings.wake_listening_enabled && settings.wake_phrases == default_wake_phrases() {
+            settings.wake_listening_enabled = true;
+            should_persist = true;
+        }
+
         if should_persist {
             self.save(&settings)?;
+        }
+
+        if should_mark_tts_auto_configured {
+            let conn = self.conn.lock();
+            self.write_value(&conn, KEY_TTS_AUTO_CONFIGURED, &true)?;
         }
 
         if legacy_llm_cleanup_enabled_exists {
@@ -928,12 +1262,16 @@ impl SettingsStore {
             &settings.onboarding_completed,
         )?;
         self.write_value(&conn, KEY_SMART_SHORTCUT, &settings.smart_shortcut)?;
+        self.write_value(&conn, KEY_SMART_SHORTCUTS, &settings.smart_shortcuts)?;
         self.write_value(&conn, KEY_SMART_ENABLED, &settings.smart_enabled)?;
         self.write_value(&conn, KEY_HOLD_SHORTCUT, &settings.hold_shortcut)?;
+        self.write_value(&conn, KEY_HOLD_SHORTCUTS, &settings.hold_shortcuts)?;
         self.write_value(&conn, KEY_HOLD_ENABLED, &settings.hold_enabled)?;
         self.write_value(&conn, KEY_TOGGLE_SHORTCUT, &settings.toggle_shortcut)?;
+        self.write_value(&conn, KEY_TOGGLE_SHORTCUTS, &settings.toggle_shortcuts)?;
         self.write_value(&conn, KEY_TOGGLE_ENABLED, &settings.toggle_enabled)?;
         self.write_value(&conn, KEY_COMMAND_SHORTCUT, &settings.command_shortcut)?;
+        self.write_value(&conn, KEY_COMMAND_SHORTCUTS, &settings.command_shortcuts)?;
         self.write_value(&conn, KEY_COMMAND_ENABLED, &settings.command_enabled)?;
         self.write_value(
             &conn,
@@ -942,13 +1280,37 @@ impl SettingsStore {
         )?;
         self.write_value(
             &conn,
+            KEY_PASTE_LAST_TRANSCRIPT_SHORTCUTS,
+            &settings.paste_last_transcript_shortcuts,
+        )?;
+        self.write_value(
+            &conn,
             KEY_PASTE_LAST_TRANSCRIPT_ENABLED,
             &settings.paste_last_transcript_enabled,
         )?;
         self.write_value(&conn, KEY_CANCEL_SHORTCUT, &settings.cancel_shortcut)?;
+        self.write_value(&conn, KEY_CANCEL_SHORTCUTS, &settings.cancel_shortcuts)?;
         self.write_value(&conn, KEY_CANCEL_ENABLED, &settings.cancel_enabled)?;
+        self.write_value(
+            &conn,
+            KEY_WAKE_LISTENING_ENABLED,
+            &settings.wake_listening_enabled,
+        )?;
+        self.write_value(&conn, KEY_WAKE_PHRASES, &settings.wake_phrases)?;
         self.write_value(&conn, KEY_TRANSCRIPTION_MODE, &settings.transcription_mode)?;
         self.write_value(&conn, KEY_LOCAL_MODEL, &settings.local_model)?;
+        self.write_value(&conn, KEY_TTS_ENABLED, &settings.tts_enabled)?;
+        self.write_value(&conn, KEY_TTS_AUTO_AFTER_STT, &settings.tts_auto_after_stt)?;
+        self.write_value(&conn, KEY_TTS_AUTO_PLAY, &settings.tts_auto_play)?;
+        self.write_value(
+            &conn,
+            KEY_TTS_VOLUME,
+            &clamp_tts_volume(settings.tts_volume),
+        )?;
+        self.write_value(&conn, KEY_TTS_MODEL, &settings.tts_model)?;
+        self.write_value(&conn, KEY_TTS_VOICE_MODE, &settings.tts_voice_mode)?;
+        self.write_value(&conn, KEY_TTS_SPEAKER, &settings.tts_speaker)?;
+        self.write_value(&conn, KEY_TTS_INSTRUCTION, &settings.tts_instruction)?;
         self.write_value(&conn, KEY_MICROPHONE_DEVICE, &settings.microphone_device)?;
         self.write_value(&conn, KEY_LANGUAGE, &settings.language)?;
         self.write_value(&conn, KEY_APP_LOCALE, &stored_app_locale)?;
@@ -1098,6 +1460,52 @@ impl SettingsStore {
             .with_context(|| format!("Failed to delete setting '{key}' from DB"))?;
         Ok(())
     }
+
+    fn installed_tts_default(&self) -> Option<(String, TtsVoiceMode)> {
+        if self.tts_models_root.as_os_str().is_empty() {
+            return None;
+        }
+
+        crate::tts::TTS_MODEL_DEFINITIONS
+            .iter()
+            .find(|def| {
+                def.capabilities
+                    .contains(&crate::tts::TTS_CAPABILITY_FAST_LOCAL)
+                    && self.tts_definition_installed(def)
+            })
+            .map(|def| (def.key.to_string(), TtsVoiceMode::Preset))
+            .or_else(|| {
+                crate::tts::TTS_MODEL_DEFINITIONS
+                    .iter()
+                    .find(|def| {
+                        def.capabilities
+                            .contains(&crate::tts::TTS_CAPABILITY_CUSTOM_VOICE)
+                            && self.tts_definition_installed(def)
+                    })
+                    .map(|def| (def.key.to_string(), TtsVoiceMode::Preset))
+            })
+            .or_else(|| {
+                crate::tts::TTS_MODEL_DEFINITIONS
+                    .iter()
+                    .find(|def| {
+                        def.capabilities
+                            .contains(&crate::tts::TTS_CAPABILITY_VOICE_CLONE)
+                            && self.tts_definition_installed(def)
+                    })
+                    .map(|def| (def.key.to_string(), TtsVoiceMode::SourceAudio))
+            })
+    }
+
+    fn tts_definition_installed(&self, def: &crate::tts::TtsModelDefinition) -> bool {
+        let dir = self.tts_models_root.join(def.key);
+        dir.is_dir()
+            && def.files.iter().all(|descriptor| {
+                dir.join(descriptor.name)
+                    .metadata()
+                    .map(|metadata| metadata.is_file() && metadata.len() > 0)
+                    .unwrap_or(false)
+            })
+    }
 }
 
 fn db_path(app: &AppHandle) -> Result<PathBuf> {
@@ -1115,6 +1523,7 @@ mod tests {
         let store = SettingsStore {
             conn: Mutex::new(Connection::open_in_memory().expect("open in-memory sqlite DB")),
             llm_api_key_ciphertext: Mutex::new(None),
+            tts_models_root: PathBuf::new(),
         };
         store.init_schema().expect("init settings schema");
         store

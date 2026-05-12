@@ -1,4 +1,5 @@
 export type TranscriptionMode = "cloud" | "local";
+export type TtsVoiceMode = "source_audio" | "preset";
 export type TextSizeMode = "small" | "default" | "large";
 export type ThemeMode = "system" | "light" | "dark";
 export type AppLocaleSetting = "system" | string;
@@ -16,6 +17,7 @@ export type LocalDataStoragePolicy = "store" | "day" | "never";
 
 export type LlmProvider =
   | "none"
+  | "local"
   | "lmstudio"
   | "ollama"
   | "openai"
@@ -50,19 +52,35 @@ export type Personality = {
 export type StoredSettings = {
   onboarding_completed: boolean;
   smart_shortcut: string;
+  smart_shortcuts: string[];
   smart_enabled: boolean;
   hold_shortcut: string;
+  hold_shortcuts: string[];
   hold_enabled: boolean;
   toggle_shortcut: string;
+  toggle_shortcuts: string[];
   toggle_enabled: boolean;
   command_shortcut: string;
+  command_shortcuts: string[];
   command_enabled: boolean;
   paste_last_transcript_shortcut: string;
+  paste_last_transcript_shortcuts: string[];
   paste_last_transcript_enabled: boolean;
   cancel_shortcut: string;
+  cancel_shortcuts: string[];
   cancel_enabled: boolean;
+  wake_listening_enabled: boolean;
+  wake_phrases: string[];
   transcription_mode: TranscriptionMode;
   local_model: string;
+  tts_enabled: boolean;
+  tts_auto_after_stt: boolean;
+  tts_auto_play: boolean;
+  tts_volume: number;
+  tts_model: string;
+  tts_voice_mode: TtsVoiceMode;
+  tts_speaker: string;
+  tts_instruction: string;
   microphone_device: string | null;
   language: string;
   app_locale: AppLocaleSetting;

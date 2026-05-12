@@ -31,9 +31,47 @@ pub(crate) enum ShortcutAction {
     Cancel,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MouseShortcut {
+    Middle,
+    Back,
+    Forward,
+}
+
+impl MouseShortcut {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Middle => "MouseMiddle",
+            Self::Back => "MouseBack",
+            Self::Forward => "MouseForward",
+        }
+    }
+}
+
+impl std::fmt::Display for MouseShortcut {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShortcutBinding {
+    Keyboard(Hotkey),
+    Mouse(MouseShortcut),
+}
+
+impl std::fmt::Display for ShortcutBinding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Keyboard(hotkey) => write!(f, "{hotkey}"),
+            Self::Mouse(mouse) => write!(f, "{mouse}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct RegisteredHotkey {
-    pub hotkey: Hotkey,
+pub(crate) struct RegisteredShortcut {
+    pub binding: ShortcutBinding,
     pub action: ShortcutAction,
 }
 
@@ -55,7 +93,7 @@ impl HotkeyCoordinator {
     pub(crate) fn replace_registrations(
         &self,
         app: &AppHandle<AppRuntime>,
-        bindings: Vec<RegisteredHotkey>,
+        bindings: Vec<RegisteredShortcut>,
     ) -> Result<()> {
         self.stop_registration();
 
@@ -65,35 +103,61 @@ impl HotkeyCoordinator {
 
         let app_handle = app.clone();
         let session = WorkerSession::spawn("shortcut-registration", move |stop_rx| {
-            let manager = HotkeyManager::new_with_blocking()?;
-            let mut actions = Vec::with_capacity(bindings.len());
+            let keyboard_bindings: Vec<_> = bindings
+                .iter()
+                .filter_map(|binding| match binding.binding {
+                    ShortcutBinding::Keyboard(hotkey) => Some((hotkey, binding.action)),
+                    ShortcutBinding::Mouse(_) => None,
+                })
+                .collect();
+            let mouse_bindings: Vec<_> = bindings
+                .iter()
+                .filter_map(|binding| match binding.binding {
+                    ShortcutBinding::Mouse(mouse) => Some((mouse, binding.action)),
+                    ShortcutBinding::Keyboard(_) => None,
+                })
+                .collect();
 
-            for binding in bindings {
-                let id = manager.register(binding.hotkey).map_err(|err| {
-                    anyhow!("Failed to register shortcut `{}`: {err}", binding.hotkey)
-                })?;
-                actions.push((id, binding.action));
+            let manager = if keyboard_bindings.is_empty() {
+                None
+            } else {
+                Some(HotkeyManager::new_with_blocking()?)
+            };
+
+            let mut actions = Vec::with_capacity(keyboard_bindings.len());
+            if let Some(manager) = manager.as_ref() {
+                for (hotkey, action) in keyboard_bindings {
+                    let id = manager
+                        .register(hotkey)
+                        .map_err(|err| anyhow!("Failed to register shortcut `{hotkey}`: {err}"))?;
+                    actions.push((id, action));
+                }
             }
+
+            let mut mouse_states = vec![false; mouse_bindings.len()];
 
             loop {
                 if should_stop(&stop_rx) {
                     break;
                 }
 
-                if let Some(event) = manager.try_recv() {
-                    if let Some((_, action)) = actions
-                        .iter()
-                        .find(|(registered_id, _)| *registered_id == event.id)
-                    {
-                        let state = match event.state {
-                            HandyHotkeyState::Pressed => HotkeyState::Pressed,
-                            HandyHotkeyState::Released => HotkeyState::Released,
-                        };
-                        pill::handle_registered_hotkey_event(&app_handle, *action, state);
+                if let Some(manager) = manager.as_ref() {
+                    if let Some(event) = manager.try_recv() {
+                        if let Some((_, action)) = actions
+                            .iter()
+                            .find(|(registered_id, _)| *registered_id == event.id)
+                        {
+                            let state = match event.state {
+                                HandyHotkeyState::Pressed => HotkeyState::Pressed,
+                                HandyHotkeyState::Released => HotkeyState::Released,
+                            };
+                            pill::handle_registered_hotkey_event(&app_handle, *action, state);
+                        }
+                        continue;
                     }
-                    continue;
                 }
 
+                poll_mouse_bindings(&app_handle, &mouse_bindings, &mut mouse_states);
                 thread::sleep(REGISTRATION_POLL_INTERVAL);
             }
 
@@ -240,9 +304,16 @@ pub(crate) fn parse_shortcut(shortcut: &str) -> Result<Hotkey> {
         .map_err(|err| anyhow!("Shortcut `{shortcut}` is invalid: {err}"))
 }
 
+pub(crate) fn parse_shortcut_binding(shortcut: &str) -> Result<ShortcutBinding> {
+    if let Some(mouse) = parse_mouse_shortcut(shortcut) {
+        return Ok(ShortcutBinding::Mouse(mouse));
+    }
+
+    parse_shortcut(shortcut).map(ShortcutBinding::Keyboard)
+}
+
 pub(crate) fn normalize_recording_shortcut(shortcut: &str) -> Result<String> {
-    let hotkey = parse_shortcut(shortcut)?;
-    Ok(hotkey.to_string())
+    Ok(parse_shortcut_binding(shortcut)?.to_string())
 }
 
 fn normalize_legacy_shortcut_input(shortcut: &str) -> String {
@@ -284,6 +355,80 @@ fn normalize_legacy_shortcut_input(shortcut: &str) -> String {
 
 pub(crate) fn shortcuts_conflict(left: &Hotkey, right: &Hotkey) -> bool {
     left == right || is_modifier_only_prefix(left, right) || is_modifier_only_prefix(right, left)
+}
+
+pub(crate) fn shortcut_bindings_conflict(left: &ShortcutBinding, right: &ShortcutBinding) -> bool {
+    match (left, right) {
+        (ShortcutBinding::Keyboard(left), ShortcutBinding::Keyboard(right)) => {
+            shortcuts_conflict(left, right)
+        }
+        (ShortcutBinding::Mouse(left), ShortcutBinding::Mouse(right)) => left == right,
+        (ShortcutBinding::Keyboard(_), ShortcutBinding::Mouse(_))
+        | (ShortcutBinding::Mouse(_), ShortcutBinding::Keyboard(_)) => false,
+    }
+}
+
+fn parse_mouse_shortcut(shortcut: &str) -> Option<MouseShortcut> {
+    let normalized = shortcut
+        .trim()
+        .to_ascii_lowercase()
+        .replace([' ', '-', '_'], "");
+    match normalized.as_str() {
+        "mousemiddle" | "middlemouse" | "middleclick" | "mouse3" | "mbutton" => {
+            Some(MouseShortcut::Middle)
+        }
+        "mouseback" | "backmouse" | "mouse4" | "xbutton1" | "browserback" => {
+            Some(MouseShortcut::Back)
+        }
+        "mouseforward" | "forwardmouse" | "mouse5" | "xbutton2" | "browserforward" => {
+            Some(MouseShortcut::Forward)
+        }
+        _ => None,
+    }
+}
+
+fn poll_mouse_bindings(
+    app: &AppHandle<AppRuntime>,
+    bindings: &[(MouseShortcut, ShortcutAction)],
+    states: &mut [bool],
+) {
+    for (idx, (mouse, action)) in bindings.iter().enumerate() {
+        let pressed = is_mouse_shortcut_pressed(*mouse);
+        if states.get(idx).copied().unwrap_or(false) == pressed {
+            continue;
+        }
+
+        if let Some(state) = states.get_mut(idx) {
+            *state = pressed;
+        }
+
+        let state = if pressed {
+            HotkeyState::Pressed
+        } else {
+            HotkeyState::Released
+        };
+        pill::handle_registered_hotkey_event(app, *action, state);
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn is_mouse_shortcut_pressed(mouse: MouseShortcut) -> bool {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        GetAsyncKeyState, VK_MBUTTON, VK_XBUTTON1, VK_XBUTTON2,
+    };
+
+    let key = match mouse {
+        MouseShortcut::Middle => VK_MBUTTON,
+        MouseShortcut::Back => VK_XBUTTON1,
+        MouseShortcut::Forward => VK_XBUTTON2,
+    };
+
+    unsafe { (GetAsyncKeyState(key.0 as i32) as u16 & 0x8000) != 0 }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn is_mouse_shortcut_pressed(_mouse: MouseShortcut) -> bool {
+    false
 }
 
 fn is_modifier_only_prefix(prefix: &Hotkey, full: &Hotkey) -> bool {
@@ -339,5 +484,38 @@ fn modifier_group_subset(
         full_has_left
     } else {
         full_has_right
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_mouse_shortcut_aliases() {
+        assert_eq!(
+            parse_shortcut_binding("MouseBack").unwrap(),
+            ShortcutBinding::Mouse(MouseShortcut::Back)
+        );
+        assert_eq!(
+            parse_shortcut_binding("mouse forward").unwrap(),
+            ShortcutBinding::Mouse(MouseShortcut::Forward)
+        );
+        assert_eq!(
+            parse_shortcut_binding("middle-click").unwrap(),
+            ShortcutBinding::Mouse(MouseShortcut::Middle)
+        );
+    }
+
+    #[test]
+    fn mouse_shortcuts_conflict_only_with_same_button() {
+        assert!(shortcut_bindings_conflict(
+            &ShortcutBinding::Mouse(MouseShortcut::Back),
+            &ShortcutBinding::Mouse(MouseShortcut::Back)
+        ));
+        assert!(!shortcut_bindings_conflict(
+            &ShortcutBinding::Mouse(MouseShortcut::Back),
+            &ShortcutBinding::Mouse(MouseShortcut::Forward)
+        ));
     }
 }

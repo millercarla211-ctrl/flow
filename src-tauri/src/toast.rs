@@ -5,6 +5,7 @@ use tauri::{AppHandle, Emitter, Manager, Monitor, WebviewWindow};
 pub const WINDOW_LABEL: &str = "toast";
 pub const EVENT_SHOW: &str = "toast:show";
 pub const EVENT_HIDE: &str = "toast:hide";
+const TOASTS_ENABLED: bool = false;
 
 #[derive(Serialize, Clone)]
 pub struct Payload {
@@ -25,6 +26,11 @@ pub struct Payload {
 }
 
 pub fn emit_toast(app: &AppHandle<AppRuntime>, payload: Payload) {
+    if !TOASTS_ENABLED {
+        let _ = payload;
+        return;
+    }
+
     if let Some(toast_window) = app.get_webview_window(WINDOW_LABEL) {
         position_toast_window(app, &toast_window);
         crate::platform::toast::show(app, &toast_window);

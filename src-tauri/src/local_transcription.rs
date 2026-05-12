@@ -12,6 +12,10 @@ use flow_speech::engines::parakeet::{
 #[cfg(feature = "with-whisper")]
 use flow_speech::engines::whisper::{WhisperEngine, WhisperInferenceParams};
 use flow_speech::{TranscriptionEngine, TranscriptionResult, TranscriptionSegment};
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+use parakeet_rs::{
+    ParakeetUnified, TimestampMode as ParakeetTimestampMode, Transcriber as ParakeetTranscriber,
+};
 use parking_lot::{Condvar, Mutex};
 
 use crate::{
@@ -44,6 +48,8 @@ enum EngineInstance {
     Nemotron { engine: Box<NemotronEngine> },
     #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
     Parakeet { engine: Box<ParakeetEngine> },
+    #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+    ParakeetUnified { engine: Box<ParakeetUnified> },
     #[cfg(feature = "with-whisper")]
     Whisper { engine: Box<WhisperEngine> },
 }
@@ -145,6 +151,11 @@ impl LocalTranscriber {
             EngineInstance::Parakeet { engine, .. } => engine
                 .transcribe_samples(silence, None)
                 .map_err(|err| anyhow!("Parakeet warmup failed: {err}")),
+            #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+            EngineInstance::ParakeetUnified { engine, .. } => engine
+                .transcribe_samples(silence, 16_000, 1, Some(ParakeetTimestampMode::Words))
+                .map(map_unified_result_without_segments)
+                .map_err(|err| anyhow!("Parakeet Unified warmup failed: {err}")),
             #[cfg(feature = "with-whisper")]
             EngineInstance::Whisper { engine } => engine
                 .transcribe_samples(silence, None)
@@ -235,6 +246,19 @@ impl LocalTranscriber {
                     .transcribe_samples(prepared.data.clone(), params)
                     .map_err(|err| anyhow!("Parakeet transcription failed: {err}"))?
             }
+            #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+            EngineInstance::ParakeetUnified { engine } => {
+                let timestamp_granularity = if with_segments {
+                    TimestampGranularity::Segment
+                } else {
+                    TimestampGranularity::Token
+                };
+                let mode = map_unified_timestamp_mode(&timestamp_granularity);
+                let raw_result = engine
+                    .transcribe_samples(prepared.data.clone(), 16_000, 1, Some(mode))
+                    .map_err(|err| anyhow!("Parakeet Unified transcription failed: {err}"))?;
+                map_unified_result(raw_result, timestamp_granularity)
+            }
             #[cfg(feature = "with-whisper")]
             EngineInstance::Whisper { engine } => {
                 let params = if !dictionary.is_empty() || language.is_some() {
@@ -287,13 +311,28 @@ impl LocalTranscriber {
             LocalModelEngine::Parakeet => {
                 #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
                 {
-                    let mut engine = ParakeetEngine::new();
-                    let params = ParakeetModelParams::tdt_int8();
-                    engine
-                        .load_model_with_params(model.path.as_path(), params)
-                        .map_err(|err| anyhow!("Failed to load Parakeet model: {err}"))?;
-                    EngineInstance::Parakeet {
-                        engine: Box::new(engine),
+                    if model.key == "parakeet_unified_en_int8" {
+                        let engine =
+                            match ParakeetUnified::from_pretrained(model.path.as_path(), None) {
+                                Ok(engine) => engine,
+                                Err(err) => {
+                                    return Err(anyhow!(
+                                        "Failed to load Parakeet Unified model: {err}"
+                                    ));
+                                }
+                            };
+                        EngineInstance::ParakeetUnified {
+                            engine: Box::new(engine),
+                        }
+                    } else {
+                        let mut engine = ParakeetEngine::new();
+                        let params = ParakeetModelParams::tdt_int8();
+                        engine
+                            .load_model_with_params(model.path.as_path(), params)
+                            .map_err(|err| anyhow!("Failed to load Parakeet model: {err}"))?;
+                        EngineInstance::Parakeet {
+                            engine: Box::new(engine),
+                        }
                     }
                 }
 
@@ -391,6 +430,61 @@ impl LocalTranscriber {
 impl Default for LocalTranscriber {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+fn map_unified_timestamp_mode(granularity: &TimestampGranularity) -> ParakeetTimestampMode {
+    match granularity {
+        TimestampGranularity::Token => ParakeetTimestampMode::Tokens,
+        TimestampGranularity::Word => ParakeetTimestampMode::Words,
+        TimestampGranularity::Segment => ParakeetTimestampMode::Sentences,
+    }
+}
+
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+fn map_unified_result_without_segments(
+    raw_result: parakeet_rs::TranscriptionResult,
+) -> TranscriptionResult {
+    map_unified_result(raw_result, TimestampGranularity::Token)
+}
+
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+fn map_unified_result(
+    raw_result: parakeet_rs::TranscriptionResult,
+    timestamp_granularity: TimestampGranularity,
+) -> TranscriptionResult {
+    let parakeet_rs::TranscriptionResult { text, tokens } = raw_result;
+    let segments = match timestamp_granularity {
+        TimestampGranularity::Token => None,
+        TimestampGranularity::Word | TimestampGranularity::Segment => {
+            let mapped: Vec<TranscriptionSegment> = tokens
+                .into_iter()
+                .filter_map(|token| {
+                    let text = token.text.trim().to_string();
+                    if text.is_empty() {
+                        None
+                    } else {
+                        Some(TranscriptionSegment {
+                            start: token.start,
+                            end: token.end,
+                            text,
+                        })
+                    }
+                })
+                .collect();
+
+            if mapped.is_empty() {
+                None
+            } else {
+                Some(mapped)
+            }
+        }
+    };
+
+    TranscriptionResult {
+        text: text.trim().to_string(),
+        segments,
     }
 }
 

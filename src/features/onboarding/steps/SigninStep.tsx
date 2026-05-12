@@ -12,7 +12,7 @@ export function SigninStep({ stepMotionProps, onNext }: SigninStepProps) {
   const { t } = useLingui();
   const syncStatus = t({
     id: "onboarding.signin.status",
-    message: "in development",
+    message: "optional",
   });
 
   return (
@@ -34,14 +34,14 @@ export function SigninStep({ stepMotionProps, onNext }: SigninStepProps) {
       <p className="ui-text-body-lg text-content-muted mb-2 leading-relaxed">
         {t({
           id: "onboarding.signin.subtitle",
-          message: `Cloud sync is currently ${syncStatus}.`,
+          message: `Cloud sync is ${syncStatus}.`,
         })}
       </p>
       <p className="ui-text-body-sm text-content-disabled mb-7 leading-relaxed">
         {t({
           id: "onboarding.signin.body",
           message:
-            "You can keep using Flow locally. This screen will be enabled in a future update.",
+            "Flow is ready without an account. Keep everything local, or connect sync later when you want it.",
         })}
       </p>
 

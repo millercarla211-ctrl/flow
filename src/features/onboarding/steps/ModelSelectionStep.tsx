@@ -66,7 +66,8 @@ export function ModelSelectionStep({
         <p>
           {t({
             id: "onboarding.models.subtitle",
-            message: "More models and language model setup available in Settings after setup.",
+            message:
+              "Pick a fast local speech model now. You can add more engines later in Settings.",
           })}
         </p>
       </div>
@@ -104,12 +105,12 @@ export function ModelSelectionStep({
               ? t({
                   id: "onboarding.models.unavailable_body",
                   message:
-                    "Flow couldn't load the local model list. Setup can continue with the default local engine, and you can manage downloads later in Settings.",
+                    "Flow couldn't load the local model list. You can continue with the default local engine and manage downloads later in Settings.",
                 })
               : t({
                   id: "onboarding.models.empty_body",
                   message:
-                    "This build did not return any local models. You can continue setup and manage models later in Settings.",
+                    "This build did not return any local models. You can continue and manage models later in Settings.",
                 })}
           </p>
         </div>

@@ -5,9 +5,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
+use tauri::Emitter;
 
 use crate::settings::{LlmProvider, Personality, TranscriptionMode, UserSettings};
-use crate::{accessibility_context, mode_context};
+use crate::{accessibility_context, local_text_model, mode_context, AppRuntime};
 
 const CLEANUP_PROMPT: &str = r#"
 You clean up speech-to-text transcripts.
@@ -338,6 +339,7 @@ enum ProviderRoute {
 
 fn provider_default_base_url(provider: &LlmProvider) -> Option<&'static str> {
     match provider {
+        LlmProvider::Local => None,
         LlmProvider::LmStudio => Some("http://localhost:1234"),
         LlmProvider::Ollama => Some("http://localhost:11434"),
         LlmProvider::OpenAI => Some("https://api.openai.com"),
@@ -417,6 +419,13 @@ fn configured_model(settings: &UserSettings) -> Option<String> {
     }
 }
 
+fn local_route_for_task(task: TextTaskKind) -> local_text_model::LocalTextRoute {
+    match task {
+        TextTaskKind::Cleanup => local_text_model::LocalTextRoute::InstantHelper,
+        TextTaskKind::Edit | TextTaskKind::Command => local_text_model::LocalTextRoute::SmartDaily,
+    }
+}
+
 fn build_user_content(task: TextTaskKind, text: &str, instruction: Option<&str>) -> String {
     match task {
         TextTaskKind::Cleanup => text.to_string(),
@@ -469,6 +478,24 @@ async fn run_text_task(
     let model = configured_model(settings)
         .ok_or_else(|| anyhow!("Choose a language model in Settings -> Models"))?;
 
+    if matches!(settings.llm_provider, LlmProvider::Local) {
+        let model = local_text_model::preferred_model_for_route(
+            local_route_for_task(task),
+            Some(model.as_str()),
+        )
+        .ok_or_else(|| anyhow!("No local text model is installed"))?;
+        let local_prompt = compact_local_system_prompt(task);
+        let raw = local_text_model::generate(
+            &model,
+            local_prompt,
+            &user_content,
+            local_max_tokens(task),
+            task.temperature(),
+        )
+        .await?;
+        return Ok(extract_plain_text(&raw).unwrap_or_else(|| fallback_text.to_string()));
+    }
+
     let body = ChatRequest {
         model,
         messages: vec![
@@ -488,6 +515,23 @@ async fn run_text_task(
     let raw = send_chat_request(client, settings, &body).await?;
 
     Ok(extract_plain_text(&raw).unwrap_or_else(|| fallback_text.to_string()))
+}
+
+fn compact_local_system_prompt(task: TextTaskKind) -> &'static str {
+    match task {
+        TextTaskKind::Cleanup => {
+            "Polish dictation. Preserve meaning. Fix casing, punctuation, grammar, and filler. Return only text."
+        }
+        TextTaskKind::Edit => "Edit by instruction. Preserve facts. Return only final text.",
+        TextTaskKind::Command => "Produce requested insertion text. Return only final text.",
+    }
+}
+
+fn local_max_tokens(task: TextTaskKind) -> usize {
+    match task {
+        TextTaskKind::Cleanup => 192,
+        TextTaskKind::Edit | TextTaskKind::Command => 320,
+    }
 }
 
 fn significant_tokens(text: &str) -> HashSet<String> {
@@ -618,11 +662,20 @@ pub async fn cleanup_transcription(
 }
 
 pub fn is_llm_available(settings: &UserSettings) -> bool {
-    settings.llm_enabled
-        && !matches!(settings.llm_provider, LlmProvider::None)
-        && configured_model(settings).is_some()
+    if !settings.llm_enabled {
+        return false;
+    }
+
+    match settings.llm_provider {
+        LlmProvider::None => false,
+        LlmProvider::Local => configured_model(settings)
+            .map(|model| local_text_model::is_model_available(&model))
+            .unwrap_or(false),
+        _ => configured_model(settings).is_some(),
+    }
 }
 
+#[allow(dead_code)]
 pub fn should_refine_transcript(settings: &UserSettings, mode: Option<&Personality>) -> bool {
     is_llm_available(settings) && (settings.cleanup_enabled || personality_has_style_guidance(mode))
 }
@@ -630,6 +683,8 @@ pub fn should_refine_transcript(settings: &UserSettings, mode: Option<&Personali
 pub fn resolved_model_name(settings: &UserSettings) -> Option<String> {
     if !is_llm_available(settings) {
         None
+    } else if matches!(settings.llm_provider, LlmProvider::Local) {
+        configured_model(settings).map(|model| format!("Flow Local {model}"))
     } else {
         configured_model(settings)
     }
@@ -720,6 +775,10 @@ pub async fn fetch_available_models(
     provider: &LlmProvider,
     api_key: &str,
 ) -> Result<Vec<String>> {
+    if matches!(provider, LlmProvider::Local) {
+        return Ok(local_text_model::available_model_ids());
+    }
+
     let url = match build_provider_url(endpoint, provider, ProviderRoute::Models) {
         Ok(url) => url,
         Err(err) if err.to_string() == "Endpoint not configured" => return Ok(vec![]),
@@ -746,6 +805,43 @@ pub async fn fetch_available_models(
         .await
         .context("Failed to parse models response")?;
     Ok(data.data.into_iter().map(|m| m.id).collect())
+}
+
+pub fn prewarm_if_needed(app: &tauri::AppHandle<AppRuntime>, settings: &UserSettings) {
+    if !settings.llm_enabled || !matches!(settings.llm_provider, LlmProvider::Local) {
+        return;
+    }
+    if !settings.cleanup_enabled
+        && !settings.edit_mode_enabled
+        && !settings.auto_transform_enabled
+        && !settings.command_enabled
+    {
+        return;
+    }
+
+    let model = settings.llm_model.trim();
+    if model.is_empty() {
+        return;
+    }
+
+    let Some(model) = local_text_model::preferred_model_for_route(
+        local_text_model::LocalTextRoute::InstantHelper,
+        Some(model),
+    ) else {
+        return;
+    };
+
+    let app = app.clone();
+    std::thread::spawn(move || match local_text_model::prewarm_blocking(&model) {
+        Ok(elapsed) => {
+            eprintln!(
+                "[LocalTextModel] Warmed {model} for startup in {:.2}s",
+                elapsed.as_secs_f64()
+            );
+            let _ = app.emit("local_llm:warmed", model);
+        }
+        Err(err) => eprintln!("[LocalTextModel] Warmup failed for {model}: {err}"),
+    });
 }
 
 pub const PREFLIGHT_TTL: Duration = Duration::from_secs(300);

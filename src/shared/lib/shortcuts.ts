@@ -17,7 +17,7 @@ function isModifierToken(token: string): boolean {
 
 function humanizeModifierToken(token: string): string {
   const modifierDisplay: Record<string, string> = {
-    Cmd: isMacPlatform ? "Command" : "Meta",
+    Cmd: isMacPlatform ? "Command" : "Win",
     Opt: isMacPlatform ? "Option" : "Alt",
     Ctrl: "Ctrl",
     Shift: "Shift",
@@ -40,6 +40,16 @@ function humanizeModifierToken(token: string): string {
 }
 
 function humanizeKeyToken(token: string): string {
+  const mouseDisplay: Record<string, string> = {
+    MouseMiddle: "Mouse Middle",
+    MouseBack: "Mouse Back",
+    MouseForward: "Mouse Forward",
+  };
+
+  if (mouseDisplay[token]) {
+    return mouseDisplay[token];
+  }
+
   const directDisplay: Record<string, string> = {
     Left: "Left",
     Right: "Right",

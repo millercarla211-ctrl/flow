@@ -1367,8 +1367,6 @@ impl StorageManager {
             );
             CREATE INDEX IF NOT EXISTS idx_transcriptions_timestamp ON transcriptions(timestamp);
             CREATE INDEX IF NOT EXISTS idx_transcriptions_status ON transcriptions(status);
-            CREATE INDEX IF NOT EXISTS idx_transcriptions_speech_model ON transcriptions(speech_model);
-            CREATE INDEX IF NOT EXISTS idx_transcriptions_pinned ON transcriptions(pinned);
 
             CREATE TABLE IF NOT EXISTS library_items (
                 id TEXT PRIMARY KEY,
@@ -1540,6 +1538,10 @@ impl StorageManager {
             "transcriptions",
             "pinned",
             "ALTER TABLE transcriptions ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",
+        )?;
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_transcriptions_speech_model ON transcriptions(speech_model);
+            CREATE INDEX IF NOT EXISTS idx_transcriptions_pinned ON transcriptions(pinned);",
         )?;
         Self::ensure_column(
             conn,

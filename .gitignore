@@ -18,6 +18,8 @@ tmp/
 src-tauri/target/
 .env
 notes/
+__pycache__/
+*.pyc
 
 # Editor directories and files
 .vscode/*

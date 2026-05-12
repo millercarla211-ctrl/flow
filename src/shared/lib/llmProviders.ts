@@ -12,6 +12,13 @@ export type LlmProviderPreset = {
 
 const LLM_PROVIDER_PRESETS: LlmProviderPreset[] = [
   {
+    id: "local",
+    label: "Flow Local",
+    endpoint: "",
+    defaultModel: "qwen3-0.6b",
+    apiKeyRequired: false,
+  },
+  {
     id: "custom",
     label: "Custom",
     endpoint: "",

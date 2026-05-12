@@ -2,6 +2,7 @@ export type ModelInfo = {
   key: string;
   label: string;
   description: string;
+  repository?: string;
   size_mb: number;
   file_count: number;
   engine_id: string;

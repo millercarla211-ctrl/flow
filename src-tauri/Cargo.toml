@@ -45,6 +45,8 @@ posthog-rs = "0.5.3"
 arboard = "3"
 mime_guess = "2"
 flow-speech = { package = "glimpse-speech", git = "https://github.com/LegendarySpy/Glimpse-Speech.git", tag = "1.2.5", features = ["nvidia"] }
+parakeet-rs = { version = "0.3.5", features = ["sortformer"] }
+llama-cpp-2 = "0.1.145"
 uuid = { version = "1.23.1", features = ["v4"] }
 aes-gcm = "0.10"
 pbkdf2 = "0.13"

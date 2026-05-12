@@ -1,13 +1,16 @@
 import { useLingui } from "@lingui/react/macro";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ChevronUp,
   Check,
   Circle,
   Copy,
   FileText,
   Loader2,
+  MessageSquareText,
   Pause,
   SendHorizontal,
+  Settings,
   WandSparkles,
   X,
 } from "lucide-react";
@@ -36,7 +39,12 @@ const IDLE_HANDLE_WIDTH = 20;
 const IDLE_HANDLE_HEIGHT = 5;
 const RECORDING_WIDTH = 156;
 const RECORDING_HEIGHT = 42;
+const POLISH_DOCK_WIDTH = 170;
+const POLISH_DOCK_HEIGHT = 34;
 const VOICE_BAR_HEIGHTS = [6, 11, 16, 9, 20, 13, 23, 15, 10, 18, 12, 21];
+const POLISH_DOT_OPACITIES = [
+  0.28, 0.36, 0.48, 0.62, 0.8, 0.72, 0.56, 0.44, 0.34, 0.26, 0.2, 0.18, 0.16,
+];
 const DOT_SPACING = 3;
 const AUTO_TRANSFORM_PRESET_LABELS: Record<string, string> = {
   polish: "Polish",
@@ -57,6 +65,7 @@ const DOT_RADIUS = {
 const EXPANDED_WIDTH = 218;
 const EXPANDED_HEIGHT = 100;
 const EXPANDED_BORDER_RADIUS = 999;
+const DORMANT_AFTER_MS = 30_000;
 const EXPANDED_TEXT_TOP_FADE =
   "linear-gradient(to bottom, var(--color-bg-primary) 0%, color-mix(in srgb, var(--color-bg-primary) 82%, transparent) 38%, color-mix(in srgb, var(--color-bg-primary) 38%, transparent) 74%, transparent 100%)";
 
@@ -185,6 +194,14 @@ type TranscriptionCompletePayload = {
   auto_paste?: boolean;
 };
 
+type WakeStatusPayload = {
+  active?: boolean;
+  message?: string;
+  command?: string;
+  transcript?: string;
+  confidence?: number;
+};
+
 type QuickActionStatus =
   | "copied"
   | "saved"
@@ -192,8 +209,18 @@ type QuickActionStatus =
   | "pasted"
   | "auto_on"
   | "auto_off"
+  | "hidden"
   | "error"
   | null;
+
+type FlowTip = {
+  id: string;
+  label: string;
+  title: string;
+  body: string;
+  actionLabel: string;
+  action: "app_settings";
+} | null;
 
 type PasteTextResult = {
   pasted: boolean;
@@ -229,7 +256,9 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const pillStatus = state.value as PillStatus;
   const { spectrumBins, lastSpectrumAt, isErrorFlashing, isExpanded, expandedText } = state.context;
   const [isHovering, setIsHovering] = useState(false);
+  const [isDormant, setIsDormant] = useState(false);
   const [showFirstTip, setShowFirstTip] = useState(false);
+  const [flowTip, setFlowTip] = useState<FlowTip>(null);
   const [lastTranscript, setLastTranscript] = useState("");
   const [quickActionStatus, setQuickActionStatus] = useState<QuickActionStatus>(null);
   const autoTransformQuery = useSettings(
@@ -276,6 +305,10 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const audioFrameCountRef = useRef<number>(0);
   const quickActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const quickStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flowTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dormantTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverEnterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** Render to both canvases (primary + background). */
   const renderBoth = useCallback(
@@ -298,6 +331,39 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const refreshColorPalette = useCallback(() => {
     colorPaletteRef.current = resolvePillColorPalette();
   }, []);
+
+  const clearHoverTimers = useCallback(() => {
+    if (hoverEnterTimerRef.current) {
+      clearTimeout(hoverEnterTimerRef.current);
+      hoverEnterTimerRef.current = null;
+    }
+    if (hoverLeaveTimerRef.current) {
+      clearTimeout(hoverLeaveTimerRef.current);
+      hoverLeaveTimerRef.current = null;
+    }
+  }, []);
+
+  const setHoverIntent = useCallback(
+    (hovering: boolean) => {
+      clearHoverTimers();
+      if (hovering) {
+        setIsDormant(false);
+        hoverEnterTimerRef.current = setTimeout(() => {
+          setIsHovering(true);
+          hoverEnterTimerRef.current = null;
+        }, 140);
+        return;
+      }
+
+      hoverLeaveTimerRef.current = setTimeout(() => {
+        setIsHovering(false);
+        hoverLeaveTimerRef.current = null;
+      }, 260);
+    },
+    [clearHoverTimers],
+  );
+
+  useEffect(() => () => clearHoverTimers(), [clearHoverTimers]);
 
   /* ── Draw: Processing (breathing wave) ── */
 
@@ -658,6 +724,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   /* ───────────────────────── Window / Keyboard ───────────────────────── */
 
   const hideWindow = useCallback(async () => {
+    setFlowTip(null);
     try {
       await invoke("cancel_recording");
     } catch (err) {
@@ -703,6 +770,18 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
         clearTimeout(quickStatusTimerRef.current);
         quickStatusTimerRef.current = null;
       }
+      if (flowTipTimerRef.current) {
+        clearTimeout(flowTipTimerRef.current);
+        flowTipTimerRef.current = null;
+      }
+    };
+
+    const wakeVisible = () => {
+      setIsDormant(false);
+      if (dormantTimerRef.current) {
+        clearTimeout(dormantTimerRef.current);
+        dormantTimerRef.current = null;
+      }
     };
 
     listen<TranscriptionCompletePayload>("transcription:complete", (event) => {
@@ -712,11 +791,13 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
         return;
       }
       clearQuickTimers();
+      wakeVisible();
       setLastTranscript(transcript);
       setQuickActionStatus(null);
       quickActionTimerRef.current = setTimeout(() => {
         setLastTranscript("");
         setQuickActionStatus(null);
+        setFlowTip(null);
         quickActionTimerRef.current = null;
       }, 15000);
     }).then((fn) => {
@@ -727,8 +808,18 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     listen("recording:start", () => {
       if (cancelled) return;
       clearQuickTimers();
+      wakeVisible();
       setLastTranscript("");
       setQuickActionStatus(null);
+      setFlowTip(null);
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisteners.push(fn);
+    });
+
+    listen<WakeStatusPayload>("wake:status", (event) => {
+      if (cancelled || !event.payload?.active) return;
+      wakeVisible();
     }).then((fn) => {
       if (cancelled) fn();
       else unlisteners.push(fn);
@@ -737,9 +828,38 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     return () => {
       cancelled = true;
       clearQuickTimers();
+      if (dormantTimerRef.current) {
+        clearTimeout(dormantTimerRef.current);
+        dormantTimerRef.current = null;
+      }
       unlisteners.forEach((fn) => fn());
     };
   }, []);
+
+  useEffect(() => {
+    if (dormantTimerRef.current) {
+      clearTimeout(dormantTimerRef.current);
+      dormantTimerRef.current = null;
+    }
+
+    const hasFollowUpContent = Boolean(lastTranscript.trim());
+    if (pillStatus !== "idle" || isHovering || isExpanded || hasFollowUpContent || showFirstTip) {
+      setIsDormant(false);
+      return;
+    }
+
+    dormantTimerRef.current = setTimeout(() => {
+      setIsDormant(true);
+      dormantTimerRef.current = null;
+    }, DORMANT_AFTER_MS);
+
+    return () => {
+      if (dormantTimerRef.current) {
+        clearTimeout(dormantTimerRef.current);
+        dormantTimerRef.current = null;
+      }
+    };
+  }, [isExpanded, isHovering, lastTranscript, pillStatus, showFirstTip]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -840,18 +960,26 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const idleMessage = t({ id: "pill.status.ready", message: "Ready" });
   const visibleStatusMessage = statusMessage || idleMessage;
   const isActiveStatus = pillStatus !== "idle";
-  const showRecordingUi = isHovering || isActiveStatus || isExpanded;
   const hasTranscriptPreview = isExpanded && (expandedText || statusMessage).trim().length > 0;
+  const hasFollowUpContent = Boolean(lastTranscript.trim());
+  const overlayDormant =
+    isDormant && !isHovering && !isActiveStatus && !isExpanded && !hasFollowUpContent;
+  const showRecordingUi = !overlayDormant && (isHovering || isActiveStatus || isExpanded);
+  const showPolishDock = showRecordingUi && !isActiveStatus && !hasTranscriptPreview;
   const shellWidth = hasTranscriptPreview
     ? EXPANDED_WIDTH
-    : showRecordingUi
-      ? RECORDING_WIDTH
-      : PILL_WIDTH;
+    : showPolishDock
+      ? POLISH_DOCK_WIDTH
+      : showRecordingUi
+        ? RECORDING_WIDTH
+        : PILL_WIDTH;
   const shellHeight = hasTranscriptPreview
     ? EXPANDED_HEIGHT
-    : showRecordingUi
-      ? RECORDING_HEIGHT
-      : PILL_HEIGHT;
+    : showPolishDock
+      ? POLISH_DOCK_HEIGHT
+      : showRecordingUi
+        ? RECORDING_HEIGHT
+        : PILL_HEIGHT;
   const shellRadius = EXPANDED_BORDER_RADIUS;
   const displayText = expandedText || visibleStatusMessage;
   const transcriptAvailable = Boolean(lastTranscript.trim());
@@ -859,12 +987,26 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const autoTransformPresetId = autoTransformQuery.data?.presetId ?? "polish";
   const autoTransformLabel = AUTO_TRANSFORM_PRESET_LABELS[autoTransformPresetId] ?? "Transform";
   const autoTransformReady = autoTransformQuery.data?.llmReady ?? false;
+  const transformVerb = (autoTransformLabel || "Polish").toLowerCase();
+  const polishShortcutLabel = "Win Alt 1";
   const showAutoTransformControl =
     showRecordingUi && !isActiveStatus && Boolean(autoTransformQuery.data);
-  const showQuickActions = !isActiveStatus && (transcriptAvailable || showAutoTransformControl);
+  const showFlowTip = false;
+  const showPolishTip = false;
+  const showQuickActions =
+    !showPolishDock &&
+    !isActiveStatus &&
+    !showFlowTip &&
+    (transcriptAvailable || showAutoTransformControl);
   const showFirstUseTip =
-    showFirstTip && !isActiveStatus && !hasTranscriptPreview && !showQuickActions;
-  const showIdleHandle = !showRecordingUi && !hasTranscriptPreview;
+    showFirstTip &&
+    !isActiveStatus &&
+    !hasTranscriptPreview &&
+    !overlayDormant &&
+    !showFlowTip &&
+    !showQuickActions &&
+    !showPolishTip;
+  const showIdleHandle = !overlayDormant && !showRecordingUi && !hasTranscriptPreview;
   const bubbleTitle =
     pillStatus === "error"
       ? t({ id: "pill.action.dismiss", message: "Dismiss" })
@@ -900,19 +1042,18 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
               ? "Auto on"
               : quickActionStatus === "auto_off"
                 ? "Auto off"
-                : quickActionStatus === "error"
-                  ? "Try again"
-                  : "";
+                : quickActionStatus === "hidden"
+                  ? "Hidden"
+                  : quickActionStatus === "error"
+                    ? "Try again"
+                    : "";
 
-  const flashQuickStatus = (status: QuickActionStatus) => {
-    setQuickActionStatus(status);
+  const flashQuickStatus = (_status: QuickActionStatus) => {
+    setQuickActionStatus(null);
     if (quickStatusTimerRef.current) {
       clearTimeout(quickStatusTimerRef.current);
-    }
-    quickStatusTimerRef.current = setTimeout(() => {
-      setQuickActionStatus(null);
       quickStatusTimerRef.current = null;
-    }, 1400);
+    }
   };
 
   const handleBubbleAction = async (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -922,6 +1063,31 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
       send({ type: "DISMISS" });
     }
     await hideWindow();
+  };
+
+  const dismissFlowTip = (event?: React.MouseEvent<HTMLButtonElement>) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (flowTipTimerRef.current) {
+      clearTimeout(flowTipTimerRef.current);
+      flowTipTimerRef.current = null;
+    }
+    setFlowTip(null);
+  };
+
+  const handleFlowTipAction = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const action = flowTip?.action;
+    dismissFlowTip();
+
+    if (action === "app_settings") {
+      try {
+        await invoke("open_app_settings");
+      } catch (error) {
+        console.error("Failed to open app settings:", error);
+      }
+    }
   };
 
   const handleCopyLastTranscript = async (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -1011,6 +1177,31 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     }
   };
 
+  const handlePauseFlow = useCallback(async () => {
+    setIsDormant(false);
+    setIsHovering(false);
+    flashQuickStatus("hidden");
+    try {
+      await invoke("pause_flow_temporarily", { seconds: 90 });
+    } catch (error) {
+      console.error("Failed to pause Flow:", error);
+      flashQuickStatus("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    const needsTipFrame = showFlowTip || showPolishTip || showQuickActions;
+    invoke("set_pill_overlay_tip_frame", { expanded: needsTipFrame }).catch((error) => {
+      console.error("Failed to resize pill overlay for tip:", error);
+    });
+
+    return () => {
+      if (needsTipFrame) {
+        invoke("set_pill_overlay_tip_frame", { expanded: false }).catch(() => {});
+      }
+    };
+  }, [showFlowTip, showPolishTip, showQuickActions]);
+
   const renderRecordIcon = () => {
     if (pillStatus === "processing") {
       return <Loader2 size={14} className="animate-spin" aria-hidden="true" />;
@@ -1025,13 +1216,118 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     <div
       className={`relative w-full h-full flex flex-col justify-end select-none ${className}`}
       style={style}
-      onContextMenu={(e) => e.preventDefault()}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        void handlePauseFlow();
+      }}
+      onMouseEnter={() => {
+        setIsDormant(false);
+        setHoverIntent(true);
+      }}
+      onMouseLeave={() => setHoverIntent(false)}
+      onFocus={() => {
+        setIsDormant(false);
+        setHoverIntent(true);
+      }}
+      onBlur={() => setHoverIntent(false)}
     >
       <div className="sr-only" role="status" aria-live="polite">
         {visibleStatusMessage}
       </div>
       <div className="relative flex items-end justify-center pb-[7px]">
         <AnimatePresence>
+          {showFlowTip && flowTip && (
+            <motion.div
+              key={flowTip.id}
+              initial={{ opacity: 0, y: 12, scale: 0.94, filter: "blur(6px)" }}
+              animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: 8, scale: 0.97, filter: "blur(5px)" }}
+              transition={softSpringTransition}
+              className="absolute bottom-[54px] z-40 w-[300px] rounded-[28px] border p-5"
+              style={{
+                color: "#ffffff",
+                backgroundColor: "rgba(0,0,0,0.96)",
+                borderColor: "rgba(255,255,255,0.08)",
+                boxShadow:
+                  "0 24px 70px rgba(0,0,0,0.58), 0 0 0 1px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.08)",
+                backdropFilter: "blur(22px)",
+                fontFamily: "var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif",
+              }}
+            >
+              <button
+                type="button"
+                aria-label="Close tip"
+                onClick={dismissFlowTip}
+                className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full border"
+                style={{
+                  color: "rgba(255,255,255,0.78)",
+                  backgroundColor: "rgba(255,255,255,0.02)",
+                  borderColor: "rgba(255,255,255,0.12)",
+                }}
+              >
+                <X size={16} aria-hidden="true" />
+              </button>
+
+              <div
+                className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5"
+                style={{
+                  color: "#1d1128",
+                  backgroundColor: "#eac7ff",
+                  fontSize: 12,
+                  fontWeight: 650,
+                  letterSpacing: 0,
+                }}
+              >
+                <Settings size={12} aria-hidden="true" />
+                {flowTip.label}
+              </div>
+              <div className="mt-4 pr-8">
+                <h3 className="text-[15px] font-semibold leading-5 tracking-normal">
+                  {flowTip.title}
+                </h3>
+                <p className="mt-2 text-[13px] font-medium leading-5 tracking-normal text-white/58">
+                  {flowTip.body}
+                </p>
+              </div>
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleFlowTipAction}
+                  className="h-10 rounded-xl px-5 text-[13px] font-semibold tracking-normal"
+                  style={{
+                    color: "#1b1b1b",
+                    backgroundColor: "#f6f1ea",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7)",
+                  }}
+                >
+                  {flowTip.actionLabel}
+                </button>
+              </div>
+            </motion.div>
+          )}
+          {showPolishTip && (
+            <motion.div
+              key="polish-tip"
+              initial={{ opacity: 0, y: 8, scale: 0.96, filter: "blur(5px)" }}
+              animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: 5, scale: 0.98, filter: "blur(4px)" }}
+              transition={softSpringTransition}
+              className="absolute bottom-[46px] z-30 whitespace-nowrap rounded-full px-4 py-2 text-center"
+              style={{
+                color: "#ffffff",
+                backgroundColor: "rgba(0,0,0,0.94)",
+                boxShadow: "0 16px 42px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)",
+                backdropFilter: "blur(18px)",
+                fontFamily: "var(--font-mono), 'JetBrains Mono', ui-monospace, monospace",
+                fontSize: 13,
+                fontWeight: 500,
+                lineHeight: "17px",
+                letterSpacing: 0,
+              }}
+            >
+              Click or press {polishShortcutLabel} to {transformVerb}
+            </motion.div>
+          )}
           {showQuickActions && (
             <motion.div
               key="quick-actions"
@@ -1039,7 +1335,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
               animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
               exit={{ opacity: 0, y: 7, scale: 0.97, filter: "blur(4px)" }}
               transition={softSpringTransition}
-              className="absolute bottom-[54px] z-20 flex items-center gap-1 rounded-full border px-1.5 py-1"
+              className="absolute bottom-[36px] z-20 flex items-center gap-1 rounded-full border px-1.5 py-1"
               style={{
                 color: "var(--color-text-primary)",
                 backgroundColor: "color-mix(in srgb, var(--color-bg-primary) 94%, transparent)",
@@ -1083,7 +1379,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
                           ? `Auto Transform on: ${autoTransformLabel}`
                           : autoTransformReady
                             ? `Auto Transform off: ${autoTransformLabel}`
-                            : "Configure a language model to use Auto Transform"
+                            : "Configure text enhancement to use Auto Transform"
                       }
                       onClick={handleToggleAutoTransform}
                       className="flex h-7 items-center gap-1.5 rounded-full border px-2.5"
@@ -1202,33 +1498,35 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
         {/* Pill shell — transitions between basic and dynamic modes */}
         <motion.div
           className={`relative overflow-hidden flex flex-col ${isErrorFlashing ? "animate-shake" : ""}`}
-          onMouseEnter={() => setIsHovering(true)}
-          onMouseLeave={() => setIsHovering(false)}
-          onFocus={() => setIsHovering(true)}
-          onBlur={() => setIsHovering(false)}
           animate={{
             width: shellWidth,
             height: shellHeight,
             borderRadius: shellRadius,
-            scale: isHovering && !isActiveStatus ? 1.02 : 1,
+            opacity: overlayDormant ? 0 : 1,
+            scale: overlayDormant ? 0.74 : isHovering && !isActiveStatus ? 1.02 : 1,
+            y: overlayDormant ? 8 : 0,
+            filter: overlayDormant ? "blur(6px)" : "blur(0px)",
           }}
           transition={springTransition}
           style={{
-            backgroundColor:
-              showRecordingUi || hasTranscriptPreview
+            backgroundColor: showPolishDock
+              ? "transparent"
+              : showRecordingUi || hasTranscriptPreview
                 ? "color-mix(in srgb, var(--color-bg-primary) 92%, transparent)"
                 : darkIdleShell,
-            borderColor:
-              showRecordingUi || hasTranscriptPreview
+            borderColor: showPolishDock
+              ? "transparent"
+              : showRecordingUi || hasTranscriptPreview
                 ? "var(--ui-pill-shell-border)"
                 : darkIdleBorder,
             borderWidth: 1,
             borderStyle: "solid",
-            boxShadow:
-              showRecordingUi || hasTranscriptPreview
+            boxShadow: showPolishDock
+              ? "none"
+              : showRecordingUi || hasTranscriptPreview
                 ? "0 18px 55px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.08)"
                 : "0 10px 24px rgba(0,0,0,0.62), 0 0 10px color-mix(in srgb, var(--border) 34%, transparent), inset 0 1px 0 rgba(255,255,255,0.035)",
-            backdropFilter: "blur(18px)",
+            backdropFilter: showPolishDock ? "none" : "blur(18px)",
             padding: showIdleHandle ? 4 : 0,
           }}
         >
@@ -1390,7 +1688,9 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
             </div>
           </div>
           <motion.div
-            className="absolute inset-x-0 bottom-0 z-[3] flex h-full items-center gap-2 px-[5px]"
+            className={`absolute inset-x-0 bottom-0 z-[3] flex h-full items-center ${
+              showPolishDock ? "gap-1.5 px-[2px]" : "gap-2 px-[5px]"
+            }`}
             animate={{
               opacity: showRecordingUi || isActiveStatus ? 1 : 0,
               y: showRecordingUi || isActiveStatus ? 0 : 4,
@@ -1398,104 +1698,228 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
             transition={softSpringTransition}
             style={{ pointerEvents: showRecordingUi || isActiveStatus ? "auto" : "none" }}
           >
-            <motion.button
-              type="button"
-              aria-label={pillStatus === "listening" ? "Pause dictation" : "Start dictation"}
-              title={pillStatus === "listening" ? "Pause dictation" : "Start dictation"}
-              onClick={toggleRecording}
-              whileTap={{ scale: 0.92 }}
-              className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border"
-              style={{
-                backgroundColor:
-                  pillStatus === "listening"
-                    ? "var(--color-error)"
-                    : "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
-                color: pillStatus === "listening" ? "white" : "var(--color-text-primary)",
-                borderColor: "var(--ui-pill-shell-border)",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14)",
-              }}
-            >
-              {renderRecordIcon()}
-            </motion.button>
+            {showPolishDock ? (
+              <>
+                <motion.button
+                  type="button"
+                  aria-label={`Start dictation and ${transformVerb}`}
+                  title={`Click or press ${polishShortcutLabel} to ${transformVerb}`}
+                  onClick={toggleRecording}
+                  whileHover={{ scale: 1.035 }}
+                  whileTap={{ scale: 0.94 }}
+                  className="flex h-[30px] w-[74px] shrink-0 items-center justify-center rounded-full border"
+                  style={{
+                    backgroundColor: "rgba(0,0,0,0.9)",
+                    borderColor: "rgba(255,255,255,0.08)",
+                    boxShadow: "0 10px 28px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.08)",
+                    color: "rgba(255,255,255,0.88)",
+                    backdropFilter: "blur(16px)",
+                  }}
+                >
+                  <span className="flex items-center justify-center gap-[2px]" aria-hidden="true">
+                    {POLISH_DOT_OPACITIES.map((opacity, index) => (
+                      <motion.span
+                        key={`polish-dot-${index}`}
+                        className="h-[2px] w-[2px] rounded-full"
+                        animate={{ opacity: [opacity * 0.55, opacity, opacity * 0.55] }}
+                        transition={{
+                          duration: 1.35,
+                          repeat: Infinity,
+                          repeatType: "mirror",
+                          ease: "easeInOut",
+                          delay: index * 0.035,
+                        }}
+                        style={{ backgroundColor: "currentColor" }}
+                      />
+                    ))}
+                  </span>
+                </motion.button>
 
-            <div className="relative min-w-0 flex-1 px-0.5">
-              <LiveWaveform
-                processing={pillStatus !== "error"}
-                active={false}
-                height={28}
-                barWidth={3}
-                barGap={2}
-                barRadius={999}
-                barColor="color-mix(in srgb, var(--color-text-primary) 88%, transparent)"
-                fadeWidth={18}
-                mode="static"
-                className="absolute inset-0 h-7 w-full opacity-35"
-                aria-hidden="true"
-              />
-              <div
-                aria-hidden="true"
-                className="relative flex h-7 items-center justify-center gap-[3px] overflow-hidden rounded-full"
-              >
-                {VOICE_BAR_HEIGHTS.map((height, index) => {
-                  const activeHeight = Math.max(5, height);
-                  const idleHeight = Math.max(4, Math.round(height * 0.44));
-                  return (
-                    <motion.span
-                      key={`voice-bar-${index}`}
-                      className="block w-[2.5px] rounded-full"
-                      animate={{
-                        height:
-                          pillStatus === "listening" || pillStatus === "processing"
-                            ? [idleHeight, activeHeight, Math.max(6, activeHeight - 5), idleHeight]
-                            : [
-                                idleHeight,
-                                Math.max(idleHeight + 4, Math.round(activeHeight * 0.7)),
-                                idleHeight,
-                              ],
-                        opacity:
-                          pillStatus === "error"
-                            ? 0.28
-                            : pillStatus === "listening"
-                              ? [0.62, 1, 0.78, 0.62]
-                              : [0.52, 0.9, 0.52],
-                      }}
-                      transition={{
-                        duration: pillStatus === "listening" ? 0.82 : 1.8,
-                        repeat: Infinity,
-                        repeatType: "mirror",
-                        ease: "easeInOut",
-                        delay: index * 0.045,
-                      }}
-                      style={{
-                        backgroundColor: "var(--color-text-primary)",
-                        boxShadow:
-                          "0 0 10px color-mix(in srgb, var(--color-text-primary) 42%, transparent)",
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </div>
+                <div
+                  className="flex h-[30px] shrink-0 items-center rounded-full border p-[2px]"
+                  style={{
+                    backgroundColor: "rgba(0,0,0,0.86)",
+                    borderColor: "rgba(255,255,255,0.08)",
+                    boxShadow: "0 10px 26px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.08)",
+                    backdropFilter: "blur(16px)",
+                  }}
+                >
+                  <motion.button
+                    type="button"
+                    aria-label={
+                      autoTransformEnabled
+                        ? `Disable Auto Transform (${autoTransformLabel})`
+                        : `Enable Auto Transform (${autoTransformLabel})`
+                    }
+                    title={
+                      autoTransformEnabled
+                        ? `Auto Transform on: ${autoTransformLabel}`
+                        : autoTransformReady
+                          ? `Auto Transform off: ${autoTransformLabel}`
+                          : "Configure text enhancement to use Auto Transform"
+                    }
+                    onClick={handleToggleAutoTransform}
+                    whileTap={{ scale: 0.92 }}
+                    className="flex h-[24px] w-[24px] items-center justify-center rounded-full"
+                    style={{
+                      color: autoTransformEnabled
+                        ? "#ffffff"
+                        : "color-mix(in srgb, var(--color-text-primary) 70%, transparent)",
+                      backgroundColor: autoTransformEnabled
+                        ? "rgba(255,255,255,0.1)"
+                        : "transparent",
+                    }}
+                  >
+                    <WandSparkles size={13} aria-hidden="true" />
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    aria-label="Open transform options"
+                    title="Open transform options"
+                    onClick={handleTransformLastTranscript}
+                    disabled={!transcriptAvailable}
+                    whileTap={{ scale: transcriptAvailable ? 0.92 : 1 }}
+                    className="flex h-[24px] w-[22px] items-center justify-center rounded-full"
+                    style={{
+                      color: transcriptAvailable
+                        ? "color-mix(in srgb, var(--color-text-primary) 74%, transparent)"
+                        : "color-mix(in srgb, var(--color-text-primary) 26%, transparent)",
+                      cursor: transcriptAvailable ? "pointer" : "default",
+                    }}
+                  >
+                    <ChevronUp size={13} aria-hidden="true" />
+                  </motion.button>
+                </div>
 
-            <motion.button
-              type="button"
-              aria-label={bubbleTitle}
-              title={bubbleTitle}
-              onClick={handleBubbleAction}
-              whileTap={{ scale: 0.92 }}
-              className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border"
-              style={{
-                color: pillStatus === "error" ? "white" : "var(--color-text-primary)",
-                backgroundColor:
-                  pillStatus === "error"
-                    ? "var(--color-error)"
-                    : "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
-                borderColor: "var(--ui-pill-shell-border)",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14)",
-              }}
-            >
-              <X size={15} aria-hidden="true" />
-            </motion.button>
+                <motion.button
+                  type="button"
+                  aria-label={transcriptAvailable ? "Paste transcript" : "No transcript yet"}
+                  title={transcriptAvailable ? "Paste transcript" : "No transcript yet"}
+                  onClick={transcriptAvailable ? handlePasteLastTranscript : undefined}
+                  disabled={!transcriptAvailable}
+                  whileTap={{ scale: transcriptAvailable ? 0.92 : 1 }}
+                  className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border"
+                  style={{
+                    color: transcriptAvailable
+                      ? "color-mix(in srgb, var(--color-text-primary) 82%, transparent)"
+                      : "color-mix(in srgb, var(--color-text-primary) 32%, transparent)",
+                    backgroundColor: "rgba(0,0,0,0.86)",
+                    borderColor: "rgba(255,255,255,0.08)",
+                    boxShadow: "0 10px 26px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.08)",
+                    backdropFilter: "blur(16px)",
+                    cursor: transcriptAvailable ? "pointer" : "default",
+                  }}
+                >
+                  <MessageSquareText size={13} aria-hidden="true" />
+                </motion.button>
+              </>
+            ) : (
+              <>
+                <motion.button
+                  type="button"
+                  aria-label={pillStatus === "listening" ? "Pause dictation" : "Start dictation"}
+                  title={pillStatus === "listening" ? "Pause dictation" : "Start dictation"}
+                  onClick={toggleRecording}
+                  whileTap={{ scale: 0.92 }}
+                  className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border"
+                  style={{
+                    backgroundColor:
+                      pillStatus === "listening"
+                        ? "var(--color-error)"
+                        : "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
+                    color: pillStatus === "listening" ? "white" : "var(--color-text-primary)",
+                    borderColor: "var(--ui-pill-shell-border)",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14)",
+                  }}
+                >
+                  {renderRecordIcon()}
+                </motion.button>
+
+                <div className="relative min-w-0 flex-1 px-0.5">
+                  <LiveWaveform
+                    processing={pillStatus !== "error"}
+                    active={false}
+                    height={28}
+                    barWidth={3}
+                    barGap={2}
+                    barRadius={999}
+                    barColor="color-mix(in srgb, var(--color-text-primary) 88%, transparent)"
+                    fadeWidth={18}
+                    mode="static"
+                    className="absolute inset-0 h-7 w-full opacity-35"
+                    aria-hidden="true"
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="relative flex h-7 items-center justify-center gap-[3px] overflow-hidden rounded-full"
+                  >
+                    {VOICE_BAR_HEIGHTS.map((height, index) => {
+                      const activeHeight = Math.max(5, height);
+                      const idleHeight = Math.max(4, Math.round(height * 0.44));
+                      return (
+                        <motion.span
+                          key={`voice-bar-${index}`}
+                          className="block w-[2.5px] rounded-full"
+                          animate={{
+                            height:
+                              pillStatus === "listening" || pillStatus === "processing"
+                                ? [
+                                    idleHeight,
+                                    activeHeight,
+                                    Math.max(6, activeHeight - 5),
+                                    idleHeight,
+                                  ]
+                                : [
+                                    idleHeight,
+                                    Math.max(idleHeight + 4, Math.round(activeHeight * 0.7)),
+                                    idleHeight,
+                                  ],
+                            opacity:
+                              pillStatus === "error"
+                                ? 0.28
+                                : pillStatus === "listening"
+                                  ? [0.62, 1, 0.78, 0.62]
+                                  : [0.52, 0.9, 0.52],
+                          }}
+                          transition={{
+                            duration: pillStatus === "listening" ? 0.82 : 1.8,
+                            repeat: Infinity,
+                            repeatType: "mirror",
+                            ease: "easeInOut",
+                            delay: index * 0.045,
+                          }}
+                          style={{
+                            backgroundColor: "var(--color-text-primary)",
+                            boxShadow:
+                              "0 0 10px color-mix(in srgb, var(--color-text-primary) 42%, transparent)",
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <motion.button
+                  type="button"
+                  aria-label={bubbleTitle}
+                  title={bubbleTitle}
+                  onClick={handleBubbleAction}
+                  whileTap={{ scale: 0.92 }}
+                  className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border"
+                  style={{
+                    color: pillStatus === "error" ? "white" : "var(--color-text-primary)",
+                    backgroundColor:
+                      pillStatus === "error"
+                        ? "var(--color-error)"
+                        : "color-mix(in srgb, var(--color-bg-secondary) 88%, transparent)",
+                    borderColor: "var(--ui-pill-shell-border)",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14)",
+                  }}
+                >
+                  <X size={15} aria-hidden="true" />
+                </motion.button>
+              </>
+            )}
           </motion.div>
         </motion.div>
       </div>

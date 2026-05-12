@@ -6,7 +6,9 @@ import type { ModelStatus } from "../../types";
 export const modelKeys = {
   all: ["models"] as const,
   catalog: () => [...modelKeys.all, "catalog"] as const,
+  ttsCatalog: () => [...modelKeys.all, "tts-catalog"] as const,
   status: (model: string) => [...modelKeys.all, "status", model] as const,
+  ttsStatus: (model: string) => [...modelKeys.all, "tts-status", model] as const,
   runtimeStatus: () => [...modelKeys.all, "runtime-status"] as const,
 };
 
@@ -14,6 +16,14 @@ export function useModelCatalog(enabled: boolean = true) {
   return useQuery({
     queryKey: modelKeys.catalog(),
     queryFn: modelsApi.listModels,
+    enabled,
+  });
+}
+
+export function useTtsModelCatalog(enabled: boolean = true) {
+  return useQuery({
+    queryKey: modelKeys.ttsCatalog(),
+    queryFn: modelsApi.listTtsModels,
     enabled,
   });
 }

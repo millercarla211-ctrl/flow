@@ -14,411 +14,6 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.saving_suffix"
-#~ msgstr " · Saving..."
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.search_count"
-#~ msgstr "{0} of {1}"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.add"
-#~ msgstr "Add"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.word_dictionary.description"
-#~ msgstr "Add custom words or phrases that aren't in the default dictionary."
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.add_entry_aria"
-#~ msgstr "Add entry"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.replacements.add_aria"
-#~ msgstr "Add replacement"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryView.tsx
-#~ msgid "library.view.filter.status.all"
-#~ msgstr "All"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryView.tsx
-#~ msgid "library.view.filter.tags.all"
-#~ msgstr "All tags"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryView.tsx
-#~ msgid "library.view.filter.date.all_time"
-#~ msgstr "All time"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.replacements.description"
-#~ msgstr "Automatically replace words in your transcriptions."
-
-#. js-lingui-explicit-id
-#: src/features/library/components/library-utils.ts
-#~ msgid "library.status.canceled"
-#~ msgstr "Canceled"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/library-utils.ts
-#~ msgid "library.status.canceling"
-#~ msgstr "Canceling..."
-
-#. js-lingui-explicit-id
-#: src/features/library/components/library-utils.ts
-#~ msgid "library.status.converting"
-#~ msgstr "Converting"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryView.tsx
-#~ msgid "library.view.filter.status.converting"
-#~ msgstr "Converting"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/library-utils.ts
-#~ msgid "library.status.converting_progress"
-#~ msgstr "Converting {percent}%"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.page.dictionary"
-#~ msgstr "Dictionary"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.replacements.title"
-#~ msgstr "Direct Replacements"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/library-utils.ts
-#~ msgid "library.status.done"
-#~ msgstr "Done"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryCard.tsx
-#~ msgid "library.card.done"
-#~ msgstr "Done"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryView.tsx
-#~ msgid "library.view.filter.status.done"
-#~ msgstr "Done"
-
-#. js-lingui-explicit-id
-#: src/features/settings/components/tabs/AppTab.tsx
-#~ msgid "settings.app.language.english"
-#~ msgstr "English"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/library-utils.ts
-#~ msgid "library.status.failed"
-#~ msgstr "Failed"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryView.tsx
-#~ msgid "library.view.filter.status.failed"
-#~ msgstr "Failed"
-
-#. js-lingui-explicit-id
-#: src/features/settings/components/tabs/ModelsTab.tsx
-#~ msgid "settings.models.engine.parakeet.description"
-#~ msgstr "Fast, multilingual and accurate. Based on ONNX for everyday local transcription."
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryCard.tsx
-#~ msgid "library.card.ffmpeg_help"
-#~ msgstr "FFmpeg Help"
-
-#. js-lingui-explicit-id
-#: src/features/settings/components/tabs/AppTab.tsx
-#~ msgid "settings.app.language.french"
-#~ msgstr "French"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryView.tsx
-#~ msgid "library.view.filter.date.last30"
-#~ msgstr "Last 30 days"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryView.tsx
-#~ msgid "library.view.filter.date.last7"
-#~ msgstr "Last 7 days"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryCard.tsx
-#~ msgid "library.card.more_options"
-#~ msgstr "More options"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/library-utils.ts
-#~ msgid "library.status.queued"
-#~ msgstr "Queued"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/library-utils.ts
-#~ msgid "library.status.queued_fallback"
-#~ msgstr "Queued"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryView.tsx
-#~ msgid "library.view.filter.status.queued"
-#~ msgstr "Queued"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.page.replacements"
-#~ msgstr "Replacements"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryView.tsx
-#~ msgid "library.view.search_aria"
-#~ msgstr "Search library"
-
-#. js-lingui-explicit-id
-#: src/features/settings/useSettingsForm.ts
-#~ msgid "settings.shortcuts.invalid_non_modifier"
-#~ msgstr "Shortcut must include a non-modifier key (for example, Control+Space)."
-
-#. js-lingui-explicit-id
-#: src/features/library/components/library-utils.ts
-#~ msgid "library.status.starting"
-#~ msgstr "Starting..."
-
-#. js-lingui-explicit-id
-#: src/features/library/components/LibraryView.tsx
-#~ msgid "library.view.filter.status.transcribing"
-#~ msgstr "Transcribing"
-
-#. js-lingui-explicit-id
-#: src/features/library/components/library-utils.ts
-#~ msgid "library.status.transcribing_progress"
-#~ msgstr "Transcribing {percent}%"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.word_dictionary.title"
-#~ msgstr "Word Dictionary"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx
-#~ msgid "transcriptions.list.results.multiple"
-#~ msgstr "{0} results"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionItem.tsx
-#~ msgid "transcriptions.item.word_count.multiple"
-#~ msgstr "{0} words"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionItem.tsx
-#~ msgid "transcriptions.item.audio_duration.seconds"
-#~ msgstr "{0}s audio"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionItem.tsx
-#~ msgid "transcriptions.item.audio_duration.minutes_seconds"
-#~ msgstr "{minutes}m {remaining}s audio"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionItem.tsx
-#~ msgid "transcriptions.item.audio_duration.minutes"
-#~ msgstr "{minutes}m audio"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx
-#~ msgid "transcriptions.list.count.multiple"
-#~ msgstr "{totalCount} transcriptions"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionItem.tsx
-#~ msgid "transcriptions.item.audio_duration.zero"
-#~ msgstr "0s audio"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx
-#~ msgid "transcriptions.list.results.single"
-#~ msgstr "1 result"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx
-#~ msgid "transcriptions.list.count.single"
-#~ msgstr "1 transcription"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionItem.tsx
-#~ msgid "transcriptions.item.word_count.single"
-#~ msgstr "1 word"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx
-#~ msgid "transcriptions.list.cancel"
-#~ msgstr "Cancel"
-
-#. js-lingui-explicit-id
-#: src/features/settings/components/tabs/AppTab.tsx
-#~ msgid "settings.app.text_size.aria_label"
-#~ msgstr "Choose text size"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx
-#~ msgid "transcriptions.list.clear_all"
-#~ msgstr "Clear All"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx
-#~ msgid "transcriptions.list.search.clear"
-#~ msgstr "Clear search"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx
-#~ msgid "transcriptions.list.clearing"
-#~ msgstr "Clearing..."
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.click_to_edit"
-#~ msgstr "Click to edit"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionItem.tsx
-#~ msgid "transcriptions.item.cloud"
-#~ msgstr "Cloud"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx
-#~ msgid "transcriptions.list.confirm"
-#~ msgstr "Confirm"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.edit"
-#~ msgstr "Edit"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.edit_entry"
-#~ msgstr "Edit {entry}"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.replacements.edit"
-#~ msgstr "Edit replacement for {0}"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionItem.tsx
-#~ msgid "transcriptions.item.enhanced"
-#~ msgstr "Enhanced"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.replacements.find_label"
-#~ msgstr "Find"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionItem.tsx
-#~ msgid "transcriptions.item.llm_model"
-#~ msgstr "LLM: {llmModelLabel}"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionItem.tsx
-#~ msgid "transcriptions.item.mode"
-#~ msgstr "Mode: {modeLabel}"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.press_enter_to_save"
-#~ msgstr "Press Enter to save"
-
-#. js-lingui-explicit-id
-#: src/Home.tsx
-#~ msgid "home.ready_subtitle"
-#~ msgstr "Ready when you are"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx
-#~ msgid "transcriptions.list.title"
-#~ msgstr "Recent Transcriptions"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.replacements.replace_with_label"
-#~ msgstr "Replace With"
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.saving"
-#~ msgstr "Saving..."
-
-#. js-lingui-explicit-id
-#: src/features/dictionary/components/DictionaryView.tsx
-#~ msgid "dictionary.search_or_add_label"
-#~ msgstr "Search Or Add"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionList.tsx
-#~ msgid "transcriptions.list.search.placeholder"
-#~ msgstr "Search..."
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionItem.tsx
-#~ msgid "transcriptions.item.speech_model"
-#~ msgstr "Speech: {speechModelLabel}"
-
-#. js-lingui-explicit-id
-#: src/features/transcriptions/components/TranscriptionItem.tsx
-#~ msgid "transcriptions.item.unknown_model"
-#~ msgstr "Unknown model"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-#~ msgid "onboarding.welcome.cta.cloud"
-#~ msgstr "> Cloud"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-#~ msgid "onboarding.welcome.cta.local"
-#~ msgstr "> Local"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-#~ msgid "onboarding.welcome.cloud.feature.models"
-#~ msgstr "Bigger & better models"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-#~ msgid "onboarding.welcome.cloud.feature.sync"
-#~ msgstr "Cross-device sync"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-#~ msgid "onboarding.welcome.cloud.feature.tools"
-#~ msgstr "Smarter writing tools & delivery"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-#~ msgid "onboarding.welcome.local.description"
-#~ msgstr "Private, fast, and runs entirely on your machine."
-
-#. js-lingui-explicit-id
-#: src/shared/ui/FAQModal.tsx
-#~ msgid "faq.cloud.answer"
-#~ msgstr "An optional paid upgrade with cross-device sync, faster cloud processing, and better AI models."
-
-#. js-lingui-explicit-id
-#: src/shared/ui/FAQModal.tsx
-#~ msgid "faq.cloud.question"
-#~ msgstr "What's Flow Cloud?"
-
-#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.shortcut.capture_placeholder"
 msgstr "..."
@@ -432,6 +27,13 @@ msgstr "(auto-filled)"
 #: src/features/settings/components/LanguageModelPanel.tsx
 msgid "settings.language_model.api_key.optional_hint"
 msgstr "(if required)"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: pendingLocalDataConfirmation.transcriptionCount
+#. placeholder {1}: pendingLocalDataConfirmation.transformHistoryCount
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.local_data.confirm.counts"
+msgstr "{0, plural, one {# transcript} other {# transcripts}} and {1, plural, one {# transform} other {# transforms}} are affected now."
 
 #. js-lingui-explicit-id
 #. placeholder {0}: entries.length
@@ -486,7 +88,14 @@ msgstr "{0} transcriptions"
 #. placeholder {0}: session.osName
 #: src/features/settings/components/AccountView.tsx
 msgid "settings.account.sessions.location"
-msgstr "{0}, {1}"
+msgstr "{0}, {sessionLocation}"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: sourceLabel === "file" ? "File import" : "Clipboard import"
+#. placeholder {1}: imported.skipped + conflictSkipped
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.backup.imported"
+msgstr "{0}: added {created}, updated {updated}, skipped {1}"
 
 #. js-lingui-explicit-id
 #. placeholder {0}: ((usageStats.cloud_minutes_this_month / 600) * 100).toFixed(0)
@@ -590,6 +199,11 @@ msgid "onboarding.accessibility.title"
 msgstr "Accessibility"
 
 #. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.active_preview.permission_needed"
+msgstr "Accessibility permission is needed to inspect the active app."
+
+#. js-lingui-explicit-id
 #: src/Home.tsx
 msgid "home.account.fallback"
 msgstr "Account"
@@ -635,6 +249,11 @@ msgid "settings.account.active_sessions"
 msgstr "Active Sessions"
 
 #. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.active_preview.title"
+msgstr "Active target preview"
+
+#. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalityModal.tsx
 msgid "personalization.modal.add"
 msgstr "Add"
@@ -642,7 +261,7 @@ msgstr "Add"
 #. js-lingui-explicit-id
 #: src/features/dictionary/components/DictionaryView.tsx
 msgid "dictionary.replacements.none_description"
-msgstr "Add word pairs to automatically swap in transcriptions. Matches are case-insensitive."
+msgstr "Add a find and replace pair above, then press Enter to save it here."
 
 #. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalityModal.tsx
@@ -675,6 +294,16 @@ msgid "dictionary.search_or_add_aria"
 msgstr "Add or search dictionary entry"
 
 #. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.add_selection_to_dictionary"
+msgstr "Add selection to Dictionary"
+
+#. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.dictionary.add"
+msgstr "Add to Dictionary"
+
+#. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalityModal.tsx
 msgid "personalization.modal.websites.aria"
 msgstr "Add website domain"
@@ -683,6 +312,31 @@ msgstr "Add website domain"
 #: src/features/dictionary/components/DictionaryView.tsx
 msgid "dictionary.no_entries.description"
 msgstr "Add words, phrases, or names above and press Enter to save them here."
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.added_to_dictionary"
+msgstr "Added to Dictionary"
+
+#. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.dictionary.added"
+msgstr "Added to Dictionary"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.auto_transform.help"
+msgstr "After speech recognition, Flow runs the selected Transform preset, saves it to Transform history, then pastes the result."
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.filter.all"
+msgstr "All"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.all"
+msgstr "All"
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryView.tsx
@@ -720,14 +374,34 @@ msgid "personalization.modal.applications"
 msgstr "Applications"
 
 #. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.auto_transform.body"
+msgstr "apply a transform preset after every dictation"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
 msgid "settings.app.auto_delete_recordings.confirm.apply"
+msgstr "Apply anyway"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.local_data.confirm.apply"
 msgstr "Apply anyway"
 
 #. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalizationView.tsx
 msgid "personalization.apps"
 msgstr "Apps"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.coverage.apps"
+msgstr "Apps"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.coverage.clean_status"
+msgstr "Assignments are unambiguous."
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
@@ -765,9 +439,29 @@ msgid "transcription.language.auto"
 msgstr "Auto"
 
 #. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.after_stt"
+msgstr "Auto after STT"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
 msgid "settings.app.auto_delete_recordings.body"
 msgstr "Auto deletes local audio files."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.auto_play"
+msgstr "Auto play"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.auto_transform"
+msgstr "Auto Transform"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.local_data.day"
+msgstr "Auto-delete 24h"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
@@ -815,9 +509,9 @@ msgid "settings.general.language_info.badges"
 msgstr "Badges show which installed engine supports each language."
 
 #. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-msgid "onboarding.welcome.local.feature.byok"
-msgstr "Bring your own API key for AI features"
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.cancel"
+msgstr "Cancel"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AccountTab.tsx
@@ -827,6 +521,11 @@ msgstr "Cancel"
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
 msgid "settings.app.cancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.shortcuts.cancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
@@ -875,6 +574,31 @@ msgid "onboarding.models.cancelled"
 msgstr "Cancelled"
 
 #. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.template.casual.name"
+msgstr "Casual"
+
+#. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.history.disabled.open_settings"
+msgstr "Change data storage"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.history_disabled.open_settings"
+msgstr "Change data storage"
+
+#. js-lingui-explicit-id
+#: src/features/insights/components/InsightsView.tsx
+msgid "insights.disabled.open_settings"
+msgstr "Change data storage"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.local_data.confirm.title"
+msgstr "Change local data storage?"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
 msgid "settings.account.password.change"
 msgstr "Change password"
@@ -915,6 +639,11 @@ msgid "updates.check_aria"
 msgstr "Check for updates"
 
 #. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.active_preview.loading"
+msgstr "Checking active target..."
+
+#. js-lingui-explicit-id
 #: src/features/updates/components/UpdateChecker.tsx
 msgid "updates.checking"
 msgstr "Checking for updates..."
@@ -940,14 +669,25 @@ msgid "onboarding.status.checking"
 msgstr "Checking..."
 
 #. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-msgid "onboarding.welcome.subtitle"
-msgstr "Choose how you want to transcribe."
-
-#. js-lingui-explicit-id
 #: src/features/onboarding/steps/ModelSelectionStep.tsx
 msgid "onboarding.models.title"
 msgstr "Choose your local model"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.cleanup"
+msgstr "Clean selected"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.filter.cleaned"
+msgstr "Cleaned"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: selectedCleanupRecords.length
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.cleaned"
+msgstr "Cleaning {0} transcripts"
 
 #. js-lingui-explicit-id
 #: src/features/transcriptions/components/TranscriptionItem.tsx
@@ -982,12 +722,17 @@ msgstr "Click the shortcut to change it."
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryView.tsx
 msgid "library.view.dropzone"
-msgstr "Drop files to import"
+msgstr "Click to import files"
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryView.tsx
 msgid "library.view.empty_state"
-msgstr "Drag files here to build your Library."
+msgstr "Click to import files and build your Library."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.mode.source_audio"
+msgstr "Clone input"
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
@@ -1015,6 +760,11 @@ msgid "transcriptions.list.search.close"
 msgstr "Close search"
 
 #. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.close"
+msgstr "Close selection"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/SettingsModal.tsx
 msgid "settings.modal.close_button"
 msgstr "Close settings"
@@ -1025,16 +775,6 @@ msgid "home.mode.cloud"
 msgstr "Cloud"
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/tabs/GeneralTab.tsx
-msgid "settings.general.cloud.label"
-msgstr "Cloud"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-msgid "onboarding.welcome.cloud.title"
-msgstr "Cloud"
-
-#. js-lingui-explicit-id
 #: src/features/settings/components/LanguageModelPanel.tsx
 msgid "settings.language_model.provider.cloud"
 msgstr "Cloud (API Key)"
@@ -1042,27 +782,17 @@ msgstr "Cloud (API Key)"
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AccountTab.tsx
 msgid "settings.account.cloud.body"
-msgstr "Cloud accounts, subscriptions, and sync are currently {status}."
-
-#. js-lingui-explicit-id
-#: src/features/settings/components/AccountView.tsx
-msgid "settings.account.history_sync.cloud_feature"
-msgstr "Cloud feature"
-
-#. js-lingui-explicit-id
-#: src/features/settings/components/tabs/GeneralTab.tsx
-msgid "settings.general.cloud.aria"
-msgstr "Cloud processing (Coming soon)"
+msgstr "Cloud accounts, subscriptions, and sync are {cloudStatus}. Flow stays fully usable offline."
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/SigninStep.tsx
 msgid "onboarding.signin.subtitle"
-msgstr "Cloud sync is currently {status}."
+msgstr "Cloud sync is {syncStatus}."
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/AccountView.tsx
-msgid "settings.account.cloud_usage"
-msgstr "Cloud Usage"
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.master.title"
+msgstr "Coding mode"
 
 #. js-lingui-explicit-id
 #: src/Home.tsx
@@ -1071,8 +801,8 @@ msgstr "Collapse sidebar"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
-msgid "settings.general.cloud.badge"
-msgstr "coming soon"
+msgid "settings.general.shortcuts.command"
+msgstr "Command Mode"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AboutTab.tsx
@@ -1090,14 +820,29 @@ msgid "faq.subtitle"
 msgstr "Common questions about Flow"
 
 #. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.template.concise.name"
+msgstr "Concise"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.edit_mode.configure_prefix"
 msgstr "Configure a language model in"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.auto_transform.configure_prefix"
+msgstr "Configure a language model in"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.cleanup.configure_prefix"
 msgstr "Configure a language model in"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.shortcuts.command_configure"
+msgstr "configure local text enhancement"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
@@ -1113,6 +858,16 @@ msgstr "Confirm new password"
 #: src/features/settings/components/AccountView.tsx
 msgid "settings.account.password.confirm_aria"
 msgstr "Confirm new password"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.coverage.conflicts"
+msgstr "Conflicts"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.context_awareness"
+msgstr "Context Awareness"
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/AccessibilityStep.tsx
@@ -1135,11 +890,6 @@ msgid "onboarding.signin.continue"
 msgstr "Continue"
 
 #. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-msgid "onboarding.welcome.cta"
-msgstr "Continue"
-
-#. js-lingui-explicit-id
 #: src/features/onboarding/steps/ModelSelectionStep.tsx
 msgid "onboarding.models.confirm_without_model.continue"
 msgstr "Continue anyway"
@@ -1148,6 +898,11 @@ msgstr "Continue anyway"
 #: src/features/onboarding/steps/ModelSelectionStep.tsx
 msgid "onboarding.models.confirm_without_model.title"
 msgstr "Continue without a model?"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.local_data.body"
+msgstr "controls transcript and transform history saved on this device."
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
@@ -1176,9 +931,20 @@ msgid "library.modal.copy.copied"
 msgstr "Copied"
 
 #. js-lingui-explicit-id
+#. placeholder {0}: selectedTextRecords.length
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.copied"
+msgstr "Copied {0} transcripts"
+
+#. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
 msgid "library.modal.copy"
 msgstr "Copy"
+
+#. js-lingui-explicit-id
+#: src/features/flow-fetch/components/FlowFetchView.tsx
+msgid "flow_fetch.empty.body"
+msgstr "Copy any http or https link and it will appear here automatically."
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
@@ -1191,9 +957,29 @@ msgid "toast.copy_message"
 msgstr "Copy message"
 
 #. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.copy"
+msgstr "Copy note"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.copy"
+msgstr "Copy selected"
+
+#. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.copy"
+msgstr "Copy selected variant"
+
+#. js-lingui-explicit-id
 #: src/features/transcriptions/components/TranscriptionItem.tsx
 msgid "transcriptions.item.copy_selection"
 msgstr "Copy selection"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.copy"
+msgstr "Copy snippet expansion"
 
 #. js-lingui-explicit-id
 #: src/features/transcriptions/components/TranscriptionItem.tsx
@@ -1291,9 +1077,39 @@ msgid "library.modal.export.write_failed"
 msgstr "Couldn't write the export file. Try a different location."
 
 #. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.create"
+msgstr "Create"
+
+#. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.create"
+msgstr "Create"
+
+#. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalizationView.tsx
 msgid "personalization.empty.description"
-msgstr "Create a mode to start customizing your apps and websites."
+msgstr "Create a style to customize writing behavior for apps and websites."
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.empty.body"
+msgstr "Create one, then say its trigger phrase inside dictation."
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.form.new_title"
+msgstr "Create snippet"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.create_snippet_from_selection"
+msgstr "Create snippet from selection"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.template.professional.description"
+msgstr "Crisp, clear, and work-ready."
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
@@ -1316,6 +1132,11 @@ msgid "settings.language_model.provider.custom"
 msgstr "Custom"
 
 #. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.custom.label"
+msgstr "Custom instruction"
+
+#. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalityModal.tsx
 msgid "personalization.modal.custom_instructions"
 msgstr "Custom instructions"
@@ -1333,7 +1154,7 @@ msgstr "Data Location"
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
 msgid "library.modal.playback.decrease"
-msgstr "Decrease playback speed"
+msgstr "Decrease speed"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
@@ -1385,7 +1206,7 @@ msgstr "Delete \"{0}\"? This cannot be undone."
 #. placeholder {0}: model.label
 #: src/features/onboarding/steps/ModelSelectionStep.tsx
 msgid "onboarding.models.action.delete_aria"
-msgstr "Delete {modelLabel}"
+msgstr "Delete {0}"
 
 #. js-lingui-explicit-id
 #: src/features/dictionary/components/DictionaryView.tsx
@@ -1398,19 +1219,14 @@ msgid "onboarding.delete.failed"
 msgstr "Delete failed"
 
 #. js-lingui-explicit-id
-#: src/features/personalization/components/PersonalityModal.tsx
-msgid "personalization.modal.delete_mode"
-msgstr "Delete mode"
-
-#. js-lingui-explicit-id
-#: src/features/personalization/components/PersonalizationView.tsx
-msgid "personalization.delete_mode.title"
-msgstr "Delete mode?"
-
-#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/ModelsTab.tsx
 msgid "settings.models.delete_model"
 msgstr "Delete model"
+
+#. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.delete"
+msgstr "Delete note"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
@@ -1429,9 +1245,49 @@ msgid "dictionary.replacements.delete"
 msgstr "Delete replacement for {0}"
 
 #. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.delete"
+msgstr "Delete selected"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.delete"
+msgstr "Delete snippet"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalityModal.tsx
+msgid "personalization.modal.delete_mode"
+msgstr "Delete style"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.delete_mode.title"
+msgstr "Delete style?"
+
+#. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
 msgid "library.modal.delete_confirm.title"
 msgstr "Delete this item?"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.deleted"
+msgstr "Deleted {deletedCount} transcripts"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.deselect"
+msgstr "Deselect transcription"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.subtitle"
+msgstr "Developer dictation keeps symbols, files, commands, and active editor hints intact."
+
+#. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.editor.body_placeholder"
+msgstr "Dictate or type here..."
 
 #. js-lingui-explicit-id
 #: src/Home.tsx
@@ -1449,6 +1305,11 @@ msgid "dictionary.combined.title"
 msgstr "Dictionary & Replacements"
 
 #. js-lingui-explicit-id
+#: src/features/dictionary/components/DictionaryView.tsx
+msgid "dictionary.backup.exported"
+msgstr "Dictionary backup copied as JSON"
+
+#. js-lingui-explicit-id
 #. placeholder {0}: currentModel?.label ?? settings?.local_model
 #: src/features/dictionary/components/DictionaryView.tsx
 msgid "dictionary.warning"
@@ -1457,7 +1318,12 @@ msgstr "Dictionary works only for models with dictionary support. Current model 
 #. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalizationView.tsx
 msgid "personalization.disable_mode"
-msgstr "Disable mode"
+msgstr "Disable style"
+
+#. js-lingui-explicit-id
+#: src/features/pill/PillOverlay.tsx
+msgid "pill.action.dismiss"
+msgstr "Dismiss"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
@@ -1483,7 +1349,12 @@ msgstr "Download"
 #. placeholder {0}: model.label
 #: src/features/onboarding/steps/ModelSelectionStep.tsx
 msgid "onboarding.models.action.download_aria"
-msgstr "Download {modelLabel}"
+msgstr "Download {0}"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.install_hint"
+msgstr "Download a voice model first. Flow will use it locally for generated speech."
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/OnboardingScreen.tsx
@@ -1531,14 +1402,29 @@ msgid "settings.general.edit_mode"
 msgstr "Edit Mode"
 
 #. js-lingui-explicit-id
-#: src/features/personalization/components/PersonalityModal.tsx
-msgid "personalization.modal.edit_name"
-msgstr "Edit mode name"
-
-#. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
 msgid "settings.account.name.edit_aria"
 msgstr "Edit name"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.form.edit_title"
+msgstr "Edit snippet"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.edit"
+msgstr "Edit snippet"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalityModal.tsx
+msgid "personalization.modal.edit_name"
+msgstr "Edit style name"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.context.title"
+msgstr "Editor context"
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/AccessibilityStep.tsx
@@ -1548,11 +1434,16 @@ msgstr "Enable in Settings"
 #. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalizationView.tsx
 msgid "personalization.enable_mode"
-msgstr "Enable mode"
+msgstr "Enable style"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
 msgid "settings.app.permission.enabled"
+msgstr "Enabled"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.coverage.enabled"
 msgstr "Enabled"
 
 #. js-lingui-explicit-id
@@ -1581,6 +1472,11 @@ msgid "settings.language_model.endpoint"
 msgstr "Endpoint"
 
 #. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.template.engineering.name"
+msgstr "Engineering"
+
+#. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalityModal.tsx
 msgid "personalization.modal.website.invalid"
 msgstr "Enter a valid domain like gmail.com"
@@ -1596,9 +1492,34 @@ msgid "home.sidebar.expand"
 msgstr "Expand sidebar"
 
 #. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.expansion"
+msgstr "Expansion"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.export"
+msgstr "Export"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.export"
+msgstr "Export"
+
+#. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
 msgid "library.modal.export"
 msgstr "Export"
+
+#. js-lingui-explicit-id
+#: src/features/dictionary/components/DictionaryView.tsx
+msgid "dictionary.export"
+msgstr "Export"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.export_cancelled"
+msgstr "Export cancelled"
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
@@ -1606,13 +1527,33 @@ msgid "library.modal.export.failed"
 msgstr "Export failed. Try again."
 
 #. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.export"
+msgstr "Export selected"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.export_title"
+msgstr "Export selected transcripts"
+
+#. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
 msgid "library.modal.export.title"
 msgstr "Export transcription"
 
 #. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.exported"
+msgstr "Exported {exportedCount} transcripts"
+
+#. js-lingui-explicit-id
 #: src/features/transcriptions/components/TranscriptionItem.tsx
 msgid "transcriptions.item.failed"
+msgstr "Failed"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.filter.failed"
 msgstr "Failed"
 
 #. js-lingui-explicit-id
@@ -1651,6 +1592,11 @@ msgid "settings.about.faq_help"
 msgstr "FAQ & Help"
 
 #. js-lingui-explicit-id
+#: src/features/onboarding/steps/WelcomeStep.tsx
+msgid "onboarding.welcome.local.feature.models"
+msgstr "Fast on-device transcription, optional remote providers when you choose"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.features"
 msgstr "Features"
@@ -1681,6 +1627,11 @@ msgid "library.import_error.file_not_found"
 msgstr "File not found. It may have moved or been deleted."
 
 #. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.files.title"
+msgstr "File tagging"
+
+#. js-lingui-explicit-id
 #: src/features/library/components/LibraryImportModal.tsx
 msgid "library.import.files"
 msgstr "Files"
@@ -1689,6 +1640,11 @@ msgstr "Files"
 #: src/features/library/components/LibraryView.tsx
 msgid "library.filter.aria_label"
 msgstr "Filter library by status"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.list.filter.aria"
+msgstr "Filter transcriptions"
 
 #. js-lingui-explicit-id
 #: src/features/dictionary/components/DictionaryView.tsx
@@ -1701,9 +1657,99 @@ msgid "dictionary.replacements.find"
 msgstr "Find word..."
 
 #. js-lingui-explicit-id
+#: src/shared/ui/FAQModal.tsx
+msgid "faq.brand"
+msgstr "Flow"
+
+#. js-lingui-explicit-id
+#: src/features/onboarding/OnboardingScreen.tsx
+msgid "onboarding.brand"
+msgstr "Flow"
+
+#. js-lingui-explicit-id
+#: src/features/onboarding/steps/AccessibilityStep.tsx
+msgid "onboarding.accessibility.app_name"
+msgstr "Flow"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.local_data.confirm.unknown_counts"
+msgstr "Flow could not count affected items right now."
+
+#. js-lingui-explicit-id
+#: src/features/onboarding/steps/ModelSelectionStep.tsx
+msgid "onboarding.models.unavailable_body"
+msgstr "Flow couldn't load the local model list. You can continue with the default local engine and manage downloads later in Settings."
+
+#. js-lingui-explicit-id
+#: src/Home.tsx
+msgid "home.sidebar.flow_fetch"
+msgstr "Flow Fetch"
+
+#. js-lingui-explicit-id
+#: src/features/flow-fetch/components/FlowFetchView.tsx
+msgid "flow_fetch.eyebrow"
+msgstr "Flow Fetch"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.history_disabled.body"
+msgstr "Flow is not storing transcripts or transforms on this device because Local Data Storage is set to Never store."
+
+#. js-lingui-explicit-id
+#: src/features/onboarding/steps/SigninStep.tsx
+msgid "onboarding.signin.body"
+msgstr "Flow is ready without an account. Keep everything local, or connect sync later when you want it."
+
+#. js-lingui-explicit-id
+#: src/shared/ui/FAQModal.tsx
+msgid "faq.free.answer"
+msgstr "Flow runs local speech models on your device, so core dictation is free and unlimited. Remote providers stay optional."
+
+#. js-lingui-explicit-id
+#: src/features/onboarding/steps/ReadyStep.tsx
+msgid "onboarding.ready.analytics_notice"
+msgstr "Flow sends anonymous usage analytics to help improve the app. You can disable this anytime in Settings -> App."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AccountTab.tsx
+msgid "settings.account.cloud.title"
+msgstr "Flow Sync"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/AccountView.tsx
+msgid "settings.account.name.default"
+msgstr "Flow User"
+
+#. js-lingui-explicit-id
+#: src/features/flow-fetch/components/FlowFetchView.tsx
+msgid "flow_fetch.subtitle"
+msgstr "Flow watches for copied URLs locally, keeps them for 14 days, and lets you copy them back fast."
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.active_preview.matched"
+msgstr "Flow will apply matched style guidance."
+
+#. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.empty.body"
+msgstr "Flow will save here when paste cannot reach the focused app."
+
+#. js-lingui-explicit-id
+#: src/features/onboarding/steps/WelcomeStep.tsx
+msgid "onboarding.welcome.title"
+msgstr "Flow writes as fast as you speak."
+
+#. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
 msgid "library.modal.follow_timestamp"
 msgstr "Follow timestamp"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.local.badge"
+msgstr "free"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
@@ -1712,8 +1758,13 @@ msgstr "Free Plan"
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/WelcomeStep.tsx
-msgid "onboarding.welcome.local.feature.free"
-msgstr "Free, no account required"
+msgid "onboarding.welcome.local.title"
+msgstr "Free unlimited local mode"
+
+#. js-lingui-explicit-id
+#: src/features/onboarding/steps/WelcomeStep.tsx
+msgid "onboarding.welcome.eyebrow"
+msgstr "Free, unlimited dictation for every app"
 
 #. js-lingui-explicit-id
 #: src/shared/ui/FAQModal.tsx
@@ -1729,6 +1780,16 @@ msgstr "General"
 #: src/features/settings/components/SettingsModal.tsx
 msgid "settings.modal.tab.general"
 msgstr "General"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.test.preset_hint"
+msgstr "Generates a short WAV and auto-plays it if Auto play is on."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.test.running"
+msgstr "Generating..."
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/ReadyStep.tsx
@@ -1749,46 +1810,6 @@ msgstr "GitHub Issues"
 #: src/features/updates/components/WhatsNewModal.tsx
 msgid "updates.whats_new.github_unavailable"
 msgstr "GitHub may be temporarily unavailable. Check your connection and try again."
-
-#. js-lingui-explicit-id
-#: src/shared/ui/FAQModal.tsx
-msgid "faq.brand"
-msgstr "Flow"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/OnboardingScreen.tsx
-msgid "onboarding.brand"
-msgstr "Flow"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/AccessibilityStep.tsx
-msgid "onboarding.accessibility.app_name"
-msgstr "Flow"
-
-#. js-lingui-explicit-id
-#: src/features/settings/components/tabs/AccountTab.tsx
-msgid "settings.account.cloud.title"
-msgstr "Flow Cloud"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/ModelSelectionStep.tsx
-msgid "onboarding.models.unavailable_body"
-msgstr "Flow couldn't load the local model list. Setup can continue with the default local engine, and you can manage downloads later in Settings."
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/ReadyStep.tsx
-msgid "onboarding.ready.analytics_notice"
-msgstr "Flow sends anonymous usage analytics to help improve the app. You can disable this anytime in Settings -> App."
-
-#. js-lingui-explicit-id
-#: src/features/settings/components/AccountView.tsx
-msgid "settings.account.name.default"
-msgstr "Flow User"
-
-#. js-lingui-explicit-id
-#: src/shared/ui/FAQModal.tsx
-msgid "faq.free.answer"
-msgstr "Flow uses on-device OSS AI models for transcription, so there are no ongoing costs for the core experience."
 
 #. js-lingui-explicit-id
 #: src/Home.tsx
@@ -1821,6 +1842,16 @@ msgid "settings.account.password.hide"
 msgstr "Hide password"
 
 #. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.history_disabled.title"
+msgstr "History disabled"
+
+#. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.history.disabled.title"
+msgstr "History paused"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
 msgid "settings.account.history_sync"
 msgstr "History Sync"
@@ -1829,6 +1860,11 @@ msgstr "History Sync"
 #: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.shortcuts.hold"
 msgstr "Hold"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.shortcuts.command_description"
+msgstr "hold to edit or generate"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
@@ -1861,6 +1897,16 @@ msgid "settings.language_model.endpoint.placeholder"
 msgstr "https://your-llm-endpoint.com"
 
 #. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.import"
+msgstr "Import"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.import"
+msgstr "Import"
+
+#. js-lingui-explicit-id
 #: src/features/library/components/LibraryImportModal.tsx
 msgid "library.import.confirm"
 msgstr "Import"
@@ -1868,6 +1914,11 @@ msgstr "Import"
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryView.tsx
 msgid "library.view.import_button"
+msgstr "Import"
+
+#. js-lingui-explicit-id
+#: src/features/dictionary/components/DictionaryView.tsx
+msgid "dictionary.import"
 msgstr "Import"
 
 #. js-lingui-explicit-id
@@ -1891,9 +1942,47 @@ msgid "library.error_details.import_failed"
 msgstr "Import failed."
 
 #. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.source.hint"
+msgstr "Import selected text first; Flow falls back to clipboard when needed."
+
+#. js-lingui-explicit-id
 #: src/features/library/components/LibraryImportModal.tsx
 msgid "library.import.title"
 msgstr "Import to Library"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: backup.entries.length
+#. placeholder {1}: backup.replacements.length
+#: src/features/dictionary/components/DictionaryView.tsx
+msgid "dictionary.backup.imported"
+msgstr "Imported {0} entries and {1} replacements"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: imported.length
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.backup.imported"
+msgstr "Imported {0} styles"
+
+#. js-lingui-explicit-id
+#: src/features/dictionary/components/DictionaryView.tsx
+msgid "dictionary.backup.file_imported"
+msgstr "Imported {addedEntries} entries, added {addedReplacements} replacements, updated {updatedReplacements}; skipped {skipped}"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.importing"
+msgstr "Importing"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.importing"
+msgstr "Importing"
+
+#. js-lingui-explicit-id
+#: src/features/dictionary/components/DictionaryView.tsx
+msgid "dictionary.importing"
+msgstr "Importing"
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryImportModal.tsx
@@ -1901,39 +1990,29 @@ msgid "library.import.importing"
 msgstr "Importing..."
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/tabs/AccountTab.tsx
-msgid "settings.account.cloud.status"
-msgstr "in development"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/SigninStep.tsx
-msgid "onboarding.signin.status"
-msgstr "in development"
-
-#. js-lingui-explicit-id
-#: src/features/settings/components/AccountView.tsx
-msgid "settings.account.in_development"
-msgstr "In development"
-
-#. js-lingui-explicit-id
-#: src/features/settings/components/tabs/GeneralTab.tsx
-msgid "settings.general.cloud.description"
-msgstr "In development"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-msgid "onboarding.welcome.cloud.badge"
-msgstr "In progress"
-
-#. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
 msgid "library.modal.playback.increase"
-msgstr "Increase playback speed"
+msgstr "Increase speed"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
 msgid "settings.app.input_monitoring"
 msgstr "Input Monitoring"
+
+#. js-lingui-explicit-id
+#: src/Home.tsx
+msgid "home.sidebar.insights"
+msgstr "Insights"
+
+#. js-lingui-explicit-id
+#: src/features/insights/components/InsightsView.tsx
+msgid "insights.eyebrow"
+msgstr "Insights"
+
+#. js-lingui-explicit-id
+#: src/features/insights/components/InsightsView.tsx
+msgid "insights.disabled.title"
+msgstr "Insights paused"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
@@ -1944,6 +2023,11 @@ msgstr "Instantly"
 #: src/shared/ui/FAQModal.tsx
 msgid "faq.privacy.question"
 msgstr "Is my data private?"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.files.body"
+msgstr "Keep @file references and code extensions when dictating into coding chats."
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryImportModal.tsx
@@ -1959,11 +2043,6 @@ msgstr "Language"
 #: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.language_info.installed"
 msgstr "Language list is filtered to the models you have installed."
-
-#. js-lingui-explicit-id
-#: src/features/settings/components/LanguageModelPanel.tsx
-msgid "settings.language_model.title"
-msgstr "Language Model Provider"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
@@ -2061,9 +2140,19 @@ msgid "settings.general.local.label"
 msgstr "Local"
 
 #. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-msgid "onboarding.welcome.local.title"
-msgstr "Local"
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.local_data.label"
+msgstr "Local Data Storage"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/AccountView.tsx
+msgid "settings.account.in_development"
+msgstr "Local first"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.wake_listening_description"
+msgstr "Local mic activity can wake the recorder, then silence stops it automatically."
 
 #. js-lingui-explicit-id
 #: src/features/transcriptions/components/TranscriptionList.tsx
@@ -2076,19 +2165,29 @@ msgid "updates.whats_new.major_release"
 msgstr "Major Release"
 
 #. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.custom.placeholder"
+msgstr "Make it shorter, warmer, and direct."
+
+#. js-lingui-explicit-id
 #: src/features/library/components/LibraryView.tsx
 msgid "library.view.description"
-msgstr "Import audio and video files for transcription."
+msgstr "Manage and search your transcribed audio and documents."
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/ModelsTab.tsx
 msgid "settings.models.description"
-msgstr "Manage transcription engines and AI provider settings."
+msgstr "Manage local speech engines, voice output, and optional remote providers."
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AccountTab.tsx
 msgid "settings.account.subtitle"
 msgstr "Manage your profile, sessions, and subscription."
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.expansion_placeholder"
+msgstr "me@example.com"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
@@ -2168,6 +2267,11 @@ msgstr "More info"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.auto_transform.info_aria"
+msgstr "More information about Auto Transform"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.cleanup.info_aria"
 msgstr "More information about Cleanup"
 
@@ -2182,11 +2286,6 @@ msgid "settings.general.language_info_aria"
 msgstr "More information about transcription language support badges"
 
 #. js-lingui-explicit-id
-#: src/features/onboarding/steps/ModelSelectionStep.tsx
-msgid "onboarding.models.subtitle"
-msgstr "More models and language model setup available in Settings after setup."
-
-#. js-lingui-explicit-id
 #: src/features/transcriptions/components/TranscriptionItem.tsx
 msgid "transcriptions.item.more_options"
 msgstr "More options"
@@ -2197,20 +2296,29 @@ msgid "home.drag_import.subtitle"
 msgstr "MP3, WAV, M4A, MP4, MOV, and more"
 
 #. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.trigger_placeholder"
+msgstr "my email address"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.template.casual.description"
+msgstr "Natural, friendly, and low-friction."
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
 msgid "settings.app.prune.never"
 msgstr "Never"
 
 #. js-lingui-explicit-id
-#: src/features/personalization/components/PersonalizationView.tsx
-msgid "personalization.new_mode"
-msgstr "New mode"
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.local_data.never"
+msgstr "Never store"
 
 #. js-lingui-explicit-id
-#: src/features/personalization/components/PersonalityModal.tsx
-#: src/features/personalization/components/PersonalizationView.tsx
-msgid "personalization.new_mode.default_name"
-msgstr "New Mode"
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.new"
+msgstr "New note"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
@@ -2221,6 +2329,22 @@ msgstr "New password"
 #: src/features/settings/components/AccountView.tsx
 msgid "settings.account.password.new_aria"
 msgstr "New password"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.new"
+msgstr "New snippet"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.new_mode"
+msgstr "New style"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalityModal.tsx
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.new_mode.default_name"
+msgstr "New Style"
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryCard.tsx
@@ -2236,6 +2360,27 @@ msgstr "New tag..."
 #: src/features/transcriptions/components/TranscriptionList.tsx
 msgid "transcriptions.sort.recent"
 msgstr "Newest first"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: activeFilterLabel.toLowerCase()
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.list.no_filter_results"
+msgstr "No {0} transcriptions"
+
+#. js-lingui-explicit-id
+#: src/features/onboarding/steps/WelcomeStep.tsx
+msgid "onboarding.welcome.local.feature.free"
+msgstr "No account"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AccountTab.tsx
+msgid "settings.account.cloud.disabled"
+msgstr "No account required."
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.active_preview.context_missing"
+msgstr "No active app context is available yet."
 
 #. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalityModal.tsx
@@ -2261,6 +2406,11 @@ msgstr "No audio track found."
 #: src/features/updates/components/WhatsNewModal.tsx
 msgid "updates.whats_new.no_changelog"
 msgstr "No changelog available."
+
+#. js-lingui-explicit-id
+#: src/features/flow-fetch/components/FlowFetchView.tsx
+msgid "flow_fetch.empty.title"
+msgstr "No copied links yet"
 
 #. js-lingui-explicit-id
 #: src/features/dictionary/components/DictionaryView.tsx
@@ -2298,9 +2448,9 @@ msgid "settings.general.no_model"
 msgstr "No model installed."
 
 #. js-lingui-explicit-id
-#: src/features/personalization/components/PersonalizationView.tsx
-msgid "personalization.empty.title"
-msgstr "No modes yet"
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.empty.title"
+msgstr "No notes yet"
 
 #. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalizationView.tsx
@@ -2330,12 +2480,27 @@ msgstr "No replacements yet"
 #. js-lingui-explicit-id
 #: src/features/transcriptions/components/TranscriptionList.tsx
 msgid "transcriptions.list.no_results"
-msgstr "No results for \"{searchQuery}\""
+msgstr "No results for \"{debouncedSearchQuery}\""
 
 #. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalizationView.tsx
 msgid "personalization.no_sites"
 msgstr "No sites yet"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.empty.title"
+msgstr "No snippets yet"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.active_preview.no_match"
+msgstr "No style matches this target yet."
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.empty.title"
+msgstr "No styles yet"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/ModelsTab.tsx
@@ -2353,9 +2518,19 @@ msgid "library.modal.tags.no_tags_yet"
 msgstr "No tags yet"
 
 #. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.empty.title"
+msgstr "No text yet"
+
+#. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalityModal.tsx
 msgid "personalization.modal.websites.none"
 msgstr "No websites added"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.none"
+msgstr "None"
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
@@ -2418,11 +2593,6 @@ msgid "transcriptions.sort.oldest"
 msgstr "Oldest first"
 
 #. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-msgid "onboarding.welcome.local.feature.models"
-msgstr "On-device transcription models"
-
-#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
 msgid "settings.app.open_settings"
 msgstr "Open Settings"
@@ -2433,9 +2603,59 @@ msgid "settings.models.engine.whisper.description"
 msgstr "OpenAI's speech recognition with custom vocabulary support."
 
 #. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.opened_snippets"
+msgstr "Opened in Snippets"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.opened_transforms"
+msgstr "Opened in Transforms"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.opened_transform"
+msgstr "Opened selected transcripts in Transforms"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AccountTab.tsx
+msgid "settings.account.cloud.status"
+msgstr "optional"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.cloud.badge"
+msgstr "optional"
+
+#. js-lingui-explicit-id
+#: src/features/onboarding/steps/SigninStep.tsx
+msgid "onboarding.signin.status"
+msgstr "optional"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/LanguageModelPanel.tsx
 msgid "settings.language_model.api_key.optional"
 msgstr "Optional"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/AccountView.tsx
+msgid "settings.account.history_sync.cloud_feature"
+msgstr "Optional sync"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.instruct.placeholder"
+msgstr "Optional tone instruction"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.description"
+msgstr "Optionally turn each transcript back into speech with local TTS."
+
+#. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.variant.original"
+msgstr "Original"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
@@ -2453,6 +2673,63 @@ msgid "settings.account.password.mismatch"
 msgstr "Passwords don't match"
 
 #. js-lingui-explicit-id
+#. placeholder {0}: selectedTextRecords.length
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.paste_copied"
+msgstr "Paste blocked; copied {0} transcripts"
+
+#. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.subtitle"
+msgstr "Paste failures and quick notes live here locally, so dictated text stays recoverable."
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.filter.paste_fallback"
+msgstr "Paste fallback"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.shortcuts.paste_last"
+msgstr "Paste Last"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.paste"
+msgstr "Paste selected"
+
+#. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.paste"
+msgstr "Paste selected variant"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.paste_selection"
+msgstr "Paste selection"
+
+#. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.empty.body"
+msgstr "Paste text on the left and choose a preset."
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.paste_transcription"
+msgstr "Paste transcription"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.pasted"
+msgstr "Pasted"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: selectedTextRecords.length
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.pasted"
+msgstr "Pasted {0} transcripts"
+
+#. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
 msgid "library.modal.pause_audio"
 msgstr "Pause audio"
@@ -2468,24 +2745,60 @@ msgid "settings.app.permissions_restart_notice"
 msgstr "Permission changes may require a restart."
 
 #. js-lingui-explicit-id
-#: src/Home.tsx
-msgid "home.sidebar.personalization"
-msgstr "Personalization"
+#: src/features/onboarding/steps/ModelSelectionStep.tsx
+msgid "onboarding.models.subtitle"
+msgstr "Pick a fast local speech model now. You can add more engines later in Settings."
 
 #. js-lingui-explicit-id
-#: src/features/personalization/components/PersonalityModal.tsx
-msgid "personalization.modal.header"
-msgstr "Personalization"
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.pin"
+msgstr "Pin selected"
 
 #. js-lingui-explicit-id
-#: src/features/personalization/components/PersonalizationView.tsx
-msgid "personalization.title"
-msgstr "Personalization"
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.pin"
+msgstr "Pin transcription"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.pinned"
+msgstr "Pinned"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.filter.pinned"
+msgstr "Pinned"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: selectedUnpinnedRecords.length
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.pinned"
+msgstr "Pinned {0} transcripts"
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
 msgid "library.modal.play_audio"
 msgstr "Play audio"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.test.button"
+msgstr "Play Test"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.template.engineering.description"
+msgstr "Precise notes for code and product work."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.variables.body"
+msgstr "Preserve technical casing for variables, functions, classes, packages, and commands."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.mode.preset"
+msgstr "Preset voice"
 
 #. js-lingui-explicit-id
 #: src/features/dictionary/components/DictionaryView.tsx
@@ -2524,14 +2837,14 @@ msgid "onboarding.ready.smart.capture_help_active"
 msgstr "Press your new shortcut, or hit Esc to cancel."
 
 #. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.active_preview.primary"
+msgstr "primary"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
 msgid "settings.app.privacy_permissions"
 msgstr "Privacy & Permissions"
-
-#. js-lingui-explicit-id
-#: src/features/settings/components/tabs/GeneralTab.tsx
-msgid "settings.general.local.badge"
-msgstr "private"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
@@ -2549,6 +2862,11 @@ msgid "pill.status.processing"
 msgstr "Processing..."
 
 #. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.template.professional.name"
+msgstr "Professional"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/LanguageModelPanel.tsx
 msgid "settings.language_model.provider"
 msgstr "Provider"
@@ -2564,9 +2882,19 @@ msgid "settings.about.restart_onboarding_description"
 msgstr "re-run setup wizard"
 
 #. js-lingui-explicit-id
+#: src/features/pill/PillOverlay.tsx
+msgid "pill.status.ready"
+msgstr "Ready"
+
+#. js-lingui-explicit-id
 #: src/features/updates/components/UpdateChecker.tsx
 msgid "updates.ready_to_install"
 msgstr "Ready to install"
+
+#. js-lingui-explicit-id
+#: src/features/flow-fetch/components/FlowFetchView.tsx
+msgid "flow_fetch.title"
+msgstr "Recent copied links"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/ModelsTab.tsx
@@ -2574,19 +2902,30 @@ msgid "settings.models.recommended"
 msgstr "Recommended"
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/tabs/GeneralTab.tsx
-msgid "settings.general.shortcut.record_aria"
-msgstr "Record new shortcut for {label}, currently {shortcut}"
-
-#. js-lingui-explicit-id
 #. placeholder {0}: formatShortcutForDisplay(smartShortcut)
 #: src/features/onboarding/steps/ReadyStep.tsx
 msgid "onboarding.ready.smart.capture_aria"
-msgstr "Record new shortcut for Smart, currently {shortcut}"
+msgstr "Record new shortcut for Smart, currently {0}"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: index + 1
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.shortcut.record_aria"
+msgstr "Record shortcut {0} for {label}, currently {displayShortcut}"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.shortcuts.paste_last_description"
+msgstr "recover the last transcript"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
 msgid "settings.account.cloud_usage.refresh"
+msgstr "Refresh"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.active_preview.refresh"
 msgstr "Refresh"
 
 #. js-lingui-explicit-id
@@ -2598,6 +2937,21 @@ msgstr "Refresh usage stats"
 #: src/features/settings/components/AccountView.tsx
 msgid "settings.account.cloud_usage.refreshing"
 msgstr "Refreshing..."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.cloud.label"
+msgstr "Remote"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.cloud.aria"
+msgstr "Remote processing (optional)"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/AccountView.tsx
+msgid "settings.account.cloud_usage"
+msgstr "Remote Usage"
 
 #. js-lingui-explicit-id
 #: src/features/dictionary/components/DictionaryView.tsx
@@ -2653,6 +3007,11 @@ msgstr "Replace with..."
 #: src/features/dictionary/components/DictionaryView.tsx
 msgid "dictionary.section.replacements_title"
 msgstr "Replacements"
+
+#. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.title"
+msgstr "Repolish text"
 
 #. js-lingui-explicit-id
 #: src/Home.tsx
@@ -2780,9 +3139,20 @@ msgid "toast.retry_failed"
 msgstr "Retry failed. Please try again."
 
 #. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.retry"
+msgstr "Retry selected"
+
+#. js-lingui-explicit-id
 #: src/features/toast/ToastOverlay.tsx
 msgid "toast.retry_transcription"
 msgstr "Retry transcription"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: selectedRetryableRecords.length
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.retrying"
+msgstr "Retrying {0} transcripts"
 
 #. js-lingui-explicit-id
 #: src/features/transcriptions/components/TranscriptionItem.tsx
@@ -2815,9 +3185,9 @@ msgid "transcriptions.item.run_cleanup"
 msgstr "Run cleanup"
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/tabs/GeneralTab.tsx
-msgid "settings.general.local.description"
-msgstr "Runs entirely on your device"
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.save"
+msgstr "Save"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
@@ -2835,9 +3205,65 @@ msgid "personalization.modal.save_name"
 msgstr "Save name"
 
 #. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.save"
+msgstr "Save selected to Scratchpad"
+
+#. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.save"
+msgstr "Save selected variant"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.save_selection"
+msgstr "Save selection"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.save_to_scratchpad"
+msgstr "Save to Scratchpad"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: selectedTextRecords.length
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.saved"
+msgstr "Saved {0} transcripts to Scratchpad"
+
+#. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.title"
+msgstr "Saved dictation"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.saved"
+msgstr "Saved snippets"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.saved_to_scratchpad"
+msgstr "Saved to Scratchpad"
+
+#. js-lingui-explicit-id
 #: src/features/onboarding/steps/ReadyStep.tsx
 msgid "onboarding.ready.saving"
 msgstr "Saving..."
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.subtitle"
+msgstr "Say a trigger phrase during dictation and Flow expands it into reusable text."
+
+#. js-lingui-explicit-id
+#: src/Home.tsx
+msgid "home.sidebar.scratchpad"
+msgstr "Scratchpad"
+
+#. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.eyebrow"
+msgstr "Scratchpad"
 
 #. js-lingui-explicit-id
 #: src/features/transcriptions/components/TranscriptionList.tsx
@@ -2877,7 +3303,12 @@ msgstr "Search language..."
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryView.tsx
 msgid "library.view.search_placeholder"
-msgstr "Search library..."
+msgstr "Search library... or use #tag"
+
+#. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.search"
+msgstr "Search notes"
 
 #. js-lingui-explicit-id
 #: src/shared/ui/Dropdown.tsx
@@ -2923,7 +3354,7 @@ msgstr "Search..."
 #. placeholder {0}: model.label
 #: src/features/onboarding/steps/ModelSelectionStep.tsx
 msgid "onboarding.models.select_aria"
-msgstr "Select {modelLabel}"
+msgstr "Select {0}"
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryImportModal.tsx
@@ -2948,7 +3379,7 @@ msgstr "Select existing tag"
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/WelcomeStep.tsx
 msgid "onboarding.welcome.local.aria"
-msgstr "Select Local mode — privacy-first, on-device transcription"
+msgstr "Select Local mode, privacy-first on-device transcription"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
@@ -2964,6 +3395,16 @@ msgstr "Select provider..."
 #: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.edit_mode.help"
 msgstr "Select text in any app, and speak a command like \"make this formal\" or \"fix my grammar\"."
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.select"
+msgstr "Select transcription"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.toggle"
+msgstr "Select transcriptions"
 
 #. js-lingui-explicit-id
 #: src/shared/ui/Dropdown.tsx
@@ -3003,12 +3444,17 @@ msgstr "Setup"
 #. js-lingui-explicit-id
 #: src/features/settings/components/LanguageModelPanel.tsx
 msgid "settings.language_model.description"
-msgstr "Shared by Cleanup, Edit Mode, and Personalization."
+msgstr "Shared by cleanup, command mode, and personalization."
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.shortcuts"
 msgstr "Shortcuts"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.template.concise.description"
+msgstr "Shorter, tighter, easier to scan."
 
 #. js-lingui-explicit-id
 #: src/features/transcriptions/components/TranscriptionList.tsx
@@ -3046,6 +3492,11 @@ msgid "library.retranscribe.show_timestamps"
 msgstr "Show timestamps"
 
 #. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.versions"
+msgstr "Show version history"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
 msgid "settings.account.sign_out"
 msgstr "Sign out"
@@ -3056,9 +3507,9 @@ msgid "settings.account.active_sessions.sign_out_all"
 msgstr "Sign out all devices"
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/tabs/AccountTab.tsx
-msgid "settings.account.cloud.disabled"
-msgstr "Sign-in is disabled."
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.coverage.sites"
+msgstr "Sites"
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/AccessibilityStep.tsx
@@ -3091,14 +3542,59 @@ msgid "onboarding.ready.subtitle"
 msgstr "Smart is on by default, others available in settings."
 
 #. js-lingui-explicit-id
+#: src/Home.tsx
+msgid "home.sidebar.snippets"
+msgstr "Snippets"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.eyebrow"
+msgstr "Snippets"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.backup.exported"
+msgstr "Snippets copied as JSON"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.coverage.conflict_status"
+msgstr "Some app/site assignments overlap."
+
+#. js-lingui-explicit-id
 #: src/features/transcriptions/components/TranscriptionList.tsx
 msgid "transcriptions.list.sort.aria"
 msgstr "Sort transcriptions"
 
 #. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.source.title"
+msgstr "Source text"
+
+#. js-lingui-explicit-id
+#: src/features/onboarding/steps/WelcomeStep.tsx
+msgid "onboarding.welcome.subtitle"
+msgstr "Speak naturally and Flow turns it into clean text wherever you work. Local by default, private by design, and built for unlimited daily use."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.speaker.placeholder"
+msgstr "Speaker, or blank for first supported"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/ModelsTab.tsx
 msgid "settings.models.category.speech"
 msgstr "Speech"
+
+#. js-lingui-explicit-id
+#: src/features/onboarding/steps/WelcomeStep.tsx
+msgid "onboarding.welcome.cta"
+msgstr "Start using Flow"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.templates.label"
+msgstr "Starter styles"
 
 #. js-lingui-explicit-id
 #: src/features/onboarding/OnboardingScreen.tsx
@@ -3121,10 +3617,20 @@ msgid "settings.general.microphone_test.stop"
 msgstr "Stop"
 
 #. js-lingui-explicit-id
+#: src/features/pill/PillOverlay.tsx
+msgid "pill.action.stop"
+msgstr "Stop dictation"
+
+#. js-lingui-explicit-id
 #. placeholder {0}: model.label
 #: src/features/onboarding/steps/ModelSelectionStep.tsx
 msgid "onboarding.models.action.stop_download_aria"
-msgstr "Stop downloading {modelLabel}"
+msgstr "Stop downloading {0}"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.shortcuts.cancel_description"
+msgstr "stop recording or processing"
 
 #. js-lingui-explicit-id
 #: src/features/transcriptions/components/TranscriptionItem.tsx
@@ -3137,6 +3643,11 @@ msgid "settings.about.storage_used"
 msgstr "Storage Used"
 
 #. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.local_data.store"
+msgstr "Store normally"
+
+#. js-lingui-explicit-id
 #: src/features/library/components/LibraryImportModal.tsx
 msgid "library.import.store_original.aria"
 msgstr "Store original"
@@ -3147,9 +3658,39 @@ msgid "library.import.store_original"
 msgstr "Store original file"
 
 #. js-lingui-explicit-id
+#: src/Home.tsx
+msgid "home.sidebar.style"
+msgstr "Style"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalityModal.tsx
+msgid "personalization.modal.header"
+msgstr "Style"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.title"
+msgstr "Style"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.coverage.title"
+msgstr "Style routing"
+
+#. js-lingui-explicit-id
+#: src/features/personalization/components/PersonalizationView.tsx
+msgid "personalization.backup.exported"
+msgstr "Styles copied as JSON"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
 msgid "settings.account.subscription"
 msgstr "Subscription"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.filter.success"
+msgstr "Successful"
 
 #. js-lingui-explicit-id
 #: src/Home.tsx
@@ -3170,6 +3711,16 @@ msgstr "Supported"
 #: src/features/dictionary/components/DictionaryView.tsx
 msgid "dictionary.section.replacements_description"
 msgstr "Swap common phrases automatically after transcription."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.local_data.confirm.day"
+msgstr "Switching to {localDataConfirmationLabel} deletes existing transcript and transform history older than 24 hours, then keeps pruning it locally."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.local_data.confirm.never"
+msgstr "Switching to {localDataConfirmationLabel} deletes existing transcript history and transform history, then prevents new local history from being stored."
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
@@ -3204,7 +3755,7 @@ msgstr "Tags"
 #. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalizationView.tsx
 msgid "personalization.description"
-msgstr "Tailor language model behavior to apps, sites, and custom instructions."
+msgstr "Tailor writing behavior for apps, sites, cleanup, Edit Mode, and transforms."
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
@@ -3222,14 +3773,39 @@ msgid "onboarding.ready.smart.description"
 msgstr "tap to toggle, hold to talk"
 
 #. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.terminal.body"
+msgstr "Terminal command transforms follow the same casing, path, package, and flag rules."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.terminal.title"
+msgstr "Terminal transform"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.microphone_test.test"
 msgstr "Test"
 
 #. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.test.title"
+msgstr "Test TTS"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/LanguageModelPanel.tsx
+msgid "settings.language_model.title"
+msgstr "Text Enhancement Provider"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
 msgid "settings.app.text_size.label"
 msgstr "Text Size"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.test.source_audio_hint"
+msgstr "Text-only tests need Preset voice. Source-audio clone runs after an STT recording."
 
 #. js-lingui-explicit-id
 #: src/features/personalization/components/PersonalityModal.tsx
@@ -3249,7 +3825,7 @@ msgstr "Theme"
 #. js-lingui-explicit-id
 #: src/features/onboarding/steps/ModelSelectionStep.tsx
 msgid "onboarding.models.empty_body"
-msgstr "This build did not return any local models. You can continue setup and manage models later in Settings."
+msgstr "This build did not return any local models. You can continue and manage models later in Settings."
 
 #. js-lingui-explicit-id
 #: src/features/library/components/library-utils.ts
@@ -3283,6 +3859,11 @@ msgstr "Timestamps"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.auto_transform.models_suffix"
+msgstr "to transform every dictation."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.cleanup.models_suffix"
 msgstr "to use Cleanup."
 
@@ -3312,9 +3893,9 @@ msgid "settings.general.shortcut.toggle_aria"
 msgstr "Toggle {label} shortcut"
 
 #. js-lingui-explicit-id
-#: src/features/settings/components/LanguageModelPanel.tsx
-msgid "settings.language_model.toggle"
-msgstr "Toggle AI features"
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.auto_transform.toggle_aria"
+msgstr "Toggle Auto Transform"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
@@ -3332,9 +3913,24 @@ msgid "settings.general.cleanup.toggle_aria"
 msgstr "Toggle Cleanup"
 
 #. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.context_awareness.toggle_aria"
+msgstr "Toggle context awareness"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.edit_mode.toggle_aria"
 msgstr "Toggle Edit Mode"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.context.aria"
+msgstr "Toggle editor context"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.files.aria"
+msgstr "Toggle file tagging"
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
@@ -3347,9 +3943,44 @@ msgid "settings.app.auto_launch.toggle_aria"
 msgstr "Toggle launch at login"
 
 #. js-lingui-explicit-id
+#: src/features/settings/components/LanguageModelPanel.tsx
+msgid "settings.language_model.toggle"
+msgstr "Toggle smart cleanup"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AppTab.tsx
 msgid "settings.app.analytics.toggle_aria"
 msgstr "Toggle usage analytics"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.variables.aria"
+msgstr "Toggle variable recognition"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.master.aria"
+msgstr "Toggle Vibe Coding"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.toggle"
+msgstr "Toggle voice output"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.wake_listening_toggle"
+msgstr "Toggle wake listener"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.count_suffix"
+msgstr "total"
+
+#. js-lingui-explicit-id
+#: src/features/insights/components/InsightsView.tsx
+msgid "insights.subtitle"
+msgstr "Track local words, streaks, speech pace, cleanup usage, and which models are doing the work."
 
 #. js-lingui-explicit-id
 #: src/features/library/components/LibraryModal.tsx
@@ -3387,9 +4018,64 @@ msgid "settings.account.cloud_usage.transcriptions"
 msgstr "Transcriptions"
 
 #. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.custom.run"
+msgstr "Transform"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.transform"
+msgstr "Transform"
+
+#. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.history.disabled.body"
+msgstr "Transform history is not stored while Local Data Storage is set to Never store."
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.transform"
+msgstr "Transform selected"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/GeneralTab.tsx
 msgid "settings.general.edit_mode.body"
 msgstr "transform selected text with voice"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.transform_selection"
+msgstr "Transform selection"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.filter.transformed"
+msgstr "Transformed"
+
+#. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.loading"
+msgstr "Transforming..."
+
+#. js-lingui-explicit-id
+#: src/Home.tsx
+msgid "home.sidebar.transforms"
+msgstr "Transforms"
+
+#. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.eyebrow"
+msgstr "Transforms"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.trigger"
+msgstr "Trigger"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.form.hint"
+msgstr "Triggers can be up to 59 characters."
 
 #. js-lingui-explicit-id
 #: src/features/settings/components/AccountView.tsx
@@ -3400,6 +4086,32 @@ msgstr "Unknown Device"
 #: src/features/settings/components/AccountView.tsx
 msgid "settings.account.sessions.unknown_location"
 msgstr "Unknown Location"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.local.description"
+msgstr "Unlimited speech-to-text on your device"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.unpin"
+msgstr "Unpin selected"
+
+#. js-lingui-explicit-id
+#: src/features/transcriptions/components/TranscriptionItem.tsx
+msgid "transcriptions.item.unpin"
+msgstr "Unpin transcription"
+
+#. js-lingui-explicit-id
+#. placeholder {0}: selectedPinnedRecords.length
+#: src/features/transcriptions/components/TranscriptionList.tsx
+msgid "transcriptions.batch.unpinned"
+msgstr "Unpinned {0} transcripts"
+
+#. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.unsaved"
+msgstr "Unsaved changes are local until you save."
 
 #. js-lingui-explicit-id
 #: src/features/library/components/library-utils.ts
@@ -3417,8 +4129,18 @@ msgid "library.error_details.unsupported_format"
 msgstr "Unsupported file format."
 
 #. js-lingui-explicit-id
+#: src/features/scratchpad/components/ScratchpadView.tsx
+msgid "scratchpad.editor.title_placeholder"
+msgstr "Untitled"
+
+#. js-lingui-explicit-id
 #: src/features/updates/components/UpdateChecker.tsx
 msgid "updates.update"
+msgstr "Update"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.update"
 msgstr "Update"
 
 #. js-lingui-explicit-id
@@ -3452,6 +4174,31 @@ msgid "settings.models.use"
 msgstr "Use"
 
 #. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.cloud.description"
+msgstr "Use only when you choose a provider"
+
+#. js-lingui-explicit-id
+#: src/features/transforms/components/TransformsView.tsx
+msgid "transforms.subtitle"
+msgstr "Use selected text, clipboard text, presets, or a custom instruction to rewrite and compare."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.master.body"
+msgstr "Use technical cleanup rules whenever the active style is Coding."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.context.body"
+msgstr "Use the active app and window title as spelling context for technical names."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/AppTab.tsx
+msgid "settings.app.context_awareness.body"
+msgstr "uses the active app and window title for local style matching and coding hints."
+
+#. js-lingui-explicit-id
 #: src/Home.tsx
 msgid "home.support.about.version_mode"
 msgstr "v{version} • {mode}"
@@ -3462,14 +4209,54 @@ msgid "updates.available_version"
 msgstr "v{version} available"
 
 #. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.variables.title"
+msgstr "Variable recognition"
+
+#. js-lingui-explicit-id
 #: src/features/settings/components/tabs/AboutTab.tsx
 msgid "settings.about.version"
 msgstr "Version"
 
 #. js-lingui-explicit-id
+#: src/features/settings/components/SettingsModal.tsx
+msgid "settings.modal.tab.vibe"
+msgstr "Vibe coding"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/VibeCodingTab.tsx
+msgid "settings.vibe_coding.title"
+msgstr "Vibe Coding"
+
+#. js-lingui-explicit-id
 #: src/features/updates/components/WhatsNewModal.tsx
 msgid "updates.whats_new.view_all"
 msgstr "View all releases on GitHub"
+
+#. js-lingui-explicit-id
+#: src/features/insights/components/InsightsView.tsx
+msgid "insights.disabled.body"
+msgstr "Voice activity insights are hidden while Local Data Storage is set to Never store."
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/ModelsTab.tsx
+msgid "settings.models.tts.title"
+msgstr "Voice Output"
+
+#. js-lingui-explicit-id
+#: src/features/snippets/components/SnippetsView.tsx
+msgid "snippets.title"
+msgstr "Voice shortcuts"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.wake_listening"
+msgstr "Wake / always listening"
+
+#. js-lingui-explicit-id
+#: src/features/settings/components/tabs/GeneralTab.tsx
+msgid "settings.general.wake_listening_note"
+msgstr "Wake-word ONNX files can replace this low-power speech trigger later; these command names are already stored separately."
 
 #. js-lingui-explicit-id
 #: src/features/dictionary/components/DictionaryView.tsx
@@ -3490,11 +4277,6 @@ msgstr "Websites"
 #: src/features/personalization/components/PersonalizationView.tsx
 msgid "personalization.websites"
 msgstr "Websites"
-
-#. js-lingui-explicit-id
-#: src/features/onboarding/steps/WelcomeStep.tsx
-msgid "onboarding.welcome.title"
-msgstr "Welcome"
 
 #. js-lingui-explicit-id
 #: src/shared/ui/FAQModal.tsx
@@ -3522,11 +4304,6 @@ msgid "transcriptions.group.yesterday"
 msgstr "Yesterday"
 
 #. js-lingui-explicit-id
-#: src/features/onboarding/steps/SigninStep.tsx
-msgid "onboarding.signin.body"
-msgstr "You can keep using Flow locally. This screen will be enabled in a future update."
-
-#. js-lingui-explicit-id
 #: src/features/onboarding/steps/ModelSelectionStep.tsx
 msgid "onboarding.models.confirm_without_model.body"
 msgstr "You haven't downloaded a local model yet. Transcription will not run offline until you add one in Settings."
@@ -3550,3 +4327,8 @@ msgstr "Your data is your data. Not ours to share. We will never sell or share y
 #: src/features/transcriptions/components/TranscriptionList.tsx
 msgid "transcriptions.list.empty"
 msgstr "Your recent transcriptions will appear here"
+
+#. js-lingui-explicit-id
+#: src/features/insights/components/InsightsView.tsx
+msgid "insights.title"
+msgstr "Your voice activity"

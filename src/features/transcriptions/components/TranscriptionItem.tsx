@@ -498,7 +498,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
       key: "cleanup-time",
       icon: WandSparkles,
       label: `Cleanup ${cleanupElapsedLabel}`,
-      title: "AI cleanup time",
+      title: "Cleanup time",
       tone: "local",
     });
   }
@@ -559,7 +559,7 @@ const TranscriptionItem: React.FC<TranscriptionItemProps> = ({
       key: "cleanup",
       icon: WandSparkles,
       label: llmModelLabel ? `Cleaned by ${llmModelLabel}` : "Cleaned",
-      title: "AI cleanup applied",
+      title: "Cleanup applied",
       tone: "local",
     });
   }

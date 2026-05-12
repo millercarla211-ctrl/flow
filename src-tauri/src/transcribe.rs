@@ -12,8 +12,8 @@ use crate::{
     recorder::{speech_percentage_i16_with_mode, CompletedRecording, RecordingSaved},
     scratchpad,
     settings::{LocalDataStoragePolicy, Personality, UserSettings},
-    storage, toast, transcription_api, transforms, update_checker, vibe_coding, voice_commands,
-    AppRuntime, AppState, TranscriptionCompletePayload, TranscriptionErrorPayload,
+    storage, toast, transcription_api, transforms, tts, update_checker, vibe_coding,
+    voice_commands, AppRuntime, AppState, TranscriptionCompletePayload, TranscriptionErrorPayload,
     EVENT_TRANSCRIPTION_COMPLETE, EVENT_TRANSCRIPTION_ERROR,
 };
 
@@ -338,9 +338,9 @@ pub(crate) fn queue_transcription(
 
                 let is_edit_mode = pending_command_mode || pending_selected_text.is_some();
                 let llm_available = llm_cleanup::is_llm_available(&settings);
-                let should_refine_transcript =
-                    llm_cleanup::should_refine_transcript(&settings, active_mode.as_ref());
-                let auto_transform_requested = settings.auto_transform_enabled && !is_edit_mode;
+                // Keep dictation STT-first; cleanup and transforms run from explicit UI actions.
+                let should_refine_transcript = false;
+                let auto_transform_requested = false;
                 let llm_needed =
                     is_edit_mode || should_refine_transcript || auto_transform_requested;
                 let preflight_unavailable =
@@ -502,6 +502,11 @@ pub(crate) fn queue_transcription(
                         .map(|transform| transform.label.clone()),
                 });
 
+                let tts_transcript = final_transcript.clone();
+                let tts_reference_text = Some(raw_transcript.clone());
+                let tts_reference_audio = Some(saved_for_task.path.clone());
+                let tts_settings = settings.clone();
+
                 emit_transcription_complete_with_cleanup(
                     &app_handle,
                     raw_transcript,
@@ -511,6 +516,14 @@ pub(crate) fn queue_transcription(
                     llm_cleaned,
                     metadata,
                     "local",
+                );
+
+                tts::queue_after_transcription(
+                    &app_handle,
+                    tts_transcript,
+                    tts_reference_audio,
+                    tts_reference_text,
+                    tts_settings,
                 );
 
                 app_handle
@@ -544,7 +557,6 @@ pub(crate) fn retry_transcription_async(
     saved_mode: (Option<String>, Option<String>),
     cancel_token: CancellationToken,
 ) {
-    let http = app.state::<AppState>().http();
     let app_handle = app.clone();
     let saved_for_task = saved.clone();
     let retry_id = original_id.clone();
@@ -668,37 +680,9 @@ pub(crate) fn retry_transcription_async(
                     return;
                 }
 
-                let should_refine_transcript =
-                    llm_cleanup::should_refine_transcript(&settings, saved_personality.as_ref());
-                let preflight_unavailable = should_refine_transcript
-                    && matches!(llm_cleanup::cached_preflight_available(), Some(false));
-                let should_use_llm = should_refine_transcript && !preflight_unavailable;
-
-                let cleanup_started = Instant::now();
-                let (final_transcript, llm_cleaned) = if should_use_llm {
-                    match llm_cleanup::cleanup_transcription(
-                        &http,
-                        &raw_transcript,
-                        &settings,
-                        saved_personality.as_ref(),
-                    )
-                    .await
-                    {
-                        Ok(cleaned) => (cleaned, true),
-                        Err(err) => {
-                            eprintln!("Cleanup failed during retry, using raw transcript: {err}");
-                            llm_cleanup::note_preflight_failure();
-                            maybe_warn_llm_unavailable(&app_handle, false);
-                            (raw_transcript.clone(), false)
-                        }
-                    }
-                } else {
-                    if preflight_unavailable {
-                        maybe_warn_llm_unavailable(&app_handle, false);
-                    }
-                    (raw_transcript.clone(), false)
-                };
-                let cleanup_elapsed_ms = should_use_llm.then(|| elapsed_ms(cleanup_started));
+                let final_transcript = raw_transcript.clone();
+                let llm_cleaned = false;
+                let cleanup_elapsed_ms = None;
 
                 let expanded_transcript =
                     apply_dictionary_and_snippets(&app_handle, &final_transcript, &settings);
@@ -1497,9 +1481,9 @@ pub(crate) fn finalize_streaming_transcription(
 
         let is_edit_mode = pending_command_mode || pending_selected_text.is_some();
         let llm_available = llm_cleanup::is_llm_available(&settings);
-        let should_refine_transcript =
-            llm_cleanup::should_refine_transcript(&settings, active_mode.as_ref());
-        let auto_transform_requested = settings.auto_transform_enabled && !is_edit_mode;
+        // Keep dictation STT-first; cleanup and transforms run from explicit UI actions.
+        let should_refine_transcript = false;
+        let auto_transform_requested = false;
         let llm_needed = is_edit_mode || should_refine_transcript || auto_transform_requested;
         let preflight_unavailable =
             llm_needed && matches!(llm_cleanup::cached_preflight_available(), Some(false));
@@ -1659,6 +1643,10 @@ pub(crate) fn finalize_streaming_transcription(
                 .map(|transform| transform.label.clone()),
         };
 
+        let tts_transcript = final_transcript.clone();
+        let tts_reference_text = Some(raw_transcript.clone());
+        let tts_settings = settings.clone();
+
         crate::pill::collapse_expanded_pill(&app_handle);
         emit_transcription_complete_with_cleanup(
             &app_handle,
@@ -1669,6 +1657,13 @@ pub(crate) fn finalize_streaming_transcription(
             llm_cleaned,
             metadata,
             "local_streaming",
+        );
+        tts::queue_after_transcription(
+            &app_handle,
+            tts_transcript,
+            None,
+            tts_reference_text,
+            tts_settings,
         );
     });
 }

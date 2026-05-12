@@ -1,18 +1,23 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { motion } from "framer-motion";
 import {
   Activity,
+  Award,
   BarChart3,
   CheckCircle2,
   Clock3,
   Flame,
   Gauge,
+  Share2,
   Mic2,
   Pin,
   ShieldOff,
   Sparkles,
+  Target,
   Timer,
+  Trophy,
+  UserRound,
   Zap,
 } from "lucide-react";
 import DotMatrix from "../../../shared/ui/DotMatrix";
@@ -187,6 +192,245 @@ function ActivityChart({ summary }: { summary: InsightsSummary }) {
   );
 }
 
+function getVoiceProfile(summary: InsightsSummary) {
+  const pace =
+    summary.average_words_per_minute >= 130
+      ? "Rapid Composer"
+      : summary.average_words_per_minute >= 95
+        ? "Steady Dictator"
+        : "Careful Thinker";
+  const style =
+    summary.cleanup_percent >= 45
+      ? "polished drafts"
+      : summary.pinned_words > 0
+        ? "saved ideas"
+        : "raw local capture";
+  const strength =
+    summary.current_streak_days >= 5
+      ? "consistency"
+      : summary.local_percent >= 95
+        ? "private local work"
+        : "fast capture";
+
+  return {
+    title: pace,
+    subtitle: `Best at ${strength}, with a bias toward ${style}.`,
+    shareText: `Flow Voice Profile: ${pace}. ${formatCompact(summary.total_words)} words, ${formatNumber(summary.current_streak_days)} day streak, ${Math.round(summary.local_percent)}% local.`,
+  };
+}
+
+function VoiceProfilePanel({ summary }: { summary: InsightsSummary }) {
+  const profile = getVoiceProfile(summary);
+  const [copied, setCopied] = useState(false);
+  const milestones = [
+    {
+      label: "First 1k words",
+      value: summary.total_words,
+      target: 1000,
+      icon: <Award size={14} />,
+    },
+    {
+      label: "100 transcripts",
+      value: summary.total_transcriptions,
+      target: 100,
+      icon: <Mic2 size={14} />,
+    },
+    {
+      label: "7 day streak",
+      value: summary.current_streak_days,
+      target: 7,
+      icon: <Flame size={14} />,
+    },
+    {
+      label: "1 hour captured",
+      value: summary.total_audio_seconds,
+      target: 3600,
+      icon: <Clock3 size={14} />,
+    },
+  ];
+
+  const superpowers = [
+    {
+      label: "Speed",
+      value: `${formatNumber(summary.average_words_per_minute)} wpm`,
+      detail: "speech pace",
+      icon: <Zap size={15} />,
+    },
+    {
+      label: "Consistency",
+      value: `${formatNumber(summary.current_streak_days)} days`,
+      detail: "current streak",
+      icon: <Flame size={15} />,
+    },
+    {
+      label: "Privacy",
+      value: `${Math.round(summary.local_percent)}%`,
+      detail: "local processing",
+      icon: <ShieldOff size={15} />,
+    },
+    {
+      label: "Finish rate",
+      value: summary.auto_paste_attempts
+        ? `${Math.round(summary.auto_paste_success_percent)}%`
+        : "n/a",
+      detail: "auto-paste success",
+      icon: <CheckCircle2 size={15} />,
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-lg border border-border-primary bg-surface-surface p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 ui-text-meta-strong ui-color-muted">
+              <UserRound size={14} />
+              Voice Profile
+            </div>
+            <h2 className="mt-3 ui-text-title font-medium ui-color-primary">{profile.title}</h2>
+            <p className="mt-1 max-w-xl ui-text-body-sm ui-color-muted">{profile.subtitle}</p>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              await navigator.clipboard.writeText(profile.shareText);
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1400);
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-border-primary bg-surface-elevated px-3 py-1.5 ui-text-meta-strong ui-color-secondary transition-colors hover:border-border-secondary hover:text-content-primary"
+          >
+            {copied ? <CheckCircle2 size={13} /> : <Share2 size={13} />}
+            {copied ? "Copied" : "Share card"}
+          </button>
+        </div>
+      </section>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {superpowers.map((card) => (
+          <MetricTile
+            key={card.label}
+            icon={card.icon}
+            label={card.label}
+            value={card.value}
+            detail={card.detail}
+          />
+        ))}
+      </div>
+
+      <section className="rounded-lg border border-border-primary bg-surface-surface p-4">
+        <div className="mb-4 flex items-center gap-2 ui-text-body-sm-strong ui-color-primary">
+          <Trophy size={15} />
+          Milestones
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {milestones.map((milestone) => {
+            const progress = Math.min(100, (milestone.value / milestone.target) * 100);
+            return (
+              <div
+                key={milestone.label}
+                className="rounded-md border border-border-primary bg-surface-elevated px-3 py-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 ui-text-meta-strong ui-color-secondary">
+                    {milestone.icon}
+                    {milestone.label}
+                  </div>
+                  <span className="ui-text-micro ui-color-disabled">{Math.round(progress)}%</span>
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-surface">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.max(4, progress)}%` }}
+                    transition={{ type: "spring", stiffness: 150, damping: 22 }}
+                    className="h-full rounded-full bg-[var(--surface-interactive-strong)]"
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ReachPanel({ summary }: { summary: InsightsSummary }) {
+  const typingWpm = 42;
+  const dictatedMinutes = summary.total_audio_seconds / 60;
+  const typingMinutes = summary.total_words / typingWpm;
+  const timeSavedMinutes = Math.max(0, typingMinutes - dictatedMinutes);
+  const projectedMonthlyWords = summary.average_words_per_day * 30;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <MetricTile
+          icon={<Target size={16} />}
+          label="Reach"
+          value={formatCompact(projectedMonthlyWords)}
+          detail="projected monthly words"
+        />
+        <MetricTile
+          icon={<Timer size={16} />}
+          label="Time saved"
+          value={formatDuration(timeSavedMinutes * 60)}
+          detail="versus typing estimate"
+        />
+        <MetricTile
+          icon={<CheckCircle2 size={16} />}
+          label="Paste reliability"
+          value={
+            summary.auto_paste_attempts
+              ? `${Math.round(summary.auto_paste_success_percent)}%`
+              : "n/a"
+          }
+          detail={`${formatNumber(summary.auto_paste_attempts)} attempts`}
+        />
+        <MetricTile
+          icon={<Sparkles size={16} />}
+          label="Local unlimited"
+          value={`${Math.round(summary.local_percent)}%`}
+          detail="local account usage"
+        />
+      </div>
+
+      <section className="rounded-lg border border-border-primary bg-surface-surface p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="ui-text-body-sm-strong ui-color-primary">Account stats</div>
+            <div className="mt-1 ui-text-meta ui-color-muted">
+              Local-first usage without word caps or cloud dependence.
+            </div>
+          </div>
+          <div className="rounded-full border border-border-primary bg-surface-elevated px-3 py-1 ui-text-micro ui-color-muted">
+            Last {summary.days} days
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <PerformanceStat
+            icon={<BarChart3 size={14} />}
+            label="Words per day"
+            value={formatCompact(summary.average_words_per_day)}
+            detail="average"
+          />
+          <PerformanceStat
+            icon={<Flame size={14} />}
+            label="This week"
+            value={formatCompact(summary.words_this_week)}
+            detail="since Monday"
+          />
+          <PerformanceStat
+            icon={<Pin size={14} />}
+            label="Saved"
+            value={formatCompact(summary.pinned_words)}
+            detail={`${formatNumber(summary.pinned_transcriptions)} pinned`}
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function EmptyInsights() {
   return (
     <div className="flex h-72 flex-col items-center justify-center rounded-lg border border-border-primary bg-surface-surface px-6 text-center">
@@ -249,6 +493,7 @@ export default function InsightsView({
   onOpenDataSettings?: () => void;
 }) {
   const { t } = useLingui();
+  const [activePanel, setActivePanel] = useState<"activity" | "profile" | "reach">("activity");
   const insightsQuery = useInsights(30, isActive && !historyDisabled);
   const summary = insightsQuery.data;
 
@@ -307,138 +552,172 @@ export default function InsightsView({
         <EmptyInsights />
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-            <MetricTile
-              icon={<Mic2 size={16} />}
-              label="Total words"
-              value={formatCompact(summary.total_words)}
-              detail={`${formatNumber(summary.total_transcriptions)} local transcripts`}
-            />
-            <MetricTile
-              icon={<Flame size={16} />}
-              label="Current streak"
-              value={`${formatNumber(summary.current_streak_days)} day${
-                summary.current_streak_days === 1 ? "" : "s"
-              }`}
-              detail={`${formatNumber(summary.words_today)} words today`}
-            />
-            <MetricTile
-              icon={<Gauge size={16} />}
-              label="Speech pace"
-              value={`${formatNumber(summary.average_words_per_minute)} wpm`}
-              detail={`${formatDuration(summary.total_audio_seconds)} captured audio`}
-            />
-            <MetricTile
-              icon={<Sparkles size={16} />}
-              label="Local first"
-              value={`${Math.round(summary.local_percent)}%`}
-              detail={localDetail}
-            />
+          <div className="inline-flex w-fit rounded-full border border-border-primary bg-surface-surface p-1">
+            {[
+              { id: "activity", label: "Activity" },
+              { id: "profile", label: "Voice Profile" },
+              { id: "reach", label: "Your Reach" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActivePanel(tab.id as "activity" | "profile" | "reach")}
+                className={`rounded-full px-3 py-1.5 ui-text-meta-strong transition-colors ${
+                  activePanel === tab.id
+                    ? "bg-surface-elevated ui-color-primary shadow-sm"
+                    : "ui-color-muted hover:text-content-primary"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          <ActivityChart summary={summary} />
+          {activePanel === "profile" ? (
+            <VoiceProfilePanel summary={summary} />
+          ) : activePanel === "reach" ? (
+            <ReachPanel summary={summary} />
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <MetricTile
+                  icon={<Mic2 size={16} />}
+                  label="Total words"
+                  value={formatCompact(summary.total_words)}
+                  detail={`${formatNumber(summary.total_transcriptions)} local transcripts`}
+                />
+                <MetricTile
+                  icon={<Flame size={16} />}
+                  label="Current streak"
+                  value={`${formatNumber(summary.current_streak_days)} day${
+                    summary.current_streak_days === 1 ? "" : "s"
+                  }`}
+                  detail={`${formatNumber(summary.words_today)} words today`}
+                />
+                <MetricTile
+                  icon={<Gauge size={16} />}
+                  label="Speech pace"
+                  value={`${formatNumber(summary.average_words_per_minute)} wpm`}
+                  detail={`${formatDuration(summary.total_audio_seconds)} captured audio`}
+                />
+                <MetricTile
+                  icon={<Sparkles size={16} />}
+                  label="Local first"
+                  value={`${Math.round(summary.local_percent)}%`}
+                  detail={localDetail}
+                />
+              </div>
 
-          <section className="rounded-lg border border-border-primary bg-surface-surface p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="ui-text-body-sm-strong ui-color-primary">Dictation performance</div>
-                <div className="mt-1 ui-text-meta ui-color-muted">
-                  Timing from the last {formatNumber(summary.timed_transcriptions)} completed runs
+              <ActivityChart summary={summary} />
+
+              <section className="rounded-lg border border-border-primary bg-surface-surface p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="ui-text-body-sm-strong ui-color-primary">
+                      Dictation performance
+                    </div>
+                    <div className="mt-1 ui-text-meta ui-color-muted">
+                      Timing from the last {formatNumber(summary.timed_transcriptions)} completed
+                      runs
+                    </div>
+                  </div>
+                  <div className="rounded-full border border-border-primary bg-surface-elevated px-3 py-1 ui-text-micro ui-color-muted">
+                    {formatNumber(summary.auto_paste_attempts)} paste attempts
+                  </div>
                 </div>
-              </div>
-              <div className="rounded-full border border-border-primary bg-surface-elevated px-3 py-1 ui-text-micro ui-color-muted">
-                {formatNumber(summary.auto_paste_attempts)} paste attempts
-              </div>
-            </div>
 
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              <PerformanceStat
-                icon={<Zap size={14} />}
-                label="Recognition"
-                value={formatMilliseconds(summary.average_stt_elapsed_ms)}
-                detail="average STT time"
-              />
-              <PerformanceStat
-                icon={<Timer size={14} />}
-                label="End-to-end"
-                value={formatMilliseconds(summary.average_total_elapsed_ms)}
-                detail="recording to ready"
-              />
-              <PerformanceStat
-                icon={<CheckCircle2 size={14} />}
-                label="Auto-paste"
-                value={pasteSuccessValue}
-                detail="successful inserts"
-              />
-              <PerformanceStat
-                icon={<Clock3 size={14} />}
-                label="Cleanup"
-                value={formatMilliseconds(summary.average_cleanup_elapsed_ms)}
-                detail={`${formatNumber(summary.paste_fallback_count)} paste fallbacks`}
-              />
-            </div>
-          </section>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <PerformanceStat
+                    icon={<Zap size={14} />}
+                    label="Recognition"
+                    value={formatMilliseconds(summary.average_stt_elapsed_ms)}
+                    detail="average STT time"
+                  />
+                  <PerformanceStat
+                    icon={<Timer size={14} />}
+                    label="End-to-end"
+                    value={formatMilliseconds(summary.average_total_elapsed_ms)}
+                    detail="recording to ready"
+                  />
+                  <PerformanceStat
+                    icon={<CheckCircle2 size={14} />}
+                    label="Auto-paste"
+                    value={pasteSuccessValue}
+                    detail="successful inserts"
+                  />
+                  <PerformanceStat
+                    icon={<Clock3 size={14} />}
+                    label="Cleanup"
+                    value={formatMilliseconds(summary.average_cleanup_elapsed_ms)}
+                    detail={`${formatNumber(summary.paste_fallback_count)} paste fallbacks`}
+                  />
+                </div>
+              </section>
 
-          <div className="grid gap-4 xl:grid-cols-3">
-            <BreakdownList title="Top modes" items={summary.top_modes} empty="No modes yet" />
-            <BreakdownList
-              title="Speech models"
-              items={summary.top_models}
-              empty="No model usage yet"
-            />
-            <BreakdownList
-              title="Auto transforms"
-              items={summary.top_transforms}
-              empty="No auto transforms yet"
-            />
-          </div>
+              <div className="grid gap-4 xl:grid-cols-3">
+                <BreakdownList title="Top modes" items={summary.top_modes} empty="No modes yet" />
+                <BreakdownList
+                  title="Speech models"
+                  items={summary.top_models}
+                  empty="No model usage yet"
+                />
+                <BreakdownList
+                  title="Auto transforms"
+                  items={summary.top_transforms}
+                  empty="No auto transforms yet"
+                />
+              </div>
 
-          <section className="grid gap-3 rounded-lg border border-border-primary bg-surface-surface p-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div>
-              <div className="flex items-center gap-2 ui-text-meta-strong ui-color-muted">
-                <Activity size={14} />
-                This week
-              </div>
-              <div className="mt-2 ui-text-title font-medium ui-color-primary">
-                {formatCompact(summary.words_this_week)}
-              </div>
-              <div className="mt-1 ui-text-meta ui-color-disabled">words since Monday</div>
+              <section className="grid gap-3 rounded-lg border border-border-primary bg-surface-surface p-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div>
+                  <div className="flex items-center gap-2 ui-text-meta-strong ui-color-muted">
+                    <Activity size={14} />
+                    This week
+                  </div>
+                  <div className="mt-2 ui-text-title font-medium ui-color-primary">
+                    {formatCompact(summary.words_this_week)}
+                  </div>
+                  <div className="mt-1 ui-text-meta ui-color-disabled">words since Monday</div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 ui-text-meta-strong ui-color-muted">
+                    <Pin size={14} />
+                    Pinned
+                  </div>
+                  <div className="mt-2 ui-text-title font-medium ui-color-primary">
+                    {formatCompact(summary.pinned_words)}
+                  </div>
+                  <div className="mt-1 ui-text-meta ui-color-disabled">
+                    {formatNumber(summary.pinned_transcriptions)} saved transcripts
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 ui-text-meta-strong ui-color-muted">
+                    <BarChart3 size={14} />
+                    Best day
+                  </div>
+                  <div className="mt-2 ui-text-title font-medium ui-color-primary">
+                    {formatCompact(summary.best_day_words)}
+                  </div>
+                  <div className="mt-1 ui-text-meta ui-color-disabled">
+                    {summary.best_day_label || "No active day yet"}
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 ui-text-meta-strong ui-color-muted">
+                    <Clock3 size={14} />
+                    Cleanup
+                  </div>
+                  <div className="mt-2 ui-text-title font-medium ui-color-primary">
+                    {Math.round(summary.cleanup_percent)}%
+                  </div>
+                  <div className="mt-1 ui-text-meta ui-color-disabled">
+                    LLM-polished transcripts
+                  </div>
+                </div>
+              </section>
             </div>
-            <div>
-              <div className="flex items-center gap-2 ui-text-meta-strong ui-color-muted">
-                <Pin size={14} />
-                Pinned
-              </div>
-              <div className="mt-2 ui-text-title font-medium ui-color-primary">
-                {formatCompact(summary.pinned_words)}
-              </div>
-              <div className="mt-1 ui-text-meta ui-color-disabled">
-                {formatNumber(summary.pinned_transcriptions)} saved transcripts
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 ui-text-meta-strong ui-color-muted">
-                <BarChart3 size={14} />
-                Best day
-              </div>
-              <div className="mt-2 ui-text-title font-medium ui-color-primary">
-                {formatCompact(summary.best_day_words)}
-              </div>
-              <div className="mt-1 ui-text-meta ui-color-disabled">
-                {summary.best_day_label || "No active day yet"}
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 ui-text-meta-strong ui-color-muted">
-                <Clock3 size={14} />
-                Cleanup
-              </div>
-              <div className="mt-2 ui-text-title font-medium ui-color-primary">
-                {Math.round(summary.cleanup_percent)}%
-              </div>
-              <div className="mt-1 ui-text-meta ui-color-disabled">LLM-polished transcripts</div>
-            </div>
-          </section>
+          )}
         </div>
       )}
     </div>

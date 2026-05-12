@@ -405,7 +405,7 @@ const AccountView = ({
             <span className="rounded-lg bg-surface-elevated px-2 py-0.5 ui-text-micro-strong ui-color-muted">
               {t({
                 id: "settings.account.in_development",
-                message: "In development",
+                message: "Local first",
               })}
             </span>
           </div>
@@ -429,7 +429,7 @@ const AccountView = ({
                       })
                     : t({
                         id: "settings.account.history_sync.cloud_feature",
-                        message: "Cloud feature",
+                        message: "Optional sync",
                       })}
                 </div>
               </div>
@@ -448,13 +448,13 @@ const AccountView = ({
         </div>
       </div>
 
-      {/* Cloud Usage Stats Section */}
+      {/* Optional remote usage stats */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="ui-text-section-label-sm ui-color-muted">
             {t({
               id: "settings.account.cloud_usage",
-              message: "Cloud Usage",
+              message: "Remote Usage",
             })}
           </h3>
           <button

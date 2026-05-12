@@ -117,8 +117,7 @@ export default function VibeCodingTab({
           })}
           body={t({
             id: "settings.vibe_coding.files.body",
-            message:
-              "Keep @file references and code extensions when dictating into AI coding chats.",
+            message: "Keep @file references and code extensions when dictating into coding chats.",
           })}
           enabled={fileTagging}
           disabled={childDisabled}

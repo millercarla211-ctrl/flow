@@ -1,5 +1,13 @@
 import { msg } from "@lingui/core/macro";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, emit, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -22,7 +30,7 @@ import {
 import { useShortcutCapture } from "../../shared/hooks/useShortcutCapture";
 import { i18n } from "../../i18n";
 import { useAppInfo, useInputDevices, useSettings } from "./queries";
-import { useModelCatalog } from "./models-queries";
+import { useModelCatalog, useTtsModelCatalog } from "./models-queries";
 import type {
   TranscriptionMode,
   TextSizeMode,
@@ -34,12 +42,47 @@ import type {
   RecordingPrunePolicy,
   LocalDataStoragePolicy,
   AppLocaleSetting,
+  TtsVoiceMode,
 } from "../../types";
 
 const TEXT_SIZE_MODE_STORAGE_KEY = "flow_text_size_mode";
 
 type ActiveTab = "general" | "models" | "about" | "account" | "app" | "vibe";
 type ShortcutCaptureMode = "smart" | "hold" | "toggle" | "command" | "paste-last" | "cancel";
+type ShortcutCaptureTarget = `${ShortcutCaptureMode}:${number}`;
+
+const MAX_SHORTCUTS_PER_ACTION = 4;
+const DEFAULT_TTS_VOLUME = 0.1;
+
+function normalizeTtsVolume(value: number | null | undefined) {
+  return Number.isFinite(value) ? Math.min(1, Math.max(0, Number(value))) : DEFAULT_TTS_VOLUME;
+}
+
+function normalizeShortcutList(shortcuts: string[] | undefined, fallback: string) {
+  const seen = new Set<string>();
+  const values = [...(shortcuts ?? []), fallback]
+    .map((shortcut) => shortcut.trim())
+    .filter(Boolean)
+    .filter((shortcut) => {
+      const key = shortcut.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, MAX_SHORTCUTS_PER_ACTION);
+
+  return values.length > 0 ? values : [fallback];
+}
+
+function captureTarget(mode: ShortcutCaptureMode, index: number): ShortcutCaptureTarget {
+  return `${mode}:${index}` as ShortcutCaptureTarget;
+}
+
+function parseCaptureTarget(target: ShortcutCaptureTarget | null) {
+  if (!target) return null;
+  const [mode, index] = target.split(":") as [ShortcutCaptureMode, string];
+  return { mode, index: Number(index) };
+}
 
 interface UseSettingsFormOptions {
   isOpen: boolean;
@@ -59,30 +102,47 @@ export function useSettingsForm({
   transcriptionMode: initialTranscriptionMode,
 }: UseSettingsFormOptions) {
   const [smartShortcut, setSmartShortcut] = useState("Control+Space");
+  const [smartShortcuts, setSmartShortcuts] = useState(["Control+Space", "Win+Alt+1"]);
   const [smartEnabled, setSmartEnabled] = useState(true);
   const [holdShortcut, setHoldShortcut] = useState("Control+Shift+Space");
+  const [holdShortcuts, setHoldShortcuts] = useState(["Control+Shift+Space"]);
   const [holdEnabled, setHoldEnabled] = useState(false);
   const [toggleShortcut, setToggleShortcut] = useState("Control+Alt+Space");
+  const [toggleShortcuts, setToggleShortcuts] = useState(["Control+Alt+Space"]);
   const [toggleEnabled, setToggleEnabled] = useState(false);
   const [commandShortcut, setCommandShortcut] = useState("Control+Alt+E");
+  const [commandShortcuts, setCommandShortcuts] = useState(["Control+Alt+E"]);
   const [commandEnabled, setCommandEnabled] = useState(false);
   const [pasteLastTranscriptShortcut, setPasteLastTranscriptShortcut] = useState("Shift+Alt+Z");
+  const [pasteLastTranscriptShortcuts, setPasteLastTranscriptShortcuts] = useState(["Shift+Alt+Z"]);
   const [pasteLastTranscriptEnabled, setPasteLastTranscriptEnabled] = useState(true);
   const [cancelShortcut, setCancelShortcut] = useState("Control+Alt+Escape");
+  const [cancelShortcuts, setCancelShortcuts] = useState(["Control+Alt+Escape"]);
   const [cancelEnabled, setCancelEnabled] = useState(false);
+  const [wakeListeningEnabled, setWakeListeningEnabled] = useState(false);
+  const [wakePhrases, setWakePhrases] = useState(["hello"]);
   const [transcriptionMode, setTranscriptionModeRaw] =
     useState<TranscriptionMode>(initialTranscriptionMode);
   const [localModel, setLocalModel] = useState("");
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [ttsAutoAfterStt, setTtsAutoAfterStt] = useState(true);
+  const [ttsAutoPlay, setTtsAutoPlay] = useState(true);
+  const [ttsVolume, setTtsVolume] = useState(DEFAULT_TTS_VOLUME);
+  const [ttsModel, setTtsModel] = useState("kokoro_82m");
+  const [ttsVoiceMode, setTtsVoiceMode] = useState<TtsVoiceMode>("preset");
+  const [ttsSpeaker, setTtsSpeaker] = useState("");
+  const [ttsInstruction, setTtsInstruction] = useState("");
   const [microphoneDevice, setMicrophoneDevice] = useState<string | null>(null);
   const [language, setLanguage] = useState("en");
   const [appLocale, setAppLocale] = useState<AppLocaleSetting>("system");
   const [modelStatus, setModelStatus] = useState<Record<string, ModelStatus>>({});
+  const [ttsModelStatus, setTtsModelStatus] = useState<Record<string, ModelStatus>>({});
   const [downloadState, setDownloadState] = useState<Record<string, DownloadEvent>>({});
   const [error, setError] = useState<string | null>(null);
   const [errorCopied, setErrorCopied] = useState(false);
-  const [captureActive, setCaptureActive] = useState<ShortcutCaptureMode | null>(null);
+  const [captureActive, setCaptureActive] = useState<ShortcutCaptureTarget | null>(null);
   const [capturePreview, setCapturePreview] = useState<string>("");
-  const captureActiveRef = useRef<ShortcutCaptureMode | null>(null);
+  const captureActiveRef = useRef<ShortcutCaptureTarget | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("general");
   const [llmEnabled, setLlmEnabledRaw] = useState(false);
   const [cleanupEnabled, setCleanupEnabled] = useState(false);
@@ -121,14 +181,17 @@ export function useSettingsForm({
   const appInfoQuery = useAppInfo(isOpen);
   const inputDevicesQuery = useInputDevices(isOpen);
   const modelCatalogQuery = useModelCatalog(isOpen);
+  const ttsModelCatalogQuery = useTtsModelCatalog(isOpen);
   const inputDevices = inputDevicesQuery.data ?? [];
   const modelCatalog = modelCatalogQuery.data ?? [];
+  const ttsModelCatalog = ttsModelCatalogQuery.data ?? [];
   const appInfo = appInfoQuery.data ?? null;
   const platformCapabilities = useMemo(() => getPlatformCapabilities(), []);
   const loading =
     isOpen &&
     (settingsQuery.isLoading ||
       modelCatalogQuery.isLoading ||
+      ttsModelCatalogQuery.isLoading ||
       inputDevicesQuery.isLoading ||
       appInfoQuery.isLoading);
 
@@ -189,32 +252,64 @@ export function useSettingsForm({
   }, []);
 
   const hydrateFromSettings = useCallback((s: StoredSettings) => {
-    setSmartShortcut(s.smart_shortcut);
+    const nextSmartShortcuts = normalizeShortcutList(s.smart_shortcuts, s.smart_shortcut);
+    const nextHoldShortcuts = normalizeShortcutList(s.hold_shortcuts, s.hold_shortcut);
+    const nextToggleShortcuts = normalizeShortcutList(s.toggle_shortcuts, s.toggle_shortcut);
+    const nextCommandShortcuts = normalizeShortcutList(
+      s.command_shortcuts,
+      s.command_shortcut ?? "Control+Alt+E",
+    );
+    const nextPasteLastTranscriptShortcuts = normalizeShortcutList(
+      s.paste_last_transcript_shortcuts,
+      s.paste_last_transcript_shortcut ?? "Shift+Alt+Z",
+    );
+    const nextCancelShortcuts = normalizeShortcutList(
+      s.cancel_shortcuts,
+      s.cancel_shortcut ?? "Control+Alt+Escape",
+    );
+
+    setSmartShortcuts(nextSmartShortcuts);
+    setSmartShortcut(nextSmartShortcuts[0]);
     setSmartEnabled(s.smart_enabled);
-    setHoldShortcut(s.hold_shortcut);
+    setHoldShortcuts(nextHoldShortcuts);
+    setHoldShortcut(nextHoldShortcuts[0]);
     setHoldEnabled(s.hold_enabled);
-    setToggleShortcut(s.toggle_shortcut);
+    setToggleShortcuts(nextToggleShortcuts);
+    setToggleShortcut(nextToggleShortcuts[0]);
     setToggleEnabled(s.toggle_enabled);
-    setCommandShortcut(s.command_shortcut ?? "Control+Alt+E");
+    setCommandShortcuts(nextCommandShortcuts);
+    setCommandShortcut(nextCommandShortcuts[0]);
     setCommandEnabled(s.command_enabled ?? false);
-    setPasteLastTranscriptShortcut(s.paste_last_transcript_shortcut ?? "Shift+Alt+Z");
+    setPasteLastTranscriptShortcuts(nextPasteLastTranscriptShortcuts);
+    setPasteLastTranscriptShortcut(nextPasteLastTranscriptShortcuts[0]);
     setPasteLastTranscriptEnabled(s.paste_last_transcript_enabled ?? true);
-    setCancelShortcut(s.cancel_shortcut ?? "Control+Alt+Escape");
+    setCancelShortcuts(nextCancelShortcuts);
+    setCancelShortcut(nextCancelShortcuts[0]);
     setCancelEnabled(s.cancel_enabled ?? false);
+    setWakeListeningEnabled(s.wake_listening_enabled ?? false);
+    setWakePhrases(s.wake_phrases?.length ? s.wake_phrases : ["hello"]);
     setTranscriptionModeRaw(s.transcription_mode);
     setLocalModel(s.local_model);
+    setTtsEnabled(s.tts_enabled ?? true);
+    setTtsAutoAfterStt(s.tts_auto_after_stt ?? true);
+    setTtsAutoPlay(s.tts_auto_play ?? true);
+    setTtsVolume(normalizeTtsVolume(s.tts_volume));
+    setTtsModel(s.tts_model ?? "kokoro_82m");
+    setTtsVoiceMode(s.tts_voice_mode ?? "preset");
+    setTtsSpeaker(s.tts_speaker ?? "");
+    setTtsInstruction(s.tts_instruction ?? "");
     setMicrophoneDevice(s.microphone_device);
     setLanguage(s.language);
     setAppLocale(s.app_locale ?? "system");
 
     setLlmEnabledRaw(s.llm_enabled ?? false);
-    setCleanupEnabled(s.cleanup_enabled ?? false);
+    setCleanupEnabled(false);
     setLlmProviderRaw(s.llm_provider ?? "none");
     setLlmEndpointRaw(s.llm_endpoint ?? "");
     setLlmApiKeyRaw(s.llm_api_key ?? "");
     setLlmModel(s.llm_model ?? "");
     setEditModeEnabled(s.edit_mode_enabled ?? false);
-    setAutoTransformEnabled(s.auto_transform_enabled ?? false);
+    setAutoTransformEnabled(false);
     setAutoTransformPresetId(s.auto_transform_preset_id ?? "polish");
     setVibeCodingEnabled(s.vibe_coding_enabled ?? true);
     setVibeCodingVariableRecognition(s.vibe_coding_variable_recognition ?? true);
@@ -290,23 +385,41 @@ export function useSettingsForm({
     setCaptureActive(null);
   }, []);
 
+  const updateShortcutList = useCallback(
+    (mode: ShortcutCaptureMode, index: number, shortcut: string) => {
+      const update = (
+        setList: Dispatch<SetStateAction<string[]>>,
+        setPrimary: (value: string) => void,
+      ) => {
+        setList((current) => {
+          const next = [...current];
+          next[index] = shortcut;
+          const normalized = normalizeShortcutList(next, shortcut);
+          setPrimary(normalized[0]);
+          return normalized;
+        });
+      };
+
+      if (mode === "smart") update(setSmartShortcuts, setSmartShortcut);
+      if (mode === "hold") update(setHoldShortcuts, setHoldShortcut);
+      if (mode === "toggle") update(setToggleShortcuts, setToggleShortcut);
+      if (mode === "command") update(setCommandShortcuts, setCommandShortcut);
+      if (mode === "paste-last") {
+        update(setPasteLastTranscriptShortcuts, setPasteLastTranscriptShortcut);
+      }
+      if (mode === "cancel") update(setCancelShortcuts, setCancelShortcut);
+    },
+    [],
+  );
+
   const { resetCaptureState } = useShortcutCapture({
     active: captureActive !== null,
     onCancel: finalizeCapture,
     onPreviewChange: setCapturePreview,
     onShortcutCaptured: (combo) => {
-      if (captureActive === "smart") {
-        setSmartShortcut(combo);
-      } else if (captureActive === "hold") {
-        setHoldShortcut(combo);
-      } else if (captureActive === "toggle") {
-        setToggleShortcut(combo);
-      } else if (captureActive === "command") {
-        setCommandShortcut(combo);
-      } else if (captureActive === "paste-last") {
-        setPasteLastTranscriptShortcut(combo);
-      } else if (captureActive === "cancel") {
-        setCancelShortcut(combo);
+      const target = parseCaptureTarget(captureActive);
+      if (target) {
+        updateShortcutList(target.mode, target.index, combo);
       }
       setError(null);
     },
@@ -488,6 +601,26 @@ export function useSettingsForm({
       });
   }, []);
 
+  const refreshTtsModelStatus = useCallback((modelKey: string) => {
+    invoke<ModelStatus>("check_tts_model_status", { model: modelKey })
+      .then((status) => {
+        setTtsModelStatus((prev) => ({ ...prev, [modelKey]: status }));
+      })
+      .catch((err) => {
+        console.error(err);
+        setTtsModelStatus((prev) => ({
+          ...prev,
+          [modelKey]: {
+            key: modelKey,
+            installed: false,
+            bytes_on_disk: 0,
+            missing_files: [],
+            directory: "",
+          },
+        }));
+      });
+  }, []);
+
   useEffect(() => {
     if (!isOpen || modelCatalog.length === 0) return;
 
@@ -499,6 +632,23 @@ export function useSettingsForm({
       modelCatalog.some((model) => model.key === current) ? current : (modelCatalog[0]?.key ?? ""),
     );
   }, [isOpen, modelCatalog, refreshModelStatus]);
+
+  useEffect(() => {
+    if (!isOpen || ttsModelCatalog.length === 0) return;
+
+    for (const model of ttsModelCatalog) {
+      void refreshTtsModelStatus(model.key);
+    }
+
+    setTtsModel((current) =>
+      ttsModelCatalog.some((model) => model.key === current)
+        ? current
+        : (ttsModelCatalog.find((model) => model.key === "kokoro_82m")?.key ??
+          ttsModelCatalog.find((model) => model.key === "qwen3_tts_0_6b_custom_voice")?.key ??
+          ttsModelCatalog[0]?.key ??
+          "kokoro_82m"),
+    );
+  }, [isOpen, refreshTtsModelStatus, ttsModelCatalog]);
 
   useModelDownloadEvents({
     enabled: isOpen,
@@ -524,7 +674,11 @@ export function useSettingsForm({
           total: prev[model]?.total ?? 0,
         },
       }));
-      refreshModelStatus(model);
+      if (ttsModelCatalog.some((entry) => entry.key === model)) {
+        refreshTtsModelStatus(model);
+      } else {
+        refreshModelStatus(model);
+      }
     },
     onError: ({ model, error }) => {
       if (error.toLowerCase().includes("cancelled")) return;
@@ -575,32 +729,48 @@ export function useSettingsForm({
         await invoke("update_settings", {
           args: {
             smartShortcut,
+            smartShortcuts,
             smartEnabled,
             holdShortcut,
+            holdShortcuts,
             holdEnabled,
             toggleShortcut,
+            toggleShortcuts,
             toggleEnabled,
             commandShortcut,
+            commandShortcuts,
             commandEnabled: aiFeaturesReady ? commandEnabled : false,
             pasteLastTranscriptShortcut,
+            pasteLastTranscriptShortcuts,
             pasteLastTranscriptEnabled,
             cancelShortcut,
+            cancelShortcuts,
             cancelEnabled,
+            wakeListeningEnabled,
+            wakePhrases,
             transcriptionMode,
             localModel,
+            ttsEnabled,
+            ttsAutoAfterStt,
+            ttsAutoPlay,
+            ttsVolume,
+            ttsModel,
+            ttsVoiceMode,
+            ttsSpeaker,
+            ttsInstruction,
             microphoneDevice,
             language,
             appLocale,
             themeMode,
 
             llmEnabled: aiFeaturesReady,
-            cleanupEnabled: aiFeaturesReady ? cleanupEnabled : false,
+            cleanupEnabled: false,
             llmProvider,
             llmEndpoint,
             llmApiKey,
             llmModel,
             editModeEnabled: aiFeaturesReady ? editModeEnabled : false,
-            autoTransformEnabled: aiFeaturesReady ? autoTransformEnabled : false,
+            autoTransformEnabled: false,
             autoTransformPresetId: autoTransformPresetId || "polish",
             vibeCodingEnabled,
             vibeCodingVariableRecognition,
@@ -632,19 +802,35 @@ export function useSettingsForm({
   }, [
     loading,
     smartShortcut,
+    smartShortcuts,
     smartEnabled,
     holdShortcut,
+    holdShortcuts,
     holdEnabled,
     toggleShortcut,
+    toggleShortcuts,
     toggleEnabled,
     commandShortcut,
+    commandShortcuts,
     commandEnabled,
     pasteLastTranscriptShortcut,
+    pasteLastTranscriptShortcuts,
     pasteLastTranscriptEnabled,
     cancelShortcut,
+    cancelShortcuts,
     cancelEnabled,
+    wakeListeningEnabled,
+    wakePhrases,
     transcriptionMode,
     localModel,
+    ttsEnabled,
+    ttsAutoAfterStt,
+    ttsAutoPlay,
+    ttsVolume,
+    ttsModel,
+    ttsVoiceMode,
+    ttsSpeaker,
+    ttsInstruction,
     microphoneDevice,
     language,
     appLocale,
@@ -683,16 +869,17 @@ export function useSettingsForm({
   }, [appInfo?.data_dir_path]);
 
   const handleStartCapture = useCallback(
-    (mode: ShortcutCaptureMode) => {
-      if (captureActive === mode) {
+    (mode: ShortcutCaptureMode, index = 0) => {
+      const target = captureTarget(mode, index);
+      if (captureActive === target) {
         finalizeCapture();
         resetCaptureState();
         setError(null);
         return;
       }
       resetCaptureState();
-      captureActiveRef.current = mode;
-      setCaptureActive(mode);
+      captureActiveRef.current = target;
+      setCaptureActive(target);
       setError(null);
       invoke("set_shortcut_capture_active", { active: true }).catch((err) => {
         console.error("Failed to disable shortcuts for capture", err);
@@ -703,6 +890,135 @@ export function useSettingsForm({
       });
     },
     [captureActive, finalizeCapture, resetCaptureState],
+  );
+
+  const removeShortcut = useCallback(
+    (mode: ShortcutCaptureMode, index: number) => {
+      const update = (
+        setList: Dispatch<SetStateAction<string[]>>,
+        setPrimary: (value: string) => void,
+        fallback: string,
+      ) => {
+        setList((current) => {
+          if (current.length <= 1) return current;
+          const next = current.filter((_, slot) => slot !== index);
+          const normalized = normalizeShortcutList(next, fallback);
+          setPrimary(normalized[0]);
+          return normalized;
+        });
+      };
+
+      if (mode === "smart") update(setSmartShortcuts, setSmartShortcut, smartShortcut);
+      if (mode === "hold") update(setHoldShortcuts, setHoldShortcut, holdShortcut);
+      if (mode === "toggle") update(setToggleShortcuts, setToggleShortcut, toggleShortcut);
+      if (mode === "command") update(setCommandShortcuts, setCommandShortcut, commandShortcut);
+      if (mode === "paste-last") {
+        update(
+          setPasteLastTranscriptShortcuts,
+          setPasteLastTranscriptShortcut,
+          pasteLastTranscriptShortcut,
+        );
+      }
+      if (mode === "cancel") update(setCancelShortcuts, setCancelShortcut, cancelShortcut);
+    },
+    [
+      cancelShortcut,
+      commandShortcut,
+      holdShortcut,
+      pasteLastTranscriptShortcut,
+      smartShortcut,
+      toggleShortcut,
+    ],
+  );
+
+  const addShortcutSlot = useCallback(
+    (mode: ShortcutCaptureMode) => {
+      const add = (
+        current: string[],
+        setList: Dispatch<SetStateAction<string[]>>,
+        fallback: string,
+      ) => {
+        if (current.length >= MAX_SHORTCUTS_PER_ACTION) return;
+        const next = [...current, fallback].slice(0, MAX_SHORTCUTS_PER_ACTION);
+        setList(next);
+        handleStartCapture(mode, next.length - 1);
+      };
+
+      if (mode === "smart") add(smartShortcuts, setSmartShortcuts, "Win+Alt+1");
+      if (mode === "hold") add(holdShortcuts, setHoldShortcuts, holdShortcut);
+      if (mode === "toggle") add(toggleShortcuts, setToggleShortcuts, toggleShortcut);
+      if (mode === "command") add(commandShortcuts, setCommandShortcuts, commandShortcut);
+      if (mode === "paste-last") {
+        add(
+          pasteLastTranscriptShortcuts,
+          setPasteLastTranscriptShortcuts,
+          pasteLastTranscriptShortcut,
+        );
+      }
+      if (mode === "cancel") add(cancelShortcuts, setCancelShortcuts, cancelShortcut);
+    },
+    [
+      cancelShortcut,
+      cancelShortcuts,
+      commandShortcut,
+      commandShortcuts,
+      handleStartCapture,
+      holdShortcut,
+      holdShortcuts,
+      pasteLastTranscriptShortcut,
+      pasteLastTranscriptShortcuts,
+      smartShortcuts,
+      toggleShortcut,
+      toggleShortcuts,
+    ],
+  );
+
+  const addMouseShortcut = useCallback(
+    (mode: ShortcutCaptureMode, shortcut: string) => {
+      const add = (
+        current: string[],
+        setList: Dispatch<SetStateAction<string[]>>,
+        setPrimary: (value: string) => void,
+        fallback: string,
+      ) => {
+        const normalized = normalizeShortcutList([...current, shortcut], fallback);
+        setList(normalized);
+        setPrimary(normalized[0]);
+      };
+
+      if (mode === "smart") add(smartShortcuts, setSmartShortcuts, setSmartShortcut, smartShortcut);
+      if (mode === "hold") add(holdShortcuts, setHoldShortcuts, setHoldShortcut, holdShortcut);
+      if (mode === "toggle") {
+        add(toggleShortcuts, setToggleShortcuts, setToggleShortcut, toggleShortcut);
+      }
+      if (mode === "command") {
+        add(commandShortcuts, setCommandShortcuts, setCommandShortcut, commandShortcut);
+      }
+      if (mode === "paste-last") {
+        add(
+          pasteLastTranscriptShortcuts,
+          setPasteLastTranscriptShortcuts,
+          setPasteLastTranscriptShortcut,
+          pasteLastTranscriptShortcut,
+        );
+      }
+      if (mode === "cancel")
+        add(cancelShortcuts, setCancelShortcuts, setCancelShortcut, cancelShortcut);
+    },
+    [
+      cancelShortcut,
+      cancelShortcuts,
+      commandShortcut,
+      commandShortcuts,
+      holdShortcut,
+      holdShortcuts,
+      pasteLastTranscriptShortcut,
+      pasteLastTranscriptShortcuts,
+      smartShortcut,
+      smartShortcuts,
+      toggleShortcut,
+      toggleShortcuts,
+    ],
   );
 
   const handleSignOut = useCallback(async () => {
@@ -768,6 +1084,40 @@ export function useSettingsForm({
     [refreshModelStatus],
   );
 
+  const handleTtsDownload = useCallback(
+    async (modelKey: string) => {
+      setDownloadState((prev) => ({
+        ...prev,
+        [modelKey]: {
+          status: "downloading",
+          percent: 0,
+          downloaded: 0,
+          total: 0,
+          file: "starting",
+        },
+      }));
+      try {
+        await invoke("download_tts_model", { model: modelKey });
+        refreshTtsModelStatus(modelKey);
+      } catch (err) {
+        const errorMsg = String(err);
+        if (errorMsg.toLowerCase().includes("cancelled")) return;
+        console.error(err);
+        setDownloadState((prev) => ({
+          ...prev,
+          [modelKey]: {
+            status: "error",
+            message: String(err),
+            percent: prev[modelKey]?.percent ?? 0,
+            downloaded: prev[modelKey]?.downloaded ?? 0,
+            total: prev[modelKey]?.total ?? 0,
+          },
+        }));
+      }
+    },
+    [refreshTtsModelStatus],
+  );
+
   const handleDelete = useCallback(
     async (modelKey: string) => {
       try {
@@ -802,6 +1152,42 @@ export function useSettingsForm({
       }
     },
     [localModel, modelCatalog, modelStatus, refreshModelStatus],
+  );
+
+  const handleTtsDelete = useCallback(
+    async (modelKey: string) => {
+      try {
+        await invoke("delete_tts_model", { model: modelKey });
+        setDownloadState((prev) => ({
+          ...prev,
+          [modelKey]: { status: "idle", percent: 0, downloaded: 0, total: 0 },
+        }));
+
+        if (ttsModel === modelKey) {
+          const otherInstalledModel = ttsModelCatalog.find(
+            (m) => m.key !== modelKey && ttsModelStatus[m.key]?.installed,
+          );
+          if (otherInstalledModel) {
+            setTtsModel(otherInstalledModel.key);
+          }
+        }
+
+        refreshTtsModelStatus(modelKey);
+      } catch (err) {
+        console.error(err);
+        setDownloadState((prev) => ({
+          ...prev,
+          [modelKey]: {
+            status: "error",
+            message: String(err),
+            percent: prev[modelKey]?.percent ?? 0,
+            downloaded: prev[modelKey]?.downloaded ?? 0,
+            total: prev[modelKey]?.total ?? 0,
+          },
+        }));
+      }
+    },
+    [refreshTtsModelStatus, ttsModel, ttsModelCatalog, ttsModelStatus],
   );
 
   const handleCancelDownload = useCallback(async (modelKey: string) => {
@@ -855,27 +1241,53 @@ export function useSettingsForm({
     setErrorCopied,
 
     smartShortcut,
+    smartShortcuts,
     smartEnabled,
     setSmartEnabled,
     holdShortcut,
+    holdShortcuts,
     holdEnabled,
     setHoldEnabled,
     toggleShortcut,
+    toggleShortcuts,
     toggleEnabled,
     setToggleEnabled,
     commandShortcut,
+    commandShortcuts,
     commandEnabled,
     setCommandEnabled,
     pasteLastTranscriptShortcut,
+    pasteLastTranscriptShortcuts,
     pasteLastTranscriptEnabled,
     setPasteLastTranscriptEnabled,
     cancelShortcut,
+    cancelShortcuts,
     cancelEnabled,
     setCancelEnabled,
+    wakeListeningEnabled,
+    setWakeListeningEnabled,
+    wakePhrases,
+    setWakePhrases,
     transcriptionMode,
     setTranscriptionMode,
     localModel,
     setLocalModel,
+    ttsEnabled,
+    setTtsEnabled,
+    ttsAutoAfterStt,
+    setTtsAutoAfterStt,
+    ttsAutoPlay,
+    setTtsAutoPlay,
+    ttsVolume,
+    setTtsVolume,
+    ttsModel,
+    setTtsModel,
+    ttsVoiceMode,
+    setTtsVoiceMode,
+    ttsSpeaker,
+    setTtsSpeaker,
+    ttsInstruction,
+    setTtsInstruction,
     microphoneDevice,
     setMicrophoneDevice,
     language: displayedLanguage,
@@ -889,12 +1301,17 @@ export function useSettingsForm({
     inputDevices,
     modelCatalog,
     modelStatus,
+    ttsModelCatalog,
+    ttsModelStatus,
     downloadState,
     appInfo,
 
     captureActive,
     capturePreview,
     handleStartCapture,
+    removeShortcut,
+    addShortcutSlot,
+    addMouseShortcut,
 
     llmEnabled,
     setLlmEnabled,
@@ -965,6 +1382,8 @@ export function useSettingsForm({
 
     handleDownload,
     handleDelete,
+    handleTtsDownload,
+    handleTtsDelete,
     handleCancelDownload,
     handleOpenDataDir,
     formatBytes,

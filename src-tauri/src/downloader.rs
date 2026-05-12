@@ -163,6 +163,10 @@ pub async fn download_file<R: Runtime>(
             };
         }
 
+        if let Some(parent) = target_path.parent() {
+            std::fs::create_dir_all(parent).context("Failed to create nested model directory")?;
+        }
+
         let mut file = if downloaded > 0 {
             OpenOptions::new()
                 .create(true)

@@ -17,6 +17,7 @@ import {
   Library,
   Link2,
   NotebookText,
+  ScanText,
   TextQuote,
   BarChart3,
 } from "lucide-react";
@@ -32,22 +33,13 @@ import DictionaryView from "./features/dictionary/components/DictionaryView";
 import PersonalizationView from "./features/personalization/components/PersonalizationView";
 import LibraryView from "./features/library/components/LibraryView";
 import FlowFetchView from "./features/flow-fetch/components/FlowFetchView";
+import OcrView from "./features/ocr/components/OcrView";
 import ScratchpadView from "./features/scratchpad/components/ScratchpadView";
 import SnippetsView from "./features/snippets/components/SnippetsView";
 import TransformsView from "./features/transforms/components/TransformsView";
 import InsightsView from "./features/insights/components/InsightsView";
 import { useCurrentUser } from "./features/auth/queries";
-import {
-  useSettings,
-  useAppInfo,
-  useInputDevices,
-  useAutoPasteStatus,
-} from "./features/settings/queries";
-import {
-  useLocalModelRuntimeStatus,
-  useModelCatalog,
-  useModelStatuses,
-} from "./features/settings/models-queries";
+import { useSettings, useAppInfo } from "./features/settings/queries";
 import { useUpdateStatus } from "./features/updates/queries";
 import { formatShortcutForDisplay } from "./shared/lib/shortcuts";
 import type { TranscriptionMode } from "./types";
@@ -82,17 +74,6 @@ const SidebarItem = ({
   </button>
 );
 
-const compactPath = (path: string) => {
-  const normalized = path.replace(/\//g, "\\");
-  const parts = normalized.split("\\").filter(Boolean);
-
-  if (parts.length <= 3) return normalized;
-
-  const drivePrefix = /^[A-Za-z]:$/.test(parts[0]) ? `${parts[0]}\\` : "";
-  const startIndex = drivePrefix ? 1 : 0;
-  return `${drivePrefix}...\\${parts.slice(Math.max(startIndex, parts.length - 2)).join("\\")}`;
-};
-
 const Home = () => {
   const { t } = useLingui();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -107,6 +88,7 @@ const Home = () => {
     | "snippets"
     | "scratchpad"
     | "flowFetch"
+    | "ocr"
     | "transforms"
     | "style"
     | "library"
@@ -122,17 +104,7 @@ const Home = () => {
   const { data: settings } = useSettings();
   const { data: updateStatus } = useUpdateStatus();
   const { data: appInfoData } = useAppInfo();
-  const { data: inputDevices = [] } = useInputDevices();
-  const { data: autoPasteStatus } = useAutoPasteStatus();
-  const { data: modelCatalog = [] } = useModelCatalog();
   const transcriptionMode: TranscriptionMode = settings?.transcription_mode ?? "local";
-  const { data: localRuntimeStatus } = useLocalModelRuntimeStatus(transcriptionMode === "local");
-  const llmEnabled = settings?.llm_enabled ?? false;
-  const localModelKey = settings?.local_model ?? "";
-  const { statusByModel } = useModelStatuses(
-    localModelKey ? [localModelKey] : [],
-    Boolean(localModelKey),
-  );
   const appVersion = appInfoData?.version ?? "-";
   const updateAvailable = updateStatus?.available ?? false;
 
@@ -144,6 +116,7 @@ const Home = () => {
     let cancelled = false;
     let unlistenNavigate: UnlistenFn | null = null;
     let unlistenModels: UnlistenFn | null = null;
+    let unlistenAppSettings: UnlistenFn | null = null;
     let unlistenSnippets: UnlistenFn | null = null;
     let unlistenScratchpad: UnlistenFn | null = null;
     let unlistenTransforms: UnlistenFn | null = null;
@@ -171,6 +144,14 @@ const Home = () => {
     }).then((fn) => {
       if (cancelled) fn();
       else unlistenModels = fn;
+    });
+
+    listen("navigate:app", () => {
+      setSettingsTab("app");
+      setIsSettingsOpen(true);
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlistenAppSettings = fn;
     });
 
     listen("navigate:transforms", () => {
@@ -255,6 +236,7 @@ const Home = () => {
       cancelled = true;
       unlistenNavigate?.();
       unlistenModels?.();
+      unlistenAppSettings?.();
       unlistenSnippets?.();
       unlistenScratchpad?.();
       unlistenTransforms?.();
@@ -298,35 +280,7 @@ const Home = () => {
 
   const isCloudMode = transcriptionMode === "cloud";
 
-  const showCleanupButtons = isCloudMode || llmEnabled;
-  const selectedModel = modelCatalog.find((model) => model.key === localModelKey);
-  const selectedModelStatus = localModelKey ? statusByModel[localModelKey] : undefined;
-  const selectedModelIsWarm =
-    Boolean(localRuntimeStatus?.loaded_model) && localRuntimeStatus?.loaded_model === localModelKey;
-  const selectedModelIsWarming =
-    Boolean(localRuntimeStatus?.warming) && localRuntimeStatus?.selected_model === localModelKey;
-  const modelReady =
-    transcriptionMode === "local"
-      ? Boolean(selectedModelStatus?.installed)
-      : transcriptionMode === "cloud";
-  const modelLabel = selectedModel
-    ? selectedModelIsWarm
-      ? `${selectedModel.label} warm`
-      : selectedModelIsWarming
-        ? `${selectedModel.label} warming`
-        : selectedModelStatus?.installed
-          ? `${selectedModel.label} installed`
-          : `${selectedModel.label} missing`
-    : localModelKey
-      ? `${localModelKey} missing`
-      : "No local model selected";
-  const selectedMicrophoneName = settings?.microphone_device
-    ? inputDevices.find((device) => device.id === settings.microphone_device)?.name
-    : inputDevices.find((device) => device.is_default)?.name;
-  const microphoneReady = inputDevices.length > 0;
-  const microphoneLabel = microphoneReady
-    ? (selectedMicrophoneName ?? "System default")
-    : "No input device";
+  const showCleanupButtons = isCloudMode || Boolean(settings?.llm_enabled);
   const activeShortcuts = [
     settings?.smart_enabled
       ? {
@@ -347,45 +301,14 @@ const Home = () => {
         }
       : null,
   ].filter(Boolean) as { label: string; shortcut: string }[];
-  const shortcutReady = activeShortcuts.length > 0;
   const primaryShortcut = activeShortcuts[0] ?? null;
-  const shortcutLabel = shortcutReady
-    ? `${activeShortcuts[0].label}: ${formatShortcutForDisplay(activeShortcuts[0].shortcut)}${
-        activeShortcuts.length > 1 ? ` +${activeShortcuts.length - 1}` : ""
-      }`
-    : "No shortcut enabled";
-  const aiRequested = Boolean(settings?.cleanup_enabled || settings?.edit_mode_enabled);
-  const aiReady = !aiRequested || llmEnabled || isCloudMode;
-  const aiLabel = aiRequested ? (aiReady ? "Cleanup/Edit ready" : "Provider needed") : "Optional";
-  const pasteReady =
-    (autoPasteStatus?.enabled ?? true) && (autoPasteStatus?.accessibility_granted ?? true);
-  const pasteLabel = !(autoPasteStatus?.enabled ?? true)
-    ? "Auto-paste off"
-    : autoPasteStatus?.accessibility_granted === false
-      ? "Permission needed"
-      : "Auto-paste ready";
-  const storageLabel = appInfoData?.data_dir_path
-    ? `Data: ${compactPath(appInfoData.data_dir_path)}`
-    : "Data path loading";
-  const readinessChecks = [modelReady, microphoneReady, shortcutReady, pasteReady, aiReady];
-  const readinessPercent = Math.round(
-    (readinessChecks.filter(Boolean).length / readinessChecks.length) * 100,
-  );
-  const voicePanelHeadline =
-    readinessPercent >= 100 ? "Ready to type anywhere" : "Finish setup to dictate";
-  const voicePanelHint = !modelReady
-    ? "Download or select a local speech model before dictating."
-    : !microphoneReady
-      ? "Connect a microphone and grant access so Flow can hear you."
-      : !shortcutReady || !primaryShortcut
-        ? "Enable a Smart, Hold, or Toggle shortcut to start dictation from any app."
-        : !pasteReady
-          ? "Enable auto-paste permissions so Flow can type into the focused app."
-          : primaryShortcut.label === "Hold"
-            ? `Hold ${formatShortcutForDisplay(primaryShortcut.shortcut)}, speak, then release.`
-            : primaryShortcut.label === "Toggle"
-              ? `Tap ${formatShortcutForDisplay(primaryShortcut.shortcut)} to start, then tap again to stop.`
-              : `Tap ${formatShortcutForDisplay(primaryShortcut.shortcut)} to toggle, or hold it for push-to-talk.`;
+  const voicePanelHint = primaryShortcut
+    ? primaryShortcut.label === "Hold"
+      ? `Hold ${formatShortcutForDisplay(primaryShortcut.shortcut)}, speak naturally, and Flow writes into the focused app.`
+      : primaryShortcut.label === "Toggle"
+        ? `Tap ${formatShortcutForDisplay(primaryShortcut.shortcut)} once to start and again to finish.`
+        : `Tap ${formatShortcutForDisplay(primaryShortcut.shortcut)} to toggle, or hold it for push-to-talk.`
+    : "Use the recorder overlay for free, unlimited local dictation.";
   const currentModeLabel = isCloudMode
     ? t({
         id: "home.mode.cloud",
@@ -506,6 +429,13 @@ const Home = () => {
               active={activeView === "flowFetch"}
               collapsed={isSidebarCollapsed}
               onClick={() => setActiveView("flowFetch")}
+            />
+            <SidebarItem
+              icon={<ScanText size={18} />}
+              label="OCR"
+              active={activeView === "ocr"}
+              collapsed={isSidebarCollapsed}
+              onClick={() => setActiveView("ocr")}
             />
             <SidebarItem
               icon={<WandSparkles size={18} />}
@@ -777,32 +707,8 @@ const Home = () => {
 
             <FlowVoicePanel
               modeLabel={currentModeLabel}
-              headline={voicePanelHeadline}
+              headline="Flow is completely free, unlimited, and built for speed"
               hint={voicePanelHint}
-              modelLabel={modelLabel}
-              modelReady={modelReady}
-              microphoneLabel={microphoneLabel}
-              microphoneReady={microphoneReady}
-              shortcutLabel={shortcutLabel}
-              shortcutReady={shortcutReady}
-              pasteLabel={pasteLabel}
-              pasteReady={pasteReady}
-              aiLabel={aiLabel}
-              aiReady={aiReady}
-              storageLabel={storageLabel}
-              readinessPercent={readinessPercent}
-              onOpenGeneralSettings={() => {
-                setSettingsTab("general");
-                setIsSettingsOpen(true);
-              }}
-              onOpenModels={() => {
-                setSettingsTab("models");
-                setIsSettingsOpen(true);
-              }}
-              onOpenAppSettings={() => {
-                setSettingsTab("app");
-                setIsSettingsOpen(true);
-              }}
             />
 
             <TranscriptionList
@@ -851,6 +757,12 @@ const Home = () => {
             className={`w-full max-w-5xl mx-auto min-w-0 pt-8 flex-1 min-h-0 ${activeView === "flowFetch" ? "" : "hidden"}`}
           >
             <FlowFetchView isActive={activeView === "flowFetch"} />
+          </div>
+
+          <div
+            className={`w-full max-w-6xl mx-auto min-w-0 pt-8 flex-1 min-h-0 ${activeView === "ocr" ? "" : "hidden"}`}
+          >
+            <OcrView isActive={activeView === "ocr"} />
           </div>
 
           <div

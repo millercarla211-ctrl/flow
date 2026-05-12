@@ -72,6 +72,26 @@ const PARAKEET_TDT_INT8_FILES: [ModelFileDescriptor; 3] = [
 ];
 
 #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+const PARAKEET_UNIFIED_EN_INT8_FILES: [ModelFileDescriptor; 4] = [
+    ModelFileDescriptor {
+        url: "https://huggingface.co/bobNight/parakeet-unified-en-0.6b-onnx/resolve/main/encoder.int8.onnx",
+        name: "encoder.int8.onnx",
+    },
+    ModelFileDescriptor {
+        url: "https://huggingface.co/bobNight/parakeet-unified-en-0.6b-onnx/resolve/main/encoder.int8.onnx.data",
+        name: "encoder.int8.onnx.data",
+    },
+    ModelFileDescriptor {
+        url: "https://huggingface.co/bobNight/parakeet-unified-en-0.6b-onnx/resolve/main/decoder_joint.int8.onnx",
+        name: "decoder_joint.int8.onnx",
+    },
+    ModelFileDescriptor {
+        url: "https://huggingface.co/bobNight/parakeet-unified-en-0.6b-onnx/resolve/main/tokenizer.model",
+        name: "tokenizer.model",
+    },
+];
+
+#[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
 const NEMOTRON_STREAMING_FILES: [ModelFileDescriptor; 4] = [
     ModelFileDescriptor {
         url: "https://huggingface.co/lokkju/nemotron-speech-streaming-en-0.6b-int8/resolve/main/encoder.onnx",
@@ -102,6 +122,20 @@ const WHISPER_LARGE_V3_TURBO_Q8_FILES: [ModelFileDescriptor; 1] = [ModelFileDesc
 }];
 
 pub const MODEL_DEFINITIONS: &[ModelDefinition] = &[
+    #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
+    ModelDefinition {
+        key: "parakeet_unified_en_int8",
+        label: "Parakeet Unified EN 0.6B (Int8)",
+        description:
+            "Best default English local dictation model in this size class, using NVIDIA's Unified Parakeet ONNX path.",
+        size_mb: 663.4,
+        files: &PARAKEET_UNIFIED_EN_INT8_FILES,
+        engine: LocalModelEngine::Parakeet,
+        variant: "Unified Int8",
+        storage: ModelStorage::Directory,
+        tags: &["Recommended", "English", "High Accuracy"],
+        capabilities: &[MODEL_CAPABILITY_TIMESTAMPS],
+    },
     ModelDefinition {
         key: "whisper_large_v3_turbo_q8",
         label: "Whisper Large V3 Turbo",
@@ -319,8 +353,15 @@ pub struct ModelStatus {
     pub directory: String,
 }
 
-fn supported_languages(engine: &LocalModelEngine) -> Vec<SupportedLanguageInfo> {
-    match engine {
+fn english_supported_languages() -> Vec<SupportedLanguageInfo> {
+    vec![SupportedLanguageInfo {
+        code: "en".to_string(),
+        name: "English".to_string(),
+    }]
+}
+
+fn supported_languages(def: &ModelDefinition) -> Vec<SupportedLanguageInfo> {
+    match def.engine {
         LocalModelEngine::Whisper => whisper_supported_languages(),
         LocalModelEngine::Nemotron => {
             #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
@@ -336,7 +377,11 @@ fn supported_languages(engine: &LocalModelEngine) -> Vec<SupportedLanguageInfo> 
         LocalModelEngine::Parakeet => {
             #[cfg(not(all(target_os = "macos", target_arch = "x86_64")))]
             {
-                parakeet_v3_supported_languages()
+                if def.key == "parakeet_unified_en_int8" {
+                    english_supported_languages()
+                } else {
+                    parakeet_v3_supported_languages()
+                }
             }
 
             #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
@@ -399,6 +444,10 @@ fn expected_file_len(model_key: &str, file_name: &str) -> Option<u64> {
         ("parakeet_tdt_int8", "encoder-model.int8.onnx") => Some(652_183_999),
         ("parakeet_tdt_int8", "decoder_joint-model.int8.onnx") => Some(18_202_004),
         ("parakeet_tdt_int8", "vocab.txt") => Some(93_939),
+        ("parakeet_unified_en_int8", "encoder.int8.onnx") => Some(42_606_669),
+        ("parakeet_unified_en_int8", "encoder.int8.onnx.data") => Some(611_491_584),
+        ("parakeet_unified_en_int8", "decoder_joint.int8.onnx") => Some(8_995_064),
+        ("parakeet_unified_en_int8", "tokenizer.model") => Some(251_056),
         ("nemotron_streaming_en", "encoder.onnx") => Some(880_555_453),
         ("nemotron_streaming_en", "encoder.onnx.data") => Some(2_436_567_040),
         ("nemotron_streaming_en", "decoder_joint.onnx") => Some(10_962_697),
@@ -459,7 +508,7 @@ pub fn list_models() -> Vec<ModelInfo> {
             variant: def.variant.to_string(),
             tags: def.tags.iter().map(|s| s.to_string()).collect(),
             capabilities: def.capabilities.iter().map(|s| s.to_string()).collect(),
-            supported_languages: supported_languages(&def.engine),
+            supported_languages: supported_languages(def),
         })
         .collect()
 }

@@ -17,11 +17,15 @@ use std::sync::{
     Arc,
 };
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, Size, WebviewWindow};
 
 const MIN_RECORDING_DURATION_MS: i64 = 300;
 const SMART_MODE_TAP_THRESHOLD_MS: i64 = 200;
 const SHORTCUT_PRESS_DEBOUNCE_MS: u64 = 180;
+const OVERLAY_DEFAULT_WIDTH: f64 = 238.0;
+const OVERLAY_DEFAULT_HEIGHT: f64 = 120.0;
+const OVERLAY_TIP_WIDTH: f64 = 372.0;
+const OVERLAY_TIP_HEIGHT: f64 = 236.0;
 
 pub const EVENT_PILL_STATE: &str = "pill:state";
 pub const EVENT_PILL_MODE: &str = "pill:mode";
@@ -968,74 +972,82 @@ pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
     }
 
     let settings = state.current_settings();
-    let mut parsed_shortcuts: Vec<(&'static str, handy_keys::Hotkey)> = Vec::new();
+    let mut parsed_shortcuts: Vec<(&'static str, hotkeys::ShortcutBinding)> = Vec::new();
     let mut bindings = Vec::new();
 
     let mut add_binding = |label: &'static str,
                            enabled: bool,
-                           raw_shortcut: &str,
+                           raw_shortcuts: &[String],
                            action: hotkeys::ShortcutAction| {
         if !enabled {
             return;
         }
 
-        let hotkey = match hotkeys::parse_shortcut(raw_shortcut) {
-            Ok(hotkey) => hotkey,
-            Err(err) => {
-                eprintln!("Skipping invalid {label} shortcut `{raw_shortcut}`: {err}");
-                return;
+        for raw_shortcut in raw_shortcuts {
+            let raw_shortcut = raw_shortcut.trim();
+            if raw_shortcut.is_empty() {
+                continue;
             }
-        };
 
-        if let Some((existing_label, existing_hotkey)) = parsed_shortcuts
-            .iter()
-            .find(|(_, existing_hotkey)| hotkeys::shortcuts_conflict(existing_hotkey, &hotkey))
-        {
-            let existing_shortcut = existing_hotkey.to_string();
-            eprintln!(
-                "Skipping {label} shortcut `{raw_shortcut}` because it conflicts with {existing_label} shortcut `{existing_shortcut}`"
-            );
-            return;
+            let binding = match hotkeys::parse_shortcut_binding(raw_shortcut) {
+                Ok(binding) => binding,
+                Err(err) => {
+                    eprintln!("Skipping invalid {label} shortcut `{raw_shortcut}`: {err}");
+                    continue;
+                }
+            };
+
+            if let Some((existing_label, existing_binding)) =
+                parsed_shortcuts.iter().find(|(_, existing_binding)| {
+                    hotkeys::shortcut_bindings_conflict(existing_binding, &binding)
+                })
+            {
+                let existing_shortcut = existing_binding.to_string();
+                eprintln!(
+                    "Skipping {label} shortcut `{raw_shortcut}` because it conflicts with {existing_label} shortcut `{existing_shortcut}`"
+                );
+                continue;
+            }
+
+            parsed_shortcuts.push((label, binding));
+            bindings.push(hotkeys::RegisteredShortcut { binding, action });
         }
-
-        parsed_shortcuts.push((label, hotkey));
-        bindings.push(hotkeys::RegisteredHotkey { hotkey, action });
     };
 
     add_binding(
         "Smart",
         settings.smart_enabled,
-        &settings.smart_shortcut,
+        &settings.smart_shortcuts,
         hotkeys::ShortcutAction::Smart,
     );
     add_binding(
         "Hold",
         settings.hold_enabled,
-        &settings.hold_shortcut,
+        &settings.hold_shortcuts,
         hotkeys::ShortcutAction::Hold,
     );
     add_binding(
         "Toggle",
         settings.toggle_enabled,
-        &settings.toggle_shortcut,
+        &settings.toggle_shortcuts,
         hotkeys::ShortcutAction::Toggle,
     );
     add_binding(
         "Command Mode",
         settings.command_enabled,
-        &settings.command_shortcut,
+        &settings.command_shortcuts,
         hotkeys::ShortcutAction::Command,
     );
     add_binding(
         "Paste last transcript",
         settings.paste_last_transcript_enabled,
-        &settings.paste_last_transcript_shortcut,
+        &settings.paste_last_transcript_shortcuts,
         hotkeys::ShortcutAction::PasteLastTranscript,
     );
     add_binding(
         "Cancel",
         settings.cancel_enabled,
-        &settings.cancel_shortcut,
+        &settings.cancel_shortcuts,
         hotkeys::ShortcutAction::Cancel,
     );
 
@@ -1062,6 +1074,28 @@ pub fn show_overlay(app: &AppHandle<AppRuntime>) {
             }
         });
     }
+}
+
+#[tauri::command]
+pub fn set_pill_overlay_tip_frame(
+    app: AppHandle<AppRuntime>,
+    expanded: bool,
+) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        let (width, height) = if expanded {
+            (OVERLAY_TIP_WIDTH, OVERLAY_TIP_HEIGHT)
+        } else {
+            (OVERLAY_DEFAULT_WIDTH, OVERLAY_DEFAULT_HEIGHT)
+        };
+
+        window
+            .set_size(Size::Logical(LogicalSize { width, height }))
+            .map_err(|err| err.to_string())?;
+        position_overlay(&window);
+        platform::overlay::show(&app, &window);
+    }
+
+    Ok(())
 }
 
 #[allow(dead_code)]

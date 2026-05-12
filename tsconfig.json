@@ -23,8 +23,9 @@
     /* Path aliases */
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
+    "types": ["node"],
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src"],
+  "include": ["src", "api", "drizzle.config.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

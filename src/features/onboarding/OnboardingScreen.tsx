@@ -24,10 +24,10 @@ import type { ModelInfo, ModelStatus } from "../../types";
 const hasRecommendedTag = (model: Pick<ModelInfo, "tags">) =>
   model.tags.some((tag) => tag.toLowerCase() === "recommended");
 
-const PREFERRED_ONBOARDING_MODEL_KEYS = ["parakeet_tdt_int8", "whisper_large_v3_turbo_q8"] as const;
+const PREFERRED_ONBOARDING_MODEL_KEYS = ["parakeet_unified_en_int8", "parakeet_tdt_int8"] as const;
 
 const ONBOARDING_MODEL_LIMIT = 2;
-const AUTO_DOWNLOAD_MODEL_KEYS = new Set<string>(["parakeet_tdt_int8"]);
+const AUTO_DOWNLOAD_MODEL_KEYS = new Set<string>(["parakeet_unified_en_int8"]);
 
 const onboardingPermissionKeys = {
   all: ["onboarding", "permissions"] as const,

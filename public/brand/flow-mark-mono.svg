@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="flowMarkMonoTitle">
   <title id="flowMarkMonoTitle">Flow mono mark</title>
-  <path d="M14 14H52L48.2 24H25.5L21.6 28.6H43.8L40.4 38H21.6V51H14V14Z" fill="currentColor"/>
+  <path d="M15 13.5H52.5L48.2 22.2H27.3L23.7 27.2H44.3L40.2 35.6H23.7V50.5H14.2V20.5L15 13.5Z" fill="currentColor"/>
+  <path d="M38.5 40.3H50.8L48.5 44.8H35.9L38.5 40.3Z" fill="currentColor" opacity=".74"/>
 </svg>

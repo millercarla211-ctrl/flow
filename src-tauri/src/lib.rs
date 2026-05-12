@@ -12,11 +12,13 @@ mod flow_fetch;
 mod insights;
 mod library;
 mod llm_cleanup;
+mod local_text_model;
 mod local_transcription;
 mod mode_context;
 mod model_language_table;
 mod model_manager;
 mod music;
+mod ocr;
 mod permissions;
 mod personalization;
 mod pill;
@@ -33,9 +35,11 @@ mod transcribe;
 mod transcription_api;
 mod transforms;
 mod tray;
+mod tts;
 mod update_checker;
 mod vibe_coding;
 mod voice_commands;
+mod wake;
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
@@ -334,8 +338,10 @@ pub fn run() {
             {
                 let state = handle.state::<AppState>();
                 let settings = state.current_settings();
+                tts::prewarm_if_needed(handle, &settings);
                 state.download_default_local_model_if_missing(handle, &settings, "startup");
                 state.preload_local_model_if_needed(handle, &settings, "startup");
+                llm_cleanup::prewarm_if_needed(handle, &settings);
                 schedule_local_data_prune(handle.clone(), settings);
             }
             library::commands::recover_interrupted_library_items(handle);
@@ -390,6 +396,13 @@ pub fn run() {
 
             if let Err(err) = pill::register_shortcuts(handle) {
                 eprintln!("Failed to register shortcuts: {err}");
+            }
+            {
+                let state = handle.state::<AppState>();
+                let settings = state.current_settings();
+                if let Err(err) = state.wake.sync(handle, &settings) {
+                    eprintln!("Failed to sync wake listener: {err}");
+                }
             }
             pill::show_overlay(handle);
 
@@ -484,6 +497,13 @@ pub fn run() {
             model_manager::download_model,
             model_manager::delete_model,
             model_manager::cancel_download,
+            ocr::get_ocr_status,
+            ocr::run_ocr_image,
+            tts::list_tts_models,
+            tts::check_tts_model_status,
+            tts::download_tts_model,
+            tts::delete_tts_model,
+            tts::synthesize_tts,
             audio::list_input_devices,
             toast::toast_dismissed,
             open_accessibility_settings,
@@ -496,11 +516,14 @@ pub fn run() {
             open_microphone_settings,
             open_input_monitoring_settings,
             open_llm_cleanup_settings,
+            open_app_settings,
             open_ffmpeg_install,
             complete_onboarding,
             cancel_recording,
+            pause_flow_temporarily,
             toggle_recording,
             pill::set_pill_expanded,
+            pill::set_pill_overlay_tip_frame,
             reset_onboarding,
             toast::debug_show_toast,
             fetch_llm_models,
@@ -575,6 +598,7 @@ pub struct AppState {
     settings_store: Arc<SettingsStore>,
     settings: parking_lot::Mutex<UserSettings>,
     hotkeys: core::hotkeys::HotkeyCoordinator,
+    wake: wake::WakeCoordinator,
     shortcut_capture_active: AtomicBool,
     pub(crate) tray: parking_lot::Mutex<Option<TrayIcon<AppRuntime>>>,
     pub(crate) settings_close_handler_registered: AtomicBool,
@@ -636,6 +660,7 @@ impl AppState {
             settings_store,
             settings: parking_lot::Mutex::new(settings),
             hotkeys: core::hotkeys::HotkeyCoordinator::default(),
+            wake: wake::WakeCoordinator::default(),
             shortcut_capture_active: AtomicBool::new(false),
             tray: parking_lot::Mutex::new(None),
             settings_close_handler_registered: AtomicBool::new(false),
@@ -1094,8 +1119,17 @@ impl AppState {
 }
 
 #[tauri::command]
-fn get_settings(state: tauri::State<AppState>) -> Result<UserSettings, String> {
-    Ok(state.current_settings())
+fn get_settings(app: AppHandle<AppRuntime>) -> Result<UserSettings, String> {
+    if let Some(state) = app.try_state::<AppState>() {
+        return Ok(state.current_settings());
+    }
+
+    let settings_store = SettingsStore::new(&app).map_err(|err| err.to_string())?;
+    let mut settings = settings_store.load().unwrap_or_default();
+    if model_manager::definition(&settings.local_model).is_none() {
+        settings.local_model = default_local_model();
+    }
+    Ok(settings)
 }
 
 #[tauri::command]
@@ -1223,6 +1257,24 @@ fn open_llm_cleanup_settings(app: AppHandle<AppRuntime>) -> Result<(), String> {
         std::thread::sleep(std::time::Duration::from_millis(150));
         if let Err(err) = app_clone.emit("navigate:models", ()) {
             eprintln!("Failed to emit navigate:models: {err}");
+        }
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+fn open_app_settings(app: AppHandle<AppRuntime>) -> Result<(), String> {
+    if let Err(err) = tray::toggle_settings_window(&app) {
+        eprintln!("Failed to open settings window: {err}");
+        return Err(err.to_string());
+    }
+
+    let app_clone = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        if let Err(err) = app_clone.emit("navigate:app", ()) {
+            eprintln!("Failed to emit navigate:app: {err}");
         }
     });
 
@@ -1740,6 +1792,23 @@ fn cancel_recording(app: AppHandle<AppRuntime>) {
     } else {
         stop_active_recording(&app);
         hide_overlay(&app);
+    }
+}
+
+#[tauri::command]
+fn pause_flow_temporarily(app: AppHandle<AppRuntime>, _seconds: Option<u64>) {
+    let state = app.state::<AppState>();
+    if state.pill().status() == pill::PillStatus::Processing {
+        state.pill().cancel_processing(&app);
+    } else if state.pill().status() != pill::PillStatus::Idle {
+        state.pill().cancel(&app);
+    }
+
+    pill::hide_overlay(&app);
+
+    let settings = state.current_settings();
+    if let Err(err) = state.wake.sync(&app, &settings) {
+        eprintln!("Failed to keep wake listener armed after hiding overlay: {err}");
     }
 }
 

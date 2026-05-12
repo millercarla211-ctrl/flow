@@ -20,7 +20,7 @@ const FAQModal = ({ isOpen, onClose }: FAQModalProps) => {
       answer: t({
         id: "faq.free.answer",
         message:
-          "Flow uses on-device OSS AI models for transcription, so there are no ongoing costs for the core experience.",
+          "Flow runs local speech models on your device, so core dictation is free and unlimited. Remote providers stay optional.",
       }),
     },
     {
