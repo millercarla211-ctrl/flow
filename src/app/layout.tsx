@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import "../liquidglass/imported-routes.css";
 import "./App.css";
 
 export const metadata: Metadata = {
