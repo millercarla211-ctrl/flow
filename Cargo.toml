@@ -3,18 +3,27 @@ name = "flow"
 version = "0.1.0"
 edition = "2024"
 authors = ["Flow Contributors"]
-description = "Open-source voice assistant with STT, LLM, and TTS - A WisprFlow alternative"
+description = "Library-first local and remote AI runtime layer for DX: voice, typing, model routing, and embeddable Rust AI capabilities"
 license = "Apache-2.0"
 repository = "https://github.com/yourusername/flow"
-keywords = ["voice", "assistant", "stt", "tts", "llm"]
-categories = ["multimedia", "command-line-utilities"]
+keywords = ["ai", "voice", "runtime", "llm", "rust"]
+categories = ["multimedia", "command-line-utilities", "api-bindings"]
+
+[workspace]
+members = ["crates/flow-browser-core"]
+exclude = ["serializer", "providers", "forge", "metasearch", "rlm"]
+
+[features]
+default = []
+example-binaries = []
+sherpa-stt = ["dep:sherpa-onnx"]
 
 [dependencies]
 # Async Runtime (Latest: 1.50.0 as of March 2026)
 tokio = { version = "1.50", features = ["rt-multi-thread", "macros", "sync", "fs", "io-util"] }
 
 # LLM Inference
-llama-cpp-2 = "0.1"
+llama-cpp-2 = "0.1.145"
 
 # Tensor Operations
 ndarray = "0.17"
@@ -41,13 +50,22 @@ tiktoken-rs = "0.9"
 
 # CLI Detection
 atty = "0.2"
-espeak-rs = "0.1.9"
 tokenizers = "0.22.2"
-voice-g2p = "0.2.2"
-kokoro-tiny = { version = "0.1.0", features = ["playback"] }
-misaki-rs = "0.3.0"
 ort = { version = "2.0.0-rc.12", features = ["download-binaries", "copy-dylibs"] }
 ndarray-npy = "0.10.0"
+rubato = "2.0.0"
+audioadapter-buffers = "3.0.0"
+transcribe-rs = { version = "0.3.10", default-features = false, features = ["onnx"] }
+audio-gate = "0.2.0"
+sherpa-onnx = { version = "1.13.1", optional = true }
+rdev = "0.5.3"
+memmap2 = "0.9.10"
+rkyv = { version = "0.8.16", features = ["bytecheck"] }
+sha2 = "0.11.0"
+hex = "0.4.3"
+hf-hub = "0.5.0"
+harper-core = { version = "2.0.0", default-features = false }
+serializer = { path = "serializer", default-features = false }
 
 [lib]
 name = "flow"
@@ -57,13 +75,25 @@ path = "src/lib.rs"
 name = "flow"
 path = "src/main.rs"
 
+[[bin]]
+name = "flow-dictate"
+path = "src/bin/flow-dictate.rs"
+required-features = ["sherpa-stt"]
+
 [[example]]
 name = "transcribe"
 path = "examples/transcribe.rs"
+required-features = ["example-binaries"]
 
 [[example]]
 name = "wispr_flow"
 path = "examples/wispr_flow.rs"
+required-features = ["example-binaries"]
+
+[[example]]
+name = "wispr_flow_complete"
+path = "examples/wispr_flow_complete.rs"
+required-features = ["example-binaries"]
 
 [[bench]]
 name = "benchmark"
@@ -75,6 +105,16 @@ opt-level = 3
 lto = "fat"
 codegen-units = 1
 strip = true
+
+[profile.dev]
+debug = 0
+incremental = false
+codegen-units = 64
+
+[profile.test]
+debug = 0
+incremental = false
+codegen-units = 64
 
 [profile.bench]
 inherits = "release"

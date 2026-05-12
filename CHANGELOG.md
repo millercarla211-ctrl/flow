@@ -1,0 +1,95 @@
+# Changelog
+
+## 2026-04-26
+
+- refocused the repository narrative around standalone Flow instead of the broader sibling-project stack
+- added Flow-only activation profiles with wake aliases, keyboard shortcuts, and model lookup roots
+- added Flow-only always-on runtime profiles for low-end and balanced desktop devices
+- added Flow OS-control policies with explicit safety and consent levels
+- added Flow control approval and audit logging surfaces
+- added OS-aware automatic base-module bootstrap planning with low-end green-tier installs
+- added install-state tracking, tier promotion/demotion policy, and a unified Flow session runtime
+- added onboarding and persistence surfaces for first-run setup and state reloads
+- added a provisional Flow completion tracker for edit-only progress scoring
+- added host contracts and a unified `FlowEngine` orchestration layer for embedding Flow into real hosts
+- added a lifecycle controller for always-on Flow runtime states and transitions
+- added permission planning, audio planning, overlay control, recovery planning, and a bundled host integration surface
+- added native control executors plus overlay/audio presenter contracts for host-driven runtime sync
+- added automation bridge support for selection rewrite and shortcut dispatch flows
+- added a clipboard-backed native automation bridge for desktop fallback selection automation
+- added a file-backed Flow state store and a default host kit for one-step embedding
+- added concrete default overlay and audio runtime adapters for the default host kit
+- added managed wake runtime syncing and host health reporting for the default host kit
+- added live-construction support for the default host kit
+- added live host consent planning for first-run native execution approval flows
+- added managed microphone service, stronger native selection automation, and a runtime supervisor loop
+- added `FlowEmbeddedHost` as a single-object operational embed path
+- added a low-level capture worker path and explicit accessibility runtime state for the embedded host
+- added a configured wake inference worker layer to the default host path
+- wired the experience wake runtime to the real local wake-word detector path under `src/audio/wakeword.rs`
+- added frame-driven wake ingestion through the embedded host, supervisor, host kit, capture worker, and wake worker surfaces
+- upgraded the experience capture worker from state-only tracking to per-frame RMS, speech, and clipping reporting
+- upgraded desktop accessibility state from OS labels to probed full-vs-fallback runtime availability
+- updated the native selection bridge to preserve the clipboard while rewriting selections
+- tightened Flow health reporting around audio-frame readiness, wake-detector fallback, and desktop accessibility fallback
+- added proofing planners for grammar, clarity, citation, fact-check, and plagiarism-screen workflows
+- added editor-assist planning for variable recognition, file tagging, and command-mode hints
+- added command routing that maps typed or spoken intents into safe host action plans
+- added `FlowProductSurface` as a packaged product profile for low-end desktop, balanced desktop, and mobile-oriented hosts
+- added first-class browser runtime planning types, pack catalogs, and execution planning under `src/browser`
+- added the `flow-browser-core` Rust/WASM crate for browser capability detection and execution planning
+- added the shared `extensions/flow-webext` WebExtension shell for Chromium, Firefox, and Safari targets
+- added browserpack specs and example manifests for browser-ready ONNX model distribution
+- hardened browser-pack storage with verified pack states, partial cache recovery, and extension-storage fallback
+- added browser-extension typecheck and release packaging scripts with zip artifacts and SHA-256 checksum files
+- validated the browser path with `cargo check`, `cargo check -p flow-browser-core`, `npm run typecheck`, `npm run build:all`, and `npm run package:all`
+- rewrote the root README and TODO so the active scope now documents Flow core completion work
+- fixed the stale example binaries to match the live `MoonshineSTT`, `LocalLlm`, and `KokoroTTS` APIs
+- made the example binaries opt-in behind the `example-binaries` feature so default `cargo test` stays low-resource
+- added `.cargo/config.toml` with single-job Cargo builds for low-end Windows validation
+- tuned dev and test profiles to disable incremental builds and avoid multi-gigabyte stale caches on weak machines
+- removed the last Rust test warnings from `src/audio/player.rs`
+- validated the full current repo scope with `cargo check`, `cargo test`, `cargo build`, `cargo check -p flow-browser-core`, `cargo check --features example-binaries --examples`, `npm run typecheck`, `npm run build:all`, and `npm run package:all`
+- added `FlowLocalRuntime` as a direct embeddable Rust API for local chat, STT, TTS, transcript cleanup, and full speech round-trips
+- made `LocalLlm::new()` device-aware so low-end devices default to `qwen3-0.6b`
+- added `FlowLocalRuntimeSummary` and `DxFlowRuntime::create_local_runtime()` for host/editor integrations such as a Zed AI panel
+- validated the new local-runtime library surface with `cargo check`, `cargo test`, and `cargo build`
+- rebuilt the browser extension UI into distinct popup, side panel, sidebar, options, and overlay experiences instead of a single generic screen
+- added persisted browser settings, workbench draft state, quick actions, pack management, output actions, and delivery/handoff screens to the shared WebExtension shell
+- added `ZedFlowAdapter` plus Zed-shaped request/response types for Agent Panel, Inline Assistant, edit prediction, and voice-input integration
+- added `DxFlowRuntime::create_zed_adapter()` and `DxFlowRuntime::zed_local_status()` to expose the new Zed-facing integration path
+- validated the Zed-focused local integration surface with the full Rust test suite
+- added `CodexFlowAdapter` plus Codex-shaped request/response types for local tasks, follow-ups, and pull-request review
+- added Codex approval-mode, reasoning-effort, surface, execution-target, browser-context, and attachment metadata so editor and app forks can map Flow to current Codex workflows directly
+- added `DxFlowRuntime::create_codex_adapter()` and `DxFlowRuntime::codex_local_status()` to expose the new Codex-facing integration path
+- validated the Codex-focused local integration surface with `cargo check`, `cargo test`, and `cargo build`
+- added `ZeroClawFlowAdapter` plus ZeroClaw-shaped request/response types for agent, gateway, daemon, channel, and skill-runner flows
+- added ZeroClaw autonomy-level, channel, session, memory, browser, terminal, and tool-policy metadata so local Flow hosts can map to current ZeroClaw workflows directly
+- added `DxFlowRuntime::create_zeroclaw_adapter()` and `DxFlowRuntime::zeroclaw_local_status()` to expose the new ZeroClaw-facing integration path
+- validated the ZeroClaw-focused local integration surface with `cargo check`, `cargo test`, and `cargo build`
+- added a unified `FlowProductionConfig` surface plus `FlowIntegrationTarget` so DX, browser, Zed, Codex, and ZeroClaw hosts can generate consistent production defaults from the current device profile
+- added `DxFlowRuntime::production_config()` and `DxFlowRuntime::production_config_json()` plus a new `--production-config` CLI command for operator-facing config generation
+- added a root GitHub Actions CI workflow that validates the Rust crate, browser core, examples, and browser extension packaging
+# Changelog
+
+## Unreleased
+
+- added a full production-bundle export surface under `src/config`, including:
+  - `FlowProductionBundleManifest`
+  - multi-target config export
+  - validated command matrix capture
+  - browser release artifact capture
+  - `README.txt` delivery summary generation
+- added a release-summary handoff surface under `src/config`, including:
+  - `FlowReleaseSummary`
+  - browser artifact readiness capture
+  - external release task capture
+  - `FLOW_RELEASE_HANDOFF.md` generation
+- added `DxFlowRuntime::all_production_configs()`
+- added `DxFlowRuntime::production_bundle_manifest()`
+- added `DxFlowRuntime::export_production_bundle(...)`
+- added `DxFlowRuntime::release_summary()`
+- added `DxFlowRuntime::export_release_summary(...)`
+- added CLI support for `--export-production-bundle`
+- added CLI support for `--release-summary` and `--export-release-summary`
+- updated docs and release tracking to include the generated production bundle workflow

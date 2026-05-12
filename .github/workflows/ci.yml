@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  rust:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo check
+        run: cargo check
+
+      - name: Cargo test
+        run: cargo test
+
+      - name: Cargo build
+        run: cargo build
+
+      - name: Browser core check
+        run: cargo check -p flow-browser-core
+
+      - name: Examples check
+        run: cargo check --features example-binaries --examples
+
+  browser-extension:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: extensions/flow-webext
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build all browser targets
+        run: npm run build:all
+
+      - name: Package release artifacts
+        run: npm run package:all

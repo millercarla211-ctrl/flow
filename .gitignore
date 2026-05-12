@@ -21,6 +21,9 @@ models/**/*.onnx
 models/**/*.bin
 models/**/*.safetensors
 
+# Local provider experiments can contain vendored credentials or local env files.
+providers/
+
 # Keep model directories but ignore contents
 !models/llm/.gitkeep
 !models/stt/.gitkeep
@@ -38,6 +41,8 @@ tests/output/
 # Temporary files
 tmp/
 temp/
+__pycache__/
+*.pyc
 
 # Trash folder (old/experimental code)
 trash/
