@@ -51,7 +51,7 @@ export const FRIDAY_FEATURE_SPECS: Record<FridayAssistantView, FridayFeatureSpec
     summary: "Browser, code, and tool task runners with approval-first execution.",
     status: "Local draft",
     primaryAction: "Prepare task",
-    capabilities: ["Tool approval queue", "Run log", "Local Tauri command boundary"],
+    capabilities: ["Tool approval queue", "Project context", "Local Tauri command boundary"],
     dataBoundary: "Agent actions start as local commands and require explicit approval before external work.",
     emptyState: "Queue a task for coding, browser checks, or file-work automation.",
   },

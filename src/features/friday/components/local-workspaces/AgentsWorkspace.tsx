@@ -14,25 +14,70 @@ import {
   type AgentTask,
   type CanvasArtifact,
   type FridayAutomation,
+  type FridayMemory,
+  type FridayProject,
+  type ProjectContextItem,
 } from "./types";
 
 export function AgentsWorkspace() {
   const { items, addItem, updateItem, removeItem } = useLocalList<AgentTask>(STORAGE_KEYS.agents);
   const artifacts = useLocalList<CanvasArtifact>(STORAGE_KEYS.artifacts);
   const automations = useLocalList<FridayAutomation>(STORAGE_KEYS.automations);
+  const projects = useLocalList<FridayProject>(STORAGE_KEYS.projects);
+  const projectContext = useLocalList<ProjectContextItem>(STORAGE_KEYS.projectContext);
+  const memories = useLocalList<FridayMemory>(STORAGE_KEYS.memory);
   const [title, setTitle] = useState("");
   const [brief, setBrief] = useState("");
   const [target, setTarget] = useState<AgentTask["target"]>("browser");
+  const [projectId, setProjectId] = useState("none");
+
+  const projectForTask = (task: AgentTask) =>
+    task.projectId ? projects.items.find((project) => project.id === task.projectId) ?? null : null;
+
+  const contextForTask = (task: AgentTask) => {
+    const project = projectForTask(task);
+    if (!project) return undefined;
+    return {
+      projectName: project.name,
+      projectInstructions: project.instructions,
+      contextItems: [
+        ...projectContext.items
+          .filter((item) => item.projectId === project.id)
+          .slice(0, 5)
+          .map((item) => ({
+            label: item.label,
+            kind: item.kind,
+            content: item.content,
+          })),
+        ...memories.items
+          .filter(
+            (memory) =>
+              memory.pinned &&
+              (!memory.projectId || memory.projectId === project.id) &&
+              (memory.scope === "Global" || memory.scope === "Project"),
+          )
+          .slice(0, 3)
+          .map((memory) => ({
+            label: memory.title,
+            kind: "memory",
+            content: memory.body,
+          })),
+      ],
+    };
+  };
 
   const createTask = () => {
     const cleanTitle = title.trim();
     if (!cleanTitle) return;
+    const selectedProject = projects.items.find((project) => project.id === projectId) ?? null;
     addItem(
       makeLocalRecord("agent", {
         title: cleanTitle,
         brief: brief.trim(),
         target,
         status: "Needs approval",
+        projectId: selectedProject?.id,
+        projectName: selectedProject?.name,
       }),
     );
     setTitle("");
@@ -41,7 +86,7 @@ export function AgentsWorkspace() {
 
   const runTask = async (task: AgentTask) => {
     updateItem(task.id, { status: "Running" });
-    const localRun = await tryRunTauriAgentTask(task);
+    const localRun = await tryRunTauriAgentTask(task, contextForTask(task));
     updateItem(
       task.id,
       localRun
@@ -74,6 +119,8 @@ export function AgentsWorkspace() {
         title: `Agent run: ${task.title}`,
         kind: "Markdown",
         content,
+        projectId: task.projectId,
+        projectName: task.projectName,
       }),
     );
   };
@@ -90,13 +137,15 @@ export function AgentsWorkspace() {
           .join("\n\n"),
         cadence: "Manual",
         enabled: true,
+        projectId: task.projectId,
+        projectName: task.projectName,
       }),
     );
   };
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-[1fr_150px_auto]">
+      <div className="grid gap-3 md:grid-cols-[1fr_150px_200px_auto]">
         <input
           className={INPUT_CLASS}
           value={title}
@@ -111,6 +160,18 @@ export function AgentsWorkspace() {
           <option value="browser">Browser</option>
           <option value="code">Code</option>
           <option value="files">Files</option>
+        </select>
+        <select
+          className={INPUT_CLASS}
+          value={projectId}
+          onChange={(event) => setProjectId(event.target.value)}
+        >
+          <option value="none">No project</option>
+          {projects.items.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
         </select>
         <Button type="button" onClick={createTask}>
           Queue
@@ -174,6 +235,11 @@ export function AgentsWorkspace() {
                 {task.lastTokensPerSecond && (
                   <Badge variant="outline" className="border-[var(--border)]">
                     {task.lastModel} / {task.lastTokensPerSecond.toFixed(1)} tok/s
+                  </Badge>
+                )}
+                {task.projectName && (
+                  <Badge variant="outline" className="border-[var(--border)]">
+                    {task.projectName}
                   </Badge>
                 )}
                 {task.inspectedWorkspace && (

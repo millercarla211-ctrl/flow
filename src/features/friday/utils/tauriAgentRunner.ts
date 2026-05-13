@@ -4,6 +4,16 @@ import { isTauriRuntime } from "@/platform/tauriRuntime";
 
 import type { AgentTask } from "../components/local-workspaces/types";
 
+export type FridayAgentContext = {
+  projectName?: string;
+  projectInstructions?: string;
+  contextItems: Array<{
+    label: string;
+    kind: string;
+    content: string;
+  }>;
+};
+
 export type FridayAgentRunResult = {
   plan: string[];
   log: string[];
@@ -24,7 +34,10 @@ function didInspectUrl(log: string[]) {
   return log.some((line) => line.toLowerCase().includes("explicit url"));
 }
 
-export async function tryRunTauriAgentTask(task: AgentTask): Promise<FridayAgentRunResult | null> {
+export async function tryRunTauriAgentTask(
+  task: AgentTask,
+  context?: FridayAgentContext,
+): Promise<FridayAgentRunResult | null> {
   if (!isTauriRuntime() || !task.title.trim()) return null;
 
   try {
@@ -32,6 +45,7 @@ export async function tryRunTauriAgentTask(task: AgentTask): Promise<FridayAgent
       title: task.title,
       brief: task.brief,
       target: task.target,
+      context,
     });
     return {
       ...result,
