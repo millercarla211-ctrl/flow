@@ -59,11 +59,18 @@ export function AgentsWorkspace() {
 
   const saveTaskArtifact = (task: AgentTask) => {
     if (!task.result) return;
+    const content = [
+      `# Agent run: ${task.title}`,
+      task.brief ? `\n## Brief\n${task.brief}` : "",
+      `\n## Result\n${task.result}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
     artifacts.addItem(
       makeLocalRecord("artifact", {
         title: `Agent run: ${task.title}`,
         kind: "Markdown",
-        content: task.result,
+        content,
       }),
     );
   };
@@ -72,6 +79,12 @@ export function AgentsWorkspace() {
     automations.addItem(
       makeLocalRecord("automation", {
         title: `Follow up agent task: ${task.title}`,
+        instruction: [
+          task.brief ? `Original brief: ${task.brief}` : "",
+          task.result ? `Previous result: ${task.result}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
         cadence: "Manual",
         enabled: true,
       }),
