@@ -12,16 +12,25 @@ export type FridayAgentRunResult = {
   generatedTokens: number;
   totalTimeMs: number;
   tokensPerSecond: number;
+  inspectedWorkspace?: boolean;
 };
+
+function didInspectWorkspace(log: string[]) {
+  return log.some((line) => line.toLowerCase().includes("workspace file snapshot"));
+}
 
 export async function tryRunTauriAgentTask(task: AgentTask): Promise<FridayAgentRunResult | null> {
   if (!isTauriRuntime() || !task.title.trim()) return null;
 
   try {
-    return await invoke<FridayAgentRunResult>("friday_local_agent_run", {
+    const result = await invoke<FridayAgentRunResult>("friday_local_agent_run", {
       title: task.title,
       target: task.target,
     });
+    return {
+      ...result,
+      inspectedWorkspace: didInspectWorkspace(result.log),
+    };
   } catch (error) {
     console.warn("Friday local agent runner fell back to static runbook:", error);
     return null;

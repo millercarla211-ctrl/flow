@@ -28,7 +28,7 @@ export function createLocalAgentRun(task: AgentTask) {
   const log = [
     `Approved local ${task.target} task.`,
     `Prepared ${plan.length} guarded execution steps.`,
-    "Tool execution is waiting for an explicit workspace-backed runner.",
+    "Desktop workspace inspection is available in the Tauri app; preview mode keeps this as a static runbook.",
   ];
   const result = [
     `Local runbook ready for: ${cleanTitle}`,

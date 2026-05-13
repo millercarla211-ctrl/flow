@@ -39,6 +39,7 @@ export function AgentsWorkspace() {
             plan: localRun.plan,
             log: localRun.log,
             result: localRun.result,
+            inspectedWorkspace: localRun.inspectedWorkspace,
             lastModel: localRun.model,
             lastTokensPerSecond: localRun.tokensPerSecond,
             lastTotalTimeMs: localRun.totalTimeMs,
@@ -135,6 +136,11 @@ export function AgentsWorkspace() {
                 {task.lastTokensPerSecond && (
                   <Badge variant="outline" className="border-[var(--border)]">
                     {task.lastModel} / {task.lastTokensPerSecond.toFixed(1)} tok/s
+                  </Badge>
+                )}
+                {task.inspectedWorkspace && (
+                  <Badge variant="outline" className="border-[var(--border)]">
+                    Files inspected
                   </Badge>
                 )}
                 <Button
