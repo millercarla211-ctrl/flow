@@ -21,10 +21,12 @@ import {
   isGatewayModelAvailable,
   resolveFridayModel,
 } from "@/features/ai";
+import { isTauriRuntime } from "@/platform/tauriRuntime";
 
 import { AiMarkdown } from "./AiMarkdown";
 import { AskThreadRail } from "./AskThreadRail";
 import { ProjectContextPanel } from "./ProjectContextPanel";
+import { useSettings } from "../../settings/queries";
 import { makeLocalRecord, useLocalList, useLocalSettings } from "../hooks/useLocalPersistence";
 import { rankAskContext } from "../utils/localRetrieval";
 import { textFromMessage, titleFromText } from "../utils/text";
@@ -57,6 +59,7 @@ export function FridayAskView() {
   const [input, setInput] = useState("");
   const [modelKey, setModelKey] = useState("qwen35-4b-revised-q4km");
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [tauriRuntime, setTauriRuntime] = useState(false);
   const artifacts = useLocalList<CanvasArtifact>(STORAGE_KEYS.artifacts);
   const memories = useLocalList<FridayMemory>(STORAGE_KEYS.memory);
   const researchBriefs = useLocalList<ResearchBrief>(STORAGE_KEYS.research);
@@ -139,6 +142,21 @@ export function FridayAskView() {
     const latestUserMessage = [...messages].reverse().find((message) => message.role === "user");
     return latestUserMessage ? textFromMessage(latestUserMessage) : "";
   }, [messages]);
+  const settingsQuery = useSettings(undefined, tauriRuntime);
+  const localExecutionLabel = useMemo(() => {
+    if (!tauriRuntime) return "Preview fallback";
+    const settings = settingsQuery.data;
+    if (!settings) return "Checking desktop LLM";
+    if (!settings.llm_enabled || settings.llm_provider === "none") return "Desktop LLM off";
+    if (settings.llm_provider === "local") {
+      return settings.llm_model ? `Desktop local: ${settings.llm_model}` : "Desktop local ready";
+    }
+    return `Desktop provider: ${settings.llm_provider}`;
+  }, [settingsQuery.data, tauriRuntime]);
+
+  useEffect(() => {
+    setTauriRuntime(isTauriRuntime());
+  }, []);
 
   useEffect(() => {
     if (activeProjectId === "none") return;
@@ -350,6 +368,12 @@ export function FridayAskView() {
           className="border-[var(--border)] bg-[var(--secondary)] text-[var(--foreground)]"
         >
           Local mode
+        </Badge>
+        <Badge
+          variant="outline"
+          className="border-[var(--border)] bg-[var(--secondary)] text-[var(--foreground)]"
+        >
+          {localExecutionLabel}
         </Badge>
       </div>
 
