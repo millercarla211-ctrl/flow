@@ -1,4 +1,4 @@
-import { FileText, Plus, Quote } from "lucide-react";
+import { Archive, CalendarClock, FileText, Pin, Plus, Quote } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,8 @@ import { createLocalResearchDraft } from "../../utils/localResearch";
 import { EmptyState, INPUT_CLASS, RecordShell } from "./primitives";
 import {
   STORAGE_KEYS,
+  type CanvasArtifact,
+  type FridayAutomation,
   type FridayMemory,
   type FridayProject,
   type ProjectContextItem,
@@ -17,10 +19,14 @@ import {
 const RESEARCH_SOURCES = ["Local files", "Web", "Academic", "Premium data"];
 
 export function ResearchWorkspace() {
-  const { items, addItem, removeItem } = useLocalList<ResearchBrief>(STORAGE_KEYS.research);
+  const { items, addItem, updateItem, removeItem } = useLocalList<ResearchBrief>(
+    STORAGE_KEYS.research,
+  );
   const projects = useLocalList<FridayProject>(STORAGE_KEYS.projects);
   const projectContext = useLocalList<ProjectContextItem>(STORAGE_KEYS.projectContext);
   const memories = useLocalList<FridayMemory>(STORAGE_KEYS.memory);
+  const artifacts = useLocalList<CanvasArtifact>(STORAGE_KEYS.artifacts);
+  const automations = useLocalList<FridayAutomation>(STORAGE_KEYS.automations);
   const [topic, setTopic] = useState("");
   const [sources, setSources] = useState(["Local files", "Web"]);
   const [projectId, setProjectId] = useState("none");
@@ -71,6 +77,51 @@ export function ResearchWorkspace() {
       }),
     );
     setTopic("");
+  };
+
+  const saveBriefArtifact = (brief: ResearchBrief) => {
+    if (!brief.report) return;
+    artifacts.addItem(
+      makeLocalRecord("artifact", {
+        title: `Research: ${brief.topic}`,
+        kind: "Markdown",
+        content: brief.report,
+        projectId: brief.projectId,
+        projectName: brief.projectName,
+      }),
+    );
+  };
+
+  const pinBriefMemory = (brief: ResearchBrief) => {
+    const citationSummary =
+      brief.citations
+        ?.map((citation, index) => `[${index + 1}] ${citation.label}: ${citation.excerpt}`)
+        .join("\n") ?? "";
+    const body = [brief.report, citationSummary].filter(Boolean).join("\n\nSources:\n");
+    if (!body) return;
+
+    memories.addItem(
+      makeLocalRecord("memory", {
+        title: `Research memory: ${brief.topic}`,
+        body,
+        scope: brief.projectId ? "Project" : "Global",
+        pinned: true,
+        projectId: brief.projectId,
+        projectName: brief.projectName,
+      }),
+    );
+  };
+
+  const scheduleBriefFollowUp = (brief: ResearchBrief) => {
+    automations.addItem(
+      makeLocalRecord("automation", {
+        title: `Follow up research: ${brief.topic}`,
+        cadence: "Manual",
+        enabled: true,
+        projectId: brief.projectId,
+        projectName: brief.projectName,
+      }),
+    );
   };
 
   return (
@@ -180,6 +231,50 @@ export function ResearchWorkspace() {
                     {brief.projectName}
                   </Badge>
                 )}
+                <Badge variant="outline" className="border-[var(--border)]">
+                  {brief.status ?? "Planned"}
+                </Badge>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    updateItem(brief.id, {
+                      status: brief.status === "Drafted" ? "Planned" : "Drafted",
+                    })
+                  }
+                >
+                  Toggle status
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => saveBriefArtifact(brief)}
+                  disabled={!brief.report}
+                >
+                  <Archive size={13} />
+                  Save artifact
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => pinBriefMemory(brief)}
+                  disabled={!brief.report && !brief.citations?.length}
+                >
+                  <Pin size={13} />
+                  Pin memory
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => scheduleBriefFollowUp(brief)}
+                >
+                  <CalendarClock size={13} />
+                  Follow up
+                </Button>
                 <Button
                   type="button"
                   size="sm"
