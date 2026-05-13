@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 
-import type { CanvasArtifact, ResearchBrief } from "../components/local-workspaces/types";
+import type { AgentTask, CanvasArtifact, ResearchBrief } from "../components/local-workspaces/types";
 
 type FridayExportResult =
   | { status: "saved" }
@@ -71,6 +71,35 @@ function researchBriefExportContent(brief: ResearchBrief) {
     .join("\n");
 }
 
+function agentTaskExportContent(task: AgentTask) {
+  const plan = task.plan?.map((step, index) => `${index + 1}. ${step}`).join("\n") ?? "";
+  const log = task.log?.map((line) => `- ${line}`).join("\n") ?? "";
+
+  return [
+    `# Agent run: ${task.title}`,
+    "",
+    task.projectName ? `Project: ${task.projectName}` : "",
+    `Target: ${task.target}`,
+    `Status: ${task.status}`,
+    task.lastModel ? `Model: ${task.lastModel}` : "",
+    task.lastTokensPerSecond ? `Speed: ${task.lastTokensPerSecond.toFixed(1)} tok/s` : "",
+    "",
+    task.brief ? "## Brief" : "",
+    task.brief,
+    "",
+    plan ? "## Plan" : "",
+    plan,
+    "",
+    log ? "## Run Log" : "",
+    log,
+    "",
+    "## Result",
+    task.result?.trim() || "No result captured yet.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 async function exportFridayFile(request: FridayExportRequest): Promise<FridayExportResult> {
   const outputPath = await save({
     title: request.title,
@@ -113,6 +142,18 @@ export function exportFridayResearchBrief(brief: ResearchBrief) {
     title: "Export Friday research brief",
     defaultPath: safeLocalFilename(`research-${brief.topic}`, "md"),
     content: researchBriefExportContent(brief),
+    filters: [
+      { name: "Markdown", extensions: ["md"] },
+      { name: "Text", extensions: ["txt"] },
+    ],
+  });
+}
+
+export function exportFridayAgentTask(task: AgentTask) {
+  return exportFridayFile({
+    title: "Export Friday agent run",
+    defaultPath: safeLocalFilename(`agent-${task.title}`, "md"),
+    content: agentTaskExportContent(task),
     filters: [
       { name: "Markdown", extensions: ["md"] },
       { name: "Text", extensions: ["txt"] },

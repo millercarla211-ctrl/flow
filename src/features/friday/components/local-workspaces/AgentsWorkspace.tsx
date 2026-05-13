@@ -1,11 +1,12 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Archive, Bot, CalendarClock, ExternalLink, Play } from "lucide-react";
+import { Archive, Bot, CalendarClock, ExternalLink, FileDown, Play } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
 import { firstExplicitUrl } from "../../utils/externalTargets";
+import { exportFridayAgentTask } from "../../utils/localFileExport";
 import { createLocalAgentRun } from "../../utils/localAgentRunner";
 import { tryRunTauriAgentTask } from "../../utils/tauriAgentRunner";
 import { EmptyState, INPUT_CLASS, RecordShell, TEXTAREA_CLASS } from "./primitives";
@@ -30,6 +31,9 @@ export function AgentsWorkspace() {
   const [brief, setBrief] = useState("");
   const [target, setTarget] = useState<AgentTask["target"]>("browser");
   const [projectId, setProjectId] = useState("none");
+  const [exportStateById, setExportStateById] = useState<
+    Record<string, { status: "ok" | "error"; message: string }>
+  >({});
 
   const projectForTask = (task: AgentTask) =>
     task.projectId ? projects.items.find((project) => project.id === task.projectId) ?? null : null;
@@ -143,6 +147,18 @@ export function AgentsWorkspace() {
     );
   };
 
+  const exportTask = async (task: AgentTask) => {
+    const result = await exportFridayAgentTask(task);
+    if (result.status === "cancelled") return;
+    setExportStateById((current) => ({
+      ...current,
+      [task.id]:
+        result.status === "saved"
+          ? { status: "ok", message: "Run exported" }
+          : { status: "error", message: result.message },
+    }));
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-[1fr_150px_200px_auto]">
@@ -192,6 +208,7 @@ export function AgentsWorkspace() {
         <div className="space-y-2">
           {items.map((task) => {
             const taskUrl = firstExplicitUrl(task.title, task.brief);
+            const exportState = exportStateById[task.id];
             return (
               <RecordShell
                 key={task.id}
@@ -252,6 +269,18 @@ export function AgentsWorkspace() {
                     URL inspected
                   </Badge>
                 )}
+                {exportState && (
+                  <Badge
+                    variant="outline"
+                    className={
+                      exportState.status === "ok"
+                        ? "border-[var(--border)] text-[var(--foreground)]"
+                        : "border-red-500/40 text-red-300"
+                    }
+                  >
+                    {exportState.message}
+                  </Badge>
+                )}
                 <Button
                   type="button"
                   size="sm"
@@ -291,6 +320,16 @@ export function AgentsWorkspace() {
                 >
                   <Archive size={13} />
                   Save artifact
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void exportTask(task)}
+                  disabled={!task.result && !task.plan?.length && !task.brief}
+                >
+                  <FileDown size={13} />
+                  Export
                 </Button>
                 <Button
                   type="button"
