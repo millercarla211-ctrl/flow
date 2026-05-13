@@ -57,6 +57,10 @@ export type FridayAutomation = LocalRecord & {
   title: string;
   cadence: string;
   enabled: boolean;
+  nextRunAt?: string;
+  lastRunAt?: string;
+  lastResult?: string;
+  runCount?: number;
   projectId?: string;
   projectName?: string;
 };
