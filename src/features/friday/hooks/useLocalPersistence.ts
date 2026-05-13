@@ -63,6 +63,11 @@ export function useLocalList<T extends LocalRecord>(key: string) {
     return () => window.removeEventListener(FRIDAY_STORAGE_EVENT, onChange);
   }, [key, load]);
 
+  const readCurrentItems = useCallback(
+    () => safeJsonParse<T[]>(window.localStorage.getItem(key), []),
+    [key],
+  );
+
   const persist = useCallback(
     (nextItems: T[]) => {
       setItems(nextItems);
@@ -72,26 +77,33 @@ export function useLocalList<T extends LocalRecord>(key: string) {
     [key],
   );
 
+  const updateItems = useCallback(
+    (updater: (currentItems: T[]) => T[]) => {
+      persist(updater(readCurrentItems()));
+    },
+    [persist, readCurrentItems],
+  );
+
   const addItem = useCallback(
     (item: T) => {
-      persist([item, ...items]);
+      updateItems((currentItems) => [item, ...currentItems]);
     },
-    [items, persist],
+    [updateItems],
   );
 
   const addItems = useCallback(
     (nextItems: T[]) => {
       if (nextItems.length === 0) return;
-      persist([...nextItems, ...items]);
+      updateItems((currentItems) => [...nextItems, ...currentItems]);
     },
-    [items, persist],
+    [updateItems],
   );
 
   const updateItem = useCallback(
     (id: string, update: Partial<T>) => {
       const now = new Date().toISOString();
-      persist(
-        items.map((item) =>
+      updateItems((currentItems) =>
+        currentItems.map((item) =>
           item.id === id
             ? {
                 ...item,
@@ -102,14 +114,14 @@ export function useLocalList<T extends LocalRecord>(key: string) {
         ),
       );
     },
-    [items, persist],
+    [updateItems],
   );
 
   const updateWhere = useCallback(
     (predicate: (item: T) => boolean, update: Partial<T>) => {
       const now = new Date().toISOString();
-      persist(
-        items.map((item) =>
+      updateItems((currentItems) =>
+        currentItems.map((item) =>
           predicate(item)
             ? {
                 ...item,
@@ -120,21 +132,21 @@ export function useLocalList<T extends LocalRecord>(key: string) {
         ),
       );
     },
-    [items, persist],
+    [updateItems],
   );
 
   const removeItem = useCallback(
     (id: string) => {
-      persist(items.filter((item) => item.id !== id));
+      updateItems((currentItems) => currentItems.filter((item) => item.id !== id));
     },
-    [items, persist],
+    [updateItems],
   );
 
   const removeWhere = useCallback(
     (predicate: (item: T) => boolean) => {
-      persist(items.filter((item) => !predicate(item)));
+      updateItems((currentItems) => currentItems.filter((item) => !predicate(item)));
     },
-    [items, persist],
+    [updateItems],
   );
 
   return { items, isLoaded, addItem, addItems, updateItem, updateWhere, removeItem, removeWhere };
