@@ -1,4 +1,5 @@
 import { Archive, CalendarClock, FileText, Pin, Plus, Quote } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { makeLocalRecord, useLocalList, useLocalSettings } from "../../hooks/useLocalPersistence";
 import { createLocalResearchDraft } from "../../utils/localResearch";
 import { createResearchContext, tryDraftTauriResearch } from "../../utils/tauriResearchRunner";
+import { firstExplicitUrl } from "../../utils/externalTargets";
 import { EmptyState, INPUT_CLASS, RecordShell } from "./primitives";
 import {
   DEFAULT_CONNECTORS,
@@ -236,13 +238,15 @@ export function ResearchWorkspace() {
         />
       ) : (
         <div className="space-y-2">
-          {items.map((brief) => (
-            <RecordShell
-              key={brief.id}
-              icon={<FileText size={15} />}
-              title={brief.topic}
-              subtitle={`Sources: ${brief.sources.join(", ") || "Local only"}`}
-            >
+          {items.map((brief) => {
+            const briefUrl = firstExplicitUrl(brief.topic);
+            return (
+              <RecordShell
+                key={brief.id}
+                icon={<FileText size={15} />}
+                title={brief.topic}
+                subtitle={`Sources: ${brief.sources.join(", ") || "Local only"}`}
+              >
               <ol className="mt-3 space-y-1 text-xs leading-5 text-[var(--muted-foreground)]">
                 {brief.plan.map((step) => (
                   <li key={step}>{step}</li>
@@ -295,6 +299,16 @@ export function ResearchWorkspace() {
                     URL inspected
                   </Badge>
                 )}
+                {briefUrl && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openUrl(briefUrl)}
+                  >
+                    Open URL
+                  </Button>
+                )}
                 <Button
                   type="button"
                   size="sm"
@@ -345,8 +359,9 @@ export function ResearchWorkspace() {
                   Remove
                 </Button>
               </div>
-            </RecordShell>
-          ))}
+              </RecordShell>
+            );
+          })}
         </div>
       )}
     </div>

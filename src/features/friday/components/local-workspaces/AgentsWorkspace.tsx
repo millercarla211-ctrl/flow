@@ -1,9 +1,11 @@
-import { Archive, Bot, CalendarClock, Play } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { Archive, Bot, CalendarClock, ExternalLink, Play } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
+import { firstExplicitUrl } from "../../utils/externalTargets";
 import { createLocalAgentRun } from "../../utils/localAgentRunner";
 import { tryRunTauriAgentTask } from "../../utils/tauriAgentRunner";
 import { EmptyState, INPUT_CLASS, RecordShell, TEXTAREA_CLASS } from "./primitives";
@@ -127,13 +129,15 @@ export function AgentsWorkspace() {
         />
       ) : (
         <div className="space-y-2">
-          {items.map((task) => (
-            <RecordShell
-              key={task.id}
-              icon={<Bot size={15} />}
-              title={task.title}
-              subtitle={`${task.target} task`}
-            >
+          {items.map((task) => {
+            const taskUrl = firstExplicitUrl(task.title, task.brief);
+            return (
+              <RecordShell
+                key={task.id}
+                icon={<Bot size={15} />}
+                title={task.title}
+                subtitle={`${task.target} task`}
+              >
               {task.brief && (
                 <p className="mt-2 rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs leading-5 text-[var(--muted-foreground)]">
                   {task.brief}
@@ -201,6 +205,17 @@ export function AgentsWorkspace() {
                   <Play size={13} />
                   Run local plan
                 </Button>
+                {taskUrl && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openUrl(taskUrl)}
+                  >
+                    <ExternalLink size={13} />
+                    Open URL
+                  </Button>
+                )}
                 <Button
                   type="button"
                   size="sm"
@@ -229,8 +244,9 @@ export function AgentsWorkspace() {
                   Remove
                 </Button>
               </div>
-            </RecordShell>
-          ))}
+              </RecordShell>
+            );
+          })}
         </div>
       )}
     </div>
