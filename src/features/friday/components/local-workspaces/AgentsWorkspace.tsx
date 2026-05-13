@@ -1,19 +1,23 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Archive, Bot, CalendarClock, ExternalLink, FileDown, Play } from "lucide-react";
-import { useState } from "react";
+import { Archive, Bot, CalendarClock, ExternalLink, FileDown, Globe2, Play } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
+import { isTauriRuntime } from "@/platform/tauriRuntime";
+import { makeLocalRecord, useLocalList, useLocalSettings } from "../../hooks/useLocalPersistence";
 import { firstExplicitUrl } from "../../utils/externalTargets";
 import { exportFridayAgentTask } from "../../utils/localFileExport";
 import { createLocalAgentRun } from "../../utils/localAgentRunner";
 import { tryRunTauriAgentTask } from "../../utils/tauriAgentRunner";
+import { inspectWebSource } from "../../utils/webInspection";
 import { EmptyState, INPUT_CLASS, RecordShell, TEXTAREA_CLASS } from "./primitives";
 import {
+  DEFAULT_CONNECTORS,
   STORAGE_KEYS,
   type AgentTask,
   type CanvasArtifact,
+  type ConnectorSettings,
   type FridayAutomation,
   type FridayMemory,
   type FridayProject,
@@ -27,13 +31,23 @@ export function AgentsWorkspace() {
   const projects = useLocalList<FridayProject>(STORAGE_KEYS.projects);
   const projectContext = useLocalList<ProjectContextItem>(STORAGE_KEYS.projectContext);
   const memories = useLocalList<FridayMemory>(STORAGE_KEYS.memory);
+  const connectors = useLocalSettings<ConnectorSettings>(STORAGE_KEYS.connectors, DEFAULT_CONNECTORS);
   const [title, setTitle] = useState("");
   const [brief, setBrief] = useState("");
   const [target, setTarget] = useState<AgentTask["target"]>("browser");
   const [projectId, setProjectId] = useState("none");
+  const [tauriRuntime, setTauriRuntime] = useState(false);
   const [exportStateById, setExportStateById] = useState<
     Record<string, { status: "ok" | "error"; message: string }>
   >({});
+  const [inspectStateById, setInspectStateById] = useState<
+    Record<string, { status: "running" | "ok" | "error"; message: string }>
+  >({});
+  const browserInspectionEnabled = connectors.settings.webSearch && !tauriRuntime;
+
+  useEffect(() => {
+    setTauriRuntime(isTauriRuntime());
+  }, []);
 
   const projectForTask = (task: AgentTask) =>
     task.projectId ? projects.items.find((project) => project.id === task.projectId) ?? null : null;
@@ -107,6 +121,54 @@ export function AgentsWorkspace() {
           }
         : createLocalAgentRun(task),
     );
+  };
+
+  const inspectTaskUrl = async (task: AgentTask, url: string) => {
+    if (!browserInspectionEnabled) return;
+    setInspectStateById((current) => ({
+      ...current,
+      [task.id]: { status: "running", message: "Inspecting URL" },
+    }));
+
+    const result = await inspectWebSource(url);
+    if (!result.ok) {
+      setInspectStateById((current) => ({
+        ...current,
+        [task.id]: { status: "error", message: result.message },
+      }));
+      updateItem(task.id, {
+        log: [
+          ...(task.log ?? []),
+          `URL inspection failed for ${result.url ?? url}: ${result.message}`,
+        ],
+        status: "Blocked",
+      });
+      return;
+    }
+
+    const nextLog = [
+      ...(task.log ?? []),
+      `Inspected explicit URL: ${result.url}`,
+      `Captured source title: ${result.title}`,
+      `Fetched at ${new Date(result.fetchedAt).toLocaleString()}.`,
+    ];
+    const resultText = [
+      `Browser inspection: ${result.title}`,
+      `URL: ${result.url}`,
+      "",
+      result.excerpt,
+    ].join("\n");
+
+    updateItem(task.id, {
+      inspectedUrl: true,
+      log: nextLog,
+      result: resultText,
+      status: "Completed",
+    });
+    setInspectStateById((current) => ({
+      ...current,
+      [task.id]: { status: "ok", message: "URL inspected" },
+    }));
   };
 
   const saveTaskArtifact = (task: AgentTask) => {
@@ -209,6 +271,7 @@ export function AgentsWorkspace() {
           {items.map((task) => {
             const taskUrl = firstExplicitUrl(task.title, task.brief);
             const exportState = exportStateById[task.id];
+            const inspectState = inspectStateById[task.id];
             return (
               <RecordShell
                 key={task.id}
@@ -281,6 +344,20 @@ export function AgentsWorkspace() {
                     {exportState.message}
                   </Badge>
                 )}
+                {inspectState && (
+                  <Badge
+                    variant="outline"
+                    className={
+                      inspectState.status === "ok"
+                        ? "border-emerald-500/40 text-emerald-300"
+                        : inspectState.status === "error"
+                          ? "border-red-500/40 text-red-300"
+                          : "border-[var(--border)]"
+                    }
+                  >
+                    {inspectState.message}
+                  </Badge>
+                )}
                 <Button
                   type="button"
                   size="sm"
@@ -309,6 +386,25 @@ export function AgentsWorkspace() {
                   >
                     <ExternalLink size={13} />
                     Open URL
+                  </Button>
+                )}
+                {taskUrl && task.target === "browser" && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    title={
+                      tauriRuntime
+                        ? "URL inspection is handled by the desktop agent runner."
+                        : browserInspectionEnabled
+                          ? "Run a read-only URL inspection for this approved browser task."
+                          : "Enable the Web connector before inspecting browser task URLs."
+                    }
+                    onClick={() => void inspectTaskUrl(task, taskUrl)}
+                    disabled={!browserInspectionEnabled || inspectState?.status === "running"}
+                  >
+                    <Globe2 size={13} />
+                    {inspectState?.status === "running" ? "Inspecting" : "Inspect URL"}
                   </Button>
                 )}
                 <Button
