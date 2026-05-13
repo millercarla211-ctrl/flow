@@ -43,6 +43,25 @@ pub(crate) struct FridayAgentRunResponse {
     tokens_per_second: f64,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FridayResearchCitationPayload {
+    label: String,
+    kind: String,
+    excerpt: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FridayResearchDraftResponse {
+    plan: Vec<String>,
+    report: String,
+    model: String,
+    generated_tokens: usize,
+    total_time_ms: u128,
+    tokens_per_second: f64,
+}
+
 fn format_context(context: Option<FridayChatContextPayload>) -> String {
     let Some(context) = context else {
         return String::new();
@@ -81,6 +100,10 @@ fn system_prompt() -> &'static str {
 
 fn agent_system_prompt() -> &'static str {
     "You are Friday's local agent planner. Create a safe, specific runbook for the requested task. Do not claim you executed browser, file, shell, or code tools. Return concise numbered steps, risks, and the expected local verification. No markdown table."
+}
+
+fn research_system_prompt() -> &'static str {
+    "You are Friday's local-first research writer. Write an answer-first Markdown brief from the provided local evidence only. Cite local sources with [1], [2], etc. Do not invent web facts. If evidence is missing, say what is unknown and what source would be needed."
 }
 
 fn user_content(prompt: &str, context: Option<FridayChatContextPayload>) -> String {
@@ -190,6 +213,57 @@ fn agent_user_content(
     .join("\n\n")
 }
 
+fn research_user_content(
+    topic: &str,
+    citations: Vec<FridayResearchCitationPayload>,
+    context: Option<FridayChatContextPayload>,
+) -> String {
+    let context = format_context(context);
+    let source_lines = citations
+        .into_iter()
+        .take(6)
+        .enumerate()
+        .filter_map(|(index, citation)| {
+            let label = citation.label.trim();
+            let kind = citation.kind.trim();
+            let excerpt = citation.excerpt.trim();
+            if label.is_empty() && excerpt.is_empty() {
+                None
+            } else {
+                Some(format!(
+                    "[{}] {} ({})\n{}",
+                    index + 1,
+                    if label.is_empty() { "Local source" } else { label },
+                    if kind.is_empty() { "local" } else { kind },
+                    excerpt
+                ))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    [
+        (!context.is_empty()).then(|| format!("Active local context:\n{context}")),
+        Some(format!("Research topic:\n{}", topic.trim())),
+        Some(format!(
+            "Local evidence:\n{}",
+            if source_lines.is_empty() {
+                "No matching local evidence was found."
+            } else {
+                &source_lines
+            }
+        )),
+        Some(
+            "Write with these sections: Working Answer, Evidence, Gaps, Next Actions."
+                .to_string(),
+        ),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join("\n\n")
+}
+
 #[tauri::command]
 pub(crate) async fn friday_local_agent_run(
     title: String,
@@ -238,6 +312,51 @@ pub(crate) async fn friday_local_agent_run(
         plan,
         log,
         result: generation.text,
+        model,
+        generated_tokens: generation.metrics.generated_tokens,
+        total_time_ms: generation.metrics.total_time_ms,
+        tokens_per_second: generation.metrics.tokens_per_second,
+    })
+}
+
+#[tauri::command]
+pub(crate) async fn friday_local_research(
+    topic: String,
+    citations: Vec<FridayResearchCitationPayload>,
+    context: Option<FridayChatContextPayload>,
+    state: tauri::State<'_, AppState>,
+) -> Result<FridayResearchDraftResponse, String> {
+    let topic = topic.trim().to_string();
+    if topic.is_empty() {
+        return Err("Research topic is required".to_string());
+    }
+
+    let settings = state.current_settings();
+    let configured_settings_model = settings.llm_model.trim();
+    let configured_model =
+        (!configured_settings_model.is_empty()).then_some(configured_settings_model);
+    let model = local_text_model::preferred_model_for_route(
+        local_text_model::LocalTextRoute::SmartDaily,
+        configured_model,
+    )
+    .ok_or_else(|| "No local Friday research model is installed.".to_string())?;
+    let generation = local_text_model::generate_with_metrics(
+        &model,
+        research_system_prompt(),
+        &research_user_content(&topic, citations, context),
+        900,
+        0.2,
+    )
+    .await
+    .map_err(|err| format!("Friday local research failed: {err}"))?;
+
+    Ok(FridayResearchDraftResponse {
+        plan: vec![
+            format!("Answer {topic} using the local citations first."),
+            "List evidence gaps before enabling web, academic, or premium sources.".to_string(),
+            "Save the final brief as an artifact, memory, or follow-up when useful.".to_string(),
+        ],
+        report: generation.text,
         model,
         generated_tokens: generation.metrics.generated_tokens,
         total_time_ms: generation.metrics.total_time_ms,

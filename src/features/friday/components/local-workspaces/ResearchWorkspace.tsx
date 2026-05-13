@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
 import { createLocalResearchDraft } from "../../utils/localResearch";
+import { createResearchContext, tryDraftTauriResearch } from "../../utils/tauriResearchRunner";
 import { EmptyState, INPUT_CLASS, RecordShell } from "./primitives";
 import {
   STORAGE_KEYS,
@@ -30,6 +31,7 @@ export function ResearchWorkspace() {
   const [topic, setTopic] = useState("");
   const [sources, setSources] = useState(["Local files", "Web"]);
   const [projectId, setProjectId] = useState("none");
+  const [isDrafting, setIsDrafting] = useState(false);
 
   const selectedProject = useMemo(
     () => projects.items.find((project) => project.id === projectId) ?? null,
@@ -54,29 +56,43 @@ export function ResearchWorkspace() {
     [memories.items, selectedProject],
   );
 
-  const createBrief = () => {
+  const createBrief = async () => {
     const cleanTopic = topic.trim();
-    if (!cleanTopic) return;
+    if (!cleanTopic || isDrafting) return;
+    setIsDrafting(true);
     const localDraft = createLocalResearchDraft({
       topic: cleanTopic,
       project: selectedProject,
       contextItems: sources.includes("Local files") ? selectedProjectContext : [],
       memories: availableMemories,
     });
+    const localModelDraft = await tryDraftTauriResearch({
+      topic: cleanTopic,
+      citations: localDraft.citations,
+      context: createResearchContext({
+        project: selectedProject,
+        contextItems: sources.includes("Local files") ? selectedProjectContext : [],
+        memories: availableMemories,
+      }),
+    });
 
     addItem(
       makeLocalRecord("research", {
         topic: cleanTopic,
         sources,
-        plan: localDraft.plan,
+        plan: localModelDraft?.plan ?? localDraft.plan,
         citations: localDraft.citations,
-        report: localDraft.report,
+        report: localModelDraft?.report ?? localDraft.report,
         status: "Drafted",
+        lastModel: localModelDraft?.model,
+        lastTokensPerSecond: localModelDraft?.tokensPerSecond,
+        lastTotalTimeMs: localModelDraft?.totalTimeMs,
         projectId: selectedProject?.id,
         projectName: selectedProject?.name,
       }),
     );
     setTopic("");
+    setIsDrafting(false);
   };
 
   const saveBriefArtifact = (brief: ResearchBrief) => {
@@ -133,9 +149,9 @@ export function ResearchWorkspace() {
           onChange={(event) => setTopic(event.target.value)}
           placeholder="Research topic or question"
         />
-        <Button type="button" onClick={createBrief}>
+        <Button type="button" onClick={createBrief} disabled={isDrafting || !topic.trim()}>
           <Plus size={16} />
-          Draft brief
+          {isDrafting ? "Drafting" : "Draft brief"}
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -234,6 +250,11 @@ export function ResearchWorkspace() {
                 <Badge variant="outline" className="border-[var(--border)]">
                   {brief.status ?? "Planned"}
                 </Badge>
+                {brief.lastTokensPerSecond && (
+                  <Badge variant="outline" className="border-[var(--border)]">
+                    {brief.lastModel} / {brief.lastTokensPerSecond.toFixed(1)} tok/s
+                  </Badge>
+                )}
                 <Button
                   type="button"
                   size="sm"
