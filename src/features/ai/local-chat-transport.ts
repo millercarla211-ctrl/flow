@@ -7,15 +7,17 @@ import {
   streamLocalText,
 } from "./local-stream";
 import { resolveFridayModel } from "./model-routing";
-import { tryRunTauriLocalChat } from "./tauri-local-chat";
+import { tryRunTauriLocalChat, type FridayLocalChatResult } from "./tauri-local-chat";
 
 type ModelKeyResolver = () => string;
 type ContextResolver = () => FridayChatContext | undefined;
+type LocalRunListener = (result: FridayLocalChatResult | null) => void;
 
 export class LocalFridayChatTransport implements ChatTransport<UIMessage> {
   constructor(
     private readonly getModelKey: ModelKeyResolver,
     private readonly getContext?: ContextResolver,
+    private readonly onLocalRun?: LocalRunListener,
   ) {}
 
   async sendMessages({
@@ -28,6 +30,7 @@ export class LocalFridayChatTransport implements ChatTransport<UIMessage> {
     const prompt = getTextFromUiMessage(messages[messages.length - 1]);
     const context = this.getContext?.();
     const tauriResult = await tryRunTauriLocalChat({ prompt, model, context });
+    this.onLocalRun?.(tauriResult);
     const response = tauriResult?.text ?? createLocalAssistantDraft(prompt, model, context);
     const textId = `friday-local-${Date.now().toString(36)}`;
 

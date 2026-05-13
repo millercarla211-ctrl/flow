@@ -20,6 +20,7 @@ import {
   FRIDAY_MODEL_OPTIONS,
   isGatewayModelAvailable,
   resolveFridayModel,
+  type FridayLocalChatResult,
 } from "@/features/ai";
 import { isTauriRuntime } from "@/platform/tauriRuntime";
 
@@ -60,6 +61,7 @@ export function FridayAskView() {
   const [modelKey, setModelKey] = useState("qwen35-4b-revised-q4km");
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [tauriRuntime, setTauriRuntime] = useState(false);
+  const [lastLocalRun, setLastLocalRun] = useState<FridayLocalChatResult | null>(null);
   const artifacts = useLocalList<CanvasArtifact>(STORAGE_KEYS.artifacts);
   const memories = useLocalList<FridayMemory>(STORAGE_KEYS.memory);
   const researchBriefs = useLocalList<ResearchBrief>(STORAGE_KEYS.research);
@@ -127,6 +129,7 @@ export function FridayAskView() {
     return new LocalFridayChatTransport(
       () => modelKey,
       () => chatContext,
+      setLastLocalRun,
     );
   }, [chatContext, connectors.settings.aiGateway, modelKey, selectedModel]);
   const { messages, sendMessage, status, stop, setMessages, error } = useChat({ transport });
@@ -144,6 +147,9 @@ export function FridayAskView() {
   }, [messages]);
   const settingsQuery = useSettings(undefined, tauriRuntime);
   const localExecutionLabel = useMemo(() => {
+    if (lastLocalRun) {
+      return `${lastLocalRun.model} / ${lastLocalRun.tokensPerSecond.toFixed(1)} tok/s`;
+    }
     if (!tauriRuntime) return "Preview fallback";
     const settings = settingsQuery.data;
     if (!settings) return "Checking desktop LLM";
@@ -152,7 +158,7 @@ export function FridayAskView() {
       return settings.llm_model ? `Desktop local: ${settings.llm_model}` : "Desktop local ready";
     }
     return `Desktop provider: ${settings.llm_provider}`;
-  }, [settingsQuery.data, tauriRuntime]);
+  }, [lastLocalRun, settingsQuery.data, tauriRuntime]);
 
   useEffect(() => {
     setTauriRuntime(isTauriRuntime());
@@ -277,6 +283,7 @@ export function FridayAskView() {
   const submitPrompt = () => {
     const text = input.trim();
     if (!text || isBusy) return;
+    setLastLocalRun(null);
     ensureActiveThread(text);
     sendMessage({ text });
     setInput("");
