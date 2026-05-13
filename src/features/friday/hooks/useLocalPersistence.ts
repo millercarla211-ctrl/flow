@@ -2,10 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-const FRIDAY_STORAGE_EVENT = "friday-local-storage-changed";
+export const FRIDAY_STORAGE_EVENT = "friday-local-storage-changed";
+
+export function emitFridayStorageChange(key?: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(FRIDAY_STORAGE_EVENT, { detail: { key } }));
+}
 
 function emitStorageChange(key: string) {
-  window.dispatchEvent(new CustomEvent(FRIDAY_STORAGE_EVENT, { detail: { key } }));
+  emitFridayStorageChange(key);
 }
 
 function safeJsonParse<T>(raw: string | null, fallback: T): T {

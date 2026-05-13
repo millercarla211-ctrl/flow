@@ -1,10 +1,16 @@
-import { Activity, Link2, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { Activity, Download, Link2, RefreshCw, Upload } from "lucide-react";
+import { useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useLocalSettings } from "../../hooks/useLocalPersistence";
+import { emitFridayStorageChange, useLocalSettings } from "../../hooks/useLocalPersistence";
 import { checkFridayProviderHealth, type ProviderHealthResult } from "../../utils/providerHealth";
+import {
+  buildFridayWorkspaceBackup,
+  getFridayWorkspaceBackupEntries,
+  parseFridayWorkspaceBackup,
+  serializeFridayWorkspaceBackup,
+} from "../../utils/workspaceBackup";
 import { DEFAULT_CONNECTORS, STORAGE_KEYS, type ConnectorSettings } from "./types";
 
 const CONNECTOR_OPTIONS: Array<[keyof ConnectorSettings, string, string]> = [
@@ -15,8 +21,13 @@ const CONNECTOR_OPTIONS: Array<[keyof ConnectorSettings, string, string]> = [
 ];
 
 export function ConnectorsWorkspace() {
+  const backupInputRef = useRef<HTMLInputElement>(null);
   const [providerHealth, setProviderHealth] = useState<ProviderHealthResult | null>(null);
   const [isCheckingProvider, setIsCheckingProvider] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<{
+    tone: "success" | "error" | "idle";
+    text: string;
+  } | null>(null);
   const { settings, updateSettings } = useLocalSettings<ConnectorSettings>(
     STORAGE_KEYS.connectors,
     DEFAULT_CONNECTORS,
@@ -32,6 +43,45 @@ export function ConnectorsWorkspace() {
     const result = await checkFridayProviderHealth();
     setProviderHealth(result);
     setIsCheckingProvider(false);
+  };
+
+  const exportWorkspaceBackup = () => {
+    const backup = buildFridayWorkspaceBackup((key) => window.localStorage.getItem(key));
+    const payload = serializeFridayWorkspaceBackup(backup);
+    const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `friday-workspace-${backup.exportedAt.slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+
+    const count = getFridayWorkspaceBackupEntries(backup).length;
+    setBackupMessage({
+      tone: "success",
+      text: `${count} local section${count === 1 ? "" : "s"} exported.`,
+    });
+  };
+
+  const importWorkspaceBackup = async (file: File | undefined) => {
+    if (!file) return;
+
+    const parsed = parseFridayWorkspaceBackup(await file.text());
+    if (!parsed.ok) {
+      setBackupMessage({ tone: "error", text: parsed.message });
+      return;
+    }
+
+    const entries = getFridayWorkspaceBackupEntries(parsed.backup);
+    for (const entry of entries) {
+      window.localStorage.setItem(entry.key, JSON.stringify(entry.value));
+      emitFridayStorageChange(entry.key);
+    }
+    emitFridayStorageChange();
+
+    setBackupMessage({
+      tone: "success",
+      text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored.`,
+    });
   };
 
   return (
@@ -123,6 +173,65 @@ export function ConnectorsWorkspace() {
             : providerCheckDisabled
               ? "Enable Cloud AI and configure the provider env before testing a remote stream."
               : "Run a test before relying on cloud chat for Ask, Research, or Agents."}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-[var(--foreground)]">
+              Local workspace backup
+            </div>
+            <p className="mt-2 max-w-2xl text-xs leading-5 text-[var(--muted-foreground)]">
+              Export or restore Friday projects, memories, chats, research, artifacts,
+              automations, agents, and connector settings from this browser profile.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge
+              variant="outline"
+              className={
+                backupMessage?.tone === "success"
+                  ? "border-emerald-500/40 text-emerald-300"
+                  : backupMessage?.tone === "error"
+                    ? "border-red-500/40 text-red-300"
+                    : "border-[var(--border)]"
+              }
+            >
+              {backupMessage?.tone === "success"
+                ? "Ready"
+                : backupMessage?.tone === "error"
+                  ? "Needs check"
+                  : "Local"}
+            </Badge>
+            <Button type="button" size="sm" variant="outline" onClick={exportWorkspaceBackup}>
+              <Download size={14} />
+              Export
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => backupInputRef.current?.click()}
+            >
+              <Upload size={14} />
+              Import
+            </Button>
+            <input
+              ref={backupInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(event) => {
+                void importWorkspaceBackup(event.target.files?.[0]);
+                event.currentTarget.value = "";
+              }}
+            />
+          </div>
+        </div>
+        <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs leading-5 text-[var(--muted-foreground)]">
+          {backupMessage?.text ??
+            "Backups stay on your machine. Import only restores known Friday workspace keys."}
         </div>
       </div>
 

@@ -16,6 +16,12 @@ import {
   normalizeWebInspectionUrl,
 } from "../src/features/friday/utils/webInspection";
 import { parseDuckDuckGoLiteResults } from "../src/features/friday/utils/webSearch";
+import {
+  buildFridayWorkspaceBackup,
+  getFridayWorkspaceBackupEntries,
+  parseFridayWorkspaceBackup,
+  serializeFridayWorkspaceBackup,
+} from "../src/features/friday/utils/workspaceBackup";
 
 const model = resolveFridayModel("qwen35-4b-revised-q4km");
 const draft = createLocalAssistantDraft("write a short Friday status", model, {
@@ -324,6 +330,29 @@ if (
   !sampleSearchResults[0]?.snippet.includes("Useful result & snippet")
 ) {
   throw new Error("Friday web search parser did not extract candidate source results.");
+}
+
+const backup = buildFridayWorkspaceBackup(
+  (key) =>
+    key === "friday.projects.v1"
+      ? JSON.stringify([{ id: "project_test", name: "Friday OS" }])
+      : key === "friday.connectors.v1"
+        ? JSON.stringify({ localFiles: true, webSearch: false, aiGateway: true })
+        : null,
+  "2026-05-14T00:00:00.000Z",
+);
+const parsedBackup = parseFridayWorkspaceBackup(serializeFridayWorkspaceBackup(backup));
+
+if (!parsedBackup.ok || getFridayWorkspaceBackupEntries(parsedBackup.backup).length !== 2) {
+  throw new Error("Friday workspace backup did not round-trip known local keys.");
+}
+
+const rejectedBackup = parseFridayWorkspaceBackup(
+  JSON.stringify({ app: "Other", version: 1, exportedAt: timestamp, keys: {} }),
+);
+
+if (rejectedBackup.ok) {
+  throw new Error("Friday workspace backup accepted a non-Friday payload.");
 }
 
 console.log(`Friday local stream smoke passed with ${model.label}.`);
