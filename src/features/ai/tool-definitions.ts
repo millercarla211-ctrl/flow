@@ -38,6 +38,13 @@ export const FRIDAY_TOOL_DEFINITIONS: FridayToolDefinition[] = [
     description: "Future browser execution with approval gates and a persistent run log.",
   },
   {
+    key: "groq-models",
+    label: "Groq models",
+    scope: "gateway",
+    status: "approval-required",
+    description: "Fast online Friday chat through the configured Groq API key.",
+  },
+  {
     key: "gateway-models",
     label: "Gateway models",
     scope: "gateway",

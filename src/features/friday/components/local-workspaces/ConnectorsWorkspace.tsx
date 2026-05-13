@@ -7,7 +7,7 @@ import { DEFAULT_CONNECTORS, STORAGE_KEYS, type ConnectorSettings } from "./type
 const CONNECTOR_OPTIONS: Array<[keyof ConnectorSettings, string, string]> = [
   ["localFiles", "Local files", "Allow Friday to use local project files you add."],
   ["webSearch", "Web search", "Disabled until you explicitly enable remote lookup."],
-  ["aiGateway", "AI Gateway", "Optional Vercel provider routing for cloud models."],
+  ["aiGateway", "Cloud AI", "Use configured online providers such as Groq or AI Gateway."],
   ["mcpConnectors", "MCP connectors", "Future app connectors stay off until configured."],
 ];
 
@@ -16,7 +16,9 @@ export function ConnectorsWorkspace() {
     STORAGE_KEYS.connectors,
     DEFAULT_CONNECTORS,
   );
-  const cloudEnvEnabled = process.env.NEXT_PUBLIC_FRIDAY_ENABLE_CLOUD_AI === "true";
+  const cloudEnvEnabled =
+    process.env.NEXT_PUBLIC_FRIDAY_ENABLE_CLOUD_AI === "true" ||
+    process.env.NEXT_PUBLIC_FRIDAY_ENABLE_GROQ_AI === "true";
 
   return (
     <div className="space-y-3">
@@ -27,8 +29,8 @@ export function ConnectorsWorkspace() {
               Local-first privacy boundary
             </div>
             <p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">
-              Friday will not call cloud AI unless the environment allows it and AI Gateway is
-              enabled here.
+              Friday will not call online AI unless the environment allows it and Cloud AI is
+              enabled here. Groq runs through the server so the API key stays out of the client.
             </p>
           </div>
           <Badge variant="outline" className="border-[var(--border)]">

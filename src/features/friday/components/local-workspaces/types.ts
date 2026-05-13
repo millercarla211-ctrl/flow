@@ -122,6 +122,6 @@ export const STORAGE_KEYS = {
 export const DEFAULT_CONNECTORS: ConnectorSettings = {
   localFiles: true,
   webSearch: false,
-  aiGateway: false,
+  aiGateway: true,
   mcpConnectors: false,
 };

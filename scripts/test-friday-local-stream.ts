@@ -139,6 +139,44 @@ if (gatewayDeniedByBuild.ok || gatewayDeniedByBuild.status !== 403) {
   throw new Error("Friday gateway route did not honor local-only build settings.");
 }
 
+const groqDeniedByBuild = resolveFridayGatewayChatRequest(
+  {
+    allowCloud: true,
+    model: "groq-llama-3-1-8b-instant",
+    messages: [
+      {
+        id: "msg_test",
+        role: "user",
+        parts: [{ type: "text", text: "hello" }],
+      },
+    ],
+  },
+  { groqEnabled: false },
+);
+
+if (groqDeniedByBuild.ok || groqDeniedByBuild.status !== 403) {
+  throw new Error("Friday Groq route did not honor local-only build settings.");
+}
+
+const groqAllowed = resolveFridayGatewayChatRequest(
+  {
+    allowCloud: true,
+    model: "groq-llama-3-1-8b-instant",
+    messages: [
+      {
+        id: "msg_test",
+        role: "user",
+        parts: [{ type: "text", text: "hello" }],
+      },
+    ],
+  },
+  { groqEnabled: true },
+);
+
+if (!groqAllowed.ok || groqAllowed.provider !== "groq" || groqAllowed.modelId !== "llama-3.1-8b-instant") {
+  throw new Error("Friday Groq route did not resolve the approved Groq model.");
+}
+
 const gatewayAllowed = resolveFridayGatewayChatRequest(
   {
     allowCloud: true,
@@ -158,7 +196,7 @@ const gatewayAllowed = resolveFridayGatewayChatRequest(
   { cloudEnabled: true },
 );
 
-if (!gatewayAllowed.ok || gatewayAllowed.gatewayModel !== "openai/gpt-5.4") {
+if (!gatewayAllowed.ok || gatewayAllowed.modelId !== "openai/gpt-5.4") {
   throw new Error("Friday gateway route did not resolve the approved gateway model.");
 }
 

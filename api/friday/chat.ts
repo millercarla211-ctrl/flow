@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { groq } from "@ai-sdk/groq";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -9,8 +10,11 @@ import {
 
 import {
   createLocalAssistantDraft,
+  createFridayGatewaySystemPrompt,
   type FridayChatContext,
   getTextFromUiMessage,
+  isCloudModel,
+  resolveFridayGatewayChatRequest,
   resolveFridayModel,
   streamLocalText,
 } from "../../src/features/ai";
@@ -22,10 +26,6 @@ type FridayChatRequestBody = {
   allowCloud?: boolean;
 };
 
-function isCloudGatewayEnabled(): boolean {
-  return process.env.FRIDAY_ENABLE_CLOUD_AI === "true";
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
@@ -36,29 +36,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const messages = body.messages ?? [];
   const selectedModel = resolveFridayModel(body.model);
 
-  if (
-    selectedModel.provider === "gateway" &&
-    selectedModel.gatewayModel &&
-    body.allowCloud === true &&
-    isCloudGatewayEnabled()
-  ) {
-    const contextLines = [
-      body.context?.projectName ? `Active project: ${body.context.projectName}` : "",
-      body.context?.projectInstructions
-        ? `Project instructions: ${body.context.projectInstructions}`
-        : "",
-      ...(body.context?.contextItems ?? []).map(
-        (item) => `${item.kind}: ${item.label} - ${item.content}`,
-      ),
-    ].filter(Boolean);
+  if (isCloudModel(selectedModel) && body.allowCloud === true) {
+    const resolved = resolveFridayGatewayChatRequest(body, {
+      cloudEnabled: process.env.FRIDAY_ENABLE_CLOUD_AI === "true",
+      groqEnabled: Boolean(process.env.GROQ_API_KEY) || process.env.FRIDAY_ENABLE_GROQ_AI === "true",
+    });
+
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ error: resolved.error });
+      return;
+    }
 
     const result = streamText({
-      model: selectedModel.gatewayModel,
-      messages: await convertToModelMessages(messages),
-      system: [
-        "You are Friday, a local-first AI workspace assistant. Be concise, practical, and explicit about remote provider boundaries.",
-        ...contextLines,
-      ].join("\n"),
+      model: resolved.provider === "groq" ? groq(resolved.modelId) : resolved.modelId,
+      messages: await convertToModelMessages(resolved.messages),
+      system: createFridayGatewaySystemPrompt(resolved.context),
     });
 
     result.pipeUIMessageStreamToResponse(res, { originalMessages: messages });

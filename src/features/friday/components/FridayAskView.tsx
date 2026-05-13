@@ -17,8 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   LocalFridayChatTransport,
+  DEFAULT_FRIDAY_MODEL_KEY,
   FRIDAY_MODEL_OPTIONS,
-  isGatewayModelAvailable,
+  isCloudModel,
+  isCloudModelAvailable,
   resolveFridayModel,
   type FridayLocalChatResult,
 } from "@/features/ai";
@@ -33,6 +35,7 @@ import { rankAskContext } from "../utils/localRetrieval";
 import { textFromMessage, titleFromText } from "../utils/text";
 import {
   STORAGE_KEYS,
+  DEFAULT_CONNECTORS,
   type CanvasArtifact,
   type ConnectorSettings,
   type FridayAutomation,
@@ -58,7 +61,7 @@ const MESSAGE_SAVE_ACTIONS: Array<{
 
 export function FridayAskView() {
   const [input, setInput] = useState("");
-  const [modelKey, setModelKey] = useState("qwen35-4b-revised-q4km");
+  const [modelKey, setModelKey] = useState(DEFAULT_FRIDAY_MODEL_KEY);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [tauriRuntime, setTauriRuntime] = useState(false);
   const [lastLocalRun, setLastLocalRun] = useState<FridayLocalChatResult | null>(null);
@@ -69,12 +72,7 @@ export function FridayAskView() {
   const askThreads = useLocalList<FridayAskThread>(STORAGE_KEYS.askThreads);
   const projects = useLocalList<FridayProject>(STORAGE_KEYS.projects);
   const projectContextItems = useLocalList<ProjectContextItem>(STORAGE_KEYS.projectContext);
-  const connectors = useLocalSettings<ConnectorSettings>(STORAGE_KEYS.connectors, {
-    localFiles: true,
-    webSearch: false,
-    aiGateway: false,
-    mcpConnectors: false,
-  });
+  const connectors = useLocalSettings<ConnectorSettings>(STORAGE_KEYS.connectors, DEFAULT_CONNECTORS);
   const [activeProjectId, setActiveProjectId] = useState("none");
   const [activeThreadId, setActiveThreadId] = useState("new");
   const lastSavedThreadSignature = useRef("");
@@ -117,9 +115,9 @@ export function FridayAskView() {
   );
   const transport = useMemo(() => {
     if (
-      selectedModel.provider === "gateway" &&
+      isCloudModel(selectedModel) &&
       connectors.settings.aiGateway &&
-      isGatewayModelAvailable(selectedModel)
+      isCloudModelAvailable(selectedModel)
     ) {
       return new DefaultChatTransport({
         api: "/api/friday/chat",
@@ -150,6 +148,8 @@ export function FridayAskView() {
     if (lastLocalRun) {
       return `${lastLocalRun.model} / ${lastLocalRun.tokensPerSecond.toFixed(1)} tok/s`;
     }
+    if (selectedModel.provider === "groq") return `Groq cloud: ${selectedModel.groqModel}`;
+    if (selectedModel.provider === "gateway") return `AI Gateway: ${selectedModel.gatewayModel}`;
     if (!tauriRuntime) return "Preview fallback";
     const settings = settingsQuery.data;
     if (!settings) return "Checking desktop LLM";
@@ -158,7 +158,7 @@ export function FridayAskView() {
       return settings.llm_model ? `Desktop local: ${settings.llm_model}` : "Desktop local ready";
     }
     return `Desktop provider: ${settings.llm_provider}`;
-  }, [lastLocalRun, settingsQuery.data, tauriRuntime]);
+  }, [lastLocalRun, selectedModel, settingsQuery.data, tauriRuntime]);
 
   useEffect(() => {
     setTauriRuntime(isTauriRuntime());
@@ -370,8 +370,8 @@ export function FridayAskView() {
             Ask Friday
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">
-            Local-first streaming chat with model routing. Remote gateway models are visible but
-            disabled until cloud mode is explicitly enabled.
+            Streaming chat with Groq as the fast online default, plus local models when you want
+            unlimited offline work.
           </p>
         </div>
         <Badge
@@ -392,7 +392,7 @@ export function FridayAskView() {
         {FRIDAY_MODEL_OPTIONS.map((model) => {
           const available =
             model.provider === "local" ||
-            (connectors.settings.aiGateway && isGatewayModelAvailable(model));
+            (connectors.settings.aiGateway && isCloudModelAvailable(model));
           const selected = model.key === modelKey;
           return (
             <button
@@ -407,7 +407,9 @@ export function FridayAskView() {
               } disabled:cursor-not-allowed disabled:opacity-45`}
               title={
                 model.provider === "gateway" && !connectors.settings.aiGateway
-                  ? "Enable AI Gateway in Connectors before selecting cloud models."
+                  ? "Enable cloud AI in Connectors before selecting provider models."
+                  : model.provider === "groq" && !connectors.settings.aiGateway
+                    ? "Enable cloud AI in Connectors before selecting Groq models."
                   : model.disabledReason
               }
             >

@@ -12,15 +12,17 @@ type FridayGatewayChatPayload = {
 
 type FridayGatewayRuntime = {
   cloudEnabled?: boolean;
+  groqEnabled?: boolean;
 };
 
 export type FridayGatewayChatRequest =
   | {
       ok: true;
       context?: FridayChatContext;
-      gatewayModel: string;
+      modelId: string;
       messages: UIMessage[];
       model: FridayModelOption;
+      provider: "gateway" | "groq";
     }
   | {
       ok: false;
@@ -49,6 +51,10 @@ function isCloudEnabled(runtime?: FridayGatewayRuntime) {
   return runtime?.cloudEnabled ?? process.env.NEXT_PUBLIC_FRIDAY_ENABLE_CLOUD_AI === "true";
 }
 
+function isGroqEnabled(runtime?: FridayGatewayRuntime) {
+  return runtime?.groqEnabled ?? process.env.NEXT_PUBLIC_FRIDAY_ENABLE_GROQ_AI === "true";
+}
+
 export function resolveFridayGatewayChatRequest(
   payload: FridayGatewayChatPayload | null | undefined,
   runtime?: FridayGatewayRuntime,
@@ -61,14 +67,6 @@ export function resolveFridayGatewayChatRequest(
     };
   }
 
-  if (!isCloudEnabled(runtime)) {
-    return {
-      ok: false,
-      status: 403,
-      error: "Cloud AI is disabled in this Friday build.",
-    };
-  }
-
   if (!isUiMessageList(payload.messages)) {
     return {
       ok: false,
@@ -78,20 +76,56 @@ export function resolveFridayGatewayChatRequest(
   }
 
   const model = resolveFridayModel(payload.model);
-  if (model.provider !== "gateway" || !model.gatewayModel) {
+  if (model.provider === "groq" && model.groqModel) {
+    if (!isGroqEnabled(runtime)) {
+      return {
+        ok: false,
+        status: 403,
+        error: "Groq is disabled in this Friday build.",
+      };
+    }
+
+    return {
+      ok: true,
+      context: payload.context,
+      model,
+      modelId: model.groqModel,
+      messages: payload.messages,
+      provider: "groq",
+    };
+  }
+
+  if (model.provider === "gateway" && model.gatewayModel) {
+    if (!isCloudEnabled(runtime)) {
+      return {
+        ok: false,
+        status: 403,
+        error: "AI Gateway is disabled in this Friday build.",
+      };
+    }
+
+    return {
+      ok: true,
+      context: payload.context,
+      model,
+      modelId: model.gatewayModel,
+      messages: payload.messages,
+      provider: "gateway",
+    };
+  }
+
+  if (model.provider === "local") {
     return {
       ok: false,
       status: 400,
-      error: "Choose an enabled gateway model for cloud chat.",
+      error: "Choose an enabled cloud model for this chat route.",
     };
   }
 
   return {
-    ok: true,
-    context: payload.context,
-    gatewayModel: model.gatewayModel,
-    messages: payload.messages,
-    model,
+    ok: false,
+    status: 400,
+    error: "Choose an enabled cloud model for this chat route.",
   };
 }
 

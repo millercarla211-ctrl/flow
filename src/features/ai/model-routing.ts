@@ -1,4 +1,4 @@
-export type FridayModelProvider = "local" | "gateway";
+export type FridayModelProvider = "local" | "gateway" | "groq";
 
 export type FridayModelRole =
   | "instant-helper"
@@ -16,10 +16,13 @@ export type FridayModelOption = {
   privacyLabel: string;
   description: string;
   gatewayModel?: string;
+  groqModel?: string;
   disabledReason?: string;
 };
 
-export const DEFAULT_FRIDAY_MODEL_KEY = "qwen35-4b-revised-q4km";
+export const LOCAL_DAILY_FRIDAY_MODEL_KEY = "qwen35-4b-revised-q4km";
+export const DEFAULT_FRIDAY_MODEL_KEY =
+  process.env.NEXT_PUBLIC_FRIDAY_DEFAULT_MODEL ?? "groq-llama-3-1-8b-instant";
 
 export const FRIDAY_LOCAL_MODELS: FridayModelOption[] = [
   {
@@ -41,7 +44,7 @@ export const FRIDAY_LOCAL_MODELS: FridayModelOption[] = [
     description: "Structured tool routing and JSON function-call decisions.",
   },
   {
-    key: DEFAULT_FRIDAY_MODEL_KEY,
+    key: LOCAL_DAILY_FRIDAY_MODEL_KEY,
     label: "Qwen3.5 4B Revised",
     provider: "local",
     role: "daily-assistant",
@@ -57,6 +60,31 @@ export const FRIDAY_LOCAL_MODELS: FridayModelOption[] = [
     speedLabel: "Slow",
     privacyLabel: "Local",
     description: "A slower backup for harder reasoning when latency is acceptable.",
+  },
+];
+
+export const FRIDAY_GROQ_MODELS: FridayModelOption[] = [
+  {
+    key: "groq-llama-3-1-8b-instant",
+    label: "Groq Llama 3.1 8B Instant",
+    provider: "groq",
+    role: "cloud-frontier",
+    speedLabel: "Very fast",
+    privacyLabel: "Groq cloud",
+    description: "Default online Friday model for fast free-tier chat through Groq.",
+    groqModel: "llama-3.1-8b-instant",
+    disabledReason: "Groq is disabled until GROQ_API_KEY is configured.",
+  },
+  {
+    key: "groq-llama-3-3-70b-versatile",
+    label: "Groq Llama 3.3 70B Versatile",
+    provider: "groq",
+    role: "cloud-frontier",
+    speedLabel: "Smart",
+    privacyLabel: "Groq cloud",
+    description: "Stronger Groq option for harder answers when rate limits allow it.",
+    groqModel: "llama-3.3-70b-versatile",
+    disabledReason: "Groq is disabled until GROQ_API_KEY is configured.",
   },
 ];
 
@@ -85,17 +113,31 @@ export const FRIDAY_GATEWAY_MODELS: FridayModelOption[] = [
   },
 ];
 
-export const FRIDAY_MODEL_OPTIONS = [...FRIDAY_LOCAL_MODELS, ...FRIDAY_GATEWAY_MODELS];
+export const FRIDAY_MODEL_OPTIONS = [
+  ...FRIDAY_GROQ_MODELS,
+  ...FRIDAY_LOCAL_MODELS,
+  ...FRIDAY_GATEWAY_MODELS,
+];
 
 export function resolveFridayModel(modelKey?: string | null): FridayModelOption {
   return (
     FRIDAY_MODEL_OPTIONS.find((model) => model.key === modelKey) ??
-    FRIDAY_LOCAL_MODELS.find((model) => model.key === DEFAULT_FRIDAY_MODEL_KEY) ??
+    FRIDAY_MODEL_OPTIONS.find((model) => model.key === DEFAULT_FRIDAY_MODEL_KEY) ??
+    FRIDAY_LOCAL_MODELS.find((model) => model.key === LOCAL_DAILY_FRIDAY_MODEL_KEY) ??
     FRIDAY_LOCAL_MODELS[0]
   );
 }
 
-export function isGatewayModelAvailable(model: FridayModelOption): boolean {
-  if (model.provider !== "gateway") return true;
+export function isCloudModel(model: FridayModelOption): boolean {
+  return model.provider === "gateway" || model.provider === "groq";
+}
+
+export function isCloudModelAvailable(model: FridayModelOption): boolean {
+  if (model.provider === "local") return true;
+  if (model.provider === "groq") {
+    return process.env.NEXT_PUBLIC_FRIDAY_ENABLE_GROQ_AI === "true";
+  }
   return process.env.NEXT_PUBLIC_FRIDAY_ENABLE_CLOUD_AI === "true";
 }
+
+export const isGatewayModelAvailable = isCloudModelAvailable;
