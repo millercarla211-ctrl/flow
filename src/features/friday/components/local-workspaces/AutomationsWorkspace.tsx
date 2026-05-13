@@ -1,5 +1,5 @@
 import { CalendarClock } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,12 @@ function nextScheduledRun(cadence: string, from = new Date()) {
   if (cadence === "Daily") next.setDate(next.getDate() + 1);
   if (cadence === "Weekly") next.setDate(next.getDate() + 7);
   return cadence === "Manual" ? undefined : next.toISOString();
+}
+
+function isDue(value?: string) {
+  if (!value) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.getTime() <= Date.now();
 }
 
 function automationPrompt(automation: FridayAutomation) {
@@ -35,7 +41,18 @@ export function AutomationsWorkspace() {
   const [instruction, setInstruction] = useState("");
   const [cadence, setCadence] = useState("Daily");
   const [nextRunAt, setNextRunAt] = useState("");
+  const [autoRunEnabled, setAutoRunEnabled] = useState(true);
   const [runningAutomationId, setRunningAutomationId] = useState<string | null>(null);
+  const dueAutomations = useMemo(
+    () =>
+      items.filter(
+        (automation) =>
+          automation.enabled &&
+          automation.cadence !== "Manual" &&
+          isDue(automation.nextRunAt),
+      ),
+    [items],
+  );
 
   const formatRunTime = (value?: string) => {
     if (!value) return "Not scheduled";
@@ -47,12 +64,6 @@ export function AutomationsWorkspace() {
       hour: "numeric",
       minute: "2-digit",
     }).format(date);
-  };
-
-  const isDue = (value?: string) => {
-    if (!value) return false;
-    const date = new Date(value);
-    return !Number.isNaN(date.getTime()) && date.getTime() <= Date.now();
   };
 
   const createAutomation = () => {
@@ -73,27 +84,39 @@ export function AutomationsWorkspace() {
     setNextRunAt("");
   };
 
-  const runAutomation = async (automation: FridayAutomation) => {
-    if (runningAutomationId) return;
-    setRunningAutomationId(automation.id);
-    const now = new Date().toISOString();
-    const localRun = await tryRunTauriLocalChat({
-      prompt: automationPrompt(automation),
-      model: resolveFridayModel("qwen3-0.6b"),
-    });
-    updateItem(automation.id, {
-      lastRunAt: now,
-      lastResult:
-        localRun?.text.trim() ||
-        `Local run completed for "${automation.title}". Add an instruction to make this automation more specific.`,
-      runCount: (automation.runCount ?? 0) + 1,
-      nextRunAt: nextScheduledRun(automation.cadence),
-      lastModel: localRun?.model,
-      lastTokensPerSecond: localRun?.tokensPerSecond,
-      lastTotalTimeMs: localRun?.totalTimeMs,
-    });
-    setRunningAutomationId(null);
-  };
+  const runAutomation = useCallback(
+    async (automation: FridayAutomation, mode: "Manual" | "Scheduled" = "Manual") => {
+      if (runningAutomationId) return;
+      setRunningAutomationId(automation.id);
+      const now = new Date().toISOString();
+      const localRun = await tryRunTauriLocalChat({
+        prompt: automationPrompt(automation),
+        model: resolveFridayModel("qwen3-0.6b"),
+      });
+      updateItem(automation.id, {
+        lastRunAt: now,
+        lastResult:
+          localRun?.text.trim() ||
+          `Local run completed for "${automation.title}". Add an instruction to make this automation more specific.`,
+        runCount: (automation.runCount ?? 0) + 1,
+        lastRunMode: mode,
+        nextRunAt: nextScheduledRun(automation.cadence),
+        lastModel: localRun?.model,
+        lastTokensPerSecond: localRun?.tokensPerSecond,
+        lastTotalTimeMs: localRun?.totalTimeMs,
+      });
+      setRunningAutomationId(null);
+    },
+    [runningAutomationId, updateItem],
+  );
+
+  useEffect(() => {
+    if (!autoRunEnabled || runningAutomationId || dueAutomations.length === 0) return;
+    const timer = window.setTimeout(() => {
+      void runAutomation(dueAutomations[0], "Scheduled");
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [autoRunEnabled, dueAutomations, runAutomation, runningAutomationId]);
 
   return (
     <div className="space-y-4">
@@ -130,6 +153,22 @@ export function AutomationsWorkspace() {
         onChange={(event) => setInstruction(event.target.value)}
         placeholder="What should Friday do when this runs?"
       />
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline" className="border-[var(--border)]">
+          {autoRunEnabled ? "Auto-run active" : "Auto-run paused"}
+        </Badge>
+        <Badge variant="outline" className="border-[var(--border)]">
+          {dueAutomations.length} due
+        </Badge>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => setAutoRunEnabled((enabled) => !enabled)}
+        >
+          {autoRunEnabled ? "Pause due runner" : "Resume due runner"}
+        </Button>
+      </div>
       {items.length === 0 ? (
         <EmptyState
           title="No automations scheduled"
@@ -149,6 +188,11 @@ export function AutomationsWorkspace() {
                 <div>Last: {formatRunTime(automation.lastRunAt)}</div>
                 <div>Runs: {automation.runCount ?? 0}</div>
               </div>
+              {automation.lastRunMode && (
+                <Badge variant="outline" className="mt-3 border-[var(--border)]">
+                  Last run: {automation.lastRunMode}
+                </Badge>
+              )}
               {automation.lastResult && (
                 <p className="mt-3 rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs leading-5 text-[var(--muted-foreground)]">
                   {automation.lastResult}
@@ -180,7 +224,7 @@ export function AutomationsWorkspace() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => void runAutomation(automation)}
+                  onClick={() => void runAutomation(automation, "Manual")}
                   disabled={!automation.enabled || runningAutomationId === automation.id}
                 >
                   {runningAutomationId === automation.id ? "Running" : "Run now"}
