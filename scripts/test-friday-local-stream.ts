@@ -1,7 +1,9 @@
 import {
   collectLocalTextStream,
   createLocalAssistantDraft,
+  createFridayGatewaySystemPrompt,
   resolveFridayModel,
+  resolveFridayGatewayChatRequest,
 } from "../src/features/ai";
 import { createLocalAgentRun } from "../src/features/friday/utils/localAgentRunner";
 import { rankAskContext } from "../src/features/friday/utils/localRetrieval";
@@ -97,6 +99,72 @@ const agentRun = createLocalAgentRun({
 
 if (agentRun.status !== "Completed" || !agentRun.result.includes("No remote provider")) {
   throw new Error("Friday local agent runner did not produce the expected guarded result.");
+}
+
+const gatewayDeniedByRequest = resolveFridayGatewayChatRequest(
+  {
+    allowCloud: false,
+    model: "gateway-openai-gpt-5-4",
+    messages: [
+      {
+        id: "msg_test",
+        role: "user",
+        parts: [{ type: "text", text: "hello" }],
+      },
+    ],
+  },
+  { cloudEnabled: true },
+);
+
+if (gatewayDeniedByRequest.ok || gatewayDeniedByRequest.status !== 403) {
+  throw new Error("Friday gateway route did not require explicit cloud approval.");
+}
+
+const gatewayDeniedByBuild = resolveFridayGatewayChatRequest(
+  {
+    allowCloud: true,
+    model: "gateway-openai-gpt-5-4",
+    messages: [
+      {
+        id: "msg_test",
+        role: "user",
+        parts: [{ type: "text", text: "hello" }],
+      },
+    ],
+  },
+  { cloudEnabled: false },
+);
+
+if (gatewayDeniedByBuild.ok || gatewayDeniedByBuild.status !== 403) {
+  throw new Error("Friday gateway route did not honor local-only build settings.");
+}
+
+const gatewayAllowed = resolveFridayGatewayChatRequest(
+  {
+    allowCloud: true,
+    model: "gateway-openai-gpt-5-4",
+    context: {
+      projectName: "Friday OS",
+      projectInstructions: "Keep provider use explicit.",
+    },
+    messages: [
+      {
+        id: "msg_test",
+        role: "user",
+        parts: [{ type: "text", text: "hello" }],
+      },
+    ],
+  },
+  { cloudEnabled: true },
+);
+
+if (!gatewayAllowed.ok || gatewayAllowed.gatewayModel !== "openai/gpt-5.4") {
+  throw new Error("Friday gateway route did not resolve the approved gateway model.");
+}
+
+const gatewayPrompt = createFridayGatewaySystemPrompt(gatewayAllowed.context);
+if (!gatewayPrompt.includes("Active project: Friday OS")) {
+  throw new Error("Friday gateway prompt did not include approved project context.");
 }
 
 console.log(`Friday local stream smoke passed with ${model.label}.`);
