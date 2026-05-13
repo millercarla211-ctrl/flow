@@ -19,6 +19,7 @@ type FridayChatRequestBody = {
   messages?: UIMessage[];
   model?: string;
   context?: FridayChatContext;
+  allowCloud?: boolean;
 };
 
 function isCloudGatewayEnabled(): boolean {
@@ -38,6 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (
     selectedModel.provider === "gateway" &&
     selectedModel.gatewayModel &&
+    body.allowCloud === true &&
     isCloudGatewayEnabled()
   ) {
     const contextLines = [

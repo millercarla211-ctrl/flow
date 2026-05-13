@@ -25,12 +25,13 @@ import {
 import { AiMarkdown } from "./AiMarkdown";
 import { AskThreadRail } from "./AskThreadRail";
 import { ProjectContextPanel } from "./ProjectContextPanel";
-import { makeLocalRecord, useLocalList } from "../hooks/useLocalPersistence";
+import { makeLocalRecord, useLocalList, useLocalSettings } from "../hooks/useLocalPersistence";
 import { rankAskContext } from "../utils/localRetrieval";
 import { textFromMessage, titleFromText } from "../utils/text";
 import {
   STORAGE_KEYS,
   type CanvasArtifact,
+  type ConnectorSettings,
   type FridayAutomation,
   type FridayAskThread,
   type FridayMemory,
@@ -63,6 +64,12 @@ export function FridayAskView() {
   const askThreads = useLocalList<FridayAskThread>(STORAGE_KEYS.askThreads);
   const projects = useLocalList<FridayProject>(STORAGE_KEYS.projects);
   const projectContextItems = useLocalList<ProjectContextItem>(STORAGE_KEYS.projectContext);
+  const connectors = useLocalSettings<ConnectorSettings>(STORAGE_KEYS.connectors, {
+    localFiles: true,
+    webSearch: false,
+    aiGateway: false,
+    mcpConnectors: false,
+  });
   const [activeProjectId, setActiveProjectId] = useState("none");
   const [activeThreadId, setActiveThreadId] = useState("new");
   const lastSavedThreadSignature = useRef("");
@@ -104,17 +111,21 @@ export function FridayAskView() {
     [retrievedAskContext, selectedProject],
   );
   const transport = useMemo(() => {
-    if (selectedModel.provider === "gateway" && isGatewayModelAvailable(selectedModel)) {
+    if (
+      selectedModel.provider === "gateway" &&
+      connectors.settings.aiGateway &&
+      isGatewayModelAvailable(selectedModel)
+    ) {
       return new DefaultChatTransport({
         api: "/api/friday/chat",
-        body: { model: modelKey, context: chatContext },
+        body: { model: modelKey, context: chatContext, allowCloud: true },
       });
     }
     return new LocalFridayChatTransport(
       () => modelKey,
       () => chatContext,
     );
-  }, [chatContext, modelKey, selectedModel]);
+  }, [chatContext, connectors.settings.aiGateway, modelKey, selectedModel]);
   const { messages, sendMessage, status, stop, setMessages, error } = useChat({ transport });
   const isBusy = status === "submitted" || status === "streaming";
   const visibleThreads = useMemo(
@@ -344,7 +355,9 @@ export function FridayAskView() {
 
       <div className="flex shrink-0 flex-wrap gap-2">
         {FRIDAY_MODEL_OPTIONS.map((model) => {
-          const available = isGatewayModelAvailable(model);
+          const available =
+            model.provider === "local" ||
+            (connectors.settings.aiGateway && isGatewayModelAvailable(model));
           const selected = model.key === modelKey;
           return (
             <button
@@ -357,7 +370,11 @@ export function FridayAskView() {
                   ? "border-[var(--foreground)] bg-[var(--foreground)] text-[var(--background)]"
                   : "border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] hover:border-[var(--border-hover)] hover:text-[var(--foreground)]"
               } disabled:cursor-not-allowed disabled:opacity-45`}
-              title={model.disabledReason}
+              title={
+                model.provider === "gateway" && !connectors.settings.aiGateway
+                  ? "Enable AI Gateway in Connectors before selecting cloud models."
+                  : model.disabledReason
+              }
             >
               <div className="text-xs font-semibold">{model.label}</div>
               <div className="mt-0.5 text-[10px] opacity-75">
