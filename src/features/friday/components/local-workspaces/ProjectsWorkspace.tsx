@@ -1,4 +1,4 @@
-import { FileText, Folder, Paperclip, X } from "lucide-react";
+import { FileDown, FileText, Folder, Paperclip, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import {
   isSupportedContextFile,
   readContextFile,
 } from "../../utils/contextFiles";
+import { exportFridayProjectBundle } from "../../utils/localFileExport";
 import { titleFromText } from "../../utils/text";
 import { EmptyState, INPUT_CLASS, ModelSelect, RecordShell, TEXTAREA_CLASS } from "./primitives";
 import {
@@ -44,6 +45,9 @@ export function ProjectsWorkspace() {
   const [editModelKey, setEditModelKey] = useState(DEFAULT_FRIDAY_MODEL_KEY);
   const [contextDraft, setContextDraft] = useState("");
   const [contextFileError, setContextFileError] = useState<string | null>(null);
+  const [exportStateById, setExportStateById] = useState<
+    Record<string, { status: "ok" | "error"; message: string }>
+  >({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedModel = useMemo(
@@ -189,6 +193,28 @@ export function ProjectsWorkspace() {
     automations: automations.items.filter((item) => item.projectId === projectId).length,
   });
 
+  const exportProject = async (project: FridayProject) => {
+    const result = await exportFridayProjectBundle({
+      project,
+      contextItems: projectContext.items.filter((item) => item.projectId === project.id),
+      memories: memories.items.filter((item) => item.projectId === project.id),
+      threads: askThreads.items.filter((item) => item.projectId === project.id),
+      artifacts: artifacts.items.filter((item) => item.projectId === project.id),
+      research: research.items.filter((item) => item.projectId === project.id),
+      agents: agents.items.filter((item) => item.projectId === project.id),
+      automations: automations.items.filter((item) => item.projectId === project.id),
+    });
+
+    if (result.status === "cancelled") return;
+    setExportStateById((current) => ({
+      ...current,
+      [project.id]:
+        result.status === "saved"
+          ? { status: "ok", message: "Project exported" }
+          : { status: "error", message: result.message },
+    }));
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-[1fr_220px_auto]">
@@ -306,6 +332,7 @@ export function ProjectsWorkspace() {
         <div className="space-y-2">
           {items.map((project) => {
             const counts = countProjectRecords(project.id);
+            const exportState = exportStateById[project.id];
             return (
               <RecordShell
                 key={project.id}
@@ -328,6 +355,18 @@ export function ProjectsWorkspace() {
                   <Badge variant="outline" className="border-[var(--border)]">
                     Local
                   </Badge>
+                  {exportState && (
+                    <Badge
+                      variant="outline"
+                      className={
+                        exportState.status === "ok"
+                          ? "border-[var(--border)] text-[var(--foreground)]"
+                          : "border-red-500/40 text-red-300"
+                      }
+                    >
+                      {exportState.message}
+                    </Badge>
+                  )}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
@@ -337,6 +376,15 @@ export function ProjectsWorkspace() {
                     onClick={() => setSelectedProjectId(project.id)}
                   >
                     Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void exportProject(project)}
+                  >
+                    <FileDown size={13} />
+                    Export
                   </Button>
                   <Button
                     type="button"

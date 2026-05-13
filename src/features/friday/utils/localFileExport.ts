@@ -1,7 +1,27 @@
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 
-import type { AgentTask, CanvasArtifact, ResearchBrief } from "../components/local-workspaces/types";
+import type {
+  AgentTask,
+  CanvasArtifact,
+  FridayAskThread,
+  FridayAutomation,
+  FridayMemory,
+  FridayProject,
+  ProjectContextItem,
+  ResearchBrief,
+} from "../components/local-workspaces/types";
+
+type FridayProjectExportBundle = {
+  agents: AgentTask[];
+  artifacts: CanvasArtifact[];
+  automations: FridayAutomation[];
+  contextItems: ProjectContextItem[];
+  memories: FridayMemory[];
+  project: FridayProject;
+  research: ResearchBrief[];
+  threads: FridayAskThread[];
+};
 
 type FridayExportResult =
   | { status: "saved" }
@@ -100,6 +120,108 @@ function agentTaskExportContent(task: AgentTask) {
     .join("\n");
 }
 
+function messageText(message: FridayAskThread["messages"][number]) {
+  return message.parts
+    .map((part) => (part.type === "text" ? part.text : ""))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function markdownSection(title: string, lines: string[]) {
+  const cleanLines = lines.filter((line) => line.trim().length > 0);
+  if (cleanLines.length === 0) return "";
+  return [`## ${title}`, "", ...cleanLines].join("\n");
+}
+
+function projectBundleExportContent(bundle: FridayProjectExportBundle) {
+  const { project } = bundle;
+  const contextLines = bundle.contextItems.map((item, index) =>
+    [`### ${index + 1}. ${item.label}`, `Kind: ${item.kind}`, "", item.content].join("\n"),
+  );
+  const memoryLines = bundle.memories.map((memory, index) =>
+    [
+      `### ${index + 1}. ${memory.title}`,
+      `Scope: ${memory.scope}${memory.pinned ? " / pinned" : ""}`,
+      "",
+      memory.body,
+    ].join("\n"),
+  );
+  const threadLines = bundle.threads.map((thread, index) => {
+    const messages = thread.messages
+      .map((message) => {
+        const text = messageText(message);
+        return text ? `- ${message.role}: ${text}` : "";
+      })
+      .filter(Boolean)
+      .join("\n");
+    return [
+      `### ${index + 1}. ${thread.title}`,
+      `Model: ${thread.modelKey}`,
+      `Messages: ${thread.messageCount}`,
+      messages,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  });
+  const artifactLines = bundle.artifacts.map((artifact, index) =>
+    [`### ${index + 1}. ${artifact.title}`, `Kind: ${artifact.kind}`, "", artifact.content].join(
+      "\n",
+    ),
+  );
+  const researchLines = bundle.research.map((brief, index) =>
+    [
+      `### ${index + 1}. ${brief.topic}`,
+      `Status: ${brief.status ?? "Planned"}`,
+      `Sources: ${brief.sources.join(", ") || "Local only"}`,
+      "",
+      brief.report || "No report drafted yet.",
+    ].join("\n"),
+  );
+  const agentLines = bundle.agents.map((task, index) =>
+    [
+      `### ${index + 1}. ${task.title}`,
+      `Target: ${task.target}`,
+      `Status: ${task.status}`,
+      task.result ?? task.brief ?? "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  );
+  const automationLines = bundle.automations.map((automation, index) =>
+    [
+      `### ${index + 1}. ${automation.title}`,
+      `Cadence: ${automation.cadence}`,
+      `Enabled: ${automation.enabled ? "yes" : "no"}`,
+      automation.instruction ?? "",
+      automation.lastResult ? `Last result:\n${automation.lastResult}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  );
+
+  return [
+    `# Friday Project: ${project.name}`,
+    "",
+    `Model: ${project.modelKey}`,
+    `Updated: ${project.updatedAt}`,
+    "",
+    "## Instructions",
+    "",
+    project.instructions || "No custom instructions.",
+    "",
+    markdownSection("Context", contextLines),
+    markdownSection("Memories", memoryLines),
+    markdownSection("Ask Threads", threadLines),
+    markdownSection("Artifacts", artifactLines),
+    markdownSection("Research", researchLines),
+    markdownSection("Agent Runs", agentLines),
+    markdownSection("Automations", automationLines),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 async function exportFridayFile(request: FridayExportRequest): Promise<FridayExportResult> {
   const outputPath = await save({
     title: request.title,
@@ -154,6 +276,18 @@ export function exportFridayAgentTask(task: AgentTask) {
     title: "Export Friday agent run",
     defaultPath: safeLocalFilename(`agent-${task.title}`, "md"),
     content: agentTaskExportContent(task),
+    filters: [
+      { name: "Markdown", extensions: ["md"] },
+      { name: "Text", extensions: ["txt"] },
+    ],
+  });
+}
+
+export function exportFridayProjectBundle(bundle: FridayProjectExportBundle) {
+  return exportFridayFile({
+    title: "Export Friday project",
+    defaultPath: safeLocalFilename(`project-${bundle.project.name}`, "md"),
+    content: projectBundleExportContent(bundle),
     filters: [
       { name: "Markdown", extensions: ["md"] },
       { name: "Text", extensions: ["txt"] },
