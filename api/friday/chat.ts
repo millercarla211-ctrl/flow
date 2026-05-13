@@ -9,6 +9,7 @@ import {
 
 import {
   createLocalAssistantDraft,
+  type FridayChatContext,
   getTextFromUiMessage,
   resolveFridayModel,
   streamLocalText,
@@ -17,6 +18,7 @@ import {
 type FridayChatRequestBody = {
   messages?: UIMessage[];
   model?: string;
+  context?: FridayChatContext;
 };
 
 function isCloudGatewayEnabled(): boolean {
@@ -33,12 +35,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const messages = body.messages ?? [];
   const selectedModel = resolveFridayModel(body.model);
 
-  if (selectedModel.provider === "gateway" && selectedModel.gatewayModel && isCloudGatewayEnabled()) {
+  if (
+    selectedModel.provider === "gateway" &&
+    selectedModel.gatewayModel &&
+    isCloudGatewayEnabled()
+  ) {
+    const contextLines = [
+      body.context?.projectName ? `Active project: ${body.context.projectName}` : "",
+      body.context?.projectInstructions
+        ? `Project instructions: ${body.context.projectInstructions}`
+        : "",
+      ...(body.context?.contextItems ?? []).map(
+        (item) => `${item.kind}: ${item.label} - ${item.content}`,
+      ),
+    ].filter(Boolean);
+
     const result = streamText({
       model: selectedModel.gatewayModel,
       messages: await convertToModelMessages(messages),
-      system:
+      system: [
         "You are Friday, a local-first AI workspace assistant. Be concise, practical, and explicit about remote provider boundaries.",
+        ...contextLines,
+      ].join("\n"),
     });
 
     result.pipeUIMessageStreamToResponse(res, { originalMessages: messages });
@@ -46,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const prompt = getTextFromUiMessage(messages[messages.length - 1]);
-  const text = createLocalAssistantDraft(prompt, selectedModel);
+  const text = createLocalAssistantDraft(prompt, selectedModel, body.context);
   const textId = `friday-api-local-${Date.now().toString(36)}`;
   const stream = createUIMessageStream<UIMessage>({
     originalMessages: messages,

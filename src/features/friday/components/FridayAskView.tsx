@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import {
   Archive,
   CalendarClock,
   FileText,
+  Folder,
   type LucideIcon,
+  Paperclip,
   Pin,
   Send,
   Square,
@@ -29,6 +31,8 @@ import {
   type CanvasArtifact,
   type FridayAutomation,
   type FridayMemory,
+  type FridayProject,
+  type ProjectContextItem,
   type ResearchBrief,
 } from "./local-workspaces/types";
 
@@ -71,22 +75,61 @@ export function FridayAskView() {
   const memories = useLocalList<FridayMemory>(STORAGE_KEYS.memory);
   const researchBriefs = useLocalList<ResearchBrief>(STORAGE_KEYS.research);
   const automations = useLocalList<FridayAutomation>(STORAGE_KEYS.automations);
+  const projects = useLocalList<FridayProject>(STORAGE_KEYS.projects);
+  const projectContextItems = useLocalList<ProjectContextItem>(STORAGE_KEYS.projectContext);
+  const [activeProjectId, setActiveProjectId] = useState("none");
+  const [contextDraft, setContextDraft] = useState("");
   const selectedModel = useMemo(() => resolveFridayModel(modelKey), [modelKey]);
+  const selectedProject = useMemo(
+    () => projects.items.find((project) => project.id === activeProjectId) ?? null,
+    [activeProjectId, projects.items],
+  );
+  const activeContextItems = useMemo(
+    () =>
+      selectedProject
+        ? projectContextItems.items.filter((item) => item.projectId === selectedProject.id)
+        : [],
+    [projectContextItems.items, selectedProject],
+  );
+  const chatContext = useMemo(
+    () =>
+      selectedProject
+        ? {
+            projectName: selectedProject.name,
+            projectInstructions: selectedProject.instructions,
+            contextItems: activeContextItems.map((item) => ({
+              label: item.label,
+              kind: item.kind,
+              content: item.content,
+            })),
+          }
+        : undefined,
+    [activeContextItems, selectedProject],
+  );
   const transport = useMemo(() => {
     if (selectedModel.provider === "gateway" && isGatewayModelAvailable(selectedModel)) {
       return new DefaultChatTransport({
         api: "/api/friday/chat",
-        body: { model: modelKey },
+        body: { model: modelKey, context: chatContext },
       });
     }
-    return new LocalFridayChatTransport(() => modelKey);
-  }, [modelKey, selectedModel]);
+    return new LocalFridayChatTransport(
+      () => modelKey,
+      () => chatContext,
+    );
+  }, [chatContext, modelKey, selectedModel]);
   const { messages, sendMessage, status, stop, setMessages, error } = useChat({ transport });
   const isBusy = status === "submitted" || status === "streaming";
   const latestUserText = useMemo(() => {
     const latestUserMessage = [...messages].reverse().find((message) => message.role === "user");
     return latestUserMessage ? textFromMessage(latestUserMessage) : "";
   }, [messages]);
+
+  useEffect(() => {
+    if (activeProjectId === "none") return;
+    if (projects.items.some((project) => project.id === activeProjectId)) return;
+    setActiveProjectId(projects.items[0]?.id ?? "none");
+  }, [activeProjectId, projects.items]);
 
   const submitPrompt = () => {
     const text = input.trim();
@@ -105,7 +148,15 @@ export function FridayAskView() {
     const title = titleFromText(text, "Friday response");
 
     if (target === "artifact") {
-      artifacts.addItem(makeLocalRecord("artifact", { title, kind: "Markdown", content: text }));
+      artifacts.addItem(
+        makeLocalRecord("artifact", {
+          title,
+          kind: "Markdown",
+          content: text,
+          projectId: selectedProject?.id,
+          projectName: selectedProject?.name,
+        }),
+      );
       showSavedNotice("Saved to Artifacts");
       return;
     }
@@ -115,8 +166,10 @@ export function FridayAskView() {
         makeLocalRecord("memory", {
           title,
           body: text,
-          scope: "Global",
+          scope: selectedProject ? "Project" : "Global",
           pinned: true,
+          projectId: selectedProject?.id,
+          projectName: selectedProject?.name,
         }),
       );
       showSavedNotice("Pinned to Memory");
@@ -128,6 +181,8 @@ export function FridayAskView() {
         makeLocalRecord("research", {
           topic: latestUserText || title,
           sources: ["Ask Friday"],
+          projectId: selectedProject?.id,
+          projectName: selectedProject?.name,
           plan: [
             "Review the saved assistant answer.",
             "Add source notes or local files.",
@@ -144,9 +199,27 @@ export function FridayAskView() {
         title: `Follow up: ${title}`,
         cadence: "Manual",
         enabled: true,
+        projectId: selectedProject?.id,
+        projectName: selectedProject?.name,
       }),
     );
     showSavedNotice("Saved as Automation");
+  };
+
+  const addContextNote = () => {
+    const cleanContext = contextDraft.trim();
+    if (!cleanContext || !selectedProject) return;
+    projectContextItems.addItem(
+      makeLocalRecord("context", {
+        projectId: selectedProject.id,
+        projectName: selectedProject.name,
+        label: titleFromText(cleanContext, "Project note"),
+        kind: "note",
+        content: cleanContext,
+      }),
+    );
+    setContextDraft("");
+    showSavedNotice("Project context added");
   };
 
   return (
@@ -195,6 +268,62 @@ export function FridayAskView() {
           );
         })}
       </div>
+
+      <Card className="shrink-0 py-0">
+        <CardContent className="p-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex min-w-[220px] flex-1 items-center gap-2">
+              <Folder size={15} className="text-[var(--muted-foreground)]" />
+              <select
+                className="h-8 min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 text-xs text-[var(--foreground)] outline-none"
+                value={activeProjectId}
+                onChange={(event) => setActiveProjectId(event.target.value)}
+              >
+                <option value="none">No active project</option>
+                {projects.items.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Badge variant="outline" className="border-[var(--border)]">
+              {selectedProject ? `${activeContextItems.length} context items` : "Local only"}
+            </Badge>
+          </div>
+          {selectedProject ? (
+            <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto]">
+              <input
+                className="h-8 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-xs text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
+                value={contextDraft}
+                onChange={(event) => setContextDraft(event.target.value)}
+                placeholder="Add a project note, file summary, or instruction for this chat..."
+              />
+              <Button type="button" size="sm" variant="outline" onClick={addContextNote}>
+                <Paperclip size={14} />
+                Add context
+              </Button>
+              {activeContextItems.length > 0 && (
+                <div className="md:col-span-2 flex flex-wrap gap-1.5">
+                  {activeContextItems.slice(0, 5).map((item) => (
+                    <span
+                      key={item.id}
+                      className="rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[11px] text-[var(--muted-foreground)]"
+                      title={item.content}
+                    >
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">
+              Select or create a Project to give Ask reusable instructions and context.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="min-h-0 flex-1 overflow-hidden py-0">
         <CardContent className="flex h-full min-h-0 flex-col p-0">

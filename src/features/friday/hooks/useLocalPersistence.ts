@@ -104,7 +104,14 @@ export function useLocalList<T extends LocalRecord>(key: string) {
     [items, persist],
   );
 
-  return { items, isLoaded, addItem, updateItem, removeItem };
+  const removeWhere = useCallback(
+    (predicate: (item: T) => boolean) => {
+      persist(items.filter((item) => !predicate(item)));
+    },
+    [items, persist],
+  );
+
+  return { items, isLoaded, addItem, updateItem, removeItem, removeWhere };
 }
 
 export function useLocalSettings<T extends object>(key: string, defaults: T) {

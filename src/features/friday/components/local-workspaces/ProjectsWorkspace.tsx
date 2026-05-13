@@ -1,14 +1,16 @@
 import { Folder } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_FRIDAY_MODEL_KEY, FRIDAY_LOCAL_MODELS } from "@/features/ai";
 import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
 import { EmptyState, INPUT_CLASS, ModelSelect, RecordShell, TEXTAREA_CLASS } from "./primitives";
-import { STORAGE_KEYS, type FridayProject } from "./types";
+import { STORAGE_KEYS, type FridayProject, type ProjectContextItem } from "./types";
 
 export function ProjectsWorkspace() {
   const { items, addItem, removeItem } = useLocalList<FridayProject>(STORAGE_KEYS.projects);
+  const projectContext = useLocalList<ProjectContextItem>(STORAGE_KEYS.projectContext);
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");
   const [modelKey, setModelKey] = useState(DEFAULT_FRIDAY_MODEL_KEY);
@@ -26,6 +28,11 @@ export function ProjectsWorkspace() {
     );
     setName("");
     setInstructions("");
+  };
+
+  const removeProject = (projectId: string) => {
+    removeItem(projectId);
+    projectContext.removeWhere((contextItem) => contextItem.projectId === projectId);
   };
 
   return (
@@ -68,12 +75,25 @@ export function ProjectsWorkspace() {
               <p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">
                 {project.instructions || "No custom instructions yet"}
               </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge variant="outline" className="border-[var(--border)]">
+                  {
+                    projectContext.items.filter(
+                      (contextItem) => contextItem.projectId === project.id,
+                    ).length
+                  }{" "}
+                  context items
+                </Badge>
+                <Badge variant="outline" className="border-[var(--border)]">
+                  Local
+                </Badge>
+              </div>
               <Button
                 className="mt-3"
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => removeItem(project.id)}
+                onClick={() => removeProject(project.id)}
               >
                 Remove
               </Button>

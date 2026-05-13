@@ -1,12 +1,21 @@
 import type { ChatTransport, UIMessage, UIMessageChunk } from "ai";
 
-import { createLocalAssistantDraft, getTextFromUiMessage, streamLocalText } from "./local-stream";
+import {
+  createLocalAssistantDraft,
+  type FridayChatContext,
+  getTextFromUiMessage,
+  streamLocalText,
+} from "./local-stream";
 import { resolveFridayModel } from "./model-routing";
 
 type ModelKeyResolver = () => string;
+type ContextResolver = () => FridayChatContext | undefined;
 
 export class LocalFridayChatTransport implements ChatTransport<UIMessage> {
-  constructor(private readonly getModelKey: ModelKeyResolver) {}
+  constructor(
+    private readonly getModelKey: ModelKeyResolver,
+    private readonly getContext?: ContextResolver,
+  ) {}
 
   async sendMessages({
     messages,
@@ -16,7 +25,7 @@ export class LocalFridayChatTransport implements ChatTransport<UIMessage> {
   > {
     const model = resolveFridayModel(this.getModelKey());
     const prompt = getTextFromUiMessage(messages[messages.length - 1]);
-    const response = createLocalAssistantDraft(prompt, model);
+    const response = createLocalAssistantDraft(prompt, model, this.getContext?.());
     const textId = `friday-local-${Date.now().toString(36)}`;
 
     return new ReadableStream<UIMessageChunk>({
@@ -31,7 +40,10 @@ export class LocalFridayChatTransport implements ChatTransport<UIMessage> {
 
         controller.enqueue({ type: "text-end", id: textId });
         controller.enqueue({ type: "finish-step" });
-        controller.enqueue({ type: "finish", finishReason: abortSignal?.aborted ? "other" : "stop" });
+        controller.enqueue({
+          type: "finish",
+          finishReason: abortSignal?.aborted ? "other" : "stop",
+        });
         controller.close();
       },
       cancel() {

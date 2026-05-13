@@ -4,6 +4,8 @@ export type ResearchBrief = LocalRecord & {
   topic: string;
   sources: string[];
   plan: string[];
+  projectId?: string;
+  projectName?: string;
 };
 
 export type AgentTask = LocalRecord & {
@@ -16,6 +18,8 @@ export type CanvasArtifact = LocalRecord & {
   title: string;
   kind: "Doc" | "Code" | "Markdown" | "UI";
   content: string;
+  projectId?: string;
+  projectName?: string;
 };
 
 export type FridayProject = LocalRecord & {
@@ -29,12 +33,24 @@ export type FridayMemory = LocalRecord & {
   body: string;
   scope: "Global" | "Project" | "Voice";
   pinned: boolean;
+  projectId?: string;
+  projectName?: string;
 };
 
 export type FridayAutomation = LocalRecord & {
   title: string;
   cadence: string;
   enabled: boolean;
+  projectId?: string;
+  projectName?: string;
+};
+
+export type ProjectContextItem = LocalRecord & {
+  projectId: string;
+  projectName: string;
+  label: string;
+  kind: "note" | "file" | "instruction";
+  content: string;
 };
 
 export type ConnectorSettings = {
@@ -49,6 +65,7 @@ export const STORAGE_KEYS = {
   agents: "friday.agents.v1",
   artifacts: "friday.artifacts.v1",
   projects: "friday.projects.v1",
+  projectContext: "friday.project-context.v1",
   memory: "friday.memory.v1",
   automations: "friday.automations.v1",
   connectors: "friday.connectors.v1",
