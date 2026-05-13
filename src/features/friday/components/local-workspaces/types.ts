@@ -4,7 +4,7 @@ import type { UIMessage } from "ai";
 export type ResearchCitation = {
   id: string;
   label: string;
-  kind: "note" | "file" | "instruction" | "memory";
+  kind: "note" | "file" | "instruction" | "memory" | "web";
   excerpt: string;
 };
 

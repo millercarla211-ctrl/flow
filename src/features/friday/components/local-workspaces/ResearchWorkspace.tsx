@@ -1,4 +1,14 @@
-import { Archive, CalendarClock, FileDown, FileText, Pin, Plus, Quote, Sparkles } from "lucide-react";
+import {
+  Archive,
+  CalendarClock,
+  FileDown,
+  FileText,
+  Globe2,
+  Pin,
+  Plus,
+  Quote,
+  Sparkles,
+} from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useMemo, useState } from "react";
 
@@ -8,6 +18,7 @@ import { makeLocalRecord, useLocalList, useLocalSettings } from "../../hooks/use
 import { createLocalResearchDraft } from "../../utils/localResearch";
 import { exportFridayResearchBrief } from "../../utils/localFileExport";
 import { synthesizeResearchWithProvider } from "../../utils/providerResearch";
+import { inspectWebSource } from "../../utils/webInspection";
 import { createResearchContext, tryDraftTauriResearch } from "../../utils/tauriResearchRunner";
 import { firstExplicitUrl } from "../../utils/externalTargets";
 import { isTauriRuntime } from "@/platform/tauriRuntime";
@@ -68,11 +79,15 @@ export function ResearchWorkspace() {
   const [providerStateById, setProviderStateById] = useState<
     Record<string, { status: "running" | "ok" | "error"; message: string }>
   >({});
+  const [webStateById, setWebStateById] = useState<
+    Record<string, { status: "running" | "ok" | "error"; message: string }>
+  >({});
   const cloudEnvEnabled =
     process.env.NEXT_PUBLIC_FRIDAY_ENABLE_CLOUD_AI === "true" ||
     process.env.NEXT_PUBLIC_FRIDAY_ENABLE_GROQ_AI === "true";
   const providerSynthesisEnabled =
     connectors.settings.aiGateway && cloudEnvEnabled && !tauriRuntime;
+  const webInspectionEnabled = connectors.settings.webSearch && !tauriRuntime;
 
   const selectedProject = useMemo(
     () => projects.items.find((project) => project.id === projectId) ?? null,
@@ -229,6 +244,53 @@ export function ResearchWorkspace() {
     }));
   };
 
+  const inspectBriefUrl = async (brief: ResearchBrief, url: string) => {
+    if (!webInspectionEnabled) return;
+    setWebStateById((current) => ({
+      ...current,
+      [brief.id]: { status: "running", message: "Inspecting source" },
+    }));
+    const result = await inspectWebSource(url);
+    if (!result.ok) {
+      setWebStateById((current) => ({
+        ...current,
+        [brief.id]: { status: "error", message: result.message },
+      }));
+      return;
+    }
+
+    const nextCitation = {
+      id: `web:${result.url}`,
+      label: result.title || result.url,
+      kind: "web" as const,
+      excerpt: result.excerpt,
+    };
+    const citations = brief.citations ?? [];
+    const nextCitations = citations.some((citation) => citation.id === nextCitation.id)
+      ? citations.map((citation) => (citation.id === nextCitation.id ? nextCitation : citation))
+      : [...citations, nextCitation];
+    const nextReport = [
+      brief.report,
+      "",
+      `### Inspected Web Source`,
+      `[${nextCitations.length}] ${nextCitation.label}: ${nextCitation.excerpt}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    updateItem(brief.id, {
+      citations: nextCitations,
+      inspectedUrl: true,
+      report: nextReport,
+      sources: Array.from(new Set([...brief.sources, "Web"])),
+      status: "Drafted",
+    });
+    setWebStateById((current) => ({
+      ...current,
+      [brief.id]: { status: "ok", message: "Source inspected" },
+    }));
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -300,6 +362,7 @@ export function ResearchWorkspace() {
             const briefUrl = firstExplicitUrl(brief.topic);
             const exportState = exportStateById[brief.id];
             const providerState = providerStateById[brief.id];
+            const webState = webStateById[brief.id];
             return (
               <RecordShell
                 key={brief.id}
@@ -385,6 +448,20 @@ export function ResearchWorkspace() {
                     {providerState.message}
                   </Badge>
                 )}
+                {webState && (
+                  <Badge
+                    variant="outline"
+                    className={
+                      webState.status === "ok"
+                        ? "border-emerald-500/40 text-emerald-300"
+                        : webState.status === "error"
+                          ? "border-red-500/40 text-red-300"
+                          : "border-[var(--border)]"
+                    }
+                  >
+                    {webState.message}
+                  </Badge>
+                )}
                 {briefUrl && (
                   <Button
                     type="button"
@@ -393,6 +470,25 @@ export function ResearchWorkspace() {
                     onClick={() => openUrl(briefUrl)}
                   >
                     Open URL
+                  </Button>
+                )}
+                {briefUrl && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    title={
+                      tauriRuntime
+                        ? "Web source inspection is available in the hosted Friday workspace."
+                        : webInspectionEnabled
+                          ? "Fetch this URL as an approved research citation."
+                          : "Enable the Web connector before inspecting URL sources."
+                    }
+                    onClick={() => void inspectBriefUrl(brief, briefUrl)}
+                    disabled={!webInspectionEnabled || webState?.status === "running"}
+                  >
+                    <Globe2 size={13} />
+                    {webState?.status === "running" ? "Inspecting" : "Inspect URL"}
                   </Button>
                 )}
                 <Button

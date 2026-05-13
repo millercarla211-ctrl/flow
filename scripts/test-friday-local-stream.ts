@@ -10,6 +10,11 @@ import { rankAskContext } from "../src/features/friday/utils/localRetrieval";
 import { createLocalResearchDraft } from "../src/features/friday/utils/localResearch";
 import { parseFridayStreamPayload } from "../src/features/friday/utils/providerHealth";
 import { buildProviderResearchPrompt } from "../src/features/friday/utils/providerResearch";
+import {
+  extractHtmlTitle,
+  extractReadableHtmlText,
+  normalizeWebInspectionUrl,
+} from "../src/features/friday/utils/webInspection";
 
 const model = resolveFridayModel("qwen35-4b-revised-q4km");
 const draft = createLocalAssistantDraft("write a short Friday status", model, {
@@ -251,6 +256,26 @@ if (
   !providerResearchPrompt.includes("[1] local-note.md")
 ) {
   throw new Error("Friday provider research prompt did not preserve citation boundaries.");
+}
+
+const blockedLocalUrl = normalizeWebInspectionUrl("http://localhost:8735");
+if (blockedLocalUrl.ok) {
+  throw new Error("Friday web inspection allowed a local URL.");
+}
+
+const normalizedWebUrl = normalizeWebInspectionUrl("https://example.com/path");
+if (!normalizedWebUrl.ok || normalizedWebUrl.url !== "https://example.com/path") {
+  throw new Error("Friday web inspection did not normalize a public URL.");
+}
+
+const sampleHtml =
+  "<html><head><title>Friday &amp; Research</title><style>.x{}</style></head><body><script>bad()</script><main>Useful cited source text.</main></body></html>";
+if (extractHtmlTitle(sampleHtml) !== "Friday & Research") {
+  throw new Error("Friday web inspection did not extract the HTML title.");
+}
+
+if (!extractReadableHtmlText(sampleHtml).includes("Useful cited source text.")) {
+  throw new Error("Friday web inspection did not extract readable source text.");
 }
 
 console.log(`Friday local stream smoke passed with ${model.label}.`);
