@@ -119,7 +119,7 @@ export function AgentsWorkspace() {
             lastTokensPerSecond: localRun.tokensPerSecond,
             lastTotalTimeMs: localRun.totalTimeMs,
           }
-        : createLocalAgentRun(task),
+        : createLocalAgentRun(task, contextForTask(task)),
     );
   };
 

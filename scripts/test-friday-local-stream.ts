@@ -109,6 +109,37 @@ if (agentRun.status !== "Completed" || !agentRun.result.includes("No remote prov
   throw new Error("Friday local agent runner did not produce the expected guarded result.");
 }
 
+const scopedAgentRun = createLocalAgentRun(
+  {
+    id: "agent_scoped_test",
+    title: "fix src/features/friday/components/FridayAskView.tsx",
+    brief: "Must preserve the model picker. Verify typecheck passes.",
+    target: "code",
+    status: "Queued",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  },
+  {
+    projectName: "Friday OS",
+    projectInstructions: "Keep Friday local-first.",
+    contextItems: [
+      {
+        label: "agent-guidance.md",
+        kind: "note",
+        content: "Agent plans should use approved project context before execution.",
+      },
+    ],
+  },
+);
+
+if (
+  !scopedAgentRun.result.includes("Detected scope: src/features/friday/components/FridayAskView.tsx") ||
+  !scopedAgentRun.result.includes("Acceptance checklist") ||
+  !scopedAgentRun.result.includes("Project: Friday OS")
+) {
+  throw new Error("Friday scoped agent runner did not preserve path, acceptance, and project context.");
+}
+
 const gatewayDeniedByRequest = resolveFridayGatewayChatRequest(
   {
     allowCloud: false,
