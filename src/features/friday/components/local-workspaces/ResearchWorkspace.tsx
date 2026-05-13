@@ -3,13 +3,15 @@ import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
+import { makeLocalRecord, useLocalList, useLocalSettings } from "../../hooks/useLocalPersistence";
 import { createLocalResearchDraft } from "../../utils/localResearch";
 import { createResearchContext, tryDraftTauriResearch } from "../../utils/tauriResearchRunner";
 import { EmptyState, INPUT_CLASS, RecordShell } from "./primitives";
 import {
+  DEFAULT_CONNECTORS,
   STORAGE_KEYS,
   type CanvasArtifact,
+  type ConnectorSettings,
   type FridayAutomation,
   type FridayMemory,
   type FridayProject,
@@ -17,7 +19,28 @@ import {
   type ResearchBrief,
 } from "./types";
 
-const RESEARCH_SOURCES = ["Local files", "Web", "Academic", "Premium data"];
+const RESEARCH_SOURCES = [
+  {
+    label: "Local files",
+    isAvailable: (connectors: ConnectorSettings) => connectors.localFiles,
+    unavailableLabel: "Local files off",
+  },
+  {
+    label: "Web",
+    isAvailable: (connectors: ConnectorSettings) => connectors.webSearch,
+    unavailableLabel: "Enable web connector",
+  },
+  {
+    label: "Academic",
+    isAvailable: (connectors: ConnectorSettings) => connectors.webSearch,
+    unavailableLabel: "Enable web connector",
+  },
+  {
+    label: "Premium data",
+    isAvailable: (connectors: ConnectorSettings) => connectors.mcpConnectors,
+    unavailableLabel: "Enable MCP connector",
+  },
+];
 
 export function ResearchWorkspace() {
   const { items, addItem, updateItem, removeItem } = useLocalList<ResearchBrief>(
@@ -28,8 +51,9 @@ export function ResearchWorkspace() {
   const memories = useLocalList<FridayMemory>(STORAGE_KEYS.memory);
   const artifacts = useLocalList<CanvasArtifact>(STORAGE_KEYS.artifacts);
   const automations = useLocalList<FridayAutomation>(STORAGE_KEYS.automations);
+  const connectors = useLocalSettings<ConnectorSettings>(STORAGE_KEYS.connectors, DEFAULT_CONNECTORS);
   const [topic, setTopic] = useState("");
-  const [sources, setSources] = useState(["Local files", "Web"]);
+  const [sources, setSources] = useState(["Local files"]);
   const [projectId, setProjectId] = useState("none");
   const [isDrafting, setIsDrafting] = useState(false);
 
@@ -60,10 +84,13 @@ export function ResearchWorkspace() {
     const cleanTopic = topic.trim();
     if (!cleanTopic || isDrafting) return;
     setIsDrafting(true);
+    const availableSources = sources.filter((source) =>
+      RESEARCH_SOURCES.find((item) => item.label === source)?.isAvailable(connectors.settings),
+    );
     const localDraft = createLocalResearchDraft({
       topic: cleanTopic,
       project: selectedProject,
-      contextItems: sources.includes("Local files") ? selectedProjectContext : [],
+      contextItems: availableSources.includes("Local files") ? selectedProjectContext : [],
       memories: availableMemories,
     });
     const localModelDraft = await tryDraftTauriResearch({
@@ -71,7 +98,7 @@ export function ResearchWorkspace() {
       citations: localDraft.citations,
       context: createResearchContext({
         project: selectedProject,
-        contextItems: sources.includes("Local files") ? selectedProjectContext : [],
+        contextItems: availableSources.includes("Local files") ? selectedProjectContext : [],
         memories: availableMemories,
       }),
     });
@@ -79,7 +106,7 @@ export function ResearchWorkspace() {
     addItem(
       makeLocalRecord("research", {
         topic: cleanTopic,
-        sources,
+        sources: availableSources,
         plan: localModelDraft?.plan ?? localDraft.plan,
         citations: localDraft.citations,
         report: localModelDraft?.report ?? localDraft.report,
@@ -173,23 +200,29 @@ export function ResearchWorkspace() {
       </div>
       <div className="flex flex-wrap gap-2">
         {RESEARCH_SOURCES.map((source) => {
-          const enabled = sources.includes(source);
+          const enabled = sources.includes(source.label);
+          const available = source.isAvailable(connectors.settings);
           return (
             <button
-              key={source}
+              key={source.label}
               type="button"
+              disabled={!available}
+              title={available ? source.label : source.unavailableLabel}
               onClick={() =>
                 setSources((current) =>
-                  enabled ? current.filter((item) => item !== source) : [...current, source],
+                  enabled
+                    ? current.filter((item) => item !== source.label)
+                    : [...current, source.label],
                 )
               }
               className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
                 enabled
                   ? "border-[var(--border-hover)] bg-[var(--secondary)] text-[var(--foreground)]"
                   : "border-[var(--border)] text-[var(--muted-foreground)]"
-              }`}
+              } disabled:cursor-not-allowed disabled:opacity-45`}
             >
-              {source}
+              {source.label}
+              {!available && <span className="ml-1 text-[10px]">Off</span>}
             </button>
           );
         })}
