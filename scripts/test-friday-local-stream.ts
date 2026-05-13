@@ -8,6 +8,7 @@ import {
 import { createLocalAgentRun } from "../src/features/friday/utils/localAgentRunner";
 import { rankAskContext } from "../src/features/friday/utils/localRetrieval";
 import { createLocalResearchDraft } from "../src/features/friday/utils/localResearch";
+import { parseFridayStreamPayload } from "../src/features/friday/utils/providerHealth";
 
 const model = resolveFridayModel("qwen35-4b-revised-q4km");
 const draft = createLocalAssistantDraft("write a short Friday status", model, {
@@ -203,6 +204,28 @@ if (!gatewayAllowed.ok || gatewayAllowed.modelId !== "openai/gpt-5.4") {
 const gatewayPrompt = createFridayGatewaySystemPrompt(gatewayAllowed.context);
 if (!gatewayPrompt.includes("Active project: Friday OS")) {
   throw new Error("Friday gateway prompt did not include approved project context.");
+}
+
+const providerHealthText = parseFridayStreamPayload(
+  [
+    'data: {"type":"start"}',
+    'data: {"type":"text-start","id":"txt-0"}',
+    'data: {"type":"text-delta","id":"txt-0","delta":"Friday"}',
+    'data: {"type":"text-delta","id":"txt-0","delta":" ready."}',
+    "data: [DONE]",
+  ].join("\n\n"),
+);
+
+if (providerHealthText.text !== "Friday ready.") {
+  throw new Error("Friday provider health parser did not collect streamed text.");
+}
+
+const providerHealthError = parseFridayStreamPayload(
+  'data: {"type":"error","errorText":"Provider unavailable"}\n\ndata: [DONE]\n',
+);
+
+if (providerHealthError.errorText !== "Provider unavailable") {
+  throw new Error("Friday provider health parser did not expose streamed errors.");
 }
 
 console.log(`Friday local stream smoke passed with ${model.label}.`);
