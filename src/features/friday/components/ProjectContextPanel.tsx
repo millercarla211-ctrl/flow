@@ -6,40 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { makeLocalRecord } from "../hooks/useLocalPersistence";
 import type { FridayProject, ProjectContextItem } from "./local-workspaces/types";
+import {
+  CONTEXT_FILE_ACCEPT,
+  isSupportedContextFile,
+  readContextFile,
+} from "../utils/contextFiles";
 import { titleFromText } from "../utils/text";
-
-const MAX_CONTEXT_FILE_CHARS = 40000;
-
-const SUPPORTED_TEXT_EXTENSIONS = new Set([
-  "txt",
-  "md",
-  "mdx",
-  "json",
-  "csv",
-  "ts",
-  "tsx",
-  "js",
-  "jsx",
-  "css",
-  "html",
-  "rs",
-  "toml",
-  "yaml",
-  "yml",
-  "log",
-]);
-
-function isSupportedTextFile(file: File) {
-  if (file.type.startsWith("text/")) return true;
-  const extension = file.name.split(".").pop()?.toLowerCase();
-  return extension ? SUPPORTED_TEXT_EXTENSIONS.has(extension) : false;
-}
-
-async function readContextFile(file: File): Promise<string> {
-  const text = await file.text();
-  if (text.length <= MAX_CONTEXT_FILE_CHARS) return text;
-  return `${text.slice(0, MAX_CONTEXT_FILE_CHARS)}\n\n[Friday clipped this file to ${MAX_CONTEXT_FILE_CHARS.toLocaleString()} characters for local context speed.]`;
-}
 
 export function ProjectContextPanel({
   projects,
@@ -88,7 +60,7 @@ export function ProjectContextPanel({
     const rejected: string[] = [];
 
     for (const file of Array.from(files).slice(0, 6)) {
-      if (!isSupportedTextFile(file)) {
+      if (!isSupportedContextFile(file)) {
         rejected.push(file.name);
         continue;
       }
@@ -168,7 +140,7 @@ export function ProjectContextPanel({
               className="hidden"
               type="file"
               multiple
-              accept=".txt,.md,.mdx,.json,.csv,.ts,.tsx,.js,.jsx,.css,.html,.rs,.toml,.yaml,.yml,.log,text/*"
+              accept={CONTEXT_FILE_ACCEPT}
               onChange={(event) => void importFiles(event.target.files)}
             />
             {fileError && (
