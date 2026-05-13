@@ -6,12 +6,30 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FRIDAY_LOCAL_MODELS } from "@/features/ai";
 import { FRIDAY_DASHBOARD_ORDER, FRIDAY_FEATURE_SPECS, type FridayAssistantView } from "../pageData";
+import { useLocalList } from "../hooks/useLocalPersistence";
+import {
+  STORAGE_KEYS,
+  type CanvasArtifact,
+  type FridayAskThread,
+  type FridayAutomation,
+  type FridayMemory,
+  type FridayProject,
+  type ResearchBrief,
+} from "./local-workspaces/types";
 
 export function FridayDashboard({
   onOpenView,
 }: {
   onOpenView: (view: FridayAssistantView | "voice") => void;
 }) {
+  const projects = useLocalList<FridayProject>(STORAGE_KEYS.projects);
+  const threads = useLocalList<FridayAskThread>(STORAGE_KEYS.askThreads);
+  const memories = useLocalList<FridayMemory>(STORAGE_KEYS.memory);
+  const research = useLocalList<ResearchBrief>(STORAGE_KEYS.research);
+  const artifacts = useLocalList<CanvasArtifact>(STORAGE_KEYS.artifacts);
+  const automations = useLocalList<FridayAutomation>(STORAGE_KEYS.automations);
+  const activeAutomations = automations.items.filter((automation) => automation.enabled).length;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pb-6">
       <motion.section
@@ -60,13 +78,13 @@ export function FridayDashboard({
           },
           {
             icon: <Route size={18} />,
-            label: "Routing policy",
-            value: "Helper, tool, daily, backup",
+            label: "Projects",
+            value: `${projects.items.length} local workspaces`,
           },
           {
             icon: <Cpu size={18} />,
-            label: "Daily model",
-            value: "Qwen3.5 4B Revised",
+            label: "Active automations",
+            value: `${activeAutomations} local jobs`,
           },
         ].map((item) => (
           <Card key={item.label} className="py-0">
@@ -86,6 +104,24 @@ export function FridayDashboard({
           </Card>
         ))}
       </div>
+
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {[
+          ["Ask threads", threads.items.length],
+          ["Research briefs", research.items.length],
+          ["Artifacts", artifacts.items.length],
+          ["Pinned memories", memories.items.filter((memory) => memory.pinned).length],
+        ].map(([label, value]) => (
+          <Card key={label} className="py-0">
+            <CardContent className="p-4">
+              <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                {label}
+              </div>
+              <div className="mt-2 text-2xl font-semibold text-[var(--foreground)]">{value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
 
       <section className="grid gap-3 lg:grid-cols-2">
         {FRIDAY_DASHBOARD_ORDER.map((id) => {
