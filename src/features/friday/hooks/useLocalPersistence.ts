@@ -79,6 +79,14 @@ export function useLocalList<T extends LocalRecord>(key: string) {
     [items, persist],
   );
 
+  const addItems = useCallback(
+    (nextItems: T[]) => {
+      if (nextItems.length === 0) return;
+      persist([...nextItems, ...items]);
+    },
+    [items, persist],
+  );
+
   const updateItem = useCallback(
     (id: string, update: Partial<T>) => {
       const now = new Date().toISOString();
@@ -129,7 +137,7 @@ export function useLocalList<T extends LocalRecord>(key: string) {
     [items, persist],
   );
 
-  return { items, isLoaded, addItem, updateItem, updateWhere, removeItem, removeWhere };
+  return { items, isLoaded, addItem, addItems, updateItem, updateWhere, removeItem, removeWhere };
 }
 
 export function useLocalSettings<T extends object>(key: string, defaults: T) {

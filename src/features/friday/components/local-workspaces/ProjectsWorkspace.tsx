@@ -181,7 +181,7 @@ export function ProjectsWorkspace() {
 
   const importContextFiles = async (files: FileList | null) => {
     if (!files?.length || !selectedProject) return;
-    let importedCount = 0;
+    const importedItems: ProjectContextItem[] = [];
     const rejected: string[] = [];
 
     for (const file of Array.from(files).slice(0, 8)) {
@@ -190,7 +190,7 @@ export function ProjectsWorkspace() {
         continue;
       }
 
-      projectContext.addItem(
+      importedItems.push(
         makeLocalRecord("context", {
           projectId: selectedProject.id,
           projectName: selectedProject.name,
@@ -199,8 +199,9 @@ export function ProjectsWorkspace() {
           content: await readContextFile(file),
         }),
       );
-      importedCount += 1;
     }
+
+    projectContext.addItems(importedItems);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -208,7 +209,7 @@ export function ProjectsWorkspace() {
     setContextFileError(
       rejected.length > 0
         ? `Skipped unsupported files: ${rejected.join(", ")}`
-        : importedCount > 0
+        : importedItems.length > 0
           ? null
           : "No supported text files selected.",
     );

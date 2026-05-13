@@ -435,6 +435,7 @@ export function FridayAskView() {
         activeContextItems={activeContextItems}
         onActiveProjectChange={setActiveProjectId}
         onAddContextItem={projectContextItems.addItem}
+        onAddContextItems={projectContextItems.addItems}
         onRemoveContextItem={projectContextItems.removeItem}
         onNotice={showSavedNotice}
       />

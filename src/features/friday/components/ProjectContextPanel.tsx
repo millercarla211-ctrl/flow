@@ -20,6 +20,7 @@ export function ProjectContextPanel({
   activeContextItems,
   onActiveProjectChange,
   onAddContextItem,
+  onAddContextItems,
   onRemoveContextItem,
   onNotice,
 }: {
@@ -29,6 +30,7 @@ export function ProjectContextPanel({
   activeContextItems: ProjectContextItem[];
   onActiveProjectChange: (projectId: string) => void;
   onAddContextItem: (item: ProjectContextItem) => void;
+  onAddContextItems: (items: ProjectContextItem[]) => void;
   onRemoveContextItem: (itemId: string) => void;
   onNotice: (label: string) => void;
 }) {
@@ -56,7 +58,7 @@ export function ProjectContextPanel({
   const importFiles = async (files: FileList | null) => {
     if (!files?.length || !selectedProject) return;
 
-    let importedCount = 0;
+    const importedItems: ProjectContextItem[] = [];
     const rejected: string[] = [];
 
     for (const file of Array.from(files).slice(0, 6)) {
@@ -66,7 +68,7 @@ export function ProjectContextPanel({
       }
 
       const content = await readContextFile(file);
-      onAddContextItem(
+      importedItems.push(
         makeLocalRecord("context", {
           projectId: selectedProject.id,
           projectName: selectedProject.name,
@@ -75,17 +77,18 @@ export function ProjectContextPanel({
           content,
         }),
       );
-      importedCount += 1;
     }
+
+    onAddContextItems(importedItems);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
 
     setFileError(rejected.length > 0 ? `Skipped unsupported files: ${rejected.join(", ")}` : null);
-    if (importedCount > 0) {
+    if (importedItems.length > 0) {
       onNotice(
-        `Imported ${importedCount} file${importedCount === 1 ? "" : "s"} into project context`,
+        `Imported ${importedItems.length} file${importedItems.length === 1 ? "" : "s"} into project context`,
       );
     }
   };
