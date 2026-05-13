@@ -41,6 +41,8 @@ pub(crate) struct UpdateSettingsArgs {
     pub wake_listening_enabled: bool,
     #[serde(default)]
     pub wake_phrases: Vec<String>,
+    #[serde(default)]
+    pub wake_speaker_verification_enabled: bool,
     pub transcription_mode: TranscriptionMode,
     pub local_model: String,
     #[serde(default)]
@@ -405,6 +407,7 @@ pub(crate) fn update_settings(
     if next.wake_phrases.is_empty() {
         next.wake_phrases = crate::settings::default_wake_phrases();
     }
+    next.wake_speaker_verification_enabled = args.wake_speaker_verification_enabled;
     next.transcription_mode = args.transcription_mode;
     next.local_model = args.local_model;
     next.tts_enabled = args.tts_enabled;
@@ -533,6 +536,7 @@ mod tests {
             cancel_enabled: false,
             wake_listening_enabled: true,
             wake_phrases: crate::settings::default_wake_phrases(),
+            wake_speaker_verification_enabled: false,
             transcription_mode: TranscriptionMode::Local,
             local_model: default_local_model(),
             tts_enabled: true,

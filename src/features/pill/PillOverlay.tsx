@@ -18,7 +18,6 @@ import React, { useRef, useEffect, useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useMachine } from "@xstate/react";
-import { LiveWaveform } from "@/components/ui/live-waveform";
 import { useSettings } from "../settings/queries";
 import { pillMachine } from "./machine";
 import type { PillStatus, StoredSettings } from "../../types";
@@ -33,14 +32,18 @@ interface GridInfo {
   offsetY: number;
 }
 
-const PILL_WIDTH = 28;
+const PILL_WIDTH = 34;
 const PILL_HEIGHT = 13;
-const IDLE_HANDLE_WIDTH = 20;
+const IDLE_HANDLE_WIDTH = 24;
 const IDLE_HANDLE_HEIGHT = 5;
 const RECORDING_WIDTH = 156;
 const RECORDING_HEIGHT = 42;
 const POLISH_DOCK_WIDTH = 170;
 const POLISH_DOCK_HEIGHT = 34;
+const HOVER_ENTER_DELAY_MS = 130;
+const HOVER_LEAVE_DELAY_MS = 620;
+const HOVER_EXPAND_LOCK_MS = 850;
+const INTERACTION_LOCK_MS = 1600;
 const VOICE_BAR_HEIGHTS = [6, 11, 16, 9, 20, 13, 23, 15, 10, 18, 12, 21];
 const POLISH_DOT_OPACITIES = [
   0.28, 0.36, 0.48, 0.62, 0.8, 0.72, 0.56, 0.44, 0.34, 0.26, 0.2, 0.18, 0.16,
@@ -200,6 +203,7 @@ type WakeStatusPayload = {
   command?: string;
   transcript?: string;
   confidence?: number;
+  speaker_score?: number;
 };
 
 type QuickActionStatus =
@@ -296,10 +300,12 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     offsetY: 0,
   });
   const bgHeightsRef = useRef<number[]>([]);
+  const overlayRootRef = useRef<HTMLDivElement>(null);
 
   // Animation & audio state
   const animationRef = useRef<number | null>(null);
   const loaderTimeRef = useRef<number>(0);
+  const lastCanvasDrawAtRef = useRef<number>(0);
   const colorPaletteRef = useRef<PillColorPalette>(FALLBACK_PILL_COLOR_PALETTE);
   const audioReferenceLevelRef = useRef<number>(0);
   const audioFrameCountRef = useRef<number>(0);
@@ -309,6 +315,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const dormantTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverEnterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverLockUntilRef = useRef<number>(0);
 
   /** Render to both canvases (primary + background). */
   const renderBoth = useCallback(
@@ -349,19 +356,34 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
       if (hovering) {
         setIsDormant(false);
         hoverEnterTimerRef.current = setTimeout(() => {
+          hoverLockUntilRef.current = Date.now() + HOVER_EXPAND_LOCK_MS;
           setIsHovering(true);
           hoverEnterTimerRef.current = null;
-        }, 140);
+        }, HOVER_ENTER_DELAY_MS);
         return;
       }
 
+      const lockRemaining = Math.max(0, hoverLockUntilRef.current - Date.now());
+      const leaveDelay = Math.max(HOVER_LEAVE_DELAY_MS, lockRemaining);
       hoverLeaveTimerRef.current = setTimeout(() => {
-        setIsHovering(false);
+        if (overlayRootRef.current?.matches(":hover")) {
+          hoverLockUntilRef.current = Date.now() + HOVER_EXPAND_LOCK_MS;
+          setIsHovering(true);
+        } else {
+          setIsHovering(false);
+        }
         hoverLeaveTimerRef.current = null;
-      }, 260);
+      }, leaveDelay);
     },
     [clearHoverTimers],
   );
+
+  const keepOverlayInteractive = useCallback(() => {
+    clearHoverTimers();
+    setIsDormant(false);
+    hoverLockUntilRef.current = Date.now() + INTERACTION_LOCK_MS;
+    setIsHovering(true);
+  }, [clearHoverTimers]);
 
   useEffect(() => () => clearHoverTimers(), [clearHoverTimers]);
 
@@ -679,14 +701,21 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     }
 
     loaderTimeRef.current = 0;
+    lastCanvasDrawAtRef.current = 0;
     let animationStartTime: number | null = null;
-    const emptySpectrum = new Uint8Array(256);
+    const emptySpectrum = new Uint8Array(128);
 
     const tick = (frameTime: number) => {
       if (animationStartTime === null) {
         animationStartTime = frameTime;
       }
       loaderTimeRef.current = frameTime - animationStartTime;
+      const frameInterval = pillStatus === "listening" ? 34 : pillStatus === "processing" ? 50 : 80;
+      if (loaderTimeRef.current - lastCanvasDrawAtRef.current < frameInterval) {
+        animationRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      lastCanvasDrawAtRef.current = loaderTimeRef.current;
 
       switch (pillStatus) {
         case "listening": {
@@ -732,15 +761,19 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     }
   }, []);
 
-  const toggleRecording = useCallback(async (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    try {
-      await invoke("toggle_recording");
-    } catch (err) {
-      console.error("Failed to toggle recording:", err);
-    }
-  }, []);
+  const toggleRecording = useCallback(
+    async (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      keepOverlayInteractive();
+      try {
+        await invoke("toggle_recording");
+      } catch (err) {
+        console.error("Failed to toggle recording:", err);
+      }
+    },
+    [keepOverlayInteractive],
+  );
 
   useEffect(() => {
     const storageKey = "flow_pill_first_tip_seen_v1";
@@ -1059,6 +1092,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const handleBubbleAction = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    keepOverlayInteractive();
     if (pillStatus === "error") {
       send({ type: "DISMISS" });
     }
@@ -1093,11 +1127,12 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const handleCopyLastTranscript = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    keepOverlayInteractive();
     const text = lastTranscript.trim();
     if (!text) return;
 
     try {
-      await navigator.clipboard.writeText(text);
+      await invoke("copy_last_transcript");
       flashQuickStatus("copied");
     } catch (error) {
       console.error("Failed to copy last transcript:", error);
@@ -1108,6 +1143,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const handlePasteLastTranscript = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    keepOverlayInteractive();
     if (!lastTranscript.trim()) return;
 
     try {
@@ -1122,6 +1158,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const handleSaveLastTranscript = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    keepOverlayInteractive();
     const text = lastTranscript.trim();
     if (!text) return;
 
@@ -1137,6 +1174,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const handleTransformLastTranscript = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    keepOverlayInteractive();
     const text = lastTranscript.trim();
     if (!text) return;
 
@@ -1152,6 +1190,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
   const handleToggleAutoTransform = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    keepOverlayInteractive();
 
     const nextEnabled = !autoTransformEnabled;
     if (nextEnabled && !autoTransformReady) {
@@ -1182,7 +1221,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     setIsHovering(false);
     flashQuickStatus("hidden");
     try {
-      await invoke("pause_flow_temporarily", { seconds: 90 });
+      await invoke("pause_flow_temporarily", { seconds: 300 });
     } catch (error) {
       console.error("Failed to pause Flow:", error);
       flashQuickStatus("error");
@@ -1214,6 +1253,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
 
   return (
     <div
+      ref={overlayRootRef}
       className={`relative w-full h-full flex flex-col justify-end select-none ${className}`}
       style={style}
       onContextMenu={(e) => {
@@ -1336,6 +1376,8 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
               exit={{ opacity: 0, y: 7, scale: 0.97, filter: "blur(4px)" }}
               transition={softSpringTransition}
               className="absolute bottom-[36px] z-20 flex items-center gap-1 rounded-full border px-1.5 py-1"
+              onPointerEnter={keepOverlayInteractive}
+              onPointerDownCapture={keepOverlayInteractive}
               style={{
                 color: "var(--color-text-primary)",
                 backgroundColor: "color-mix(in srgb, var(--color-bg-primary) 94%, transparent)",
@@ -1498,6 +1540,8 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
         {/* Pill shell — transitions between basic and dynamic modes */}
         <motion.div
           className={`relative overflow-hidden flex flex-col ${isErrorFlashing ? "animate-shake" : ""}`}
+          onPointerEnter={keepOverlayInteractive}
+          onPointerDownCapture={keepOverlayInteractive}
           animate={{
             width: shellWidth,
             height: shellHeight,
@@ -1691,6 +1735,8 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
             className={`absolute inset-x-0 bottom-0 z-[3] flex h-full items-center ${
               showPolishDock ? "gap-1.5 px-[2px]" : "gap-2 px-[5px]"
             }`}
+            onPointerEnter={keepOverlayInteractive}
+            onPointerDownCapture={keepOverlayInteractive}
             animate={{
               opacity: showRecordingUi || isActiveStatus ? 1 : 0,
               y: showRecordingUi || isActiveStatus ? 0 : 4,
@@ -1836,19 +1882,6 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
                 </motion.button>
 
                 <div className="relative min-w-0 flex-1 px-0.5">
-                  <LiveWaveform
-                    processing={pillStatus !== "error"}
-                    active={false}
-                    height={28}
-                    barWidth={3}
-                    barGap={2}
-                    barRadius={999}
-                    barColor="color-mix(in srgb, var(--color-text-primary) 88%, transparent)"
-                    fadeWidth={18}
-                    mode="static"
-                    className="absolute inset-0 h-7 w-full opacity-35"
-                    aria-hidden="true"
-                  />
                   <div
                     aria-hidden="true"
                     className="relative flex h-7 items-center justify-center gap-[3px] overflow-hidden rounded-full"

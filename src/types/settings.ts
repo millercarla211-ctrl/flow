@@ -49,6 +49,16 @@ export type Personality = {
   instructions: string[];
 };
 
+export type WakeSpeakerProfile = {
+  phrase: string;
+  enrolled_at: string;
+  duration_ms: number;
+  sample_rate: number;
+  sample_count: number;
+  threshold: number;
+  embedding: number[];
+};
+
 export type StoredSettings = {
   onboarding_completed: boolean;
   smart_shortcut: string;
@@ -71,6 +81,8 @@ export type StoredSettings = {
   cancel_enabled: boolean;
   wake_listening_enabled: boolean;
   wake_phrases: string[];
+  wake_speaker_verification_enabled: boolean;
+  wake_speaker_profile: WakeSpeakerProfile | null;
   transcription_mode: TranscriptionMode;
   local_model: string;
   tts_enabled: boolean;

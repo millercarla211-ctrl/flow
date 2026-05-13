@@ -6,6 +6,7 @@ const nextConfig = {
   },
   reactStrictMode: true,
   trailingSlash: true,
+  devIndicators: false,
 };
 
 export default nextConfig;

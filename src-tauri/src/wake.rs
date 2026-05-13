@@ -14,7 +14,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::{
-    dictionary, model_manager, pill::PillStatus, settings::UserSettings, AppRuntime, AppState,
+    dictionary, model_manager, pill::PillStatus, settings::UserSettings, wake_speaker, AppRuntime,
+    AppState,
 };
 
 const EVENT_WAKE_STATUS: &str = "wake:status";
@@ -57,6 +58,7 @@ struct WakeMatch {
     command: String,
     transcript: String,
     confidence: f64,
+    speaker_score: Option<f32>,
 }
 
 #[derive(Default)]
@@ -236,6 +238,7 @@ fn trigger_recording_from_wake(app: &AppHandle<AppRuntime>, wake_match: &WakeMat
             command: Some(wake_match.command.clone()),
             transcript: Some(wake_match.transcript.clone()),
             confidence: Some(wake_match.confidence),
+            speaker_score: wake_match.speaker_score,
         },
     ) {
         eprintln!("Failed to emit wake status: {err}");
@@ -518,11 +521,39 @@ fn transcribe_and_match_wake_candidate(
         }
     };
 
-    let wake_match = match_wake_phrase(&result.transcript, &config.phrases);
+    let mut wake_match = match_wake_phrase(&result.transcript, &config.phrases);
+    if let Some(wake_match) = wake_match.as_mut() {
+        if settings.wake_speaker_verification_enabled {
+            let Some(profile) = settings.wake_speaker_profile.as_ref() else {
+                eprintln!("[wake] ignored command=hello reason=no speaker profile");
+                return None;
+            };
+            let Some(check) =
+                wake_speaker::verify_samples(&candidate.samples, candidate.sample_rate, profile)
+            else {
+                eprintln!("[wake] ignored command=hello reason=speaker check unavailable");
+                return None;
+            };
+            wake_match.speaker_score = Some(check.score);
+            if !check.verified {
+                eprintln!(
+                    "[wake] ignored command=hello reason=speaker mismatch score={:.2} threshold={:.2}",
+                    check.score, check.threshold
+                );
+                return None;
+            }
+        }
+    }
     if let Some(wake_match) = wake_match.as_ref() {
         eprintln!(
-            "[wake] matched command={} confidence={:.2} transcript={:?}",
-            wake_match.command, wake_match.confidence, wake_match.transcript
+            "[wake] matched command={} confidence={:.2} speaker_score={} transcript={:?}",
+            wake_match.command,
+            wake_match.confidence,
+            wake_match
+                .speaker_score
+                .map(|score| format!("{score:.2}"))
+                .unwrap_or_else(|| "off".to_string()),
+            wake_match.transcript
         );
     } else if !result.transcript.trim().is_empty() {
         eprintln!("[wake] ignored transcript={:?}", result.transcript.trim());
@@ -547,6 +578,7 @@ fn match_wake_phrase(transcript: &str, phrases: &[String]) -> Option<WakeMatch> 
         command: "hello".to_string(),
         transcript: transcript.trim().to_string(),
         confidence: 1.0,
+        speaker_score: None,
     })
 }
 
@@ -609,6 +641,8 @@ struct WakeStatusPayload {
     transcript: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     confidence: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    speaker_score: Option<f32>,
 }
 
 fn emit_wake_status(app: &AppHandle<AppRuntime>, active: bool, message: &str) {
@@ -620,6 +654,7 @@ fn emit_wake_status(app: &AppHandle<AppRuntime>, active: bool, message: &str) {
             command: None,
             transcript: None,
             confidence: None,
+            speaker_score: None,
         },
     ) {
         eprintln!("Failed to emit wake status: {err}");

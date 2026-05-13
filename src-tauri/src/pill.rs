@@ -70,11 +70,12 @@ pub struct PillStatePayload {
     pub mode: Option<String>,
 }
 
-const SPECTRUM_SIZE: usize = 512;
+const SPECTRUM_SIZE: usize = 256;
 const SPECTRUM_BINS: usize = SPECTRUM_SIZE / 2;
 const SPECTRUM_SMOOTHING: f32 = 0.8;
 const SPECTRUM_MIN_DB: f32 = -100.0;
 const SPECTRUM_MAX_DB: f32 = -30.0;
+const SPECTRUM_EMIT_INTERVAL_MS: u64 = 80;
 
 struct AudioSpectrumEmitter {
     stop: Arc<AtomicBool>,
@@ -86,7 +87,7 @@ impl AudioSpectrumEmitter {
         let stop = Arc::new(AtomicBool::new(false));
         let stop_signal = Arc::clone(&stop);
         let handle = std::thread::spawn(move || {
-            let interval = Duration::from_millis(40);
+            let interval = Duration::from_millis(SPECTRUM_EMIT_INTERVAL_MS);
             let mut planner = FftPlanner::<f32>::new();
             let fft = planner.plan_fft_forward(SPECTRUM_SIZE);
             let denom = (SPECTRUM_SIZE - 1) as f32;
@@ -157,6 +158,7 @@ pub struct PillController {
     recorder: Arc<RecorderManager>,
     audio_spectrum_emitter: Mutex<Option<AudioSpectrumEmitter>>,
     is_expanded: Mutex<bool>,
+    overlay_hidden_until: Mutex<Option<Instant>>,
 }
 
 impl PillController {
@@ -172,6 +174,7 @@ impl PillController {
             recorder,
             audio_spectrum_emitter: Mutex::new(None),
             is_expanded: Mutex::new(false),
+            overlay_hidden_until: Mutex::new(None),
         }
     }
 
@@ -185,6 +188,26 @@ impl PillController {
 
     pub fn is_expanded(&self) -> bool {
         *self.is_expanded.lock()
+    }
+
+    pub fn hide_overlay_for(&self, duration: Duration) {
+        *self.overlay_hidden_until.lock() = Some(Instant::now() + duration);
+    }
+
+    pub fn clear_overlay_hide(&self) {
+        *self.overlay_hidden_until.lock() = None;
+    }
+
+    pub fn overlay_hidden(&self) -> bool {
+        let mut hidden_until = self.overlay_hidden_until.lock();
+        match *hidden_until {
+            Some(until) if Instant::now() < until => true,
+            Some(_) => {
+                *hidden_until = None;
+                false
+            }
+            None => false,
+        }
     }
 
     pub fn recorder(&self) -> &RecorderManager {
@@ -820,6 +843,7 @@ impl PillController {
     }
 
     pub fn toggle_from_overlay(&self, app: &AppHandle<AppRuntime>) {
+        self.clear_overlay_hide();
         self.handle_toggle_press(app);
     }
 }
@@ -1055,6 +1079,10 @@ pub fn register_shortcuts(app: &AppHandle<AppRuntime>) -> anyhow::Result<()> {
 }
 
 pub fn show_overlay(app: &AppHandle<AppRuntime>) {
+    if app.state::<AppState>().pill().overlay_hidden() {
+        return;
+    }
+
     if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
         if !app.state::<AppState>().pill().is_expanded() {
             collapse_expanded_pill(app);

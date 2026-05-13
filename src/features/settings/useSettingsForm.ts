@@ -43,6 +43,7 @@ import type {
   LocalDataStoragePolicy,
   AppLocaleSetting,
   TtsVoiceMode,
+  WakeSpeakerProfile,
 } from "../../types";
 
 const TEXT_SIZE_MODE_STORAGE_KEY = "flow_text_size_mode";
@@ -121,6 +122,8 @@ export function useSettingsForm({
   const [cancelEnabled, setCancelEnabled] = useState(false);
   const [wakeListeningEnabled, setWakeListeningEnabled] = useState(false);
   const [wakePhrases, setWakePhrases] = useState(["hello"]);
+  const [wakeSpeakerVerificationEnabled, setWakeSpeakerVerificationEnabled] = useState(false);
+  const [wakeSpeakerProfile, setWakeSpeakerProfile] = useState<WakeSpeakerProfile | null>(null);
   const [transcriptionMode, setTranscriptionModeRaw] =
     useState<TranscriptionMode>(initialTranscriptionMode);
   const [localModel, setLocalModel] = useState("");
@@ -288,6 +291,8 @@ export function useSettingsForm({
     setCancelEnabled(s.cancel_enabled ?? false);
     setWakeListeningEnabled(s.wake_listening_enabled ?? false);
     setWakePhrases(s.wake_phrases?.length ? s.wake_phrases : ["hello"]);
+    setWakeSpeakerVerificationEnabled(s.wake_speaker_verification_enabled ?? false);
+    setWakeSpeakerProfile(s.wake_speaker_profile ?? null);
     setTranscriptionModeRaw(s.transcription_mode);
     setLocalModel(s.local_model);
     setTtsEnabled(s.tts_enabled ?? true);
@@ -748,6 +753,7 @@ export function useSettingsForm({
             cancelEnabled,
             wakeListeningEnabled,
             wakePhrases,
+            wakeSpeakerVerificationEnabled,
             transcriptionMode,
             localModel,
             ttsEnabled,
@@ -821,6 +827,7 @@ export function useSettingsForm({
     cancelEnabled,
     wakeListeningEnabled,
     wakePhrases,
+    wakeSpeakerVerificationEnabled,
     transcriptionMode,
     localModel,
     ttsEnabled,
@@ -1268,6 +1275,10 @@ export function useSettingsForm({
     setWakeListeningEnabled,
     wakePhrases,
     setWakePhrases,
+    wakeSpeakerVerificationEnabled,
+    setWakeSpeakerVerificationEnabled,
+    wakeSpeakerProfile,
+    setWakeSpeakerProfile,
     transcriptionMode,
     setTranscriptionMode,
     localModel,

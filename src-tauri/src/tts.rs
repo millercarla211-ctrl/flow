@@ -4,7 +4,10 @@ use std::{
     io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
-    sync::{Mutex, OnceLock},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex, OnceLock,
+    },
     time::Instant,
 };
 
@@ -27,6 +30,7 @@ const TTS_EVENT_ERROR: &str = "tts:error";
 const RUNNER_SCRIPT_NAME: &str = "qwen3_tts_runner.py";
 const RUNNER_SCRIPT: &str = include_str!("../../scripts/qwen3_tts_runner.py");
 static KOKORO_WORKER: OnceLock<Mutex<Option<KokoroWorker>>> = OnceLock::new();
+static KOKORO_PREWARMING: AtomicBool = AtomicBool::new(false);
 
 pub const TTS_CAPABILITY_VOICE_CLONE: &str = "voice_clone";
 pub const TTS_CAPABILITY_CUSTOM_VOICE: &str = "custom_voice";
@@ -34,6 +38,10 @@ pub const TTS_CAPABILITY_FAST_LOCAL: &str = "fast_local";
 
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
+#[cfg(target_os = "windows")]
+const BELOW_NORMAL_PRIORITY_CLASS: u32 = 0x00004000;
+
+const TTS_CPU_THREADS: &str = "4";
 
 #[derive(Debug, Clone)]
 pub struct TtsModelDefinition {
@@ -614,9 +622,27 @@ pub fn queue_after_transcription(
 }
 
 pub fn prewarm_if_needed(app: &AppHandle<AppRuntime>, settings: &UserSettings) {
-    if !settings.tts_enabled || settings.tts_model != "kokoro_82m" {
+    if settings.tts_model != "kokoro_82m" {
         return;
     }
+
+    let def = match definition("kokoro_82m") {
+        Some(def) => def,
+        None => return,
+    };
+
+    match tts_status_from_candidates(app, "kokoro_82m", def) {
+        Ok((_, status)) if status.installed => {}
+        _ => return,
+    }
+
+    if KOKORO_PREWARMING
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return;
+    }
+
     let app_handle = app.clone();
     async_runtime::spawn_blocking(move || {
         let started = Instant::now();
@@ -630,6 +656,7 @@ pub fn prewarm_if_needed(app: &AppHandle<AppRuntime>, settings: &UserSettings) {
                 serde_json::json!({ "model": "kokoro_82m", "elapsed_ms": elapsed_ms }),
             );
         }
+        KOKORO_PREWARMING.store(false, Ordering::SeqCst);
     });
 }
 
@@ -739,11 +766,8 @@ async fn synthesize_with_settings(
             .arg("--output")
             .arg(&output_path_for_runner)
             .arg("--language")
-            .arg(language)
-            .env("PYTHONUTF8", "1")
-            .env("HF_HOME", &hf_home)
-            .env("TRANSFORMERS_CACHE", hf_home.join("transformers"))
-            .env("TORCH_HOME", &torch_home);
+            .arg(language);
+        apply_tts_process_env(&mut command, &hf_home, &torch_home);
 
         if !reference_audio.is_empty() {
             command.arg("--reference-audio").arg(reference_audio);
@@ -761,7 +785,7 @@ async fn synthesize_with_settings(
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
-            command.creation_flags(CREATE_NO_WINDOW);
+            command.creation_flags(CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS);
         }
 
         let output = command.output().context("Failed to start local TTS runner")?;
@@ -801,6 +825,21 @@ fn audio_data_url(path: &Path) -> Result<String> {
     let bytes = fs::read(path).with_context(|| format!("Failed to read {}", path.display()))?;
     let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
     Ok(format!("data:audio/wav;base64,{encoded}"))
+}
+
+fn apply_tts_process_env(command: &mut Command, hf_home: &Path, torch_home: &Path) {
+    command
+        .env("PYTHONUTF8", "1")
+        .env("PYTHONNOUSERSITE", "1")
+        .env("HF_HOME", hf_home)
+        .env("HF_HUB_DISABLE_TELEMETRY", "1")
+        .env("TRANSFORMERS_CACHE", hf_home.join("transformers"))
+        .env("TORCH_HOME", torch_home)
+        .env("TOKENIZERS_PARALLELISM", "false")
+        .env("OMP_NUM_THREADS", TTS_CPU_THREADS)
+        .env("MKL_NUM_THREADS", TTS_CPU_THREADS)
+        .env("NUMEXPR_NUM_THREADS", TTS_CPU_THREADS)
+        .env("FLOW_TTS_TORCH_THREADS", TTS_CPU_THREADS);
 }
 
 fn ensure_runner_script<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf> {
@@ -868,21 +907,17 @@ fn start_kokoro_worker(app: &AppHandle<AppRuntime>) -> Result<KokoroWorker> {
         .arg(DEFAULT_KOKORO_VOICE)
         .arg("--device")
         .arg("cpu")
-        .env("PYTHONUTF8", "1")
-        .env("HF_HOME", &hf_home)
         .env("HF_HUB_OFFLINE", "1")
-        .env("HF_HUB_DISABLE_TELEMETRY", "1")
-        .env("TRANSFORMERS_CACHE", hf_home.join("transformers"))
         .env("TRANSFORMERS_OFFLINE", "1")
-        .env("TORCH_HOME", &torch_home)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
+    apply_tts_process_env(&mut command, &hf_home, &torch_home);
 
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
-        command.creation_flags(CREATE_NO_WINDOW);
+        command.creation_flags(CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS);
     }
 
     let mut child = command.spawn().context("Failed to start Kokoro worker")?;

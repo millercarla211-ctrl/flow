@@ -89,9 +89,18 @@ type BetterAuthClient = {
   revokeSessions(): AuthResult<{ status: boolean }>;
 };
 
+const authBaseUrl = process.env.NEXT_PUBLIC_FLOW_AUTH_BASE_URL?.trim();
+const authConfigured = Boolean(authBaseUrl);
 const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_FLOW_AUTH_BASE_URL,
+  baseURL: authBaseUrl || "http://127.0.0.1:0",
 }) as unknown as BetterAuthClient;
+
+function requireAuthClient(): BetterAuthClient {
+  if (!authConfigured) {
+    throw new Error("Flow account sync is not configured for this local build.");
+  }
+  return authClient;
+}
 
 function emitAuthChanged() {
   emit("auth:changed").catch(() => {});
@@ -161,8 +170,9 @@ function mapSession(session: BetterAuthSession, currentToken: string | null): Se
 }
 
 export async function createAccount(email: string, password: string, name?: string): Promise<User> {
+  const client = requireAuthClient();
   const data = await unwrapAuth(
-    authClient.signUp.email({
+    client.signUp.email({
       email,
       password,
       name: name?.trim() || email.split("@")[0] || "Flow User",
@@ -175,8 +185,9 @@ export async function createAccount(email: string, password: string, name?: stri
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<User> {
+  const client = requireAuthClient();
   const data = await unwrapAuth(
-    authClient.signIn.email({
+    client.signIn.email({
       email,
       password,
       rememberMe: true,
@@ -188,16 +199,19 @@ export async function loginWithEmail(email: string, password: string): Promise<U
 }
 
 export async function logout(): Promise<void> {
-  await unwrapAuth(authClient.signOut(), "Failed to sign out.");
+  const client = requireAuthClient();
+  await unwrapAuth(client.signOut(), "Failed to sign out.");
   emitAuthChanged();
 }
 
 export async function logoutAll(): Promise<void> {
-  await unwrapAuth(authClient.revokeSessions(), "Failed to sign out all sessions.");
+  const client = requireAuthClient();
+  await unwrapAuth(client.revokeSessions(), "Failed to sign out all sessions.");
   emitAuthChanged();
 }
 
 export async function getCurrentUser(): Promise<User | null> {
+  if (!authConfigured) return null;
   try {
     const response = await authClient.getSession();
     if (response.error || !response.data?.user) return null;
@@ -208,13 +222,15 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export async function createJwt(): Promise<Jwt> {
-  const data = await unwrapAuth(authClient.getSession(), "No active Flow auth session.");
+  const client = requireAuthClient();
+  const data = await unwrapAuth(client.getSession(), "No active Flow auth session.");
   if (!data?.session.token) throw new Error("No active Flow auth session.");
   return { jwt: data.session.token };
 }
 
 export async function updateName(name: string): Promise<User> {
-  await unwrapAuth(authClient.updateUser({ name }), "Failed to update your name.");
+  const client = requireAuthClient();
+  await unwrapAuth(client.updateUser({ name }), "Failed to update your name.");
   const user = await getCurrentUser();
   if (!user) throw new Error("Your Flow session expired.");
   emitAuthChanged();
@@ -222,8 +238,9 @@ export async function updateName(name: string): Promise<User> {
 }
 
 export async function updatePassword(newPassword: string, oldPassword: string): Promise<User> {
+  const client = requireAuthClient();
   const data = await unwrapAuth(
-    authClient.changePassword({
+    client.changePassword({
       currentPassword: oldPassword,
       newPassword,
       revokeOtherSessions: false,
@@ -235,9 +252,10 @@ export async function updatePassword(newPassword: string, oldPassword: string): 
 }
 
 export async function listSessions(): Promise<SessionList> {
+  const client = requireAuthClient();
   const [sessions, current] = await Promise.all([
-    unwrapAuth(authClient.listSessions(), "Failed to load sessions."),
-    authClient.getSession().catch(() => ({ data: null, error: null })),
+    unwrapAuth(client.listSessions(), "Failed to load sessions."),
+    client.getSession().catch(() => ({ data: null, error: null })),
   ]);
 
   const currentToken = current.data?.session.token ?? null;
@@ -248,7 +266,8 @@ export async function listSessions(): Promise<SessionList> {
 }
 
 export async function deleteSessionById(sessionId: string): Promise<void> {
-  await unwrapAuth(authClient.revokeSession({ token: sessionId }), "Failed to revoke session.");
+  const client = requireAuthClient();
+  await unwrapAuth(client.revokeSession({ token: sessionId }), "Failed to revoke session.");
 }
 
 // Cloud usage stats (localStorage cache)

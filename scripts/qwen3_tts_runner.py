@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -36,6 +37,8 @@ def parse_args() -> argparse.Namespace:
 def resolve_device(requested: str):
     import torch
 
+    configure_torch_threads(torch)
+
     if requested == "cuda":
         if not torch.cuda.is_available():
             raise RuntimeError("CUDA was requested, but torch.cuda is not available.")
@@ -45,6 +48,22 @@ def resolve_device(requested: str):
         return "cuda:0", torch.bfloat16, "flash_attention_2"
 
     return "cpu", torch.float32, "eager"
+
+
+def configure_torch_threads(torch_module) -> None:
+    try:
+        threads = int(os.environ.get("FLOW_TTS_TORCH_THREADS", "4"))
+    except ValueError:
+        threads = 4
+    threads = max(1, min(threads, 8))
+    try:
+        torch_module.set_num_threads(threads)
+    except Exception:
+        pass
+    try:
+        torch_module.set_num_interop_threads(1)
+    except Exception:
+        pass
 
 
 def first_supported_speaker(model) -> str:
@@ -80,6 +99,8 @@ def kokoro_lang_code(language: str) -> str:
 def load_kokoro_pipeline(language: str, device: str, model_dir: str | None = None):
     import torch
     from kokoro import KModel, KPipeline
+
+    configure_torch_threads(torch)
 
     resolved_device = "cpu" if device == "auto" else device
     local_dir = Path(model_dir) if model_dir else None

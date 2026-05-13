@@ -20,6 +20,7 @@ import {
   ScanText,
   TextQuote,
   BarChart3,
+  PanelsTopLeft,
 } from "lucide-react";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import SettingsModal from "./features/settings/components/SettingsModal";
@@ -38,6 +39,7 @@ import ScratchpadView from "./features/scratchpad/components/ScratchpadView";
 import SnippetsView from "./features/snippets/components/SnippetsView";
 import TransformsView from "./features/transforms/components/TransformsView";
 import InsightsView from "./features/insights/components/InsightsView";
+import WwwHome from "./liquidglass/www/WwwHome";
 import { useCurrentUser } from "./features/auth/queries";
 import { useSettings, useAppInfo } from "./features/settings/queries";
 import { useUpdateStatus } from "./features/updates/queries";
@@ -92,6 +94,7 @@ const Home = () => {
     | "transforms"
     | "style"
     | "library"
+    | "www"
   >("home");
   const { user: currentUser, refresh: refreshUser } = useCurrentUser();
   const [showSupportPopup, setShowSupportPopup] = useState(false);
@@ -379,6 +382,13 @@ const Home = () => {
               active={activeView === "home"}
               collapsed={isSidebarCollapsed}
               onClick={() => setActiveView("home")}
+            />
+            <SidebarItem
+              icon={<PanelsTopLeft size={18} />}
+              label="WWW"
+              active={activeView === "www"}
+              collapsed={isSidebarCollapsed}
+              onClick={() => setActiveView("www")}
             />
             <SidebarItem
               icon={<BarChart3 size={18} />}
@@ -726,6 +736,12 @@ const Home = () => {
             className={`w-full max-w-6xl mx-auto min-w-0 pt-8 ${activeView === "dictionary" ? "" : "hidden"}`}
           >
             <DictionaryView isActive={activeView === "dictionary"} />
+          </div>
+
+          <div
+            className={`absolute inset-0 top-8 overflow-hidden bg-background ${activeView === "www" ? "" : "hidden"}`}
+          >
+            {activeView === "www" && <WwwHome />}
           </div>
 
           <div

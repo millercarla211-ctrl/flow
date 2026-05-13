@@ -28,6 +28,8 @@ const KEY_CANCEL_SHORTCUTS: &str = "cancel_shortcuts";
 const KEY_CANCEL_ENABLED: &str = "cancel_enabled";
 const KEY_WAKE_LISTENING_ENABLED: &str = "wake_listening_enabled";
 const KEY_WAKE_PHRASES: &str = "wake_phrases";
+const KEY_WAKE_SPEAKER_VERIFICATION_ENABLED: &str = "wake_speaker_verification_enabled";
+const KEY_WAKE_SPEAKER_PROFILE: &str = "wake_speaker_profile";
 const KEY_TRANSCRIPTION_MODE: &str = "transcription_mode";
 const KEY_LOCAL_MODEL: &str = "local_model";
 const KEY_TTS_ENABLED: &str = "tts_enabled";
@@ -138,6 +140,10 @@ pub struct UserSettings {
     pub wake_listening_enabled: bool,
     #[serde(default = "default_wake_phrases")]
     pub wake_phrases: Vec<String>,
+    #[serde(default)]
+    pub wake_speaker_verification_enabled: bool,
+    #[serde(default)]
+    pub wake_speaker_profile: Option<crate::wake_speaker::WakeSpeakerProfile>,
     #[serde(default = "default_transcription_mode")]
     pub transcription_mode: TranscriptionMode,
     #[serde(default = "default_local_model")]
@@ -521,6 +527,8 @@ impl Default for UserSettings {
             cancel_enabled: false,
             wake_listening_enabled: true,
             wake_phrases: default_wake_phrases(),
+            wake_speaker_verification_enabled: false,
+            wake_speaker_profile: None,
             transcription_mode: default_transcription_mode(),
             local_model: default_local_model(),
             tts_enabled: true,
@@ -959,6 +967,16 @@ impl SettingsStore {
             )?;
             settings.wake_phrases =
                 self.read_value(&conn, KEY_WAKE_PHRASES, settings.wake_phrases.clone())?;
+            settings.wake_speaker_verification_enabled = self.read_value(
+                &conn,
+                KEY_WAKE_SPEAKER_VERIFICATION_ENABLED,
+                settings.wake_speaker_verification_enabled,
+            )?;
+            settings.wake_speaker_profile = self.read_value(
+                &conn,
+                KEY_WAKE_SPEAKER_PROFILE,
+                settings.wake_speaker_profile.clone(),
+            )?;
             settings.transcription_mode = self.read_value(
                 &conn,
                 KEY_TRANSCRIPTION_MODE,
@@ -1297,6 +1315,16 @@ impl SettingsStore {
             &settings.wake_listening_enabled,
         )?;
         self.write_value(&conn, KEY_WAKE_PHRASES, &settings.wake_phrases)?;
+        self.write_value(
+            &conn,
+            KEY_WAKE_SPEAKER_VERIFICATION_ENABLED,
+            &settings.wake_speaker_verification_enabled,
+        )?;
+        self.write_value(
+            &conn,
+            KEY_WAKE_SPEAKER_PROFILE,
+            &settings.wake_speaker_profile,
+        )?;
         self.write_value(&conn, KEY_TRANSCRIPTION_MODE, &settings.transcription_mode)?;
         self.write_value(&conn, KEY_LOCAL_MODEL, &settings.local_model)?;
         self.write_value(&conn, KEY_TTS_ENABLED, &settings.tts_enabled)?;

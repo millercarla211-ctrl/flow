@@ -1,6 +1,7 @@
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import {
   Check,
@@ -17,7 +18,13 @@ import {
 import ToggleSwitch from "../../../../shared/ui/ToggleSwitch";
 import { Dropdown } from "../../../../shared/ui/Dropdown";
 import { formatShortcutForDisplay } from "../../../../shared/lib/shortcuts";
-import type { DeviceInfo, ModelStatus, TranscriptionMode } from "../../../../types";
+import type {
+  DeviceInfo,
+  ModelStatus,
+  StoredSettings,
+  TranscriptionMode,
+  WakeSpeakerProfile,
+} from "../../../../types";
 import type {
   LanguageBadgeColumn,
   TranscriptionLanguageOption,
@@ -27,6 +34,7 @@ type ShortcutMode = "smart" | "hold" | "toggle" | "command" | "paste-last" | "ca
 type CaptureMode = `${ShortcutMode}:${number}` | null;
 type HelpTooltipId = "edit-mode" | "auto-transform" | "cleanup";
 type MicrophoneTestStatus = "idle" | "starting" | "listening" | "error";
+type WakeVoiceEnrollStatus = "idle" | "recording" | "saved" | "error";
 type MicrophoneTestLevels = {
   left: number;
   right: number;
@@ -111,6 +119,10 @@ type GeneralTabProps = {
   setWakeListeningEnabled: (value: boolean) => void;
   wakePhrases: string[];
   setWakePhrases: (value: string[]) => void;
+  wakeSpeakerVerificationEnabled: boolean;
+  setWakeSpeakerVerificationEnabled: (value: boolean) => void;
+  wakeSpeakerProfile: WakeSpeakerProfile | null;
+  setWakeSpeakerProfile: (value: WakeSpeakerProfile | null) => void;
   captureActive: CaptureMode;
   capturePreview: string;
   onStartCapture: (mode: ShortcutMode, index?: number) => void;
@@ -168,6 +180,10 @@ const GeneralTab = ({
   setWakeListeningEnabled,
   wakePhrases,
   setWakePhrases,
+  wakeSpeakerVerificationEnabled,
+  setWakeSpeakerVerificationEnabled,
+  wakeSpeakerProfile,
+  setWakeSpeakerProfile,
   captureActive,
   capturePreview,
   onStartCapture,
@@ -186,6 +202,8 @@ const GeneralTab = ({
 }: GeneralTabProps) => {
   const { t } = useLingui();
   const [openHelpTooltip, setOpenHelpTooltip] = useState<HelpTooltipId | null>(null);
+  const [wakeVoiceEnrollStatus, setWakeVoiceEnrollStatus] = useState<WakeVoiceEnrollStatus>("idle");
+  const [wakeVoiceEnrollError, setWakeVoiceEnrollError] = useState<string | null>(null);
   const {
     activeDeviceLabel,
     error: microphoneTestError,
@@ -228,6 +246,58 @@ const GeneralTab = ({
     }
 
     void startMicrophoneTest();
+  };
+
+  const primaryWakePhrase = wakePhrases.find((phrase) => phrase.trim())?.trim() || "hello";
+  const wakeVoiceProfileDate = wakeSpeakerProfile?.enrolled_at
+    ? new Date(wakeSpeakerProfile.enrolled_at)
+    : null;
+  const wakeVoiceProfileLabel =
+    wakeVoiceProfileDate && !Number.isNaN(wakeVoiceProfileDate.getTime())
+      ? wakeVoiceProfileDate.toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : null;
+
+  const applyWakeSpeakerSettings = (settings: StoredSettings) => {
+    setWakeSpeakerVerificationEnabled(settings.wake_speaker_verification_enabled ?? false);
+    setWakeSpeakerProfile(settings.wake_speaker_profile ?? null);
+    if (settings.wake_phrases?.length) {
+      setWakePhrases(settings.wake_phrases);
+    }
+    setWakeListeningEnabled(settings.wake_listening_enabled ?? true);
+  };
+
+  const handleEnrollWakeVoice = async () => {
+    setWakeVoiceEnrollStatus("recording");
+    setWakeVoiceEnrollError(null);
+    try {
+      const settings = await invoke<StoredSettings>("enroll_wake_speaker_profile", {
+        phrase: primaryWakePhrase,
+        seconds: 3.4,
+      });
+      applyWakeSpeakerSettings(settings);
+      setWakeVoiceEnrollStatus("saved");
+      window.setTimeout(() => setWakeVoiceEnrollStatus("idle"), 2200);
+    } catch (error) {
+      setWakeVoiceEnrollStatus("error");
+      setWakeVoiceEnrollError(String(error));
+    }
+  };
+
+  const handleClearWakeVoice = async () => {
+    setWakeVoiceEnrollStatus("idle");
+    setWakeVoiceEnrollError(null);
+    try {
+      const settings = await invoke<StoredSettings>("clear_wake_speaker_profile");
+      applyWakeSpeakerSettings(settings);
+    } catch (error) {
+      setWakeVoiceEnrollStatus("error");
+      setWakeVoiceEnrollError(String(error));
+    }
   };
 
   const captureKey = (mode: ShortcutMode, index: number) => `${mode}:${index}` as const;
@@ -785,6 +855,68 @@ const GeneralTab = ({
                           "Wake-word ONNX files can replace this low-power speech trigger later; these command names are already stored separately.",
                       })}
                     </p>
+                    <div className="mt-3 rounded-md border border-border-primary bg-surface-elevated p-2.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="ui-text-label-strong ui-color-primary">Voice match</div>
+                          <p className="mt-1 ui-text-micro ui-color-muted">
+                            Enroll your own "{primaryWakePhrase}" so other voices saying it do not
+                            start Flow.
+                          </p>
+                          <p className="mt-1 ui-text-micro ui-color-disabled">
+                            {wakeSpeakerProfile
+                              ? `Enrolled ${wakeVoiceProfileLabel ?? "locally"} · threshold ${Math.round(
+                                  wakeSpeakerProfile.threshold * 100,
+                                )}%`
+                              : "No voice enrolled yet. Say hello two or three times when enrolling."}
+                          </p>
+                          {wakeVoiceEnrollStatus === "recording" && (
+                            <p className="mt-1 ui-text-micro ui-color-primary">
+                              Recording now. Say "{primaryWakePhrase}" clearly.
+                            </p>
+                          )}
+                          {wakeVoiceEnrollStatus === "saved" && (
+                            <p className="mt-1 ui-text-micro ui-color-primary">
+                              Wake voice saved locally.
+                            </p>
+                          )}
+                          {wakeVoiceEnrollError && (
+                            <p className="mt-1 ui-text-micro text-[var(--color-error)]">
+                              {wakeVoiceEnrollError}
+                            </p>
+                          )}
+                        </div>
+                        <ToggleSwitch
+                          enabled={wakeSpeakerVerificationEnabled}
+                          onToggle={() =>
+                            wakeSpeakerProfile &&
+                            setWakeSpeakerVerificationEnabled(!wakeSpeakerVerificationEnabled)
+                          }
+                          ariaLabel="Toggle voice-matched wake"
+                          disabled={!wakeSpeakerProfile}
+                        />
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleEnrollWakeVoice}
+                          disabled={wakeVoiceEnrollStatus === "recording"}
+                          className="h-7 rounded-md border border-border-primary bg-surface-secondary px-2.5 ui-text-meta ui-color-primary transition-colors hover:border-border-hover disabled:opacity-55"
+                        >
+                          {wakeSpeakerProfile ? "Re-enroll voice" : "Enroll voice"}
+                        </button>
+                        {wakeSpeakerProfile && (
+                          <button
+                            type="button"
+                            onClick={handleClearWakeVoice}
+                            disabled={wakeVoiceEnrollStatus === "recording"}
+                            className="h-7 rounded-md border border-border-primary bg-transparent px-2.5 ui-text-meta ui-color-muted transition-colors hover:border-border-hover hover:ui-color-primary disabled:opacity-55"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>

@@ -356,8 +356,8 @@ pub fn toggle_settings_window(app: &AppHandle<AppRuntime>) -> tauri::Result<()> 
         reset_close_flag = true;
         let builder = WebviewWindowBuilder::new(app, SETTINGS_WINDOW_LABEL, WebviewUrl::default())
             .title("Flow")
-            .inner_size(900.0, 750.0)
-            .min_inner_size(900.0, 750.0)
+            .inner_size(1120.0, 760.0)
+            .min_inner_size(980.0, 720.0)
             .resizable(true)
             .visible(false);
 

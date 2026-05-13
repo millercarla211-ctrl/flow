@@ -40,6 +40,7 @@ mod update_checker;
 mod vibe_coding;
 mod voice_commands;
 mod wake;
+mod wake_speaker;
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
@@ -504,6 +505,8 @@ pub fn run() {
             tts::download_tts_model,
             tts::delete_tts_model,
             tts::synthesize_tts,
+            wake_speaker::enroll_wake_speaker_profile,
+            wake_speaker::clear_wake_speaker_profile,
             audio::list_input_devices,
             toast::toast_dismissed,
             open_accessibility_settings,
@@ -511,6 +514,7 @@ pub fn run() {
             get_auto_paste_status,
             paste_text_to_focused_app,
             paste_last_transcript,
+            copy_last_transcript,
             check_microphone_permission,
             request_microphone_permission,
             open_microphone_settings,
@@ -759,6 +763,10 @@ impl AppState {
 
     pub fn pill(&self) -> &PillController {
         &self.pill
+    }
+
+    pub(crate) fn wake(&self) -> &wake::WakeCoordinator {
+        &self.wake
     }
 
     pub fn download_default_local_model_if_missing(
@@ -1187,6 +1195,11 @@ fn paste_text_to_focused_app(
 #[tauri::command]
 fn paste_last_transcript(app: AppHandle<AppRuntime>) -> Result<PasteTextResult, String> {
     recent_transcriptions::paste_latest_transcription(&app)
+}
+
+#[tauri::command]
+fn copy_last_transcript(app: AppHandle<AppRuntime>) -> Result<(), String> {
+    recent_transcriptions::copy_latest_transcription_to_clipboard(&app)
 }
 
 pub(crate) fn paste_text_into_focused_app(
@@ -1796,7 +1809,7 @@ fn cancel_recording(app: AppHandle<AppRuntime>) {
 }
 
 #[tauri::command]
-fn pause_flow_temporarily(app: AppHandle<AppRuntime>, _seconds: Option<u64>) {
+fn pause_flow_temporarily(app: AppHandle<AppRuntime>, seconds: Option<u64>) {
     let state = app.state::<AppState>();
     if state.pill().status() == pill::PillStatus::Processing {
         state.pill().cancel_processing(&app);
@@ -1804,12 +1817,22 @@ fn pause_flow_temporarily(app: AppHandle<AppRuntime>, _seconds: Option<u64>) {
         state.pill().cancel(&app);
     }
 
+    let hide_duration = Duration::from_secs(seconds.unwrap_or(300).max(1));
+    state.pill().hide_overlay_for(hide_duration);
     pill::hide_overlay(&app);
 
     let settings = state.current_settings();
     if let Err(err) = state.wake.sync(&app, &settings) {
         eprintln!("Failed to keep wake listener armed after hiding overlay: {err}");
     }
+
+    let app_handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(hide_duration);
+        if app_handle.state::<AppState>().pill().status() == pill::PillStatus::Idle {
+            pill::show_overlay(&app_handle);
+        }
+    });
 }
 
 #[tauri::command]
