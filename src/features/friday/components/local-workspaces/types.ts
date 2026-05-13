@@ -62,11 +62,15 @@ export type FridayMemory = LocalRecord & {
 export type FridayAutomation = LocalRecord & {
   title: string;
   cadence: string;
+  instruction?: string;
   enabled: boolean;
   nextRunAt?: string;
   lastRunAt?: string;
   lastResult?: string;
   runCount?: number;
+  lastModel?: string;
+  lastTokensPerSecond?: number;
+  lastTotalTimeMs?: number;
   projectId?: string;
   projectName?: string;
 };
