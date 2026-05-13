@@ -129,13 +129,13 @@ const AccountTab = ({
               <h2 className="ui-text-body-strong font-semibold ui-color-primary">
                 {t({
                   id: "settings.account.cloud.title",
-                  message: "Flow Sync",
+                  message: "Friday Sync",
                 })}
               </h2>
               <p className="mt-1 ui-text-label ui-color-muted leading-relaxed">
                 {t({
                   id: "settings.account.cloud.body",
-                  message: `Flow accounts and sync are ${cloudStatus}. Flow stays fully usable offline and local-first.`,
+                  message: `Friday accounts and sync are ${cloudStatus}. Friday stays fully usable offline and local-first.`,
                 })}
               </p>
               <div className="mt-3 ui-text-meta ui-color-disabled">

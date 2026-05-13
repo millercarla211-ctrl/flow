@@ -41,7 +41,7 @@ export function SigninStep({ stepMotionProps, onNext }: SigninStepProps) {
         {t({
           id: "onboarding.signin.body",
           message:
-            "Flow is ready without an account. Keep everything local, or connect sync later when you want it.",
+            "Friday is ready without an account. Keep everything local, or connect sync later when you want it.",
         })}
       </p>
 

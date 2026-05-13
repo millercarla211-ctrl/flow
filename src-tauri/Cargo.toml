@@ -1,5 +1,5 @@
 [package]
-name = "flow"
+name = "friday"
 version = "0.8.4"
 description = "Local-first voice-to-text productivity app built with Tauri"
 authors = ["essencefromexistence"]

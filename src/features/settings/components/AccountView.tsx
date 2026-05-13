@@ -323,7 +323,7 @@ const AccountView = ({
                     {currentUser.name ||
                       t({
                         id: "settings.account.name.default",
-                        message: "Flow User",
+                        message: "Friday User",
                       })}
                   </h1>
                   <button

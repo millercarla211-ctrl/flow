@@ -178,7 +178,7 @@ export function ReadyStep({
         {t({
           id: "onboarding.ready.analytics_notice",
           message:
-            "Flow sends anonymous usage analytics to help improve the app. You can disable this anytime in Settings -> App.",
+            "Friday sends anonymous usage analytics to help improve the app. You can disable this anytime in Settings -> App.",
         })}
       </p>
 

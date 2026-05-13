@@ -554,7 +554,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
           <span className="ui-text-meta font-medium">
             {t({
               id: "onboarding.brand",
-              message: "Flow",
+              message: "Friday",
             })}
           </span>
         </div>

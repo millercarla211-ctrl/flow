@@ -15,12 +15,12 @@ const FAQModal = ({ isOpen, onClose }: FAQModalProps) => {
     {
       question: t({
         id: "faq.free.question",
-        message: "How is Flow free?",
+        message: "How is Friday free?",
       }),
       answer: t({
         id: "faq.free.answer",
         message:
-          "Flow runs local speech models on your device, so core dictation is free and unlimited. Remote providers stay optional.",
+          "Friday runs local speech models on your device, so core dictation is free and unlimited. Remote providers stay optional.",
       }),
     },
     {
@@ -92,7 +92,7 @@ const FAQModal = ({ isOpen, onClose }: FAQModalProps) => {
                 <p className="ui-text-meta ui-color-muted mt-1">
                   {t({
                     id: "faq.subtitle",
-                    message: "Common questions about Flow",
+                    message: "Common questions about Friday",
                   })}
                 </p>
               </div>
@@ -148,7 +148,7 @@ const FAQModal = ({ isOpen, onClose }: FAQModalProps) => {
                 <span className="ui-text-meta ui-color-disabled font-medium">
                   {t({
                     id: "faq.brand",
-                    message: "Flow",
+                    message: "Friday",
                   })}
                 </span>
               </div>

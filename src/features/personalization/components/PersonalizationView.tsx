@@ -103,7 +103,7 @@ const normalizeStyleBackup = (value: unknown): StyleImportItem[] => {
         : null;
 
   if (!source) {
-    throw new Error("Clipboard does not contain a Flow style backup.");
+    throw new Error("Clipboard does not contain a Friday style backup.");
   }
 
   const seen = new Set<string>();
@@ -470,7 +470,7 @@ const PersonalizationView = ({ isActive = true }: { isActive?: boolean }) => {
 
   const handleExportStyles = async () => {
     const payload = {
-      app: "Flow",
+      app: "Friday",
       type: "styles",
       version: 1,
       exported_at: new Date().toISOString(),
@@ -1074,7 +1074,7 @@ const ActiveStylePreviewPanel = ({
           : matchCount > 0
             ? t({
                 id: "personalization.active_preview.matched",
-                message: "Flow will apply matched style guidance.",
+                message: "Friday will apply matched style guidance.",
               })
             : t({
                 id: "personalization.active_preview.no_match",

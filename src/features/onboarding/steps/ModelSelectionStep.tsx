@@ -105,7 +105,7 @@ export function ModelSelectionStep({
               ? t({
                   id: "onboarding.models.unavailable_body",
                   message:
-                    "Flow couldn't load the local model list. You can continue with the default local engine and manage downloads later in Settings.",
+                    "Friday couldn't load the local model list. You can continue with the default local engine and manage downloads later in Settings.",
                 })
               : t({
                   id: "onboarding.models.empty_body",

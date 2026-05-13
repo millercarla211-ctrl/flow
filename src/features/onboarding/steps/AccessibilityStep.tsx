@@ -21,7 +21,7 @@ export function AccessibilityStep({
   const { t } = useLingui();
   const appName = t({
     id: "onboarding.accessibility.app_name",
-    message: "Flow",
+    message: "Friday",
   });
 
   return (

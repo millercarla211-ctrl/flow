@@ -65,7 +65,7 @@ export function WelcomeStep({
         <h1 className="max-w-xl text-[2.75rem] font-semibold leading-[0.98] tracking-normal text-content-primary">
           {t({
             id: "onboarding.welcome.title",
-            message: "Flow writes as fast as you speak.",
+            message: "Friday writes as fast as you speak.",
           })}
         </h1>
 
@@ -73,7 +73,7 @@ export function WelcomeStep({
           {t({
             id: "onboarding.welcome.subtitle",
             message:
-              "Speak naturally and Flow turns it into clean text wherever you work. Local by default, private by design, and built for unlimited daily use.",
+              "Speak naturally and Friday turns it into clean text wherever you work. Local by default, private by design, and built for unlimited daily use.",
           })}
         </p>
 
@@ -144,7 +144,7 @@ export function WelcomeStep({
         >
           {t({
             id: "onboarding.welcome.cta",
-            message: "Start using Flow",
+            message: "Start using Friday",
           })}
           <ArrowRight size={15} aria-hidden="true" />
         </button>
@@ -194,7 +194,7 @@ function WelcomeProofPanel() {
               <Zap size={15} aria-hidden="true" />
             </span>
             <div>
-              <div className="ui-text-body-sm-strong ui-color-primary">Flow in action</div>
+              <div className="ui-text-body-sm-strong ui-color-primary">Friday in action</div>
               <div className="ui-text-micro ui-color-disabled">speech to polished text</div>
             </div>
           </div>
@@ -228,7 +228,7 @@ function WelcomeProofPanel() {
             </div>
           </motion.div>
           <SpeechCard
-            title="What Flow writes"
+            title="What Friday writes"
             icon={<MessageSquareText size={13} />}
             text={polishedSpeech}
           />

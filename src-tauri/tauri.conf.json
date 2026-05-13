@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Flow",
+  "productName": "Friday",
   "identifier": "com.flow.data",
   "build": {
     "beforeDevCommand": "bun run dev",
@@ -12,7 +12,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Flow",
+        "title": "Friday",
         "width": 238,
         "height": 120,
         "x": -9999,
@@ -29,7 +29,7 @@
       },
       {
         "label": "settings",
-        "title": "Flow",
+        "title": "Friday",
         "width": 1120,
         "height": 760,
         "minWidth": 980,
@@ -41,7 +41,7 @@
       },
       {
         "label": "toast",
-        "title": "Flow Toast",
+        "title": "Friday Toast",
         "width": 420,
         "height": 200,
         "x": 0,

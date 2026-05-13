@@ -89,7 +89,9 @@ type BetterAuthClient = {
   revokeSessions(): AuthResult<{ status: boolean }>;
 };
 
-const authBaseUrl = process.env.NEXT_PUBLIC_FLOW_AUTH_BASE_URL?.trim();
+const authBaseUrl =
+  process.env.NEXT_PUBLIC_FRIDAY_AUTH_BASE_URL?.trim() ||
+  process.env.NEXT_PUBLIC_FLOW_AUTH_BASE_URL?.trim();
 const authConfigured = Boolean(authBaseUrl);
 const authClient = createAuthClient({
   baseURL: authBaseUrl || "http://127.0.0.1:0",
@@ -97,7 +99,7 @@ const authClient = createAuthClient({
 
 function requireAuthClient(): BetterAuthClient {
   if (!authConfigured) {
-    throw new Error("Flow account sync is not configured for this local build.");
+    throw new Error("Friday account sync is not configured for this local build.");
   }
   return authClient;
 }
@@ -145,8 +147,8 @@ function parseClientName(userAgent: string | null | undefined): string {
   if (ua.includes("Chrome/")) return "Chrome";
   if (ua.includes("Firefox/")) return "Firefox";
   if (ua.includes("Safari/")) return "Safari";
-  if (ua.includes("Tauri")) return "Flow Desktop";
-  return "Flow";
+  if (ua.includes("Tauri")) return "Friday Desktop";
+  return "Friday";
 }
 
 function parseOsName(userAgent: string | null | undefined): string {
@@ -175,10 +177,10 @@ export async function createAccount(email: string, password: string, name?: stri
     client.signUp.email({
       email,
       password,
-      name: name?.trim() || email.split("@")[0] || "Flow User",
+      name: name?.trim() || email.split("@")[0] || "Friday User",
       rememberMe: true,
     }),
-    "Failed to create your Flow account.",
+    "Failed to create your Friday account.",
   );
   emitAuthChanged();
   return mapUser(data.user);
@@ -223,8 +225,8 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function createJwt(): Promise<Jwt> {
   const client = requireAuthClient();
-  const data = await unwrapAuth(client.getSession(), "No active Flow auth session.");
-  if (!data?.session.token) throw new Error("No active Flow auth session.");
+  const data = await unwrapAuth(client.getSession(), "No active Friday auth session.");
+  if (!data?.session.token) throw new Error("No active Friday auth session.");
   return { jwt: data.session.token };
 }
 
@@ -232,7 +234,7 @@ export async function updateName(name: string): Promise<User> {
   const client = requireAuthClient();
   await unwrapAuth(client.updateUser({ name }), "Failed to update your name.");
   const user = await getCurrentUser();
-  if (!user) throw new Error("Your Flow session expired.");
+  if (!user) throw new Error("Your Friday session expired.");
   emitAuthChanged();
   return user;
 }

@@ -42,7 +42,7 @@ type DictionaryBackup = {
 
 const normalizeDictionaryBackup = (value: unknown): DictionaryBackup => {
   if (!isObject(value)) {
-    throw new Error("Clipboard does not contain a Flow dictionary backup.");
+    throw new Error("Clipboard does not contain a Friday dictionary backup.");
   }
 
   const rawEntries = Array.isArray(value.entries) ? value.entries : [];
@@ -241,7 +241,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
 
   const handleExportBackup = async () => {
     const payload = {
-      app: "Flow",
+      app: "Friday",
       type: "dictionary",
       version: 1,
       exported_at: new Date().toISOString(),
@@ -615,8 +615,8 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
             onClick={shiftHeld ? handleImportBackup : () => importFileInputRef.current?.click()}
             title={
               shiftHeld
-                ? "Import a Flow dictionary backup from clipboard"
-                : "Import dictionary CSV or Flow JSON backup"
+                ? "Import a Friday dictionary backup from clipboard"
+                : "Import dictionary CSV or Friday JSON backup"
             }
             disabled={importingBackup}
             className="ui-button-ghost h-9 gap-2 rounded-full border border-border-primary px-4 ui-text-button-sm disabled:opacity-40"
@@ -655,7 +655,7 @@ const DictionaryView = ({ isActive = true }: { isActive?: boolean }) => {
             <p className="mt-1 ui-text-body-sm ui-color-muted text-pretty">
               {t({
                 id: "dictionary.section.dictionary_description",
-                message: "Add custom words Flow should recognize.",
+                message: "Add custom words Friday should recognize.",
               })}
             </p>
           </div>

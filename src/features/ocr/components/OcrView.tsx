@@ -198,7 +198,7 @@ export default function OcrView({ isActive = true }: { isActive?: boolean }) {
             <input
               value={imagePath}
               onChange={(event) => setImagePath(event.target.value)}
-              placeholder="G:\\Flow\\tmp\\ocr-tests\\example-com.png"
+              placeholder="G:\\Friday\\tmp\\ocr-tests\\example-com.png"
               className="h-9 min-w-0 flex-1 rounded-md border border-border-primary bg-surface-elevated px-3 ui-text-input ui-color-primary placeholder:text-content-disabled focus:outline-none"
             />
             <button
@@ -303,8 +303,8 @@ export default function OcrView({ isActive = true }: { isActive?: boolean }) {
                     Image preview appears after OCR
                   </div>
                   <div className="mt-1 max-w-sm ui-text-meta ui-color-muted">
-                    Flow copies the chosen image into `G:\Flow\data\ocr\inputs` before running the
-                    local model.
+                    Friday copies the chosen image into `G:\Friday\data\ocr\inputs` before running
+                    the local model.
                   </div>
                 </div>
               )}

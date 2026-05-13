@@ -861,7 +861,7 @@ const GeneralTab = ({
                           <div className="ui-text-label-strong ui-color-primary">Voice match</div>
                           <p className="mt-1 ui-text-micro ui-color-muted">
                             Enroll your own "{primaryWakePhrase}" so other voices saying it do not
-                            start Flow.
+                            start Friday.
                           </p>
                           <p className="mt-1 ui-text-micro ui-color-disabled">
                             {wakeSpeakerProfile
@@ -1121,7 +1121,7 @@ const GeneralTab = ({
                           {t({
                             id: "settings.general.auto_transform.help",
                             message:
-                              "Flow keeps dictation fast by showing raw STT first. Use the transform action buttons when you want polished text.",
+                              "Friday keeps dictation fast by showing raw STT first. Use the transform action buttons when you want polished text.",
                           })}
                         </p>
                       </div>
@@ -1242,7 +1242,7 @@ const GeneralTab = ({
                           {t({
                             id: "settings.general.cleanup.help",
                             message:
-                              "Flow no longer cleans up every dictation automatically. Use Run cleanup after STT when you want the text enhanced.",
+                              "Friday no longer cleans up every dictation automatically. Use Run cleanup after STT when you want the text enhanced.",
                           })}
                         </p>
                         {transcriptionMode === "local" && !aiFeaturesReady && (

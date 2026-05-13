@@ -93,7 +93,7 @@ export default function FlowFetchView({ isActive = true }: { isActive?: boolean 
     <div className="flex h-full min-h-0 flex-col">
       <div className="mb-5">
         <div className="ui-text-section-label ui-color-muted">
-          {t({ id: "flow_fetch.eyebrow", message: "Flow Fetch" })}
+          {t({ id: "flow_fetch.eyebrow", message: "Friday Fetch" })}
         </div>
         <h1 className="mt-1 ui-text-title font-medium ui-color-primary">
           {t({ id: "flow_fetch.title", message: "Recent copied links" })}
@@ -102,7 +102,7 @@ export default function FlowFetchView({ isActive = true }: { isActive?: boolean 
           {t({
             id: "flow_fetch.subtitle",
             message:
-              "Flow watches for copied URLs locally, keeps them for 14 days, and lets you copy them back fast.",
+              "Friday watches for copied URLs locally, keeps them for 14 days, and lets you copy them back fast.",
           })}
         </p>
       </div>

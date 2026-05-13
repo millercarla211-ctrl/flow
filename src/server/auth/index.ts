@@ -16,7 +16,7 @@ function parseTrustedOrigins(): string[] {
 }
 
 export const auth = betterAuth({
-  appName: "Flow",
+  appName: "Friday",
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET ?? "flow-development-secret-change-me",
   trustedOrigins: parseTrustedOrigins(),

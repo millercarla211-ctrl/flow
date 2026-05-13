@@ -10,13 +10,13 @@ import { FlowLogo } from "@/shared/ui/FlowLogo";
 const DETAILS = [
   {
     icon: HardDrive,
-    label: "Local models",
-    value: "Parakeet + Whisper Turbo",
+    label: "Assistant models",
+    value: "Qwen + xLAM",
   },
   {
     icon: Zap,
-    label: "Startup",
-    value: "STT warmup enabled",
+    label: "Voice",
+    value: "Parakeet warmup",
   },
   {
     icon: ShieldCheck,
@@ -32,10 +32,10 @@ export default function WebPreview() {
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <FlowLogo size="md" />
-            <span className="flow-brand-word text-2xl text-foreground">Flow</span>
+            <span className="flow-brand-word text-2xl text-foreground">Friday</span>
           </div>
           <Badge variant="outline" className="border-border text-foreground">
-            Desktop local STT
+            Desktop AI workspace
           </Badge>
         </header>
 
@@ -43,13 +43,13 @@ export default function WebPreview() {
           <div className="space-y-6">
             <div className="space-y-3">
               <ShimmeringText
-                text="Private dictation, warmed before you speak."
+                text="Local-first AI, voice, research, and agents."
                 className="text-3xl font-semibold leading-tight sm:text-5xl"
                 spread={1.2}
               />
               <p className="max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
-                Flow is the local-first speech workspace: fast Parakeet transcription, native paste,
-                local model storage, and optional cloud providers only when you choose them.
+                Friday is the local-first AI workspace: Ask, Research, Agents, Canvas, Projects, and
+                a focused WhisperFlow Beater voice area for fast private dictation.
               </p>
             </div>
 
@@ -70,7 +70,7 @@ export default function WebPreview() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Mic2 className="size-4 text-foreground" />
-                Local STT pipeline
+                Local-first stack
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">

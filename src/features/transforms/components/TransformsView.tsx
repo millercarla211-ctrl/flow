@@ -305,7 +305,7 @@ export default function TransformsView({
             <div className="mt-1 ui-text-meta ui-color-muted">
               {t({
                 id: "transforms.source.hint",
-                message: "Import selected text first; Flow falls back to clipboard when needed.",
+                message: "Import selected text first; Friday falls back to clipboard when needed.",
               })}
             </div>
             {sourceHint && <div className="mt-2 ui-text-micro ui-color-disabled">{sourceHint}</div>}

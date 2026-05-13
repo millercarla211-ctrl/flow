@@ -126,7 +126,7 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
 
   const exportSnippets = async () => {
     const payload = {
-      app: "Flow",
+      app: "Friday",
       type: "snippets",
       version: 1,
       exported_at: new Date().toISOString(),
@@ -231,7 +231,7 @@ export default function SnippetsView({ isActive = true }: { isActive?: boolean }
             {t({
               id: "snippets.subtitle",
               message:
-                "Say a trigger phrase during dictation and Flow expands it into reusable text.",
+                "Say a trigger phrase during dictation and Friday expands it into reusable text.",
             })}
           </p>
         </div>

@@ -325,7 +325,7 @@ export default function ScratchpadView({ isActive = true }: { isActive?: boolean
                 <div className="mt-1 ui-text-meta ui-color-muted">
                   {t({
                     id: "scratchpad.empty.body",
-                    message: "Flow will save here when paste cannot reach the focused app.",
+                    message: "Friday will save here when paste cannot reach the focused app.",
                   })}
                 </div>
               </div>

@@ -46,7 +46,7 @@ function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
         method: "GET",
         headers: {
           Accept: "application/vnd.github.v3+json",
-          "User-Agent": "Flow-App",
+          "User-Agent": "Friday-App",
         },
       });
       if (!response.ok) {

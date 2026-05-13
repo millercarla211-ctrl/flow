@@ -124,7 +124,7 @@ function parseCsvRows(input: string): CsvParseResult {
 
 function normalizeDictionaryJson(value: unknown): DictionaryImportPayload {
   if (!isObject(value)) {
-    throw new Error("JSON does not contain a Flow dictionary backup.");
+    throw new Error("JSON does not contain a Friday dictionary backup.");
   }
 
   const rawEntries = Array.isArray(value.entries) ? value.entries : [];
@@ -240,7 +240,7 @@ export function parseSnippetImport(text: string): SnippetImportPayload {
       : null;
 
   if (!source) {
-    throw new Error("JSON does not contain Flow snippets.");
+    throw new Error("JSON does not contain Friday snippets.");
   }
 
   const snippets: SnippetImportItem[] = [];

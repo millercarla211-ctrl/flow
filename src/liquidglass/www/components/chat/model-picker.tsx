@@ -4,11 +4,7 @@ import { Bot, ChevronDown, Cloud, Laptop } from "lucide-react";
 import { motion } from "motion/react";
 import type { ComponentType } from "react";
 import { Button } from "@/liquidglass/www/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/liquidglass/www/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/liquidglass/www/components/ui/popover";
 import { ScrollArea } from "@/liquidglass/www/components/ui/scroll-area";
 import { cn } from "@/liquidglass/www/lib/utils";
 
@@ -33,7 +29,7 @@ const providers: Record<
       {
         id: "parakeet-unified-en-0.6b-int8",
         name: "Parakeet Unified",
-        description: "Fast local speech model used by Flow.",
+        description: "Fast local speech model used by Friday.",
       },
       {
         id: "qwen3-0.6b",
@@ -44,7 +40,7 @@ const providers: Record<
   },
   flow: {
     id: "flow",
-    name: "Flow",
+    name: "Friday",
     icon: Bot,
     defaultModel: "qwen35-4b-revised-q4km",
     models: [
@@ -89,9 +85,7 @@ export function ModelPicker({
   onModelChange,
 }: ModelPickerProps) {
   const currentProvider = providers[selectedProvider as ProviderId];
-  const currentModel = currentProvider?.models.find(
-    (m) => m.id === selectedModel,
-  );
+  const currentModel = currentProvider?.models.find((m) => m.id === selectedModel);
 
   const handleProviderChange = (providerId: string) => {
     onProviderChange(providerId);
@@ -115,12 +109,8 @@ export function ModelPicker({
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-96 p-0">
         <div className="border-border border-b p-3">
-          <h3 className="text-foreground text-sm font-semibold">
-            Select AI Model
-          </h3>
-          <p className="text-muted-foreground text-xs">
-            Choose provider and specific model
-          </p>
+          <h3 className="text-foreground text-sm font-semibold">Select AI Model</h3>
+          <p className="text-muted-foreground text-xs">Choose provider and specific model</p>
         </div>
         <ScrollArea className="h-[500px]">
           <div className="space-y-3 p-3">
@@ -137,8 +127,7 @@ export function ModelPicker({
                   </div>
                   <div className="space-y-1">
                     {provider.models.map((model) => {
-                      const isSelected =
-                        isProviderSelected && selectedModel === model.id;
+                      const isSelected = isProviderSelected && selectedModel === model.id;
                       return (
                         <motion.button
                           key={model.id}
@@ -156,23 +145,17 @@ export function ModelPicker({
                           )}
                         >
                           <div className="flex-1">
-                            <div className="text-sm font-medium">
-                              {model.name}
-                            </div>
+                            <div className="text-sm font-medium">{model.name}</div>
                             <div
                               className={cn(
                                 "text-xs",
-                                isSelected
-                                  ? "text-primary-foreground/80"
-                                  : "text-muted-foreground",
+                                isSelected ? "text-primary-foreground/80" : "text-muted-foreground",
                               )}
                             >
                               {model.description}
                             </div>
                           </div>
-                          {isSelected && (
-                            <div className="h-2 w-2 rounded-full bg-current" />
-                          )}
+                          {isSelected && <div className="h-2 w-2 rounded-full bg-current" />}
                         </motion.button>
                       );
                     })}

@@ -5,6 +5,16 @@ import {
   Cog,
   ChevronLeft,
   Home as HomeIcon,
+  MessageSquare,
+  Search,
+  Bot,
+  PenTool,
+  Folder,
+  Database,
+  Plug,
+  Mic2,
+  Archive,
+  Clock,
   Book,
   WandSparkles,
   Palette,
@@ -27,9 +37,7 @@ import SettingsModal from "./features/settings/components/SettingsModal";
 import FAQModal from "./shared/ui/FAQModal";
 import WindowControls from "./shared/ui/WindowControls";
 import { FlowLogo } from "./shared/ui/FlowLogo";
-import { FlowVoicePanel } from "./shared/ui/FlowVoicePanel";
 import { useClickOutside } from "./shared/hooks/useClickOutside";
-import TranscriptionList from "./features/transcriptions/components/TranscriptionList";
 import DictionaryView from "./features/dictionary/components/DictionaryView";
 import PersonalizationView from "./features/personalization/components/PersonalizationView";
 import LibraryView from "./features/library/components/LibraryView";
@@ -40,6 +48,11 @@ import SnippetsView from "./features/snippets/components/SnippetsView";
 import TransformsView from "./features/transforms/components/TransformsView";
 import InsightsView from "./features/insights/components/InsightsView";
 import WwwHome from "./liquidglass/www/WwwHome";
+import { FridayAskView } from "./features/friday/components/FridayAskView";
+import { FridayDashboard } from "./features/friday/components/FridayDashboard";
+import { FridayFeaturePage } from "./features/friday/components/FridayFeaturePage";
+import { VoiceWorkspace } from "./features/friday/components/VoiceWorkspace";
+import { type FridayAssistantView } from "./features/friday/pageData";
 import { useCurrentUser } from "./features/auth/queries";
 import { useSettings, useAppInfo } from "./features/settings/queries";
 import { useUpdateStatus } from "./features/updates/queries";
@@ -76,6 +89,21 @@ const SidebarItem = ({
   </button>
 );
 
+type AppView =
+  | "home"
+  | FridayAssistantView
+  | "voice"
+  | "insights"
+  | "dictionary"
+  | "snippets"
+  | "scratchpad"
+  | "flowFetch"
+  | "ocr"
+  | "transforms"
+  | "style"
+  | "library"
+  | "www";
+
 const Home = () => {
   const { t } = useLingui();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -83,19 +111,7 @@ const Home = () => {
     "general" | "account" | "models" | "about" | "app" | "vibe"
   >("general");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
-  const [activeView, setActiveView] = useState<
-    | "home"
-    | "insights"
-    | "dictionary"
-    | "snippets"
-    | "scratchpad"
-    | "flowFetch"
-    | "ocr"
-    | "transforms"
-    | "style"
-    | "library"
-    | "www"
-  >("home");
+  const [activeView, setActiveView] = useState<AppView>("home");
   const { user: currentUser, refresh: refreshUser } = useCurrentUser();
   const [showSupportPopup, setShowSupportPopup] = useState(false);
   const [showFAQ, setShowFAQ] = useState(false);
@@ -307,7 +323,7 @@ const Home = () => {
   const primaryShortcut = activeShortcuts[0] ?? null;
   const voicePanelHint = primaryShortcut
     ? primaryShortcut.label === "Hold"
-      ? `Hold ${formatShortcutForDisplay(primaryShortcut.shortcut)}, speak naturally, and Flow writes into the focused app.`
+      ? `Hold ${formatShortcutForDisplay(primaryShortcut.shortcut)}, speak naturally, and Friday writes into the focused app.`
       : primaryShortcut.label === "Toggle"
         ? `Tap ${formatShortcutForDisplay(primaryShortcut.shortcut)} once to start and again to finish.`
         : `Tap ${formatShortcutForDisplay(primaryShortcut.shortcut)} to toggle, or hold it for push-to-talk.`
@@ -321,6 +337,30 @@ const Home = () => {
         id: "home.mode.local",
         message: "Local",
       });
+
+  const fridaySidebarItems: { view: AppView; label: string; icon: React.ReactNode }[] = [
+    { view: "ask", label: "Ask", icon: <MessageSquare size={18} /> },
+    { view: "research", label: "Research", icon: <Search size={18} /> },
+    { view: "agents", label: "Agents", icon: <Bot size={18} /> },
+    { view: "canvas", label: "Canvas", icon: <PenTool size={18} /> },
+    { view: "projects", label: "Projects", icon: <Folder size={18} /> },
+    { view: "memory", label: "Memory", icon: <Database size={18} /> },
+    { view: "connectors", label: "Connectors", icon: <Plug size={18} /> },
+    { view: "voice", label: "Voice", icon: <Mic2 size={18} /> },
+    { view: "artifacts", label: "Artifacts", icon: <Archive size={18} /> },
+    { view: "automations", label: "Automations", icon: <Clock size={18} /> },
+  ];
+
+  const fridayFeatureViews: FridayAssistantView[] = [
+    "research",
+    "agents",
+    "canvas",
+    "projects",
+    "memory",
+    "connectors",
+    "artifacts",
+    "automations",
+  ];
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -366,23 +406,33 @@ const Home = () => {
               }}
               className="flow-brand-word ui-text-nav-brand ui-color-primary whitespace-nowrap overflow-hidden transition-[width,opacity] duration-200 ease-out"
             >
-              Flow
+              Friday
             </span>
           </div>
         </div>
 
-        <nav className="flex-1 flex flex-col px-2">
+        <nav className="flex-1 min-h-0 flex flex-col overflow-y-auto px-2 pr-1">
           <div className="space-y-1">
             <SidebarItem
               icon={<HomeIcon size={18} />}
               label={t({
                 id: "home.sidebar.home",
-                message: "Home",
+                message: "Friday",
               })}
               active={activeView === "home"}
               collapsed={isSidebarCollapsed}
               onClick={() => setActiveView("home")}
             />
+            {fridaySidebarItems.map((item) => (
+              <SidebarItem
+                key={item.view}
+                icon={item.icon}
+                label={item.label}
+                active={activeView === item.view}
+                collapsed={isSidebarCollapsed}
+                onClick={() => setActiveView(item.view)}
+              />
+            ))}
             <SidebarItem
               icon={<PanelsTopLeft size={18} />}
               label="WWW"
@@ -434,7 +484,7 @@ const Home = () => {
               icon={<Link2 size={18} />}
               label={t({
                 id: "home.sidebar.flow_fetch",
-                message: "Flow Fetch",
+                message: "Friday Fetch",
               })}
               active={activeView === "flowFetch"}
               collapsed={isSidebarCollapsed}
@@ -709,21 +759,37 @@ const Home = () => {
 
         <div className="flex-1 flex flex-col px-8 pb-6 min-h-0">
           <div
-            className={`w-full max-w-[680px] mx-auto pt-12 flex-1 flex flex-col min-h-0 ${activeView === "home" ? "" : "hidden"}`}
+            className={`w-full max-w-6xl mx-auto pt-10 flex-1 flex flex-col min-h-0 ${activeView === "home" ? "" : "hidden"}`}
           >
-            <h1 className="ui-text-display font-normal ui-color-primary tracking-tight mb-8 shrink-0">
-              {getGreeting()}
-            </h1>
+            <div className="mb-5 shrink-0">
+              <div className="ui-text-section-label ui-color-muted">{getGreeting()}</div>
+            </div>
+            <FridayDashboard onOpenView={(view) => setActiveView(view)} />
+          </div>
 
-            <FlowVoicePanel
+          <div
+            className={`w-full max-w-6xl mx-auto min-w-0 pt-8 flex-1 min-h-0 ${activeView === "ask" ? "" : "hidden"}`}
+          >
+            <FridayAskView />
+          </div>
+
+          {fridayFeatureViews.map((view) => (
+            <div
+              key={view}
+              className={`w-full max-w-6xl mx-auto min-w-0 pt-8 flex-1 min-h-0 ${activeView === view ? "" : "hidden"}`}
+            >
+              <FridayFeaturePage view={view} />
+            </div>
+          ))}
+
+          <div
+            className={`w-full max-w-5xl mx-auto min-w-0 pt-8 flex-1 min-h-0 ${activeView === "voice" ? "" : "hidden"}`}
+          >
+            <VoiceWorkspace
               modeLabel={currentModeLabel}
-              headline="Flow is completely free, unlimited, and built for speed"
               hint={voicePanelHint}
-            />
-
-            <TranscriptionList
-              showLlmButtons={showCleanupButtons}
-              isActive={activeView === "home"}
+              showCleanupButtons={showCleanupButtons}
+              isActive={activeView === "voice"}
               historyDisabled={settings?.local_data_storage_policy === "never"}
               onOpenDataSettings={() => {
                 setSettingsTab("app");

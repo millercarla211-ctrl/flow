@@ -228,11 +228,11 @@ const LanguageModelPanel = ({
                     {isFlowLocalProvider && (
                       <div className="rounded-lg border border-border-primary bg-[var(--surface-interactive)] p-3">
                         <div className="ui-text-label-strong ui-color-primary">
-                          Flow local routing policy
+                          Friday local routing policy
                         </div>
                         <div className="mt-1 ui-text-meta ui-color-muted">
-                          The selected model stays as your fallback. Flow routes common tasks to the
-                          fastest installed local model for that job.
+                          The selected model stays as your fallback. Friday routes common tasks to
+                          the fastest installed local model for that job.
                         </div>
                         <div className="mt-3 grid grid-cols-2 gap-2">
                           {localPolicy.map((item) => {

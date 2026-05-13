@@ -511,7 +511,7 @@ const AppTab = ({
         })
       : t({
           id: "settings.app.local_data.confirm.unknown_counts",
-          message: "Flow could not count affected items right now.",
+          message: "Friday could not count affected items right now.",
         });
 
   const hasPermissionRows =
@@ -891,7 +891,7 @@ const AppTab = ({
                 <span className="ui-text-micro ui-color-disabled block mt-0.5">
                   {t({
                     id: "settings.app.auto_launch.body",
-                    message: "starts Flow automatically when you sign in.",
+                    message: "starts Friday automatically when you sign in.",
                   })}
                 </span>
               </div>

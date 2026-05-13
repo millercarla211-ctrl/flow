@@ -164,8 +164,8 @@ fn build_tray_menu(
     menu = menu.item(&send_feedback);
     menu = menu.separator();
 
-    let open_settings = MenuItem::with_id(app, "open_settings", "Open Flow", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit_flow", "Quit Flow", true, None::<&str>)?;
+    let open_settings = MenuItem::with_id(app, "open_settings", "Open Friday", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit_flow", "Quit Friday", true, None::<&str>)?;
     menu = menu.item(&open_settings).item(&quit);
 
     menu.build()
@@ -355,7 +355,7 @@ pub fn toggle_settings_window(app: &AppHandle<AppRuntime>) -> tauri::Result<()> 
     } else {
         reset_close_flag = true;
         let builder = WebviewWindowBuilder::new(app, SETTINGS_WINDOW_LABEL, WebviewUrl::default())
-            .title("Flow")
+            .title("Friday")
             .inner_size(1120.0, 760.0)
             .min_inner_size(980.0, 720.0)
             .resizable(true)
@@ -390,7 +390,7 @@ pub fn toggle_settings_window(app: &AppHandle<AppRuntime>) -> tauri::Result<()> 
             crate::toast::Payload {
                 toast_type: "success".to_string(),
                 title: None,
-                message: format!("Flow updated to v{current_version}."),
+                message: format!("Friday updated to v{current_version}."),
                 auto_dismiss: Some(true),
                 duration: Some(5000),
                 retry_id: None,

@@ -4,8 +4,8 @@ import "../liquidglass/imported-routes.css";
 import "./App.css";
 
 export const metadata: Metadata = {
-  title: "Flow",
-  description: "Free, unlimited local dictation for every app.",
+  title: "Friday",
+  description: "A local-first AI workspace with free, unlimited voice built in.",
   icons: {
     icon: "/favicon.svg",
   },

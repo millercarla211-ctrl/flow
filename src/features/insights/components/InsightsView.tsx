@@ -215,7 +215,7 @@ function getVoiceProfile(summary: InsightsSummary) {
   return {
     title: pace,
     subtitle: `Best at ${strength}, with a bias toward ${style}.`,
-    shareText: `Flow Voice Profile: ${pace}. ${formatCompact(summary.total_words)} words, ${formatNumber(summary.current_streak_days)} day streak, ${Math.round(summary.local_percent)}% local.`,
+    shareText: `Friday Voice Profile: ${pace}. ${formatCompact(summary.total_words)} words, ${formatNumber(summary.current_streak_days)} day streak, ${Math.round(summary.local_percent)}% local.`,
   };
 }
 
@@ -439,8 +439,8 @@ function EmptyInsights() {
       </div>
       <div className="mt-4 ui-text-body-sm-strong ui-color-secondary">No insight history yet</div>
       <div className="mt-1 max-w-sm ui-text-meta ui-color-muted">
-        Dictate a few notes and Flow will turn your local transcript history into streaks, pace, and
-        model usage.
+        Dictate a few notes and Friday will turn your local transcript history into streaks, pace,
+        and model usage.
       </div>
     </div>
   );

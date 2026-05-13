@@ -534,7 +534,7 @@ const VoiceOutputPanel = ({
   formatBytes,
 }: VoiceOutputPanelProps) => {
   const { t } = useLingui();
-  const [testText, setTestText] = useState("Hello, this is Flow speaking with Kokoro TTS.");
+  const [testText, setTestText] = useState("Hello, this is Friday speaking with Kokoro TTS.");
   const [testStatus, setTestStatus] = useState<TtsTestStatus>({ state: "idle" });
   const currentModel = ttsModels.find((model) => model.key === selectedModel);
   const currentInstalled = Boolean(selectedModel && ttsModelStatus[selectedModel]?.installed);
@@ -753,7 +753,7 @@ const VoiceOutputPanel = ({
               {t({
                 id: "settings.models.tts.install_hint",
                 message:
-                  "Download a voice model first. Flow will use it locally for generated speech.",
+                  "Download a voice model first. Friday will use it locally for generated speech.",
               })}
             </p>
           </div>

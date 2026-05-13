@@ -733,7 +733,7 @@ const TranscriptionList: React.FC<TranscriptionListProps> = ({
             {t({
               id: "transcriptions.history_disabled.body",
               message:
-                "Flow is not storing transcripts or transforms on this device because Local Data Storage is set to Never store.",
+                "Friday is not storing transcripts or transforms on this device because Local Data Storage is set to Never store.",
             })}
           </p>
           {onOpenDataSettings && (

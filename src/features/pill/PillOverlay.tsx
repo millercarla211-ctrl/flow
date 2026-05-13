@@ -1223,7 +1223,7 @@ const PillOverlay: React.FC<PillOverlayProps> = ({
     try {
       await invoke("pause_flow_temporarily", { seconds: 300 });
     } catch (error) {
-      console.error("Failed to pause Flow:", error);
+      console.error("Failed to pause Friday:", error);
       flashQuickStatus("error");
     }
   }, []);
