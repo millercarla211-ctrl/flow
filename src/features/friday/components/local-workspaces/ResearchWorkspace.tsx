@@ -7,6 +7,7 @@ import {
   Pin,
   Plus,
   Quote,
+  Search,
   Sparkles,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -19,6 +20,7 @@ import { createLocalResearchDraft } from "../../utils/localResearch";
 import { exportFridayResearchBrief } from "../../utils/localFileExport";
 import { synthesizeResearchWithProvider } from "../../utils/providerResearch";
 import { inspectWebSource } from "../../utils/webInspection";
+import { searchWebSources, type WebSearchResultItem } from "../../utils/webSearch";
 import { createResearchContext, tryDraftTauriResearch } from "../../utils/tauriResearchRunner";
 import { firstExplicitUrl } from "../../utils/externalTargets";
 import { isTauriRuntime } from "@/platform/tauriRuntime";
@@ -82,6 +84,7 @@ export function ResearchWorkspace() {
   const [webStateById, setWebStateById] = useState<
     Record<string, { status: "running" | "ok" | "error"; message: string }>
   >({});
+  const [webResultsById, setWebResultsById] = useState<Record<string, WebSearchResultItem[]>>({});
   const cloudEnvEnabled =
     process.env.NEXT_PUBLIC_FRIDAY_ENABLE_CLOUD_AI === "true" ||
     process.env.NEXT_PUBLIC_FRIDAY_ENABLE_GROQ_AI === "true";
@@ -291,6 +294,28 @@ export function ResearchWorkspace() {
     }));
   };
 
+  const findBriefSources = async (brief: ResearchBrief) => {
+    if (!webInspectionEnabled) return;
+    setWebStateById((current) => ({
+      ...current,
+      [brief.id]: { status: "running", message: "Searching sources" },
+    }));
+    const result = await searchWebSources(brief.topic);
+    if (!result.ok) {
+      setWebStateById((current) => ({
+        ...current,
+        [brief.id]: { status: "error", message: result.message },
+      }));
+      return;
+    }
+
+    setWebResultsById((current) => ({ ...current, [brief.id]: result.results }));
+    setWebStateById((current) => ({
+      ...current,
+      [brief.id]: { status: "ok", message: `${result.results.length} sources found` },
+    }));
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -403,6 +428,49 @@ export function ResearchWorkspace() {
                   {brief.report}
                 </pre>
               )}
+              {webResultsById[brief.id]?.length > 0 && (
+                <div className="mt-3 grid gap-2">
+                  {webResultsById[brief.id].map((result) => (
+                    <div
+                      key={result.url}
+                      className="rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-xs font-semibold text-[var(--foreground)]">
+                            {result.title}
+                          </div>
+                          <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
+                            {result.source}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openUrl(result.url)}
+                          >
+                            Open
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void inspectBriefUrl(brief, result.url)}
+                            disabled={webState?.status === "running"}
+                          >
+                            Inspect
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">
+                        {result.snippet}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="mt-3 flex flex-wrap gap-2">
                 {brief.projectName && (
                   <Badge variant="outline" className="border-[var(--border)]">
@@ -472,6 +540,23 @@ export function ResearchWorkspace() {
                     Open URL
                   </Button>
                 )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  title={
+                    tauriRuntime
+                      ? "Web source search is available in the hosted Friday workspace."
+                      : webInspectionEnabled
+                        ? "Search for candidate sources for this research topic."
+                        : "Enable the Web connector before searching sources."
+                  }
+                  onClick={() => void findBriefSources(brief)}
+                  disabled={!webInspectionEnabled || webState?.status === "running"}
+                >
+                  <Search size={13} />
+                  {webState?.status === "running" ? "Searching" : "Find sources"}
+                </Button>
                 {briefUrl && (
                   <Button
                     type="button"

@@ -15,6 +15,7 @@ import {
   extractReadableHtmlText,
   normalizeWebInspectionUrl,
 } from "../src/features/friday/utils/webInspection";
+import { parseDuckDuckGoLiteResults } from "../src/features/friday/utils/webSearch";
 
 const model = resolveFridayModel("qwen35-4b-revised-q4km");
 const draft = createLocalAssistantDraft("write a short Friday status", model, {
@@ -276,6 +277,22 @@ if (extractHtmlTitle(sampleHtml) !== "Friday & Research") {
 
 if (!extractReadableHtmlText(sampleHtml).includes("Useful cited source text.")) {
   throw new Error("Friday web inspection did not extract readable source text.");
+}
+
+const sampleSearchResults = parseDuckDuckGoLiteResults(`
+  <html>
+    <body>
+      <a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Ffriday">Friday research result</a>
+      <td class="result-snippet">Useful result &amp; snippet for the research topic.</td>
+    </body>
+  </html>
+`);
+
+if (
+  sampleSearchResults[0]?.url !== "https://example.com/friday" ||
+  !sampleSearchResults[0]?.snippet.includes("Useful result & snippet")
+) {
+  throw new Error("Friday web search parser did not extract candidate source results.");
 }
 
 console.log(`Friday local stream smoke passed with ${model.label}.`);

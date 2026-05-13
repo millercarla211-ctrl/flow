@@ -55,7 +55,7 @@ export function extractReadableHtmlText(html: string) {
   return decodeHtmlEntities(text).slice(0, 2_400);
 }
 
-function decodeHtmlEntities(value: string) {
+export function decodeHtmlEntities(value: string) {
   return value
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
