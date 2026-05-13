@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/features/ai";
 
 import { AiMarkdown } from "./AiMarkdown";
+import { AskThreadRail } from "./AskThreadRail";
 import { ProjectContextPanel } from "./ProjectContextPanel";
 import { makeLocalRecord, useLocalList } from "../hooks/useLocalPersistence";
 import { rankAskContext } from "../utils/localRetrieval";
@@ -31,6 +32,7 @@ import {
   STORAGE_KEYS,
   type CanvasArtifact,
   type FridayAutomation,
+  type FridayAskThread,
   type FridayMemory,
   type FridayProject,
   type ProjectContextItem,
@@ -58,9 +60,12 @@ export function FridayAskView() {
   const memories = useLocalList<FridayMemory>(STORAGE_KEYS.memory);
   const researchBriefs = useLocalList<ResearchBrief>(STORAGE_KEYS.research);
   const automations = useLocalList<FridayAutomation>(STORAGE_KEYS.automations);
+  const askThreads = useLocalList<FridayAskThread>(STORAGE_KEYS.askThreads);
   const projects = useLocalList<FridayProject>(STORAGE_KEYS.projects);
   const projectContextItems = useLocalList<ProjectContextItem>(STORAGE_KEYS.projectContext);
   const [activeProjectId, setActiveProjectId] = useState("none");
+  const [activeThreadId, setActiveThreadId] = useState("new");
+  const lastSavedThreadSignature = useRef("");
   const selectedModel = useMemo(() => resolveFridayModel(modelKey), [modelKey]);
   const selectedProject = useMemo(
     () => projects.items.find((project) => project.id === activeProjectId) ?? null,
@@ -112,6 +117,13 @@ export function FridayAskView() {
   }, [chatContext, modelKey, selectedModel]);
   const { messages, sendMessage, status, stop, setMessages, error } = useChat({ transport });
   const isBusy = status === "submitted" || status === "streaming";
+  const visibleThreads = useMemo(
+    () =>
+      selectedProject
+        ? askThreads.items.filter((thread) => thread.projectId === selectedProject.id)
+        : askThreads.items,
+    [askThreads.items, selectedProject],
+  );
   const latestUserText = useMemo(() => {
     const latestUserMessage = [...messages].reverse().find((message) => message.role === "user");
     return latestUserMessage ? textFromMessage(latestUserMessage) : "";
@@ -123,9 +135,120 @@ export function FridayAskView() {
     setActiveProjectId(projects.items[0]?.id ?? "none");
   }, [activeProjectId, projects.items]);
 
+  useEffect(() => {
+    if (activeThreadId === "new") return;
+    if (askThreads.items.some((thread) => thread.id === activeThreadId)) return;
+    setActiveThreadId("new");
+    setMessages([]);
+  }, [activeThreadId, askThreads.items, setMessages]);
+
+  useEffect(() => {
+    if (activeThreadId === "new" || messages.length === 0 || isBusy) return;
+
+    const thread = askThreads.items.find((item) => item.id === activeThreadId);
+    if (!thread) return;
+
+    const firstUserText = textFromMessage(
+      messages.find((message) => message.role === "user") ?? { parts: [] },
+    );
+    const nextTitle =
+      thread.messageCount === 0 || thread.title === "New chat"
+        ? titleFromText(firstUserText, "New chat")
+        : thread.title;
+    const signature = JSON.stringify({
+      id: activeThreadId,
+      messages,
+      modelKey,
+      projectId: selectedProject?.id,
+      title: nextTitle,
+    });
+    const storedSignature = JSON.stringify({
+      id: thread.id,
+      messages: thread.messages,
+      modelKey: thread.modelKey,
+      projectId: thread.projectId,
+      title: thread.title,
+    });
+
+    if (signature === lastSavedThreadSignature.current || signature === storedSignature) {
+      lastSavedThreadSignature.current = signature;
+      return;
+    }
+
+    askThreads.updateItem(activeThreadId, {
+      title: nextTitle,
+      modelKey,
+      messageCount: messages.length,
+      messages,
+      projectId: selectedProject?.id,
+      projectName: selectedProject?.name,
+    });
+    lastSavedThreadSignature.current = signature;
+  }, [
+    activeThreadId,
+    askThreads,
+    isBusy,
+    messages,
+    modelKey,
+    selectedProject?.id,
+    selectedProject?.name,
+  ]);
+
+  const createThread = () => {
+    const thread = makeLocalRecord("thread", {
+      title: "New chat",
+      modelKey,
+      messageCount: 0,
+      messages: [],
+      projectId: selectedProject?.id,
+      projectName: selectedProject?.name,
+    });
+    askThreads.addItem(thread);
+    setActiveThreadId(thread.id);
+    setMessages([]);
+    showSavedNotice("New Ask thread ready");
+  };
+
+  const openThread = (thread: FridayAskThread) => {
+    setActiveThreadId(thread.id);
+    setModelKey(thread.modelKey);
+    setActiveProjectId(thread.projectId ?? "none");
+    setMessages(thread.messages);
+  };
+
+  const deleteThread = (threadId: string) => {
+    askThreads.removeItem(threadId);
+    if (activeThreadId === threadId) {
+      setActiveThreadId("new");
+      setMessages([]);
+    }
+    showSavedNotice("Thread deleted");
+  };
+
+  const ensureActiveThread = (firstPrompt: string) => {
+    if (
+      activeThreadId !== "new" &&
+      askThreads.items.some((thread) => thread.id === activeThreadId)
+    ) {
+      return;
+    }
+
+    const thread = makeLocalRecord("thread", {
+      title: titleFromText(firstPrompt, "New chat"),
+      modelKey,
+      messageCount: 0,
+      messages: [],
+      projectId: selectedProject?.id,
+      projectName: selectedProject?.name,
+    });
+    askThreads.addItem(thread);
+    setActiveThreadId(thread.id);
+  };
+
   const submitPrompt = () => {
     const text = input.trim();
     if (!text || isBusy) return;
+    ensureActiveThread(text);
     sendMessage({ text });
     setInput("");
   };
@@ -244,6 +367,14 @@ export function FridayAskView() {
           );
         })}
       </div>
+
+      <AskThreadRail
+        activeThreadId={activeThreadId}
+        threads={visibleThreads}
+        onCreateThread={createThread}
+        onSelectThread={openThread}
+        onDeleteThread={deleteThread}
+      />
 
       <ProjectContextPanel
         projects={projects.items}
@@ -378,7 +509,16 @@ export function FridayAskView() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    onClick={() => setMessages([])}
+                    onClick={() => {
+                      if (activeThreadId !== "new") {
+                        askThreads.updateItem(activeThreadId, {
+                          title: "New chat",
+                          messageCount: 0,
+                          messages: [],
+                        });
+                      }
+                      setMessages([]);
+                    }}
                     aria-label="Clear chat"
                   >
                     <Trash2 size={16} />

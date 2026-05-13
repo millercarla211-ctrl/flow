@@ -1,4 +1,5 @@
 import type { LocalRecord } from "../../hooks/useLocalPersistence";
+import type { UIMessage } from "ai";
 
 export type ResearchCitation = {
   id: string;
@@ -55,6 +56,15 @@ export type FridayAutomation = LocalRecord & {
   projectName?: string;
 };
 
+export type FridayAskThread = LocalRecord & {
+  title: string;
+  modelKey: string;
+  messageCount: number;
+  messages: UIMessage[];
+  projectId?: string;
+  projectName?: string;
+};
+
 export type ProjectContextItem = LocalRecord & {
   projectId: string;
   projectName: string;
@@ -77,6 +87,7 @@ export const STORAGE_KEYS = {
   projects: "friday.projects.v1",
   projectContext: "friday.project-context.v1",
   memory: "friday.memory.v1",
+  askThreads: "friday.ask-threads.v1",
   automations: "friday.automations.v1",
   connectors: "friday.connectors.v1",
 } as const;
