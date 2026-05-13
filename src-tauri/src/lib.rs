@@ -9,6 +9,7 @@ mod crypto;
 mod dictionary;
 mod downloader;
 mod flow_fetch;
+mod friday_chat;
 mod insights;
 mod library;
 mod llm_cleanup;
@@ -495,6 +496,7 @@ pub fn run() {
             model_manager::list_models,
             model_manager::check_model_status,
             get_local_model_runtime_status,
+            friday_chat::friday_local_chat,
             model_manager::download_model,
             model_manager::delete_model,
             model_manager::cancel_download,

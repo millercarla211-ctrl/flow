@@ -27,8 +27,8 @@ export class LocalFridayChatTransport implements ChatTransport<UIMessage> {
     const model = resolveFridayModel(this.getModelKey());
     const prompt = getTextFromUiMessage(messages[messages.length - 1]);
     const context = this.getContext?.();
-    const tauriResponse = await tryRunTauriLocalChat({ prompt, model, context });
-    const response = tauriResponse ?? createLocalAssistantDraft(prompt, model, context);
+    const tauriResult = await tryRunTauriLocalChat({ prompt, model, context });
+    const response = tauriResult?.text ?? createLocalAssistantDraft(prompt, model, context);
     const textId = `friday-local-${Date.now().toString(36)}`;
 
     return new ReadableStream<UIMessageChunk>({
