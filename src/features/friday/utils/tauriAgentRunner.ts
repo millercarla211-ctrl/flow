@@ -13,10 +13,15 @@ export type FridayAgentRunResult = {
   totalTimeMs: number;
   tokensPerSecond: number;
   inspectedWorkspace?: boolean;
+  inspectedUrl?: boolean;
 };
 
 function didInspectWorkspace(log: string[]) {
   return log.some((line) => line.toLowerCase().includes("workspace file snapshot"));
+}
+
+function didInspectUrl(log: string[]) {
+  return log.some((line) => line.toLowerCase().includes("explicit url"));
 }
 
 export async function tryRunTauriAgentTask(task: AgentTask): Promise<FridayAgentRunResult | null> {
@@ -31,6 +36,7 @@ export async function tryRunTauriAgentTask(task: AgentTask): Promise<FridayAgent
     return {
       ...result,
       inspectedWorkspace: didInspectWorkspace(result.log),
+      inspectedUrl: didInspectUrl(result.log),
     };
   } catch (error) {
     console.warn("Friday local agent runner fell back to static runbook:", error);

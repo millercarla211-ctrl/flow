@@ -31,6 +31,7 @@ export type AgentTask = LocalRecord & {
   log?: string[];
   result?: string;
   inspectedWorkspace?: boolean;
+  inspectedUrl?: boolean;
   lastModel?: string;
   lastTokensPerSecond?: number;
   lastTotalTimeMs?: number;

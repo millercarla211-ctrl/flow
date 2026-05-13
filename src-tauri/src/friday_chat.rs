@@ -103,7 +103,7 @@ fn system_prompt() -> &'static str {
 }
 
 fn agent_system_prompt() -> &'static str {
-    "You are Friday's local agent planner. Create a safe, specific runbook for the requested task. Do not claim you executed browser, file, shell, or code tools. Return concise numbered steps, risks, and the expected local verification. No markdown table."
+    "You are Friday's local agent planner. Use provided read-only inspection evidence when present. Create a safe, specific runbook for the requested task. Do not claim write actions, browser control, shell commands, or code edits were executed. Return concise numbered steps, risks, and the expected local verification. No markdown table."
 }
 
 fn research_system_prompt() -> &'static str {
@@ -206,6 +206,7 @@ fn agent_user_content(
     target: &str,
     context: Option<FridayChatContextPayload>,
     workspace_snapshot: Option<&str>,
+    browser_snapshot: Option<&str>,
 ) -> String {
     let context = format_context(context);
     [
@@ -213,6 +214,9 @@ fn agent_user_content(
         workspace_snapshot
             .filter(|snapshot| !snapshot.trim().is_empty())
             .map(|snapshot| format!("Read-only workspace inspection:\n{snapshot}")),
+        browser_snapshot
+            .filter(|snapshot| !snapshot.trim().is_empty())
+            .map(|snapshot| format!("Read-only URL inspection:\n{snapshot}")),
         Some(format!("Task target: {target}")),
         Some(format!("Task: {}", title.trim())),
         brief
@@ -223,6 +227,94 @@ fn agent_user_content(
     .flatten()
     .collect::<Vec<_>>()
     .join("\n\n")
+}
+
+fn first_agent_url(title: &str, brief: Option<&str>) -> Option<String> {
+    let text = [Some(title), brief]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    text.split_whitespace().find_map(|token| {
+        let candidate = token.trim_matches(|char: char| {
+            matches!(
+                char,
+                '"' | '\'' | '`' | '<' | '>' | '(' | ')' | '[' | ']' | '{' | '}' | ',' | ';'
+            )
+        });
+        let candidate = candidate.trim_end_matches(|char| matches!(char, '.' | ':' | '!' | '?'));
+        (candidate.starts_with("https://") || candidate.starts_with("http://"))
+            .then(|| candidate.to_string())
+    })
+}
+
+fn strip_html_for_agent(input: &str) -> String {
+    let mut output = String::with_capacity(input.len().min(4_000));
+    let mut in_tag = false;
+    for char in input.chars() {
+        match char {
+            '<' => in_tag = true,
+            '>' => {
+                in_tag = false;
+                output.push(' ');
+            }
+            _ if !in_tag => output.push(char),
+            _ => {}
+        }
+    }
+    output
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(2_500)
+        .collect()
+}
+
+fn html_title_for_agent(input: &str) -> Option<String> {
+    let lower = input.to_lowercase();
+    let start = lower.find("<title")?;
+    let after_start = lower[start..].find('>')? + start + 1;
+    let end = lower[after_start..].find("</title>")? + after_start;
+    let title = input[after_start..end]
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    (!title.is_empty()).then_some(title)
+}
+
+async fn collect_browser_snapshot(
+    client: reqwest::Client,
+    title: &str,
+    brief: Option<&str>,
+    target: &str,
+) -> Option<String> {
+    if target != "browser" {
+        return None;
+    }
+    let url = first_agent_url(title, brief)?;
+    let response = client
+        .get(&url)
+        .header(reqwest::header::USER_AGENT, "Friday local read-only agent/0.1")
+        .send()
+        .await
+        .ok()?;
+    let status = response.status();
+    let final_url = response.url().to_string();
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("unknown")
+        .to_string();
+    let body = response.text().await.unwrap_or_default();
+    let title = html_title_for_agent(&body).unwrap_or_else(|| "No HTML title found".to_string());
+    let excerpt = strip_html_for_agent(&body);
+
+    Some(format!(
+        "Requested URL: {url}\nFinal URL: {final_url}\nStatus: {status}\nContent-Type: {content_type}\nTitle: {title}\nText excerpt: {excerpt}"
+    ))
 }
 
 fn should_skip_agent_path(path: &Path) -> bool {
@@ -447,6 +539,7 @@ pub(crate) async fn friday_local_agent_run(
     brief: Option<String>,
     target: String,
     context: Option<FridayChatContextPayload>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<FridayAgentRunResponse, String> {
     let title = title.trim().to_string();
     let brief = brief.map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
@@ -455,6 +548,8 @@ pub(crate) async fn friday_local_agent_run(
         return Err("Agent task title is required".to_string());
     }
     let workspace_snapshot = collect_workspace_snapshot(&title, brief.as_deref(), &target);
+    let browser_snapshot =
+        collect_browser_snapshot(state.http(), &title, brief.as_deref(), &target).await;
 
     let model = local_text_model::preferred_model_for_route(
         local_text_model::LocalTextRoute::ToolRouter,
@@ -476,6 +571,7 @@ pub(crate) async fn friday_local_agent_run(
             &target,
             context,
             workspace_snapshot.as_deref(),
+            browser_snapshot.as_deref(),
         ),
         512,
         0.1,
@@ -496,6 +592,12 @@ pub(crate) async fn friday_local_agent_run(
             .map(|_| "Inspected a bounded read-only workspace file snapshot.".to_string())
             .unwrap_or_else(|| {
                 "No workspace file inspection was needed for this target.".to_string()
+            }),
+        browser_snapshot
+            .as_ref()
+            .map(|_| "Inspected an explicit URL with a bounded read-only fetch.".to_string())
+            .unwrap_or_else(|| {
+                "No explicit URL inspection was available for this target.".to_string()
             }),
         "No external tool or cloud provider was used.".to_string(),
     ];

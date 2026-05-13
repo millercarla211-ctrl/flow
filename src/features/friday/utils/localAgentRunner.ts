@@ -2,9 +2,9 @@ import type { AgentTask } from "../components/local-workspaces/types";
 
 const TARGET_PLANS: Record<AgentTask["target"], string[]> = {
   browser: [
-    "Open the target surface in a controlled browser session.",
-    "Capture the current state, visible errors, console warnings, and network failures.",
-    "Verify the core user path, then report the smallest safe fix.",
+    "Inspect the explicit URL when desktop read-only fetching is available.",
+    "Summarize status, title, content excerpt, and obvious follow-up checks.",
+    "Prepare the smallest safe browser verification plan for manual or approved execution.",
   ],
   code: [
     "Locate the smallest owning module for the requested behavior.",

@@ -49,6 +49,7 @@ export function AgentsWorkspace() {
             log: localRun.log,
             result: localRun.result,
             inspectedWorkspace: localRun.inspectedWorkspace,
+            inspectedUrl: localRun.inspectedUrl,
             lastModel: localRun.model,
             lastTokensPerSecond: localRun.tokensPerSecond,
             lastTotalTimeMs: localRun.totalTimeMs,
@@ -174,6 +175,11 @@ export function AgentsWorkspace() {
                 {task.inspectedWorkspace && (
                   <Badge variant="outline" className="border-[var(--border)]">
                     Files inspected
+                  </Badge>
+                )}
+                {task.inspectedUrl && (
+                  <Badge variant="outline" className="border-[var(--border)]">
+                    URL inspected
                   </Badge>
                 )}
                 <Button
