@@ -1,10 +1,11 @@
-import { Activity, Download, Link2, RefreshCw, Upload } from "lucide-react";
+import { Activity, Database, Download, Link2, RefreshCw, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { emitFridayStorageChange, useLocalSettings } from "../../hooks/useLocalPersistence";
 import { checkFridayProviderHealth, type ProviderHealthResult } from "../../utils/providerHealth";
+import { checkFridaySyncHealth, type FridaySyncHealthResult } from "../../utils/syncHealth";
 import {
   buildFridayWorkspaceBackup,
   getFridayWorkspaceBackupEntries,
@@ -24,6 +25,8 @@ export function ConnectorsWorkspace() {
   const backupInputRef = useRef<HTMLInputElement>(null);
   const [providerHealth, setProviderHealth] = useState<ProviderHealthResult | null>(null);
   const [isCheckingProvider, setIsCheckingProvider] = useState(false);
+  const [syncHealth, setSyncHealth] = useState<FridaySyncHealthResult | null>(null);
+  const [isCheckingSync, setIsCheckingSync] = useState(false);
   const [backupMessage, setBackupMessage] = useState<{
     tone: "success" | "error" | "idle";
     text: string;
@@ -43,6 +46,14 @@ export function ConnectorsWorkspace() {
     const result = await checkFridayProviderHealth();
     setProviderHealth(result);
     setIsCheckingProvider(false);
+  };
+
+  const runSyncCheck = async () => {
+    if (isCheckingSync) return;
+    setIsCheckingSync(true);
+    const result = await checkFridaySyncHealth();
+    setSyncHealth(result);
+    setIsCheckingSync(false);
   };
 
   const exportWorkspaceBackup = () => {
@@ -100,6 +111,92 @@ export function ConnectorsWorkspace() {
           <Badge variant="outline" className="border-[var(--border)]">
             {settings.aiGateway && cloudEnvEnabled ? "Cloud allowed" : "Local only"}
           </Badge>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+              <Database size={15} />
+              Account sync health
+            </div>
+            <p className="mt-2 max-w-2xl text-xs leading-5 text-[var(--muted-foreground)]">
+              Checks the hosted sync boundary without exposing Turso tokens or Better Auth secrets.
+              Local Friday keeps working when this is off.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge
+              variant="outline"
+              className={
+                syncHealth?.status === "ready"
+                  ? "border-emerald-500/40 text-emerald-300"
+                  : syncHealth?.status === "error"
+                    ? "border-red-500/40 text-red-300"
+                    : "border-[var(--border)]"
+              }
+            >
+              {isCheckingSync
+                ? "Checking"
+                : syncHealth?.status === "ready"
+                  ? "Ready"
+                  : syncHealth?.status === "partial"
+                    ? "Partial"
+                    : syncHealth?.status === "local-only"
+                      ? "Local only"
+                      : syncHealth?.status === "error"
+                        ? "Error"
+                        : "Not checked"}
+            </Badge>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isCheckingSync}
+              onClick={() => void runSyncCheck()}
+            >
+              <RefreshCw size={14} className={isCheckingSync ? "animate-spin" : undefined} />
+              Test sync
+            </Button>
+          </div>
+        </div>
+        <div className="mt-3 grid gap-2 text-xs text-[var(--muted-foreground)] md:grid-cols-3">
+          <div className="rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3">
+            <div className="ui-text-section-label ui-color-muted">Auth URL</div>
+            <div className="mt-1 text-[var(--foreground)]">
+              {syncHealth
+                ? syncHealth.requirements.authUrlConfigured
+                  ? "Configured"
+                  : "Missing"
+                : "Waiting"}
+            </div>
+          </div>
+          <div className="rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3">
+            <div className="ui-text-section-label ui-color-muted">Database</div>
+            <div className="mt-1 text-[var(--foreground)]">
+              {syncHealth
+                ? syncHealth.requirements.databaseConfigured
+                  ? "Configured"
+                  : "Missing"
+                : "Waiting"}
+            </div>
+          </div>
+          <div className="rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3">
+            <div className="ui-text-section-label ui-color-muted">Token</div>
+            <div className="mt-1 text-[var(--foreground)]">
+              {syncHealth
+                ? syncHealth.requirements.tokenConfigured
+                  ? "Configured"
+                  : "Missing"
+                : "Waiting"}
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs leading-5 text-[var(--muted-foreground)]">
+          {syncHealth
+            ? `${syncHealth.message} Checked in ${syncHealth.latencyMs} ms.`
+            : "Run this before relying on account sync across machines."}
         </div>
       </div>
 

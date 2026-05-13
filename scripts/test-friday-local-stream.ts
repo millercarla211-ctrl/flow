@@ -28,6 +28,7 @@ import {
   parseFridayWorkspaceBackup,
   serializeFridayWorkspaceBackup,
 } from "../src/features/friday/utils/workspaceBackup";
+import { getFridayAuthConfigStatus } from "../src/server/auth/db";
 
 const model = resolveFridayModel("qwen35-4b-revised-q4km");
 const draft = createLocalAssistantDraft("write a short Friday status", model, {
@@ -390,6 +391,15 @@ if (!automationPromptText.includes("Instruction: Summarize open Friday work.")) 
 
 if (!createAutomationFallbackResult({ title: "Follow up" }).includes("Follow up")) {
   throw new Error("Friday automation fallback result did not include the automation title.");
+}
+
+const authConfigStatus = getFridayAuthConfigStatus();
+if (
+  typeof authConfigStatus.authUrlConfigured !== "boolean" ||
+  typeof authConfigStatus.databaseConfigured !== "boolean" ||
+  typeof authConfigStatus.tokenConfigured !== "boolean"
+) {
+  throw new Error("Friday auth config status did not stay import-safe and typed.");
 }
 
 console.log(`Friday local stream smoke passed with ${model.label}.`);

@@ -1,6 +1,6 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
-import { db } from "./db";
+import { getAuthDb } from "./db";
 import { authSchema } from "./schema";
 
 function parseTrustedOrigins(): string[] {
@@ -15,20 +15,32 @@ function parseTrustedOrigins(): string[] {
     .filter(Boolean);
 }
 
-export const auth = betterAuth({
-  appName: "Friday",
-  baseURL: process.env.BETTER_AUTH_URL,
-  secret: process.env.BETTER_AUTH_SECRET ?? "flow-development-secret-change-me",
-  trustedOrigins: parseTrustedOrigins(),
-  database: drizzleAdapter(db, {
-    provider: "sqlite",
-    schema: authSchema,
-    camelCase: true,
-  }),
-  emailAndPassword: {
-    enabled: true,
-    minPasswordLength: 8,
-  },
-});
+function createFridayAuth() {
+  return betterAuth({
+    appName: "Friday",
+    baseURL: process.env.BETTER_AUTH_URL,
+    secret: process.env.BETTER_AUTH_SECRET ?? "flow-development-secret-change-me",
+    trustedOrigins: parseTrustedOrigins(),
+    database: drizzleAdapter(getAuthDb(), {
+      provider: "sqlite",
+      schema: authSchema,
+      camelCase: true,
+    }),
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: 8,
+    },
+  });
+}
 
-export type FlowAuth = typeof auth;
+let authInstance: ReturnType<typeof createFridayAuth> | null = null;
+
+export function getAuth(): ReturnType<typeof createFridayAuth> {
+  if (!authInstance) {
+    authInstance = createFridayAuth();
+  }
+
+  return authInstance;
+}
+
+export type FlowAuth = ReturnType<typeof getAuth>;
