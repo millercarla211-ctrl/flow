@@ -7,6 +7,7 @@ import {
   streamLocalText,
 } from "./local-stream";
 import { resolveFridayModel } from "./model-routing";
+import { tryRunTauriLocalChat } from "./tauri-local-chat";
 
 type ModelKeyResolver = () => string;
 type ContextResolver = () => FridayChatContext | undefined;
@@ -25,7 +26,9 @@ export class LocalFridayChatTransport implements ChatTransport<UIMessage> {
   > {
     const model = resolveFridayModel(this.getModelKey());
     const prompt = getTextFromUiMessage(messages[messages.length - 1]);
-    const response = createLocalAssistantDraft(prompt, model, this.getContext?.());
+    const context = this.getContext?.();
+    const tauriResponse = await tryRunTauriLocalChat({ prompt, model, context });
+    const response = tauriResponse ?? createLocalAssistantDraft(prompt, model, context);
     const textId = `friday-local-${Date.now().toString(36)}`;
 
     return new ReadableStream<UIMessageChunk>({
