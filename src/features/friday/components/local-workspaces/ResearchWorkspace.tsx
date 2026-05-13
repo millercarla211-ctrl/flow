@@ -1,4 +1,4 @@
-import { Archive, CalendarClock, FileText, Pin, Plus, Quote } from "lucide-react";
+import { Archive, CalendarClock, FileDown, FileText, Pin, Plus, Quote } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMemo, useState } from "react";
 
@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { makeLocalRecord, useLocalList, useLocalSettings } from "../../hooks/useLocalPersistence";
 import { createLocalResearchDraft } from "../../utils/localResearch";
+import { exportFridayResearchBrief } from "../../utils/localFileExport";
 import { createResearchContext, tryDraftTauriResearch } from "../../utils/tauriResearchRunner";
 import { firstExplicitUrl } from "../../utils/externalTargets";
 import { EmptyState, INPUT_CLASS, RecordShell } from "./primitives";
@@ -58,6 +59,9 @@ export function ResearchWorkspace() {
   const [sources, setSources] = useState(["Local files"]);
   const [projectId, setProjectId] = useState("none");
   const [isDrafting, setIsDrafting] = useState(false);
+  const [exportStateById, setExportStateById] = useState<
+    Record<string, { status: "ok" | "error"; message: string }>
+  >({});
 
   const selectedProject = useMemo(
     () => projects.items.find((project) => project.id === projectId) ?? null,
@@ -171,6 +175,18 @@ export function ResearchWorkspace() {
     );
   };
 
+  const exportBrief = async (brief: ResearchBrief) => {
+    const result = await exportFridayResearchBrief(brief);
+    if (result.status === "cancelled") return;
+    setExportStateById((current) => ({
+      ...current,
+      [brief.id]:
+        result.status === "saved"
+          ? { status: "ok", message: "Brief exported" }
+          : { status: "error", message: result.message },
+    }));
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -240,6 +256,7 @@ export function ResearchWorkspace() {
         <div className="space-y-2">
           {items.map((brief) => {
             const briefUrl = firstExplicitUrl(brief.topic);
+            const exportState = exportStateById[brief.id];
             return (
               <RecordShell
                 key={brief.id}
@@ -299,6 +316,18 @@ export function ResearchWorkspace() {
                     URL inspected
                   </Badge>
                 )}
+                {exportState && (
+                  <Badge
+                    variant="outline"
+                    className={
+                      exportState.status === "ok"
+                        ? "border-[var(--border)] text-[var(--foreground)]"
+                        : "border-red-500/40 text-red-300"
+                    }
+                  >
+                    {exportState.message}
+                  </Badge>
+                )}
                 {briefUrl && (
                   <Button
                     type="button"
@@ -330,6 +359,16 @@ export function ResearchWorkspace() {
                 >
                   <Archive size={13} />
                   Save artifact
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void exportBrief(brief)}
+                  disabled={!brief.report && !brief.citations?.length}
+                >
+                  <FileDown size={13} />
+                  Export
                 </Button>
                 <Button
                   type="button"

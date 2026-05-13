@@ -1,5 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
 import { Archive, FileDown, ListChecks, Sparkles, TextQuote } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -7,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { resolveFridayModel } from "@/features/ai";
 import { tryRunTauriLocalChat } from "@/features/ai/tauri-local-chat";
+import { exportFridayArtifact } from "../../utils/localFileExport";
 import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
 import { EmptyState, INPUT_CLASS, RecordShell, TEXTAREA_CLASS } from "./primitives";
 import { STORAGE_KEYS, type CanvasArtifact } from "./types";
@@ -46,41 +45,6 @@ function fallbackTransform(kind: CanvasTransform, text: string) {
     ].join("\n");
   }
   return clean;
-}
-
-function artifactExtension(kind: CanvasArtifact["kind"]) {
-  if (kind === "Code") return "txt";
-  if (kind === "UI") return "tsx";
-  return "md";
-}
-
-function artifactExportFilter(kind: CanvasArtifact["kind"]) {
-  const extension = artifactExtension(kind);
-  return [
-    { name: `${kind} artifact`, extensions: [extension] },
-    { name: "Text", extensions: ["txt", "md"] },
-  ];
-}
-
-function artifactExportContent(artifact: Pick<CanvasArtifact, "title" | "kind" | "content">) {
-  if (artifact.kind === "Code" || artifact.kind === "UI") {
-    return artifact.content;
-  }
-
-  const title = artifact.title.trim();
-  const content = artifact.content.trim();
-  return [title ? `# ${title}` : "", content].filter(Boolean).join("\n\n");
-}
-
-function safeArtifactFilename(title: string, kind: CanvasArtifact["kind"]) {
-  const clean = title
-    .trim()
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "-")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase();
-  return `${clean || "friday-artifact"}.${artifactExtension(kind)}`;
 }
 
 function ArtifactPreview({ artifact }: { artifact: CanvasArtifact }) {
@@ -215,25 +179,13 @@ export function CanvasWorkspace() {
   const exportArtifact = async (
     artifact: Pick<CanvasArtifact, "title" | "kind" | "content">,
   ) => {
-    const outputPath = await save({
-      title: "Export Friday artifact",
-      defaultPath: safeArtifactFilename(artifact.title, artifact.kind),
-      filters: artifactExportFilter(artifact.kind),
-    });
-    if (!outputPath) return;
-
-    try {
-      await invoke("export_friday_artifact_to_path", {
-        content: artifactExportContent(artifact),
-        outputPath,
-      });
+    const result = await exportFridayArtifact(artifact);
+    if (result.status === "cancelled") return;
+    if (result.status === "saved") {
       setExportState({ status: "ok", message: "Artifact exported" });
-    } catch (error) {
-      setExportState({
-        status: "error",
-        message: error instanceof Error ? error.message : String(error),
-      });
+      return;
     }
+    setExportState({ status: "error", message: result.message });
   };
 
   return (
