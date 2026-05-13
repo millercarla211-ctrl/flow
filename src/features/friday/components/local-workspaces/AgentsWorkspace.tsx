@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
 import { createLocalAgentRun } from "../../utils/localAgentRunner";
 import { tryRunTauriAgentTask } from "../../utils/tauriAgentRunner";
-import { EmptyState, INPUT_CLASS, RecordShell } from "./primitives";
+import { EmptyState, INPUT_CLASS, RecordShell, TEXTAREA_CLASS } from "./primitives";
 import {
   STORAGE_KEYS,
   type AgentTask,
@@ -19,13 +19,22 @@ export function AgentsWorkspace() {
   const artifacts = useLocalList<CanvasArtifact>(STORAGE_KEYS.artifacts);
   const automations = useLocalList<FridayAutomation>(STORAGE_KEYS.automations);
   const [title, setTitle] = useState("");
+  const [brief, setBrief] = useState("");
   const [target, setTarget] = useState<AgentTask["target"]>("browser");
 
   const createTask = () => {
     const cleanTitle = title.trim();
     if (!cleanTitle) return;
-    addItem(makeLocalRecord("agent", { title: cleanTitle, target, status: "Needs approval" }));
+    addItem(
+      makeLocalRecord("agent", {
+        title: cleanTitle,
+        brief: brief.trim(),
+        target,
+        status: "Needs approval",
+      }),
+    );
     setTitle("");
+    setBrief("");
   };
 
   const runTask = async (task: AgentTask) => {
@@ -91,6 +100,12 @@ export function AgentsWorkspace() {
           Queue
         </Button>
       </div>
+      <textarea
+        className={TEXTAREA_CLASS}
+        value={brief}
+        onChange={(event) => setBrief(event.target.value)}
+        placeholder="Add URL, folder, file names, constraints, acceptance criteria, or notes for this agent run."
+      />
       {items.length === 0 ? (
         <EmptyState
           title="No agent tasks queued"
@@ -105,6 +120,11 @@ export function AgentsWorkspace() {
               title={task.title}
               subtitle={`${task.target} task`}
             >
+              {task.brief && (
+                <p className="mt-2 rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs leading-5 text-[var(--muted-foreground)]">
+                  {task.brief}
+                </p>
+              )}
               {task.plan && task.plan.length > 0 && (
                 <ol className="mt-3 space-y-1 text-xs leading-5 text-[var(--muted-foreground)]">
                   {task.plan.map((step) => (

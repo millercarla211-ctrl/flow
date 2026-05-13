@@ -202,6 +202,7 @@ fn parse_agent_plan(text: &str) -> Vec<String> {
 
 fn agent_user_content(
     title: &str,
+    brief: Option<&str>,
     target: &str,
     context: Option<FridayChatContextPayload>,
     workspace_snapshot: Option<&str>,
@@ -214,6 +215,9 @@ fn agent_user_content(
             .map(|snapshot| format!("Read-only workspace inspection:\n{snapshot}")),
         Some(format!("Task target: {target}")),
         Some(format!("Task: {}", title.trim())),
+        brief
+            .filter(|value| !value.trim().is_empty())
+            .map(|value| format!("Task brief:\n{}", value.trim())),
     ]
     .into_iter()
     .flatten()
@@ -280,7 +284,53 @@ fn collect_agent_paths(
     Ok(())
 }
 
-fn collect_workspace_snapshot(title: &str, target: &str) -> Option<String> {
+fn is_agent_text_file(path: &Path) -> bool {
+    let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    matches!(
+        extension.to_ascii_lowercase().as_str(),
+        "css"
+            | "html"
+            | "js"
+            | "jsx"
+            | "json"
+            | "md"
+            | "mdx"
+            | "rs"
+            | "toml"
+            | "ts"
+            | "tsx"
+            | "txt"
+            | "yaml"
+            | "yml"
+    )
+}
+
+fn read_agent_excerpt(root: &Path, relative: &str) -> Option<String> {
+    let path = root.join(relative);
+    if !is_agent_text_file(&path) {
+        return None;
+    }
+    let metadata = fs::metadata(&path).ok()?;
+    if metadata.len() > 120_000 {
+        return Some(format!("{relative}\n[Skipped content: file is larger than 120 KB]"));
+    }
+    let text = fs::read_to_string(&path).ok()?;
+    let excerpt = text
+        .lines()
+        .take(60)
+        .collect::<Vec<_>>()
+        .join("\n");
+    let clipped = if excerpt.len() > 2_000 {
+        format!("{}...", excerpt.chars().take(2_000).collect::<String>())
+    } else {
+        excerpt
+    };
+    Some(format!("{relative}\n{clipped}"))
+}
+
+fn collect_workspace_snapshot(title: &str, brief: Option<&str>, target: &str) -> Option<String> {
     if target != "code" && target != "files" {
         return None;
     }
@@ -292,7 +342,12 @@ fn collect_workspace_snapshot(title: &str, target: &str) -> Option<String> {
     }
 
     files.sort();
-    let title_tokens = title
+    let query = [Some(title), brief]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let title_tokens = query
         .to_lowercase()
         .split(|char: char| !char.is_ascii_alphanumeric())
         .filter(|token| token.len() > 2)
@@ -309,17 +364,28 @@ fn collect_workspace_snapshot(title: &str, target: &str) -> Option<String> {
         .collect::<Vec<_>>();
 
     let sample = files.iter().take(24).cloned().collect::<Vec<_>>();
+    let excerpts = matches
+        .iter()
+        .filter_map(|relative| read_agent_excerpt(&root, relative))
+        .take(3)
+        .collect::<Vec<_>>();
     let match_block = if matches.is_empty() {
         "No direct filename matches for the task title.".to_string()
     } else {
         format!("Likely relevant paths:\n- {}", matches.join("\n- "))
     };
+    let excerpt_block = if excerpts.is_empty() {
+        "No matched text excerpts were loaded.".to_string()
+    } else {
+        format!("Matched text excerpts:\n\n{}", excerpts.join("\n\n---\n\n"))
+    };
 
     Some(format!(
-        "Root: {}\nInspected {} paths, capped at 90.\n{}\nSample paths:\n- {}",
+        "Root: {}\nInspected {} paths, capped at 90.\n{}\n{}\nSample paths:\n- {}",
         root.display(),
         files.len(),
         match_block,
+        excerpt_block,
         sample.join("\n- ")
     ))
 }
@@ -378,15 +444,17 @@ fn research_user_content(
 #[tauri::command]
 pub(crate) async fn friday_local_agent_run(
     title: String,
+    brief: Option<String>,
     target: String,
     context: Option<FridayChatContextPayload>,
 ) -> Result<FridayAgentRunResponse, String> {
     let title = title.trim().to_string();
+    let brief = brief.map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
     let target = target.trim().to_string();
     if title.is_empty() {
         return Err("Agent task title is required".to_string());
     }
-    let workspace_snapshot = collect_workspace_snapshot(&title, &target);
+    let workspace_snapshot = collect_workspace_snapshot(&title, brief.as_deref(), &target);
 
     let model = local_text_model::preferred_model_for_route(
         local_text_model::LocalTextRoute::ToolRouter,
@@ -402,7 +470,13 @@ pub(crate) async fn friday_local_agent_run(
     let generation = local_text_model::generate_with_metrics(
         &model,
         agent_system_prompt(),
-        &agent_user_content(&title, &target, context, workspace_snapshot.as_deref()),
+        &agent_user_content(
+            &title,
+            brief.as_deref(),
+            &target,
+            context,
+            workspace_snapshot.as_deref(),
+        ),
         512,
         0.1,
     )

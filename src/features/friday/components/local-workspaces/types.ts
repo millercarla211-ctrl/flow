@@ -24,6 +24,7 @@ export type ResearchBrief = LocalRecord & {
 
 export type AgentTask = LocalRecord & {
   title: string;
+  brief?: string;
   target: "browser" | "code" | "files";
   status: "Needs approval" | "Queued" | "Running" | "Completed" | "Blocked";
   plan?: string[];

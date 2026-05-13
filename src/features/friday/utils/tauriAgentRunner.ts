@@ -25,6 +25,7 @@ export async function tryRunTauriAgentTask(task: AgentTask): Promise<FridayAgent
   try {
     const result = await invoke<FridayAgentRunResult>("friday_local_agent_run", {
       title: task.title,
+      brief: task.brief,
       target: task.target,
     });
     return {

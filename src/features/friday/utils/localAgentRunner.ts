@@ -24,6 +24,7 @@ function formatTitle(title: string) {
 
 export function createLocalAgentRun(task: AgentTask) {
   const cleanTitle = formatTitle(task.title);
+  const brief = task.brief?.trim();
   const plan = TARGET_PLANS[task.target];
   const log = [
     `Approved local ${task.target} task.`,
@@ -32,6 +33,7 @@ export function createLocalAgentRun(task: AgentTask) {
   ];
   const result = [
     `Local runbook ready for: ${cleanTitle}`,
+    brief ? `Task brief: ${brief}` : "",
     "",
     ...plan.map((step, index) => `${index + 1}. ${step}`),
     "",
