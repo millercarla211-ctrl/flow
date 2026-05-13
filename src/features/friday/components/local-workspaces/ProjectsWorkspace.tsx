@@ -80,11 +80,33 @@ export function ProjectsWorkspace() {
 
   const saveSelectedProject = () => {
     if (!selectedProject) return;
+    const nextName = editName.trim() || "Untitled project";
     updateItem(selectedProject.id, {
-      name: editName.trim() || "Untitled project",
+      name: nextName,
       instructions: editInstructions.trim(),
       modelKey: editModelKey,
     });
+    projectContext.items
+      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
+      .forEach((item) => projectContext.updateItem(item.id, { projectName: nextName }));
+    memories.items
+      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
+      .forEach((item) => memories.updateItem(item.id, { projectName: nextName }));
+    askThreads.items
+      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
+      .forEach((item) => askThreads.updateItem(item.id, { projectName: nextName }));
+    artifacts.items
+      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
+      .forEach((item) => artifacts.updateItem(item.id, { projectName: nextName }));
+    research.items
+      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
+      .forEach((item) => research.updateItem(item.id, { projectName: nextName }));
+    agents.items
+      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
+      .forEach((item) => agents.updateItem(item.id, { projectName: nextName }));
+    automations.items
+      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
+      .forEach((item) => automations.updateItem(item.id, { projectName: nextName }));
   };
 
   const countProjectRecords = (projectId: string) => ({
