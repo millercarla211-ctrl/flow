@@ -30,6 +30,7 @@ import {
   serializeFridayWorkspaceBackup,
 } from "../src/features/friday/utils/workspaceBackup";
 import { getFridayAuthConfigStatus } from "../src/server/auth/db";
+import { validateFridayWorkspaceSyncPayload } from "../src/server/friday/workspaceSync";
 
 const model = resolveFridayModel("qwen35-4b-revised-q4km");
 const draft = createLocalAssistantDraft("write a short Friday status", model, {
@@ -361,6 +362,16 @@ const rejectedBackup = parseFridayWorkspaceBackup(
 
 if (rejectedBackup.ok) {
   throw new Error("Friday workspace backup accepted a non-Friday payload.");
+}
+
+const syncPayload = validateFridayWorkspaceSyncPayload(backup);
+if (!syncPayload.ok || !syncPayload.raw.includes("Friday")) {
+  throw new Error("Friday workspace sync did not accept a valid backup snapshot.");
+}
+
+const rejectedSyncPayload = validateFridayWorkspaceSyncPayload({ app: "Other" });
+if (rejectedSyncPayload.ok) {
+  throw new Error("Friday workspace sync accepted an invalid backup snapshot.");
 }
 
 const automationBase = new Date("2026-05-14T00:00:00.000Z");

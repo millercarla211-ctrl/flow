@@ -68,9 +68,28 @@ export const verification = sqliteTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+export const fridayWorkspaceSnapshot = sqliteTable(
+  "friday_workspace_snapshot",
+  {
+    userId: text("userId")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    version: integer("version").notNull().default(1),
+    payload: text("payload").notNull(),
+    createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [index("friday_workspace_snapshot_updated_at_idx").on(table.updatedAt)],
+);
+
 export const authSchema = {
   user,
   session,
   account,
   verification,
+};
+
+export const appSchema = {
+  ...authSchema,
+  fridayWorkspaceSnapshot,
 };

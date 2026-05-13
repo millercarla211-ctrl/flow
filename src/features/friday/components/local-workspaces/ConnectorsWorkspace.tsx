@@ -7,6 +7,10 @@ import { emitFridayStorageChange, useLocalSettings } from "../../hooks/useLocalP
 import { checkFridayProviderHealth, type ProviderHealthResult } from "../../utils/providerHealth";
 import { checkFridaySyncHealth, type FridaySyncHealthResult } from "../../utils/syncHealth";
 import {
+  pullFridayWorkspaceSnapshot,
+  pushFridayWorkspaceSnapshot,
+} from "../../utils/workspaceCloudSync";
+import {
   buildFridayWorkspaceBackup,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
@@ -27,6 +31,11 @@ export function ConnectorsWorkspace() {
   const [isCheckingProvider, setIsCheckingProvider] = useState(false);
   const [syncHealth, setSyncHealth] = useState<FridaySyncHealthResult | null>(null);
   const [isCheckingSync, setIsCheckingSync] = useState(false);
+  const [isSyncingWorkspace, setIsSyncingWorkspace] = useState(false);
+  const [workspaceSyncMessage, setWorkspaceSyncMessage] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
   const [backupMessage, setBackupMessage] = useState<{
     tone: "success" | "error" | "idle";
     text: string;
@@ -95,6 +104,45 @@ export function ConnectorsWorkspace() {
     });
   };
 
+  const pushWorkspaceSnapshot = async () => {
+    if (isSyncingWorkspace) return;
+    setIsSyncingWorkspace(true);
+    const result = await pushFridayWorkspaceSnapshot();
+    setWorkspaceSyncMessage({
+      tone: result.ok ? "success" : "error",
+      text: result.ok
+        ? `${result.keyCount} local section${result.keyCount === 1 ? "" : "s"} uploaded.`
+        : result.message,
+    });
+    setIsSyncingWorkspace(false);
+  };
+
+  const pullWorkspaceSnapshot = async () => {
+    if (isSyncingWorkspace) return;
+    setIsSyncingWorkspace(true);
+    const result = await pullFridayWorkspaceSnapshot();
+
+    if (result.ok && result.payload) {
+      const entries = getFridayWorkspaceBackupEntries(result.payload);
+      for (const entry of entries) {
+        window.localStorage.setItem(entry.key, JSON.stringify(entry.value));
+        emitFridayStorageChange(entry.key);
+      }
+      emitFridayStorageChange();
+      setWorkspaceSyncMessage({
+        tone: "success",
+        text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored from sync.`,
+      });
+    } else {
+      setWorkspaceSyncMessage({
+        tone: "error",
+        text: result.message,
+      });
+    }
+
+    setIsSyncingWorkspace(false);
+  };
+
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-4">
@@ -159,6 +207,26 @@ export function ConnectorsWorkspace() {
               <RefreshCw size={14} className={isCheckingSync ? "animate-spin" : undefined} />
               Test sync
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isSyncingWorkspace}
+              onClick={() => void pushWorkspaceSnapshot()}
+            >
+              <Upload size={14} />
+              Push
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isSyncingWorkspace}
+              onClick={() => void pullWorkspaceSnapshot()}
+            >
+              <Download size={14} />
+              Pull
+            </Button>
           </div>
         </div>
         <div className="mt-3 grid gap-2 text-xs text-[var(--muted-foreground)] md:grid-cols-3">
@@ -194,7 +262,9 @@ export function ConnectorsWorkspace() {
           </div>
         </div>
         <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs leading-5 text-[var(--muted-foreground)]">
-          {syncHealth
+          {workspaceSyncMessage
+            ? workspaceSyncMessage.text
+            : syncHealth
             ? `${syncHealth.message} Checked in ${syncHealth.latencyMs} ms.`
             : "Run this before relying on account sync across machines."}
         </div>

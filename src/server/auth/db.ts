@@ -1,6 +1,6 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
-import { authSchema } from "./schema";
+import { appSchema } from "./schema";
 
 let tursoClient: ReturnType<typeof createClient> | null = null;
 let db: ReturnType<typeof drizzle> | null = null;
@@ -35,7 +35,7 @@ export function getTursoClient() {
 
 export function getAuthDb() {
   db ??= drizzle(getTursoClient(), {
-    schema: authSchema,
+    schema: appSchema,
   });
 
   return db;
