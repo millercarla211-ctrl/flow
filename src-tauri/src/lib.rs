@@ -497,6 +497,7 @@ pub fn run() {
             model_manager::check_model_status,
             get_local_model_runtime_status,
             friday_chat::friday_local_chat,
+            friday_chat::friday_local_agent_run,
             model_manager::download_model,
             model_manager::delete_model,
             model_manager::cancel_download,

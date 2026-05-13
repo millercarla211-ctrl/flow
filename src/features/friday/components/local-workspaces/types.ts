@@ -26,6 +26,9 @@ export type AgentTask = LocalRecord & {
   plan?: string[];
   log?: string[];
   result?: string;
+  lastModel?: string;
+  lastTokensPerSecond?: number;
+  lastTotalTimeMs?: number;
   projectId?: string;
   projectName?: string;
 };

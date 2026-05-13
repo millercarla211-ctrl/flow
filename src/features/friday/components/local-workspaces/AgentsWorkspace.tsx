@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
 import { createLocalAgentRun } from "../../utils/localAgentRunner";
+import { tryRunTauriAgentTask } from "../../utils/tauriAgentRunner";
 import { EmptyState, INPUT_CLASS, RecordShell } from "./primitives";
 import {
   STORAGE_KEYS,
@@ -27,9 +28,23 @@ export function AgentsWorkspace() {
     setTitle("");
   };
 
-  const runTask = (task: AgentTask) => {
+  const runTask = async (task: AgentTask) => {
     updateItem(task.id, { status: "Running" });
-    updateItem(task.id, createLocalAgentRun(task));
+    const localRun = await tryRunTauriAgentTask(task);
+    updateItem(
+      task.id,
+      localRun
+        ? {
+            status: "Completed",
+            plan: localRun.plan,
+            log: localRun.log,
+            result: localRun.result,
+            lastModel: localRun.model,
+            lastTokensPerSecond: localRun.tokensPerSecond,
+            lastTotalTimeMs: localRun.totalTimeMs,
+          }
+        : createLocalAgentRun(task),
+    );
   };
 
   const saveTaskArtifact = (task: AgentTask) => {
@@ -117,6 +132,11 @@ export function AgentsWorkspace() {
                 <Badge variant="outline" className="border-[var(--border)]">
                   {task.status}
                 </Badge>
+                {task.lastTokensPerSecond && (
+                  <Badge variant="outline" className="border-[var(--border)]">
+                    {task.lastModel} / {task.lastTokensPerSecond.toFixed(1)} tok/s
+                  </Badge>
+                )}
                 <Button
                   type="button"
                   size="sm"
@@ -131,7 +151,7 @@ export function AgentsWorkspace() {
                   size="sm"
                   variant="outline"
                   onClick={() => runTask(task)}
-                  disabled={task.status === "Needs approval"}
+                  disabled={task.status === "Needs approval" || task.status === "Running"}
                 >
                   <Play size={13} />
                   Run local plan
