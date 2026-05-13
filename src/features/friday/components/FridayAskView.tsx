@@ -5,9 +5,7 @@ import {
   Archive,
   CalendarClock,
   FileText,
-  Folder,
   type LucideIcon,
-  Paperclip,
   Pin,
   Send,
   Square,
@@ -25,6 +23,7 @@ import {
 } from "@/features/ai";
 
 import { AiMarkdown } from "./AiMarkdown";
+import { ProjectContextPanel } from "./ProjectContextPanel";
 import { makeLocalRecord, useLocalList } from "../hooks/useLocalPersistence";
 import {
   STORAGE_KEYS,
@@ -78,7 +77,6 @@ export function FridayAskView() {
   const projects = useLocalList<FridayProject>(STORAGE_KEYS.projects);
   const projectContextItems = useLocalList<ProjectContextItem>(STORAGE_KEYS.projectContext);
   const [activeProjectId, setActiveProjectId] = useState("none");
-  const [contextDraft, setContextDraft] = useState("");
   const selectedModel = useMemo(() => resolveFridayModel(modelKey), [modelKey]);
   const selectedProject = useMemo(
     () => projects.items.find((project) => project.id === activeProjectId) ?? null,
@@ -206,22 +204,6 @@ export function FridayAskView() {
     showSavedNotice("Saved as Automation");
   };
 
-  const addContextNote = () => {
-    const cleanContext = contextDraft.trim();
-    if (!cleanContext || !selectedProject) return;
-    projectContextItems.addItem(
-      makeLocalRecord("context", {
-        projectId: selectedProject.id,
-        projectName: selectedProject.name,
-        label: titleFromText(cleanContext, "Project note"),
-        kind: "note",
-        content: cleanContext,
-      }),
-    );
-    setContextDraft("");
-    showSavedNotice("Project context added");
-  };
-
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
@@ -269,61 +251,16 @@ export function FridayAskView() {
         })}
       </div>
 
-      <Card className="shrink-0 py-0">
-        <CardContent className="p-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex min-w-[220px] flex-1 items-center gap-2">
-              <Folder size={15} className="text-[var(--muted-foreground)]" />
-              <select
-                className="h-8 min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 text-xs text-[var(--foreground)] outline-none"
-                value={activeProjectId}
-                onChange={(event) => setActiveProjectId(event.target.value)}
-              >
-                <option value="none">No active project</option>
-                {projects.items.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Badge variant="outline" className="border-[var(--border)]">
-              {selectedProject ? `${activeContextItems.length} context items` : "Local only"}
-            </Badge>
-          </div>
-          {selectedProject ? (
-            <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto]">
-              <input
-                className="h-8 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-xs text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
-                value={contextDraft}
-                onChange={(event) => setContextDraft(event.target.value)}
-                placeholder="Add a project note, file summary, or instruction for this chat..."
-              />
-              <Button type="button" size="sm" variant="outline" onClick={addContextNote}>
-                <Paperclip size={14} />
-                Add context
-              </Button>
-              {activeContextItems.length > 0 && (
-                <div className="md:col-span-2 flex flex-wrap gap-1.5">
-                  {activeContextItems.slice(0, 5).map((item) => (
-                    <span
-                      key={item.id}
-                      className="rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[11px] text-[var(--muted-foreground)]"
-                      title={item.content}
-                    >
-                      {item.label}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">
-              Select or create a Project to give Ask reusable instructions and context.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <ProjectContextPanel
+        projects={projects.items}
+        activeProjectId={activeProjectId}
+        selectedProject={selectedProject}
+        activeContextItems={activeContextItems}
+        onActiveProjectChange={setActiveProjectId}
+        onAddContextItem={projectContextItems.addItem}
+        onRemoveContextItem={projectContextItems.removeItem}
+        onNotice={showSavedNotice}
+      />
 
       <Card className="min-h-0 flex-1 overflow-hidden py-0">
         <CardContent className="flex h-full min-h-0 flex-col p-0">
