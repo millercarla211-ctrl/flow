@@ -1,4 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::{
+    env, fs,
+    path::Path,
+};
 
 use crate::{local_text_model, AppState};
 
@@ -200,10 +204,14 @@ fn agent_user_content(
     title: &str,
     target: &str,
     context: Option<FridayChatContextPayload>,
+    workspace_snapshot: Option<&str>,
 ) -> String {
     let context = format_context(context);
     [
         (!context.is_empty()).then(|| format!("Active local context:\n{context}")),
+        workspace_snapshot
+            .filter(|snapshot| !snapshot.trim().is_empty())
+            .map(|snapshot| format!("Read-only workspace inspection:\n{snapshot}")),
         Some(format!("Task target: {target}")),
         Some(format!("Task: {}", title.trim())),
     ]
@@ -211,6 +219,109 @@ fn agent_user_content(
     .flatten()
     .collect::<Vec<_>>()
     .join("\n\n")
+}
+
+fn should_skip_agent_path(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    matches!(
+        name,
+        ".git"
+            | ".next"
+            | ".turbo"
+            | "dist"
+            | "build"
+            | "node_modules"
+            | "target"
+            | "models"
+            | "tmp"
+            | "venv"
+            | ".venv"
+    )
+}
+
+fn collect_agent_paths(
+    root: &Path,
+    dir: &Path,
+    depth: usize,
+    files: &mut Vec<String>,
+) -> Result<(), String> {
+    if files.len() >= 90 || depth > 3 {
+        return Ok(());
+    }
+
+    let entries = fs::read_dir(dir)
+        .map_err(|err| format!("Could not inspect {}: {err}", dir.display()))?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if should_skip_agent_path(&path) {
+            continue;
+        }
+
+        if path.is_dir() {
+            let _ = collect_agent_paths(root, &path, depth + 1, files);
+            continue;
+        }
+
+        if files.len() >= 90 {
+            break;
+        }
+
+        let relative = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        files.push(relative);
+    }
+
+    Ok(())
+}
+
+fn collect_workspace_snapshot(title: &str, target: &str) -> Option<String> {
+    if target != "code" && target != "files" {
+        return None;
+    }
+
+    let root = env::current_dir().ok()?;
+    let mut files = Vec::new();
+    if collect_agent_paths(&root, &root, 0, &mut files).is_err() || files.is_empty() {
+        return Some(format!("Root: {}\nNo inspectable local files found.", root.display()));
+    }
+
+    files.sort();
+    let title_tokens = title
+        .to_lowercase()
+        .split(|char: char| !char.is_ascii_alphanumeric())
+        .filter(|token| token.len() > 2)
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    let matches = files
+        .iter()
+        .filter(|path| {
+            let lower = path.to_lowercase();
+            title_tokens.iter().any(|token| lower.contains(token))
+        })
+        .take(12)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    let sample = files.iter().take(24).cloned().collect::<Vec<_>>();
+    let match_block = if matches.is_empty() {
+        "No direct filename matches for the task title.".to_string()
+    } else {
+        format!("Likely relevant paths:\n- {}", matches.join("\n- "))
+    };
+
+    Some(format!(
+        "Root: {}\nInspected {} paths, capped at 90.\n{}\nSample paths:\n- {}",
+        root.display(),
+        files.len(),
+        match_block,
+        sample.join("\n- ")
+    ))
 }
 
 fn research_user_content(
@@ -275,6 +386,7 @@ pub(crate) async fn friday_local_agent_run(
     if title.is_empty() {
         return Err("Agent task title is required".to_string());
     }
+    let workspace_snapshot = collect_workspace_snapshot(&title, &target);
 
     let model = local_text_model::preferred_model_for_route(
         local_text_model::LocalTextRoute::ToolRouter,
@@ -290,7 +402,7 @@ pub(crate) async fn friday_local_agent_run(
     let generation = local_text_model::generate_with_metrics(
         &model,
         agent_system_prompt(),
-        &agent_user_content(&title, &target, context),
+        &agent_user_content(&title, &target, context, workspace_snapshot.as_deref()),
         512,
         0.1,
     )
@@ -305,6 +417,12 @@ pub(crate) async fn friday_local_agent_run(
             generation.metrics.total_time_ms as f64 / 1000.0,
             generation.metrics.tokens_per_second
         ),
+        workspace_snapshot
+            .as_ref()
+            .map(|_| "Inspected a bounded read-only workspace file snapshot.".to_string())
+            .unwrap_or_else(|| {
+                "No workspace file inspection was needed for this target.".to_string()
+            }),
         "No external tool or cloud provider was used.".to_string(),
     ];
 
