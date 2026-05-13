@@ -97,6 +97,24 @@ export function useLocalList<T extends LocalRecord>(key: string) {
     [items, persist],
   );
 
+  const updateWhere = useCallback(
+    (predicate: (item: T) => boolean, update: Partial<T>) => {
+      const now = new Date().toISOString();
+      persist(
+        items.map((item) =>
+          predicate(item)
+            ? {
+                ...item,
+                ...update,
+                updatedAt: now,
+              }
+            : item,
+        ),
+      );
+    },
+    [items, persist],
+  );
+
   const removeItem = useCallback(
     (id: string) => {
       persist(items.filter((item) => item.id !== id));
@@ -111,7 +129,7 @@ export function useLocalList<T extends LocalRecord>(key: string) {
     [items, persist],
   );
 
-  return { items, isLoaded, addItem, updateItem, removeItem, removeWhere };
+  return { items, isLoaded, addItem, updateItem, updateWhere, removeItem, removeWhere };
 }
 
 export function useLocalSettings<T extends object>(key: string, defaults: T) {

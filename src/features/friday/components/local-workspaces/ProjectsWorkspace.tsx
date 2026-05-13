@@ -98,6 +98,30 @@ export function ProjectsWorkspace() {
   const removeProject = (projectId: string) => {
     removeItem(projectId);
     projectContext.removeWhere((contextItem) => contextItem.projectId === projectId);
+    memories.updateWhere(
+      (item) => item.projectId === projectId,
+      { projectId: undefined, projectName: undefined, scope: "Global" },
+    );
+    askThreads.updateWhere(
+      (item) => item.projectId === projectId,
+      { projectId: undefined, projectName: undefined },
+    );
+    artifacts.updateWhere(
+      (item) => item.projectId === projectId,
+      { projectId: undefined, projectName: undefined },
+    );
+    research.updateWhere(
+      (item) => item.projectId === projectId,
+      { projectId: undefined, projectName: undefined },
+    );
+    agents.updateWhere(
+      (item) => item.projectId === projectId,
+      { projectId: undefined, projectName: undefined },
+    );
+    automations.updateWhere(
+      (item) => item.projectId === projectId,
+      { projectId: undefined, projectName: undefined },
+    );
   };
 
   const saveSelectedProject = () => {
@@ -108,27 +132,34 @@ export function ProjectsWorkspace() {
       instructions: editInstructions.trim(),
       modelKey: editModelKey,
     });
-    projectContext.items
-      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
-      .forEach((item) => projectContext.updateItem(item.id, { projectName: nextName }));
-    memories.items
-      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
-      .forEach((item) => memories.updateItem(item.id, { projectName: nextName }));
-    askThreads.items
-      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
-      .forEach((item) => askThreads.updateItem(item.id, { projectName: nextName }));
-    artifacts.items
-      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
-      .forEach((item) => artifacts.updateItem(item.id, { projectName: nextName }));
-    research.items
-      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
-      .forEach((item) => research.updateItem(item.id, { projectName: nextName }));
-    agents.items
-      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
-      .forEach((item) => agents.updateItem(item.id, { projectName: nextName }));
-    automations.items
-      .filter((item) => item.projectId === selectedProject.id && item.projectName !== nextName)
-      .forEach((item) => automations.updateItem(item.id, { projectName: nextName }));
+    projectContext.updateWhere(
+      (item) => item.projectId === selectedProject.id && item.projectName !== nextName,
+      { projectName: nextName },
+    );
+    memories.updateWhere(
+      (item) => item.projectId === selectedProject.id && item.projectName !== nextName,
+      { projectName: nextName },
+    );
+    askThreads.updateWhere(
+      (item) => item.projectId === selectedProject.id && item.projectName !== nextName,
+      { projectName: nextName },
+    );
+    artifacts.updateWhere(
+      (item) => item.projectId === selectedProject.id && item.projectName !== nextName,
+      { projectName: nextName },
+    );
+    research.updateWhere(
+      (item) => item.projectId === selectedProject.id && item.projectName !== nextName,
+      { projectName: nextName },
+    );
+    agents.updateWhere(
+      (item) => item.projectId === selectedProject.id && item.projectName !== nextName,
+      { projectName: nextName },
+    );
+    automations.updateWhere(
+      (item) => item.projectId === selectedProject.id && item.projectName !== nextName,
+      { projectName: nextName },
+    );
   };
 
   const addContextNote = () => {
