@@ -6,32 +6,14 @@ import { Button } from "@/components/ui/button";
 import { resolveFridayModel } from "@/features/ai";
 import { tryRunTauriLocalChat } from "@/features/ai/tauri-local-chat";
 import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
+import {
+  createAutomationFallbackResult,
+  createAutomationPrompt,
+  isAutomationDue,
+  nextScheduledAutomationRun,
+} from "../../utils/localAutomation";
 import { EmptyState, INPUT_CLASS, RecordShell, TEXTAREA_CLASS } from "./primitives";
 import { STORAGE_KEYS, type FridayAutomation } from "./types";
-
-function nextScheduledRun(cadence: string, from = new Date()) {
-  const next = new Date(from);
-  if (cadence === "Hourly") next.setHours(next.getHours() + 1);
-  if (cadence === "Daily") next.setDate(next.getDate() + 1);
-  if (cadence === "Weekly") next.setDate(next.getDate() + 7);
-  return cadence === "Manual" ? undefined : next.toISOString();
-}
-
-function isDue(value?: string) {
-  if (!value) return false;
-  const date = new Date(value);
-  return !Number.isNaN(date.getTime()) && date.getTime() <= Date.now();
-}
-
-function automationPrompt(automation: FridayAutomation) {
-  const instruction = automation.instruction?.trim();
-  return [
-    "Run this local Friday automation. Produce a concise result note with outcome, next action, and any blocker.",
-    `Automation: ${automation.title}`,
-    `Cadence: ${automation.cadence}`,
-    instruction ? `Instruction: ${instruction}` : "Instruction: create the most useful local follow-up note.",
-  ].join("\n");
-}
 
 export function AutomationsWorkspace() {
   const { items, addItem, updateItem, removeItem } = useLocalList<FridayAutomation>(
@@ -49,7 +31,7 @@ export function AutomationsWorkspace() {
         (automation) =>
           automation.enabled &&
           automation.cadence !== "Manual" &&
-          isDue(automation.nextRunAt),
+          isAutomationDue(automation.nextRunAt),
       ),
     [items],
   );
@@ -75,7 +57,10 @@ export function AutomationsWorkspace() {
         instruction: instruction.trim(),
         cadence,
         enabled: true,
-        nextRunAt: nextRunAt ? new Date(nextRunAt).toISOString() : undefined,
+        nextRunAt:
+          nextRunAt && cadence !== "Manual"
+            ? new Date(nextRunAt).toISOString()
+            : nextScheduledAutomationRun(cadence),
         runCount: 0,
       }),
     );
@@ -89,23 +74,37 @@ export function AutomationsWorkspace() {
       if (runningAutomationId) return;
       setRunningAutomationId(automation.id);
       const now = new Date().toISOString();
-      const localRun = await tryRunTauriLocalChat({
-        prompt: automationPrompt(automation),
-        model: resolveFridayModel("qwen3-0.6b"),
-      });
-      updateItem(automation.id, {
-        lastRunAt: now,
-        lastResult:
-          localRun?.text.trim() ||
-          `Local run completed for "${automation.title}". Add an instruction to make this automation more specific.`,
-        runCount: (automation.runCount ?? 0) + 1,
-        lastRunMode: mode,
-        nextRunAt: nextScheduledRun(automation.cadence),
-        lastModel: localRun?.model,
-        lastTokensPerSecond: localRun?.tokensPerSecond,
-        lastTotalTimeMs: localRun?.totalTimeMs,
-      });
-      setRunningAutomationId(null);
+      try {
+        const localRun = await tryRunTauriLocalChat({
+          prompt: createAutomationPrompt(automation),
+          model: resolveFridayModel("qwen3-0.6b"),
+        });
+        updateItem(automation.id, {
+          lastRunAt: now,
+          lastResult: localRun?.text.trim() || createAutomationFallbackResult(automation),
+          lastRunStatus: "Completed",
+          lastError: undefined,
+          runCount: (automation.runCount ?? 0) + 1,
+          lastRunMode: mode,
+          nextRunAt: nextScheduledAutomationRun(automation.cadence),
+          lastModel: localRun?.model,
+          lastTokensPerSecond: localRun?.tokensPerSecond,
+          lastTotalTimeMs: localRun?.totalTimeMs,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown automation error";
+        updateItem(automation.id, {
+          lastRunAt: now,
+          lastResult: `Automation failed: ${message}`,
+          lastRunStatus: "Failed",
+          lastError: message,
+          runCount: automation.runCount ?? 0,
+          lastRunMode: mode,
+          nextRunAt: nextScheduledAutomationRun(automation.cadence),
+        });
+      } finally {
+        setRunningAutomationId(null);
+      }
     },
     [runningAutomationId, updateItem],
   );
@@ -168,6 +167,18 @@ export function AutomationsWorkspace() {
         >
           {autoRunEnabled ? "Pause due runner" : "Resume due runner"}
         </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={dueAutomations.length === 0 || Boolean(runningAutomationId)}
+          onClick={() => {
+            const nextDueAutomation = dueAutomations[0];
+            if (nextDueAutomation) void runAutomation(nextDueAutomation, "Scheduled");
+          }}
+        >
+          Run next due
+        </Button>
       </div>
       {items.length === 0 ? (
         <EmptyState
@@ -189,9 +200,23 @@ export function AutomationsWorkspace() {
                 <div>Runs: {automation.runCount ?? 0}</div>
               </div>
               {automation.lastRunMode && (
-                <Badge variant="outline" className="mt-3 border-[var(--border)]">
-                  Last run: {automation.lastRunMode}
-                </Badge>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge variant="outline" className="border-[var(--border)]">
+                    Last run: {automation.lastRunMode}
+                  </Badge>
+                  {automation.lastRunStatus && (
+                    <Badge
+                      variant="outline"
+                      className={
+                        automation.lastRunStatus === "Completed"
+                          ? "border-emerald-500/40 text-emerald-300"
+                          : "border-red-500/40 text-red-300"
+                      }
+                    >
+                      {automation.lastRunStatus}
+                    </Badge>
+                  )}
+                </div>
               )}
               {automation.lastResult && (
                 <p className="mt-3 rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs leading-5 text-[var(--muted-foreground)]">
@@ -202,7 +227,7 @@ export function AutomationsWorkspace() {
                 <Badge variant="outline" className="border-[var(--border)]">
                   {automation.enabled ? "Active" : "Paused"}
                 </Badge>
-                {isDue(automation.nextRunAt) && automation.enabled && (
+                {isAutomationDue(automation.nextRunAt) && automation.enabled && (
                   <Badge variant="outline" className="border-[var(--border)]">
                     Due now
                   </Badge>

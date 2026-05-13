@@ -71,7 +71,9 @@ export type FridayAutomation = LocalRecord & {
   nextRunAt?: string;
   lastRunAt?: string;
   lastRunMode?: "Manual" | "Scheduled";
+  lastRunStatus?: "Completed" | "Failed";
   lastResult?: string;
+  lastError?: string;
   runCount?: number;
   lastModel?: string;
   lastTokensPerSecond?: number;

@@ -6,6 +6,12 @@ import {
   resolveFridayGatewayChatRequest,
 } from "../src/features/ai";
 import { createLocalAgentRun } from "../src/features/friday/utils/localAgentRunner";
+import {
+  createAutomationFallbackResult,
+  createAutomationPrompt,
+  isAutomationDue,
+  nextScheduledAutomationRun,
+} from "../src/features/friday/utils/localAutomation";
 import { rankAskContext } from "../src/features/friday/utils/localRetrieval";
 import { createLocalResearchDraft } from "../src/features/friday/utils/localResearch";
 import { parseFridayStreamPayload } from "../src/features/friday/utils/providerHealth";
@@ -353,6 +359,37 @@ const rejectedBackup = parseFridayWorkspaceBackup(
 
 if (rejectedBackup.ok) {
   throw new Error("Friday workspace backup accepted a non-Friday payload.");
+}
+
+const automationBase = new Date("2026-05-14T00:00:00.000Z");
+if (nextScheduledAutomationRun("Hourly", automationBase) !== "2026-05-14T01:00:00.000Z") {
+  throw new Error("Friday automation hourly schedule did not advance correctly.");
+}
+
+if (nextScheduledAutomationRun("Manual", automationBase) !== undefined) {
+  throw new Error("Friday manual automation should not auto-schedule.");
+}
+
+if (!isAutomationDue("2026-05-13T23:59:00.000Z", automationBase.getTime())) {
+  throw new Error("Friday automation due check missed an elapsed run.");
+}
+
+if (isAutomationDue("2026-05-14T00:01:00.000Z", automationBase.getTime())) {
+  throw new Error("Friday automation due check ran a future task.");
+}
+
+const automationPromptText = createAutomationPrompt({
+  title: "Follow up",
+  cadence: "Daily",
+  instruction: "Summarize open Friday work.",
+});
+
+if (!automationPromptText.includes("Instruction: Summarize open Friday work.")) {
+  throw new Error("Friday automation prompt did not preserve explicit instructions.");
+}
+
+if (!createAutomationFallbackResult({ title: "Follow up" }).includes("Follow up")) {
+  throw new Error("Friday automation fallback result did not include the automation title.");
 }
 
 console.log(`Friday local stream smoke passed with ${model.label}.`);
