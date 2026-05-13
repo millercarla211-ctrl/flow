@@ -22,7 +22,12 @@ export type ResearchBrief = LocalRecord & {
 export type AgentTask = LocalRecord & {
   title: string;
   target: "browser" | "code" | "files";
-  status: "Queued" | "Needs approval";
+  status: "Needs approval" | "Queued" | "Running" | "Completed" | "Blocked";
+  plan?: string[];
+  log?: string[];
+  result?: string;
+  projectId?: string;
+  projectName?: string;
 };
 
 export type CanvasArtifact = LocalRecord & {

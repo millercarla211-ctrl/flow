@@ -3,6 +3,7 @@ import {
   createLocalAssistantDraft,
   resolveFridayModel,
 } from "../src/features/ai";
+import { createLocalAgentRun } from "../src/features/friday/utils/localAgentRunner";
 import { rankAskContext } from "../src/features/friday/utils/localRetrieval";
 import { createLocalResearchDraft } from "../src/features/friday/utils/localResearch";
 
@@ -83,6 +84,19 @@ const retrievedContext = rankAskContext({
 
 if (retrievedContext[0]?.kind !== "memory") {
   throw new Error("Friday Ask retrieval did not rank pinned project memory.");
+}
+
+const agentRun = createLocalAgentRun({
+  id: "agent_test",
+  title: "inspect the Ask page",
+  target: "code",
+  status: "Queued",
+  createdAt: timestamp,
+  updatedAt: timestamp,
+});
+
+if (agentRun.status !== "Completed" || !agentRun.result.includes("No remote provider")) {
+  throw new Error("Friday local agent runner did not produce the expected guarded result.");
 }
 
 console.log(`Friday local stream smoke passed with ${model.label}.`);
