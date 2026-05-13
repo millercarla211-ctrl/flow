@@ -1,30 +1,73 @@
-import { FileText, Plus } from "lucide-react";
-import { useState } from "react";
+import { FileText, Plus, Quote } from "lucide-react";
+import { useMemo, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
+import { createLocalResearchDraft } from "../../utils/localResearch";
 import { EmptyState, INPUT_CLASS, RecordShell } from "./primitives";
-import { STORAGE_KEYS, type ResearchBrief } from "./types";
+import {
+  STORAGE_KEYS,
+  type FridayMemory,
+  type FridayProject,
+  type ProjectContextItem,
+  type ResearchBrief,
+} from "./types";
 
 const RESEARCH_SOURCES = ["Local files", "Web", "Academic", "Premium data"];
 
 export function ResearchWorkspace() {
   const { items, addItem, removeItem } = useLocalList<ResearchBrief>(STORAGE_KEYS.research);
+  const projects = useLocalList<FridayProject>(STORAGE_KEYS.projects);
+  const projectContext = useLocalList<ProjectContextItem>(STORAGE_KEYS.projectContext);
+  const memories = useLocalList<FridayMemory>(STORAGE_KEYS.memory);
   const [topic, setTopic] = useState("");
   const [sources, setSources] = useState(["Local files", "Web"]);
+  const [projectId, setProjectId] = useState("none");
+
+  const selectedProject = useMemo(
+    () => projects.items.find((project) => project.id === projectId) ?? null,
+    [projectId, projects.items],
+  );
+
+  const selectedProjectContext = useMemo(
+    () =>
+      selectedProject
+        ? projectContext.items.filter((item) => item.projectId === selectedProject.id)
+        : projectContext.items,
+    [projectContext.items, selectedProject],
+  );
+
+  const availableMemories = useMemo(
+    () =>
+      memories.items.filter(
+        (memory) =>
+          memory.pinned &&
+          (!selectedProject || !memory.projectId || memory.projectId === selectedProject.id),
+      ),
+    [memories.items, selectedProject],
+  );
 
   const createBrief = () => {
     const cleanTopic = topic.trim();
     if (!cleanTopic) return;
+    const localDraft = createLocalResearchDraft({
+      topic: cleanTopic,
+      project: selectedProject,
+      contextItems: sources.includes("Local files") ? selectedProjectContext : [],
+      memories: availableMemories,
+    });
+
     addItem(
       makeLocalRecord("research", {
         topic: cleanTopic,
         sources,
-        plan: [
-          `Define the decision or answer needed for ${cleanTopic}.`,
-          "Collect source notes inside the selected scopes.",
-          "Draft a cited answer with assumptions and open questions.",
-        ],
+        plan: localDraft.plan,
+        citations: localDraft.citations,
+        report: localDraft.report,
+        status: "Drafted",
+        projectId: selectedProject?.id,
+        projectName: selectedProject?.name,
       }),
     );
     setTopic("");
@@ -41,8 +84,25 @@ export function ResearchWorkspace() {
         />
         <Button type="button" onClick={createBrief}>
           <Plus size={16} />
-          Create plan
+          Draft brief
         </Button>
+      </div>
+      <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+        <select
+          className={INPUT_CLASS}
+          value={projectId}
+          onChange={(event) => setProjectId(event.target.value)}
+        >
+          <option value="none">All local context</option>
+          {projects.items.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+        <Badge variant="outline" className="h-9 justify-center border-[var(--border)] px-3">
+          {selectedProjectContext.length} context / {availableMemories.length} memories
+        </Badge>
       </div>
       <div className="flex flex-wrap gap-2">
         {RESEARCH_SOURCES.map((source) => {
@@ -86,15 +146,49 @@ export function ResearchWorkspace() {
                   <li key={step}>{step}</li>
                 ))}
               </ol>
-              <Button
-                className="mt-3"
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => removeItem(brief.id)}
-              >
-                Remove
-              </Button>
+              {brief.citations && brief.citations.length > 0 && (
+                <div className="mt-3 grid gap-2">
+                  {brief.citations.map((citation, index) => (
+                    <div
+                      key={`${citation.id}-${index}`}
+                      className="rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3"
+                    >
+                      <div className="flex items-center gap-2 text-xs font-semibold text-[var(--foreground)]">
+                        <Quote size={13} />[{index + 1}] {citation.label}
+                        <Badge
+                          variant="outline"
+                          className="ml-auto border-[var(--border)] text-[10px]"
+                        >
+                          {citation.kind}
+                        </Badge>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-[var(--muted-foreground)]">
+                        {citation.excerpt}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {brief.report && (
+                <pre className="mt-3 max-h-48 overflow-auto rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3 whitespace-pre-wrap text-xs leading-5 text-[var(--muted-foreground)]">
+                  {brief.report}
+                </pre>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {brief.projectName && (
+                  <Badge variant="outline" className="border-[var(--border)]">
+                    {brief.projectName}
+                  </Badge>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => removeItem(brief.id)}
+                >
+                  Remove
+                </Button>
+              </div>
             </RecordShell>
           ))}
         </div>

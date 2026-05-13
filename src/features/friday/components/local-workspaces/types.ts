@@ -1,9 +1,19 @@
 import type { LocalRecord } from "../../hooks/useLocalPersistence";
 
+export type ResearchCitation = {
+  id: string;
+  label: string;
+  kind: "note" | "file" | "instruction" | "memory";
+  excerpt: string;
+};
+
 export type ResearchBrief = LocalRecord & {
   topic: string;
   sources: string[];
   plan: string[];
+  status?: "Planned" | "Drafted";
+  report?: string;
+  citations?: ResearchCitation[];
   projectId?: string;
   projectName?: string;
 };
