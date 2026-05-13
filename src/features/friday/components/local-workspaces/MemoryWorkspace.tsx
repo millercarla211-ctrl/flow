@@ -33,11 +33,32 @@ export function MemoryWorkspace() {
     [items, selectedMemoryId],
   );
   const editProject = projects.items.find((project) => project.id === editProjectId) ?? null;
+  const canAddMemory =
+    Boolean(title.trim()) &&
+    Boolean(body.trim()) &&
+    (scope !== "Project" || Boolean(selectedProject));
+  const canSaveMemory =
+    Boolean(selectedMemory) &&
+    Boolean(editTitle.trim()) &&
+    Boolean(editBody.trim()) &&
+    (editScope !== "Project" || Boolean(editProject));
 
   useEffect(() => {
     if (selectedMemoryId && selectedMemory) return;
     setSelectedMemoryId(visibleItems[0]?.id ?? "");
   }, [selectedMemory, selectedMemoryId, visibleItems]);
+
+  useEffect(() => {
+    if (projectId === "none") return;
+    if (projects.items.some((project) => project.id === projectId)) return;
+    setProjectId("none");
+  }, [projectId, projects.items]);
+
+  useEffect(() => {
+    if (editProjectId === "none") return;
+    if (projects.items.some((project) => project.id === editProjectId)) return;
+    setEditProjectId("none");
+  }, [editProjectId, projects.items]);
 
   useEffect(() => {
     if (!selectedMemory) {
@@ -54,9 +75,9 @@ export function MemoryWorkspace() {
   }, [selectedMemory]);
 
   const addMemory = () => {
+    if (!canAddMemory) return;
     const cleanTitle = title.trim();
     const cleanBody = body.trim();
-    if (!cleanTitle || !cleanBody) return;
     addItem(
       makeLocalRecord("memory", {
         title: cleanTitle,
@@ -72,10 +93,9 @@ export function MemoryWorkspace() {
   };
 
   const saveSelectedMemory = () => {
-    if (!selectedMemory) return;
+    if (!selectedMemory || !canSaveMemory) return;
     const cleanTitle = editTitle.trim();
     const cleanBody = editBody.trim();
-    if (!cleanTitle || !cleanBody) return;
     updateItem(selectedMemory.id, {
       title: cleanTitle,
       body: cleanBody,
@@ -116,10 +136,15 @@ export function MemoryWorkspace() {
             </option>
           ))}
         </select>
-        <Button type="button" onClick={addMemory}>
+        <Button type="button" onClick={addMemory} disabled={!canAddMemory}>
           Add memory
         </Button>
       </div>
+      {scope === "Project" && !selectedProject && (
+        <p className="text-xs text-[var(--muted-foreground)]">
+          Choose a project before saving a project memory.
+        </p>
+      )}
       <textarea
         className={TEXTAREA_CLASS}
         value={body}
@@ -160,10 +185,15 @@ export function MemoryWorkspace() {
                 </option>
               ))}
             </select>
-            <Button type="button" onClick={saveSelectedMemory}>
+            <Button type="button" onClick={saveSelectedMemory} disabled={!canSaveMemory}>
               Save memory
             </Button>
           </div>
+          {editScope === "Project" && !editProject && (
+            <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+              Choose a project before saving this as a project memory.
+            </p>
+          )}
           <textarea
             className={`${TEXTAREA_CLASS} mt-3`}
             value={editBody}
