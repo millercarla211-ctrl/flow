@@ -457,6 +457,7 @@ pub fn run() {
             open_data_dir,
             get_transcriptions,
             set_transcription_pinned,
+            export_friday_artifact_to_path,
             export_transcriptions_to_path,
             delete_transcription,
             delete_all_transcriptions,
@@ -1627,6 +1628,27 @@ fn export_transcriptions_to_path(
         .map_err(|err| format!("Failed to write export file: {err}"))?;
 
     Ok(records.len() as u32)
+}
+
+#[tauri::command]
+fn export_friday_artifact_to_path(content: String, output_path: String) -> Result<(), String> {
+    let output_path = PathBuf::from(output_path);
+    if output_path.as_os_str().is_empty() {
+        return Err("No export path selected.".to_string());
+    }
+
+    if let Some(parent) = output_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("Failed to create export folder: {err}"))?;
+    }
+
+    fs::write(&output_path, content.as_bytes())
+        .map_err(|err| format!("Failed to write artifact export file: {err}"))?;
+
+    Ok(())
 }
 
 fn build_transcriptions_markdown_export(records: &[storage::TranscriptionRecord]) -> String {

@@ -1,4 +1,6 @@
-import { Archive, ListChecks, Sparkles, TextQuote } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
+import { Archive, FileDown, ListChecks, Sparkles, TextQuote } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +46,41 @@ function fallbackTransform(kind: CanvasTransform, text: string) {
     ].join("\n");
   }
   return clean;
+}
+
+function artifactExtension(kind: CanvasArtifact["kind"]) {
+  if (kind === "Code") return "txt";
+  if (kind === "UI") return "tsx";
+  return "md";
+}
+
+function artifactExportFilter(kind: CanvasArtifact["kind"]) {
+  const extension = artifactExtension(kind);
+  return [
+    { name: `${kind} artifact`, extensions: [extension] },
+    { name: "Text", extensions: ["txt", "md"] },
+  ];
+}
+
+function artifactExportContent(artifact: Pick<CanvasArtifact, "title" | "kind" | "content">) {
+  if (artifact.kind === "Code" || artifact.kind === "UI") {
+    return artifact.content;
+  }
+
+  const title = artifact.title.trim();
+  const content = artifact.content.trim();
+  return [title ? `# ${title}` : "", content].filter(Boolean).join("\n\n");
+}
+
+function safeArtifactFilename(title: string, kind: CanvasArtifact["kind"]) {
+  const clean = title
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+  return `${clean || "friday-artifact"}.${artifactExtension(kind)}`;
 }
 
 function ArtifactPreview({ artifact }: { artifact: CanvasArtifact }) {
@@ -109,6 +146,9 @@ export function CanvasWorkspace() {
   const [editContent, setEditContent] = useState("");
   const [transforming, setTransforming] = useState<CanvasTransform | null>(null);
   const [lastTransform, setLastTransform] = useState<string | null>(null);
+  const [exportState, setExportState] = useState<{ status: "ok" | "error"; message: string } | null>(
+    null,
+  );
   const selectedArtifact = useMemo(
     () => items.find((artifact) => artifact.id === selectedArtifactId) ?? null,
     [items, selectedArtifactId],
@@ -172,6 +212,30 @@ export function CanvasWorkspace() {
     setTransforming(null);
   };
 
+  const exportArtifact = async (
+    artifact: Pick<CanvasArtifact, "title" | "kind" | "content">,
+  ) => {
+    const outputPath = await save({
+      title: "Export Friday artifact",
+      defaultPath: safeArtifactFilename(artifact.title, artifact.kind),
+      filters: artifactExportFilter(artifact.kind),
+    });
+    if (!outputPath) return;
+
+    try {
+      await invoke("export_friday_artifact_to_path", {
+        content: artifactExportContent(artifact),
+        outputPath,
+      });
+      setExportState({ status: "ok", message: "Artifact exported" });
+    } catch (error) {
+      setExportState({
+        status: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
       <div className="space-y-3">
@@ -231,6 +295,21 @@ export function CanvasWorkspace() {
               <Button type="button" onClick={updateSelectedArtifact}>
                 Save edits
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  void exportArtifact({
+                    title: editTitle || selectedArtifact.title,
+                    kind: editKind,
+                    content: editContent,
+                  })
+                }
+                disabled={!editContent.trim()}
+              >
+                <FileDown size={13} />
+                Export
+              </Button>
               {TRANSFORM_ACTIONS.map((action) => {
                 const Icon = action.icon;
                 return (
@@ -249,6 +328,18 @@ export function CanvasWorkspace() {
               {lastTransform && (
                 <Badge variant="outline" className="border-[var(--border)]">
                   {lastTransform}
+                </Badge>
+              )}
+              {exportState && (
+                <Badge
+                  variant="outline"
+                  className={
+                    exportState.status === "ok"
+                      ? "border-[var(--border)] text-[var(--foreground)]"
+                      : "border-red-500/40 text-red-300"
+                  }
+                >
+                  {exportState.message}
                 </Badge>
               )}
             </div>
@@ -303,6 +394,18 @@ export function CanvasWorkspace() {
                     }}
                   >
                     Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void exportArtifact(artifact);
+                    }}
+                    disabled={!artifact.content.trim()}
+                  >
+                    Export
                   </Button>
                   <Button
                     type="button"
