@@ -15,6 +15,7 @@ import { snippetKeys } from "../features/snippets/queries";
 import { flowFetchKeys } from "../features/flow-fetch/queries";
 import { insightsKeys } from "../features/insights/queries";
 import { updateKeys } from "../features/updates/queries";
+import { FridayAutomationRuntime } from "../features/friday/components/FridayAutomationRuntime";
 import { isTauriRuntime } from "../platform/tauriRuntime";
 import type { StoredSettings } from "../types";
 
@@ -172,6 +173,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         {tauriRuntime && <LocaleSyncBridge />}
         {tauriRuntime && <QuerySyncBridge />}
         {tauriRuntime && <TtsPlaybackBridge />}
+        {tauriRuntime && <FridayAutomationRuntime />}
         {children}
       </QueryClientProvider>
     </I18nProvider>

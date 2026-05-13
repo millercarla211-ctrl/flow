@@ -23,6 +23,30 @@ export function isAutomationDue(value?: string, now = Date.now()) {
   return !Number.isNaN(date.getTime()) && date.getTime() <= now;
 }
 
+export function selectNextDueAutomation<
+  T extends Pick<FridayAutomation, "cadence" | "enabled" | "nextRunAt">,
+>(
+  automations: T[],
+  now = Date.now(),
+) {
+  return automations
+    .filter(
+      (automation) =>
+        automation.enabled &&
+        automation.cadence !== "Manual" &&
+        isAutomationDue(automation.nextRunAt, now),
+    )
+    .sort((left, right) => {
+      const leftTime = left.nextRunAt
+        ? new Date(left.nextRunAt).getTime()
+        : Number.MAX_SAFE_INTEGER;
+      const rightTime = right.nextRunAt
+        ? new Date(right.nextRunAt).getTime()
+        : Number.MAX_SAFE_INTEGER;
+      return leftTime - rightTime;
+    })[0];
+}
+
 export function createAutomationPrompt(automation: Pick<FridayAutomation, "cadence" | "instruction" | "title">) {
   const instruction = automation.instruction?.trim();
   return [
@@ -36,4 +60,3 @@ export function createAutomationPrompt(automation: Pick<FridayAutomation, "caden
 export function createAutomationFallbackResult(automation: Pick<FridayAutomation, "title">) {
   return `Local run completed for "${automation.title}". Add an instruction to make this automation more specific.`;
 }
-

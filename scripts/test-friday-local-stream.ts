@@ -11,6 +11,7 @@ import {
   createAutomationPrompt,
   isAutomationDue,
   nextScheduledAutomationRun,
+  selectNextDueAutomation,
 } from "../src/features/friday/utils/localAutomation";
 import { rankAskContext } from "../src/features/friday/utils/localRetrieval";
 import { createLocalResearchDraft } from "../src/features/friday/utils/localResearch";
@@ -377,6 +378,34 @@ if (!isAutomationDue("2026-05-13T23:59:00.000Z", automationBase.getTime())) {
 
 if (isAutomationDue("2026-05-14T00:01:00.000Z", automationBase.getTime())) {
   throw new Error("Friday automation due check ran a future task.");
+}
+
+const selectedDueAutomation = selectNextDueAutomation(
+  [
+    {
+      cadence: "Daily",
+      enabled: true,
+      nextRunAt: "2026-05-13T23:50:00.000Z",
+      title: "Later due",
+    },
+    {
+      cadence: "Hourly",
+      enabled: true,
+      nextRunAt: "2026-05-13T23:40:00.000Z",
+      title: "First due",
+    },
+    {
+      cadence: "Manual",
+      enabled: true,
+      nextRunAt: "2026-05-13T23:30:00.000Z",
+      title: "Manual skip",
+    },
+  ],
+  automationBase.getTime(),
+);
+
+if (selectedDueAutomation?.title !== "First due") {
+  throw new Error("Friday automation runner did not pick the earliest due scheduled task.");
 }
 
 const automationPromptText = createAutomationPrompt({

@@ -1,40 +1,28 @@
 import { CalendarClock } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { resolveFridayModel } from "@/features/ai";
-import { tryRunTauriLocalChat } from "@/features/ai/tauri-local-chat";
-import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
-import {
-  createAutomationFallbackResult,
-  createAutomationPrompt,
-  isAutomationDue,
-  nextScheduledAutomationRun,
-} from "../../utils/localAutomation";
+import { makeLocalRecord } from "../../hooks/useLocalPersistence";
+import { useFridayAutomationRunner } from "../../hooks/useFridayAutomationRunner";
+import { isAutomationDue, nextScheduledAutomationRun } from "../../utils/localAutomation";
 import { EmptyState, INPUT_CLASS, RecordShell, TEXTAREA_CLASS } from "./primitives";
-import { STORAGE_KEYS, type FridayAutomation } from "./types";
 
 export function AutomationsWorkspace() {
-  const { items, addItem, updateItem, removeItem } = useLocalList<FridayAutomation>(
-    STORAGE_KEYS.automations,
-  );
+  const {
+    addItem,
+    dueAutomation,
+    dueCount,
+    items,
+    removeItem,
+    runAutomation,
+    runningAutomationId,
+    updateItem,
+  } = useFridayAutomationRunner();
   const [title, setTitle] = useState("");
   const [instruction, setInstruction] = useState("");
   const [cadence, setCadence] = useState("Daily");
   const [nextRunAt, setNextRunAt] = useState("");
-  const [autoRunEnabled, setAutoRunEnabled] = useState(true);
-  const [runningAutomationId, setRunningAutomationId] = useState<string | null>(null);
-  const dueAutomations = useMemo(
-    () =>
-      items.filter(
-        (automation) =>
-          automation.enabled &&
-          automation.cadence !== "Manual" &&
-          isAutomationDue(automation.nextRunAt),
-      ),
-    [items],
-  );
 
   const formatRunTime = (value?: string) => {
     if (!value) return "Not scheduled";
@@ -68,54 +56,6 @@ export function AutomationsWorkspace() {
     setInstruction("");
     setNextRunAt("");
   };
-
-  const runAutomation = useCallback(
-    async (automation: FridayAutomation, mode: "Manual" | "Scheduled" = "Manual") => {
-      if (runningAutomationId) return;
-      setRunningAutomationId(automation.id);
-      const now = new Date().toISOString();
-      try {
-        const localRun = await tryRunTauriLocalChat({
-          prompt: createAutomationPrompt(automation),
-          model: resolveFridayModel("qwen3-0.6b"),
-        });
-        updateItem(automation.id, {
-          lastRunAt: now,
-          lastResult: localRun?.text.trim() || createAutomationFallbackResult(automation),
-          lastRunStatus: "Completed",
-          lastError: undefined,
-          runCount: (automation.runCount ?? 0) + 1,
-          lastRunMode: mode,
-          nextRunAt: nextScheduledAutomationRun(automation.cadence),
-          lastModel: localRun?.model,
-          lastTokensPerSecond: localRun?.tokensPerSecond,
-          lastTotalTimeMs: localRun?.totalTimeMs,
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown automation error";
-        updateItem(automation.id, {
-          lastRunAt: now,
-          lastResult: `Automation failed: ${message}`,
-          lastRunStatus: "Failed",
-          lastError: message,
-          runCount: automation.runCount ?? 0,
-          lastRunMode: mode,
-          nextRunAt: nextScheduledAutomationRun(automation.cadence),
-        });
-      } finally {
-        setRunningAutomationId(null);
-      }
-    },
-    [runningAutomationId, updateItem],
-  );
-
-  useEffect(() => {
-    if (!autoRunEnabled || runningAutomationId || dueAutomations.length === 0) return;
-    const timer = window.setTimeout(() => {
-      void runAutomation(dueAutomations[0], "Scheduled");
-    }, 800);
-    return () => window.clearTimeout(timer);
-  }, [autoRunEnabled, dueAutomations, runAutomation, runningAutomationId]);
 
   return (
     <div className="space-y-4">
@@ -154,27 +94,18 @@ export function AutomationsWorkspace() {
       />
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline" className="border-[var(--border)]">
-          {autoRunEnabled ? "Auto-run active" : "Auto-run paused"}
+          Background runner active
         </Badge>
         <Badge variant="outline" className="border-[var(--border)]">
-          {dueAutomations.length} due
+          {dueCount} due
         </Badge>
         <Button
           type="button"
           size="sm"
           variant="outline"
-          onClick={() => setAutoRunEnabled((enabled) => !enabled)}
-        >
-          {autoRunEnabled ? "Pause due runner" : "Resume due runner"}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={dueAutomations.length === 0 || Boolean(runningAutomationId)}
+          disabled={!dueAutomation || Boolean(runningAutomationId)}
           onClick={() => {
-            const nextDueAutomation = dueAutomations[0];
-            if (nextDueAutomation) void runAutomation(nextDueAutomation, "Scheduled");
+            if (dueAutomation) void runAutomation(dueAutomation, "Scheduled");
           }}
         >
           Run next due
