@@ -46,6 +46,56 @@ function fallbackTransform(kind: CanvasTransform, text: string) {
   return clean;
 }
 
+function ArtifactPreview({ artifact }: { artifact: CanvasArtifact }) {
+  const content = artifact.content.trim();
+  if (!content) {
+    return (
+      <p className="text-xs leading-5 text-[var(--muted-foreground)]">
+        No preview content yet.
+      </p>
+    );
+  }
+
+  if (artifact.kind === "Code" || artifact.kind === "UI") {
+    return (
+      <pre className="max-h-80 overflow-auto rounded-md border border-[var(--border)] bg-[var(--background)] p-3 whitespace-pre-wrap text-xs leading-5 text-[var(--muted-foreground)]">
+        {content}
+      </pre>
+    );
+  }
+
+  return (
+    <div className="max-h-80 space-y-2 overflow-auto rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-sm leading-6 text-[var(--foreground)]">
+      {content.split(/\n+/).map((line, index) => {
+        const clean = line.trim();
+        if (!clean) return null;
+        if (clean.startsWith("# ")) {
+          return (
+            <h3 key={`${clean}-${index}`} className="text-base font-semibold">
+              {clean.slice(2)}
+            </h3>
+          );
+        }
+        if (clean.startsWith("## ")) {
+          return (
+            <h4 key={`${clean}-${index}`} className="text-sm font-semibold">
+              {clean.slice(3)}
+            </h4>
+          );
+        }
+        if (clean.startsWith("- ")) {
+          return (
+            <p key={`${clean}-${index}`} className="pl-3 text-[var(--muted-foreground)]">
+              {clean}
+            </p>
+          );
+        }
+        return <p key={`${clean}-${index}`}>{clean}</p>;
+      })}
+    </div>
+  );
+}
+
 export function CanvasWorkspace() {
   const { items, addItem, updateItem, removeItem } = useLocalList<CanvasArtifact>(
     STORAGE_KEYS.artifacts,
@@ -202,6 +252,26 @@ export function CanvasWorkspace() {
                 </Badge>
               )}
             </div>
+          </div>
+        )}
+        {selectedArtifact && (
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
+                Preview selected artifact
+              </div>
+              <Badge variant="outline" className="border-[var(--border)]">
+                {selectedArtifact.kind}
+              </Badge>
+            </div>
+            <ArtifactPreview
+              artifact={{
+                ...selectedArtifact,
+                title: editTitle || selectedArtifact.title,
+                kind: editKind,
+                content: editContent,
+              }}
+            />
           </div>
         )}
       </div>
