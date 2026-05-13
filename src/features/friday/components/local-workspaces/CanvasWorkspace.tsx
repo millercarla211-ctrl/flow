@@ -1,10 +1,50 @@
-import { Archive } from "lucide-react";
+import { Archive, ListChecks, Sparkles, TextQuote } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { resolveFridayModel } from "@/features/ai";
+import { tryRunTauriLocalChat } from "@/features/ai/tauri-local-chat";
 import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
 import { EmptyState, INPUT_CLASS, RecordShell, TEXTAREA_CLASS } from "./primitives";
 import { STORAGE_KEYS, type CanvasArtifact } from "./types";
+
+type CanvasTransform = "polish" | "summarize" | "actions";
+
+const TRANSFORM_ACTIONS: Array<{
+  key: CanvasTransform;
+  label: string;
+  icon: typeof Sparkles;
+}> = [
+  { key: "polish", label: "Polish", icon: Sparkles },
+  { key: "summarize", label: "Summarize", icon: TextQuote },
+  { key: "actions", label: "Actions", icon: ListChecks },
+];
+
+function transformPrompt(kind: CanvasTransform, text: string) {
+  const instructions = {
+    polish: "Rewrite this artifact so it is clearer and more professional. Keep the meaning.",
+    summarize: "Summarize this artifact into a compact answer-first note.",
+    actions: "Extract concrete next actions from this artifact as concise bullets.",
+  } satisfies Record<CanvasTransform, string>;
+
+  return `${instructions[kind]}\n\nArtifact:\n${text}`;
+}
+
+function fallbackTransform(kind: CanvasTransform, text: string) {
+  const clean = text.trim().replace(/\s+/g, " ");
+  if (kind === "summarize") {
+    return clean.split(/(?<=[.!?])\s+/).slice(0, 3).join(" ");
+  }
+  if (kind === "actions") {
+    return [
+      "- Review the artifact for missing context.",
+      "- Decide what should be saved, shared, or turned into a task.",
+      "- Run the relevant lightweight verification before finalizing.",
+    ].join("\n");
+  }
+  return clean;
+}
 
 export function CanvasWorkspace() {
   const { items, addItem, updateItem, removeItem } = useLocalList<CanvasArtifact>(
@@ -17,6 +57,8 @@ export function CanvasWorkspace() {
   const [editTitle, setEditTitle] = useState("");
   const [editKind, setEditKind] = useState<CanvasArtifact["kind"]>("Doc");
   const [editContent, setEditContent] = useState("");
+  const [transforming, setTransforming] = useState<CanvasTransform | null>(null);
+  const [lastTransform, setLastTransform] = useState<string | null>(null);
   const selectedArtifact = useMemo(
     () => items.find((artifact) => artifact.id === selectedArtifactId) ?? null,
     [items, selectedArtifactId],
@@ -60,6 +102,24 @@ export function CanvasWorkspace() {
       kind: editKind,
       content: editContent,
     });
+  };
+
+  const runTransform = async (transform: CanvasTransform) => {
+    const source = editContent.trim();
+    if (!source || transforming) return;
+    setTransforming(transform);
+    const localRun = await tryRunTauriLocalChat({
+      prompt: transformPrompt(transform, source),
+      model: resolveFridayModel("qwen3-0.6b"),
+    });
+    const nextContent = localRun?.text.trim() || fallbackTransform(transform, source);
+    setEditContent(nextContent);
+    setLastTransform(
+      localRun
+        ? `${localRun.model} / ${localRun.tokensPerSecond.toFixed(1)} tok/s`
+        : "Preview fallback",
+    );
+    setTransforming(null);
   };
 
   return (
@@ -117,9 +177,31 @@ export function CanvasWorkspace() {
               onChange={(event) => setEditContent(event.target.value)}
               placeholder="Artifact content"
             />
-            <Button className="mt-3" type="button" onClick={updateSelectedArtifact}>
-              Save edits
-            </Button>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button type="button" onClick={updateSelectedArtifact}>
+                Save edits
+              </Button>
+              {TRANSFORM_ACTIONS.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <Button
+                    key={action.key}
+                    type="button"
+                    variant="outline"
+                    onClick={() => void runTransform(action.key)}
+                    disabled={!editContent.trim() || Boolean(transforming)}
+                  >
+                    <Icon size={13} />
+                    {transforming === action.key ? "Working" : action.label}
+                  </Button>
+                );
+              })}
+              {lastTransform && (
+                <Badge variant="outline" className="border-[var(--border)]">
+                  {lastTransform}
+                </Badge>
+              )}
+            </div>
           </div>
         )}
       </div>
