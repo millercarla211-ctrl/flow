@@ -3,6 +3,7 @@ import {
   createLocalAssistantDraft,
   resolveFridayModel,
 } from "../src/features/ai";
+import { rankAskContext } from "../src/features/friday/utils/localRetrieval";
 import { createLocalResearchDraft } from "../src/features/friday/utils/localResearch";
 
 const model = resolveFridayModel("qwen35-4b-revised-q4km");
@@ -59,6 +60,29 @@ const researchDraft = createLocalResearchDraft({
 
 if (!researchDraft.report.includes("[1] workspace-records.md")) {
   throw new Error("Friday local research did not include a cited local source.");
+}
+
+const retrievedContext = rankAskContext({
+  query: "remember workspace automations",
+  contextItems: [],
+  memories: [
+    {
+      id: "memory_test",
+      title: "Workspace automations",
+      body: "Friday should keep scheduled follow-ups and local automations attached to the workspace.",
+      scope: "Project",
+      pinned: true,
+      projectId: "project_test",
+      projectName: "Friday OS",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ],
+  projectId: "project_test",
+});
+
+if (retrievedContext[0]?.kind !== "memory") {
+  throw new Error("Friday Ask retrieval did not rank pinned project memory.");
 }
 
 console.log(`Friday local stream smoke passed with ${model.label}.`);

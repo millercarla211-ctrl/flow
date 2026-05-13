@@ -25,6 +25,8 @@ import {
 import { AiMarkdown } from "./AiMarkdown";
 import { ProjectContextPanel } from "./ProjectContextPanel";
 import { makeLocalRecord, useLocalList } from "../hooks/useLocalPersistence";
+import { rankAskContext } from "../utils/localRetrieval";
+import { textFromMessage, titleFromText } from "../utils/text";
 import {
   STORAGE_KEYS,
   type CanvasArtifact,
@@ -47,24 +49,6 @@ const MESSAGE_SAVE_ACTIONS: Array<{
   { target: "research", label: "Research", icon: FileText },
   { target: "automation", label: "Follow-up", icon: CalendarClock },
 ];
-
-function textFromMessage(message: { parts: Array<{ type: string; text?: string }> }) {
-  return message.parts
-    .filter((part) => part.type === "text" && typeof part.text === "string")
-    .map((part) => part.text)
-    .join("\n")
-    .trim();
-}
-
-function titleFromText(text: string, fallback: string) {
-  const firstLine = text
-    .split("\n")
-    .map((line) => line.replace(/^#+\s*/, "").trim())
-    .find(Boolean);
-
-  if (!firstLine) return fallback;
-  return firstLine.length > 64 ? `${firstLine.slice(0, 61)}...` : firstLine;
-}
 
 export function FridayAskView() {
   const [input, setInput] = useState("");
@@ -89,20 +73,30 @@ export function FridayAskView() {
         : [],
     [projectContextItems.items, selectedProject],
   );
+  const retrievedAskContext = useMemo(
+    () =>
+      rankAskContext({
+        query: input,
+        contextItems: activeContextItems,
+        memories: memories.items,
+        projectId: selectedProject?.id,
+      }),
+    [activeContextItems, input, memories.items, selectedProject?.id],
+  );
   const chatContext = useMemo(
     () =>
-      selectedProject
+      selectedProject || retrievedAskContext.length > 0
         ? {
-            projectName: selectedProject.name,
-            projectInstructions: selectedProject.instructions,
-            contextItems: activeContextItems.map((item) => ({
+            projectName: selectedProject?.name,
+            projectInstructions: selectedProject?.instructions,
+            contextItems: retrievedAskContext.map((item) => ({
               label: item.label,
               kind: item.kind,
               content: item.content,
             })),
           }
         : undefined,
-    [activeContextItems, selectedProject],
+    [retrievedAskContext, selectedProject],
   );
   const transport = useMemo(() => {
     if (selectedModel.provider === "gateway" && isGatewayModelAvailable(selectedModel)) {
@@ -261,6 +255,28 @@ export function FridayAskView() {
         onRemoveContextItem={projectContextItems.removeItem}
         onNotice={showSavedNotice}
       />
+
+      <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+          Local context
+        </span>
+        {retrievedAskContext.length === 0 ? (
+          <span className="text-xs text-[var(--muted-foreground)]">
+            Save memories or attach project notes to make Ask more aware.
+          </span>
+        ) : (
+          retrievedAskContext.slice(0, 4).map((item) => (
+            <Badge
+              key={`${item.source}-${item.id}`}
+              variant="outline"
+              className="border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+              title={item.content}
+            >
+              {item.kind}: {item.label}
+            </Badge>
+          ))
+        )}
+      </div>
 
       <Card className="min-h-0 flex-1 overflow-hidden py-0">
         <CardContent className="flex h-full min-h-0 flex-col p-0">

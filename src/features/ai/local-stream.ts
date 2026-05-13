@@ -42,8 +42,8 @@ function formatContext(context?: FridayChatContext): string[] {
     lines.push(`- Instructions: ${context.projectInstructions}`);
   }
 
-  for (const item of context.contextItems?.slice(0, 4) ?? []) {
-    const content = item.content.length > 140 ? `${item.content.slice(0, 137)}...` : item.content;
+  for (const item of context.contextItems?.slice(0, 6) ?? []) {
+    const content = item.content.length > 180 ? `${item.content.slice(0, 177)}...` : item.content;
     lines.push(`- ${item.kind}: ${item.label} - ${content}`);
   }
 
