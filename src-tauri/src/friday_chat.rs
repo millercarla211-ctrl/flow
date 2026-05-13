@@ -64,6 +64,7 @@ pub(crate) struct FridayResearchDraftResponse {
     generated_tokens: usize,
     total_time_ms: u128,
     tokens_per_second: f64,
+    inspected_url: bool,
 }
 
 fn format_context(context: Option<FridayChatContextPayload>) -> String {
@@ -284,16 +285,7 @@ fn html_title_for_agent(input: &str) -> Option<String> {
     (!title.is_empty()).then_some(title)
 }
 
-async fn collect_browser_snapshot(
-    client: reqwest::Client,
-    title: &str,
-    brief: Option<&str>,
-    target: &str,
-) -> Option<String> {
-    if target != "browser" {
-        return None;
-    }
-    let url = first_agent_url(title, brief)?;
+async fn fetch_url_snapshot(client: reqwest::Client, url: String) -> Option<String> {
     let response = client
         .get(&url)
         .header(reqwest::header::USER_AGENT, "Friday local read-only agent/0.1")
@@ -315,6 +307,29 @@ async fn collect_browser_snapshot(
     Some(format!(
         "Requested URL: {url}\nFinal URL: {final_url}\nStatus: {status}\nContent-Type: {content_type}\nTitle: {title}\nText excerpt: {excerpt}"
     ))
+}
+
+async fn collect_browser_snapshot(
+    client: reqwest::Client,
+    title: &str,
+    brief: Option<&str>,
+    target: &str,
+) -> Option<String> {
+    if target != "browser" {
+        return None;
+    }
+    fetch_url_snapshot(client, first_agent_url(title, brief)?).await
+}
+
+async fn collect_research_url_snapshot(
+    client: reqwest::Client,
+    topic: &str,
+    allow_url: bool,
+) -> Option<String> {
+    if !allow_url {
+        return None;
+    }
+    fetch_url_snapshot(client, first_agent_url(topic, None)?).await
 }
 
 fn should_skip_agent_path(path: &Path) -> bool {
@@ -486,6 +501,7 @@ fn research_user_content(
     topic: &str,
     citations: Vec<FridayResearchCitationPayload>,
     context: Option<FridayChatContextPayload>,
+    url_snapshot: Option<&str>,
 ) -> String {
     let context = format_context(context);
     let source_lines = citations
@@ -522,6 +538,9 @@ fn research_user_content(
                 &source_lines
             }
         )),
+        url_snapshot
+            .filter(|snapshot| !snapshot.trim().is_empty())
+            .map(|snapshot| format!("Read-only URL evidence:\n{snapshot}")),
         Some(
             "Write with these sections: Working Answer, Evidence, Gaps, Next Actions."
                 .to_string(),
@@ -618,6 +637,7 @@ pub(crate) async fn friday_local_research(
     topic: String,
     citations: Vec<FridayResearchCitationPayload>,
     context: Option<FridayChatContextPayload>,
+    allow_url: Option<bool>,
     state: tauri::State<'_, AppState>,
 ) -> Result<FridayResearchDraftResponse, String> {
     let topic = topic.trim().to_string();
@@ -634,10 +654,12 @@ pub(crate) async fn friday_local_research(
         configured_model,
     )
     .ok_or_else(|| "No local Friday research model is installed.".to_string())?;
+    let url_snapshot =
+        collect_research_url_snapshot(state.http(), &topic, allow_url.unwrap_or(false)).await;
     let generation = local_text_model::generate_with_metrics(
         &model,
         research_system_prompt(),
-        &research_user_content(&topic, citations, context),
+        &research_user_content(&topic, citations, context, url_snapshot.as_deref()),
         900,
         0.2,
     )
@@ -655,5 +677,6 @@ pub(crate) async fn friday_local_research(
         generated_tokens: generation.metrics.generated_tokens,
         total_time_ms: generation.metrics.total_time_ms,
         tokens_per_second: generation.metrics.tokens_per_second,
+        inspected_url: url_snapshot.is_some(),
     })
 }

@@ -96,6 +96,7 @@ export function ResearchWorkspace() {
     const localModelDraft = await tryDraftTauriResearch({
       topic: cleanTopic,
       citations: localDraft.citations,
+      allowUrl: availableSources.includes("Web") || availableSources.includes("Academic"),
       context: createResearchContext({
         project: selectedProject,
         contextItems: availableSources.includes("Local files") ? selectedProjectContext : [],
@@ -111,6 +112,7 @@ export function ResearchWorkspace() {
         citations: localDraft.citations,
         report: localModelDraft?.report ?? localDraft.report,
         status: "Drafted",
+        inspectedUrl: localModelDraft?.inspectedUrl,
         lastModel: localModelDraft?.model,
         lastTokensPerSecond: localModelDraft?.tokensPerSecond,
         lastTotalTimeMs: localModelDraft?.totalTimeMs,
@@ -286,6 +288,11 @@ export function ResearchWorkspace() {
                 {brief.lastTokensPerSecond && (
                   <Badge variant="outline" className="border-[var(--border)]">
                     {brief.lastModel} / {brief.lastTokensPerSecond.toFixed(1)} tok/s
+                  </Badge>
+                )}
+                {brief.inspectedUrl && (
+                  <Badge variant="outline" className="border-[var(--border)]">
+                    URL inspected
                   </Badge>
                 )}
                 <Button

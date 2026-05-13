@@ -26,6 +26,7 @@ export type FridayResearchDraftResult = {
   generatedTokens: number;
   totalTimeMs: number;
   tokensPerSecond: number;
+  inspectedUrl: boolean;
 };
 
 export function createResearchContext({
@@ -63,10 +64,12 @@ export async function tryDraftTauriResearch({
   topic,
   citations,
   context,
+  allowUrl,
 }: {
   topic: string;
   citations: ResearchCitation[];
   context?: FridayResearchContext;
+  allowUrl?: boolean;
 }): Promise<FridayResearchDraftResult | null> {
   if (!isTauriRuntime() || !topic.trim()) return null;
 
@@ -75,6 +78,7 @@ export async function tryDraftTauriResearch({
       topic,
       citations,
       context,
+      allowUrl,
     });
   } catch (error) {
     console.warn("Friday local research fell back to deterministic local draft:", error);

@@ -15,6 +15,7 @@ export type ResearchBrief = LocalRecord & {
   status?: "Planned" | "Drafted";
   report?: string;
   citations?: ResearchCitation[];
+  inspectedUrl?: boolean;
   lastModel?: string;
   lastTokensPerSecond?: number;
   lastTotalTimeMs?: number;
