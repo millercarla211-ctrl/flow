@@ -1,14 +1,16 @@
-import { Archive, CalendarClock, FileDown, FileText, Pin, Plus, Quote } from "lucide-react";
+import { Archive, CalendarClock, FileDown, FileText, Pin, Plus, Quote, Sparkles } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { makeLocalRecord, useLocalList, useLocalSettings } from "../../hooks/useLocalPersistence";
 import { createLocalResearchDraft } from "../../utils/localResearch";
 import { exportFridayResearchBrief } from "../../utils/localFileExport";
+import { synthesizeResearchWithProvider } from "../../utils/providerResearch";
 import { createResearchContext, tryDraftTauriResearch } from "../../utils/tauriResearchRunner";
 import { firstExplicitUrl } from "../../utils/externalTargets";
+import { isTauriRuntime } from "@/platform/tauriRuntime";
 import { EmptyState, INPUT_CLASS, RecordShell } from "./primitives";
 import {
   DEFAULT_CONNECTORS,
@@ -59,9 +61,18 @@ export function ResearchWorkspace() {
   const [sources, setSources] = useState(["Local files"]);
   const [projectId, setProjectId] = useState("none");
   const [isDrafting, setIsDrafting] = useState(false);
+  const [tauriRuntime, setTauriRuntime] = useState(false);
   const [exportStateById, setExportStateById] = useState<
     Record<string, { status: "ok" | "error"; message: string }>
   >({});
+  const [providerStateById, setProviderStateById] = useState<
+    Record<string, { status: "running" | "ok" | "error"; message: string }>
+  >({});
+  const cloudEnvEnabled =
+    process.env.NEXT_PUBLIC_FRIDAY_ENABLE_CLOUD_AI === "true" ||
+    process.env.NEXT_PUBLIC_FRIDAY_ENABLE_GROQ_AI === "true";
+  const providerSynthesisEnabled =
+    connectors.settings.aiGateway && cloudEnvEnabled && !tauriRuntime;
 
   const selectedProject = useMemo(
     () => projects.items.find((project) => project.id === projectId) ?? null,
@@ -85,6 +96,10 @@ export function ResearchWorkspace() {
       ),
     [memories.items, selectedProject],
   );
+
+  useEffect(() => {
+    setTauriRuntime(isTauriRuntime());
+  }, []);
 
   const createBrief = async () => {
     const cleanTopic = topic.trim();
@@ -187,6 +202,33 @@ export function ResearchWorkspace() {
     }));
   };
 
+  const synthesizeBrief = async (brief: ResearchBrief) => {
+    if (!providerSynthesisEnabled) return;
+    setProviderStateById((current) => ({
+      ...current,
+      [brief.id]: { status: "running", message: "Provider synthesis running" },
+    }));
+    const result = await synthesizeResearchWithProvider({ brief });
+    if (!result.ok) {
+      setProviderStateById((current) => ({
+        ...current,
+        [brief.id]: { status: "error", message: result.message },
+      }));
+      return;
+    }
+
+    updateItem(brief.id, {
+      lastModel: result.modelKey,
+      lastTotalTimeMs: result.latencyMs,
+      report: result.report,
+      status: "Drafted",
+    });
+    setProviderStateById((current) => ({
+      ...current,
+      [brief.id]: { status: "ok", message: `Synthesized in ${(result.latencyMs / 1000).toFixed(1)}s` },
+    }));
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -257,6 +299,7 @@ export function ResearchWorkspace() {
           {items.map((brief) => {
             const briefUrl = firstExplicitUrl(brief.topic);
             const exportState = exportStateById[brief.id];
+            const providerState = providerStateById[brief.id];
             return (
               <RecordShell
                 key={brief.id}
@@ -328,6 +371,20 @@ export function ResearchWorkspace() {
                     {exportState.message}
                   </Badge>
                 )}
+                {providerState && (
+                  <Badge
+                    variant="outline"
+                    className={
+                      providerState.status === "ok"
+                        ? "border-emerald-500/40 text-emerald-300"
+                        : providerState.status === "error"
+                          ? "border-red-500/40 text-red-300"
+                          : "border-[var(--border)]"
+                    }
+                  >
+                    {providerState.message}
+                  </Badge>
+                )}
                 {briefUrl && (
                   <Button
                     type="button"
@@ -359,6 +416,23 @@ export function ResearchWorkspace() {
                 >
                   <Archive size={13} />
                   Save artifact
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  title={
+                    tauriRuntime
+                      ? "Provider synthesis is available in the hosted Friday workspace."
+                      : providerSynthesisEnabled
+                        ? "Use the configured provider to synthesize this local brief."
+                        : "Enable Cloud AI in Connectors and configure provider env first."
+                  }
+                  onClick={() => void synthesizeBrief(brief)}
+                  disabled={!providerSynthesisEnabled || providerState?.status === "running"}
+                >
+                  <Sparkles size={13} />
+                  {providerState?.status === "running" ? "Synthesizing" : "Provider synthesize"}
                 </Button>
                 <Button
                   type="button"

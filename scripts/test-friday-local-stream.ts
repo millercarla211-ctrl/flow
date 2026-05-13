@@ -9,6 +9,7 @@ import { createLocalAgentRun } from "../src/features/friday/utils/localAgentRunn
 import { rankAskContext } from "../src/features/friday/utils/localRetrieval";
 import { createLocalResearchDraft } from "../src/features/friday/utils/localResearch";
 import { parseFridayStreamPayload } from "../src/features/friday/utils/providerHealth";
+import { buildProviderResearchPrompt } from "../src/features/friday/utils/providerResearch";
 
 const model = resolveFridayModel("qwen35-4b-revised-q4km");
 const draft = createLocalAssistantDraft("write a short Friday status", model, {
@@ -226,6 +227,30 @@ const providerHealthError = parseFridayStreamPayload(
 
 if (providerHealthError.errorText !== "Provider unavailable") {
   throw new Error("Friday provider health parser did not expose streamed errors.");
+}
+
+const providerResearchPrompt = buildProviderResearchPrompt({
+  id: "research_test",
+  createdAt: timestamp,
+  updatedAt: timestamp,
+  topic: "local-first research",
+  sources: ["Local files"],
+  plan: ["Review local evidence.", "Write a cited answer."],
+  citations: [
+    {
+      id: "source_test",
+      label: "local-note.md",
+      kind: "note",
+      excerpt: "Friday should cite only approved local evidence.",
+    },
+  ],
+});
+
+if (
+  !providerResearchPrompt.includes("Do not invent citations") ||
+  !providerResearchPrompt.includes("[1] local-note.md")
+) {
+  throw new Error("Friday provider research prompt did not preserve citation boundaries.");
 }
 
 console.log(`Friday local stream smoke passed with ${model.label}.`);
