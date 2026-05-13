@@ -82,11 +82,11 @@ export const FRIDAY_FEATURE_SPECS: Record<FridayAssistantView, FridayFeatureSpec
     eyebrow: "Memory",
     title: "Memory Control",
     summary: "Inspect, edit, pin, and disable memories that Friday uses across projects.",
-    status: "Planned",
+    status: "Ready",
     primaryAction: "Review memory",
     capabilities: ["Pinned facts", "Project-scoped memory", "Local privacy controls"],
     dataBoundary: "Memory reads from local data only unless sync is enabled.",
-    emptyState: "No editable memory cards are loaded in this first shell.",
+    emptyState: "Add a memory, edit it in place, or pin it into active project context.",
   },
   connectors: {
     id: "connectors",
