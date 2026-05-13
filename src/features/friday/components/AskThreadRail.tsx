@@ -71,10 +71,13 @@ export function AskThreadRail({
                   <MessageSquare className="shrink-0" size={15} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-semibold">{thread.title}</span>
-                    <span className="mt-1 flex items-center gap-2 text-[10px] text-[var(--muted-foreground)]">
-                      <span>{thread.messageCount} messages</span>
-                      <span>{formatThreadTime(thread.updatedAt)}</span>
-                    </span>
+                  <span className="mt-1 flex items-center gap-2 text-[10px] text-[var(--muted-foreground)]">
+                    <span>{thread.messageCount} messages</span>
+                    <span>{formatThreadTime(thread.updatedAt)}</span>
+                    {thread.lastTokensPerSecond && (
+                      <span>{thread.lastTokensPerSecond.toFixed(1)} tok/s</span>
+                    )}
+                  </span>
                   </span>
                 </button>
                 {thread.projectName && (

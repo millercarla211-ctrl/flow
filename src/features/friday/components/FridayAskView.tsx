@@ -215,6 +215,9 @@ export function FridayAskView() {
       modelKey,
       messageCount: messages.length,
       messages,
+      lastModel: lastLocalRun?.model,
+      lastTokensPerSecond: lastLocalRun?.tokensPerSecond,
+      lastTotalTimeMs: lastLocalRun?.totalTimeMs,
       projectId: selectedProject?.id,
       projectName: selectedProject?.name,
     });
@@ -223,6 +226,7 @@ export function FridayAskView() {
     activeThreadId,
     askThreads,
     isBusy,
+    lastLocalRun,
     messages,
     modelKey,
     selectedProject?.id,

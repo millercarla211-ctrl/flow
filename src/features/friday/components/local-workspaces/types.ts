@@ -70,6 +70,9 @@ export type FridayAskThread = LocalRecord & {
   modelKey: string;
   messageCount: number;
   messages: UIMessage[];
+  lastModel?: string;
+  lastTokensPerSecond?: number;
+  lastTotalTimeMs?: number;
   projectId?: string;
   projectName?: string;
 };
