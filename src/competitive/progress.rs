@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "dashboard-export-panel",
-            "Dashboard export panel",
+            "dashboard-panel-json-binding",
+            "Dashboard panel JSON binding",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-dashboard-panel` reads the exported manifest and JSON reports into typed dashboard cards/actions for Friday and DX UI surfaces",
-            "wire the panel into the product UI and DX dashboard shell",
+            "`flow --friday-dashboard-product-ui-json` maps the exported dashboard panel into a visible /dashboard route binding with data sources, cards, and local actions",
+            "wire the typed dashboard binding into the visible web/desktop dashboard component",
         ),
         item(
-            "recent-screenshot-history",
-            "Recent screenshot history",
+            "dashboard-action-buttons",
+            "Dashboard action buttons",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-dashboard-panel` exposes screenshot capture history, missing-capture prompts, metadata gaps, and per-route capture commands for top Friday routes",
-            "connect screenshot prompt actions to one-click capture controls in the dashboard shell",
+            CompletionItemStatus::Planned,
+            "not started",
+            "wire typed dashboard actions to safe UI buttons with disabled, loading, and error states",
         ),
         item(
-            "dashboard-recovery-actions",
-            "Dashboard recovery actions",
+            "dashboard-history-deltas",
+            "Dashboard history deltas",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-dashboard-panel` exposes typed open, run-check, recover, and capture actions with local-only commands for warning readiness items",
-            "wire these typed actions into the product UI/DX dashboard button handlers",
+            CompletionItemStatus::Planned,
+            "not started",
+            "show export history deltas and screenshot prompts in the product UI",
         ),
         item(
-            "export-history-store",
-            "Export history store",
+            "release-review-links",
+            "Release review links",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-dashboard-export` persists dashboard-history.json with latest/previous checkpoint records and score/readiness deltas",
-            "surface checkpoint comparisons in the product UI dashboard",
+            CompletionItemStatus::Planned,
+            "not started",
+            "render release-review links for TODO, changelog, visual targets, and export artifacts",
         ),
         item(
-            "release-review-handoff",
-            "Release review handoff",
+            "dashboard-ui-smoke-contract",
+            "Dashboard UI smoke contract",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-dashboard-export` writes release-review.json linking completion, TODO, changelog, visual targets, history, and export files",
-            "open the next 100-point set for product UI dashboard consumption",
+            CompletionItemStatus::Planned,
+            "not started",
+            "add a small UI smoke contract proving the dashboard can load the exported panel",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Dashboard Runtime Wiring".to_string(),
+        name: "Friday Dashboard Product UI Wiring".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Consume Friday readiness exports from product and DX dashboard surfaces, preserve local-first status visibility, and guide release work without manual CLI scraping.".to_string(),
+        loop_rule: "Consume typed Friday dashboard panel data from the visible product UI, keep all actions local-first and explicit, and avoid dummy dashboard copy.".to_string(),
         items,
     }
 }
@@ -137,14 +137,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_dashboard_runtime_wiring_loop() {
+    fn active_set_tracks_friday_dashboard_product_ui_wiring_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Dashboard Runtime Wiring");
-        assert_eq!(set.current_score_out_of_100, 100);
+        assert_eq!(set.name, "Friday Dashboard Product UI Wiring");
+        assert_eq!(set.current_score_out_of_100, 20);
         assert!(
             set.items
                 .iter()
-                .all(|item| item.status == CompletionItemStatus::Done)
+                .any(|item| item.status == CompletionItemStatus::Planned)
         );
     }
 

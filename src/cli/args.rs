@@ -108,6 +108,10 @@ pub enum Command {
     FridayDashboardPanel { input_dir: String },
     /// Print dashboard UI panel data as JSON
     FridayDashboardPanelJson { input_dir: String },
+    /// Show product UI binding data for the visible Friday dashboard
+    FridayDashboardProductUi { input_dir: String },
+    /// Print product UI binding data for the visible Friday dashboard as JSON
+    FridayDashboardProductUiJson { input_dir: String },
     /// Run low-resource Friday local execution readiness checks
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
@@ -534,6 +538,22 @@ impl Args {
             },
             "--friday-dashboard-panel-json" | "--friday-dashboard-ui-json" => {
                 Command::FridayDashboardPanelJson {
+                    input_dir: args
+                        .get(2)
+                        .cloned()
+                        .unwrap_or_else(|| "tmp/friday-dashboard".to_string()),
+                }
+            }
+            "--friday-dashboard-product-ui" | "--friday-dashboard-product-ui-binding" => {
+                Command::FridayDashboardProductUi {
+                    input_dir: args
+                        .get(2)
+                        .cloned()
+                        .unwrap_or_else(|| "tmp/friday-dashboard".to_string()),
+                }
+            }
+            "--friday-dashboard-product-ui-json" | "--friday-dashboard-product-ui-binding-json" => {
+                Command::FridayDashboardProductUiJson {
                     input_dir: args
                         .get(2)
                         .cloned()

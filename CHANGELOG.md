@@ -104,6 +104,8 @@
 - advanced Friday Dashboard Runtime Wiring to 80/100
 - added Friday release-review dashboard handoffs that link completion, TODO, changelog, visual targets, export history, and dashboard files
 - completed Friday Dashboard Runtime Wiring at 100/100 and listed Friday Dashboard Product UI Wiring as the next set
+- opened Friday Dashboard Product UI Wiring at 20/100
+- added `flow --friday-dashboard-product-ui` / `--friday-dashboard-product-ui-json` to bind dashboard panel JSON into the visible Friday dashboard route contract
 
 ## 2026-04-26
 

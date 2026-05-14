@@ -32,11 +32,11 @@ use crate::friday::{
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
     export_friday_dashboard_bundle, friday_dashboard_panel_from_export,
-    friday_execution_handoff_report, friday_live_ui_route_binding_report,
-    friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
-    friday_multimodal_visual_check, friday_operator_readiness_report, friday_research_search_plan,
-    friday_route_visual_report, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    run_friday_vlm_contract,
+    friday_dashboard_product_ui_binding_from_export, friday_execution_handoff_report,
+    friday_live_ui_route_binding_report, friday_media_affordances, friday_multimodal_route,
+    friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
+    friday_operator_readiness_report, friday_research_search_plan, friday_route_visual_report,
+    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -475,6 +475,17 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", panel.to_pretty_json()?);
         }
 
+        Command::FridayDashboardProductUi { input_dir } => {
+            print_friday_dashboard_product_ui(&input_dir)?;
+        }
+
+        Command::FridayDashboardProductUiJson { input_dir } => {
+            let binding = friday_dashboard_product_ui_binding_from_export(
+                resolve_repo_relative_path(&input_dir),
+            )?;
+            println!("{}", binding.to_pretty_json()?);
+        }
+
         Command::FridayLocalChecks => {
             print_friday_local_execution_checks();
         }
@@ -856,6 +867,10 @@ fn print_interactive_help() {
     println!("                           Show dashboard UI panel data from an export bundle");
     println!("  --friday-dashboard-panel-json [dir]");
     println!("                           Print dashboard UI panel data as JSON");
+    println!("  --friday-dashboard-product-ui [dir]");
+    println!("                           Show product UI binding data for the dashboard");
+    println!("  --friday-dashboard-product-ui-json [dir]");
+    println!("                           Print product UI binding data as JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
@@ -1476,6 +1491,52 @@ fn print_friday_dashboard_panel(input_dir: &str) -> Result<()> {
         for warning in &panel.warnings {
             println!("  - {}", warning);
         }
+    }
+
+    Ok(())
+}
+
+fn print_friday_dashboard_product_ui(input_dir: &str) -> Result<()> {
+    let binding =
+        friday_dashboard_product_ui_binding_from_export(resolve_repo_relative_path(input_dir))?;
+
+    println!("Friday Dashboard Product UI Binding");
+    println!("===================================");
+    println!("{}", binding.summary);
+    println!(
+        "Route: {} -> {} ({})",
+        binding.route, binding.source_file, binding.status.label()
+    );
+    println!("Score: {} / 100", binding.score_out_of_100);
+    println!("Panel JSON: {}", binding.panel_json_command);
+    println!("Export refresh: {}", binding.export_command);
+    println!(
+        "Cards: {}/{} bound, actions: {}, warnings: {}, blocking: {}",
+        binding.bound_card_count,
+        binding.card_count,
+        binding.action_count,
+        binding.warning_count,
+        binding.blocking_count
+    );
+    println!();
+
+    println!("Data bindings:");
+    for data_binding in &binding.data_bindings {
+        println!(
+            "  - {} -> {} ({})",
+            data_binding.source, data_binding.writes_to, data_binding.command
+        );
+    }
+
+    println!();
+    println!("Cards:");
+    for card in &binding.cards {
+        println!(
+            "  - [{}] {}: {}",
+            card.status.label(),
+            card.title,
+            card.primary_metric
+        );
     }
 
     Ok(())

@@ -30,8 +30,9 @@ use flow::friday::{
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
     export_friday_dashboard_bundle, friday_dashboard_export_history_from_export,
-    friday_dashboard_panel_from_export, friday_dashboard_release_review_from_export,
-    friday_dashboard_screenshot_history, friday_execution_handoff_report,
+    friday_dashboard_panel_from_export, friday_dashboard_product_ui_binding_from_export,
+    friday_dashboard_release_review_from_export, friday_dashboard_screenshot_history,
+    friday_execution_handoff_report,
     friday_live_ui_route_binding_report,
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
     friday_multimodal_visual_check, friday_operator_readiness_report, friday_route_visual_report,
@@ -939,11 +940,11 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
     let root = temp_root("friday-dashboard-export");
     let bundle = export_friday_dashboard_bundle(&root).unwrap();
 
-    assert_eq!(bundle.completion.name, "Friday Dashboard Runtime Wiring");
-    assert_eq!(bundle.completion.current_score_out_of_100, 100);
-    assert_eq!(bundle.manifest.score_out_of_100, 100);
+    assert_eq!(bundle.completion.name, "Friday Dashboard Product UI Wiring");
+    assert_eq!(bundle.completion.current_score_out_of_100, 20);
+    assert_eq!(bundle.manifest.score_out_of_100, 20);
     assert_eq!(bundle.export_history.record_count, 1);
-    assert_eq!(bundle.release_review.loop_name, "Friday Dashboard Runtime Wiring");
+    assert_eq!(bundle.release_review.loop_name, "Friday Dashboard Product UI Wiring");
     assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
     assert!(PathBuf::from(&bundle.manifest.release_review_json).exists());
     assert_eq!(bundle.readiness.blocking_count, 0);
@@ -982,8 +983,8 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     export_friday_dashboard_bundle(&root).unwrap();
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
-    assert_eq!(panel.loop_name, "Friday Dashboard Runtime Wiring");
-    assert_eq!(panel.score_out_of_100, 100);
+    assert_eq!(panel.loop_name, "Friday Dashboard Product UI Wiring");
+    assert_eq!(panel.score_out_of_100, 20);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
     assert_eq!(panel.cards.len(), 8);
     assert!(panel.cards.iter().any(|card| {
@@ -1077,7 +1078,7 @@ fn friday_dashboard_export_history_tracks_checkpoints() {
     assert_eq!(history.score_delta_from_previous, 0);
     assert_eq!(history.readiness_delta_from_previous, 0);
     assert!(history.records.iter().all(|record| {
-        record.loop_name == "Friday Dashboard Runtime Wiring"
+        record.loop_name == "Friday Dashboard Product UI Wiring"
             && record.manifest_json.ends_with("manifest.json")
     }));
 
@@ -1096,13 +1097,13 @@ fn friday_dashboard_release_review_links_release_artifacts() {
     export_friday_dashboard_bundle(&root).unwrap();
 
     let review = friday_dashboard_release_review_from_export(&root).unwrap();
-    assert_eq!(review.loop_name, "Friday Dashboard Runtime Wiring");
-    assert_eq!(review.score_out_of_100, 100);
+    assert_eq!(review.loop_name, "Friday Dashboard Product UI Wiring");
+    assert_eq!(review.score_out_of_100, 20);
     assert!(review.total_count >= 6);
     assert!(review
         .checklist
         .iter()
-        .any(|item| item.id == "completion-loop" && item.ready));
+        .any(|item| item.id == "completion-loop" && !item.ready));
     assert!(review
         .links
         .iter()
@@ -1115,6 +1116,37 @@ fn friday_dashboard_release_review_links_release_artifacts() {
         .commands
         .iter()
         .any(|command| command.contains("--friday-dashboard-panel")));
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn friday_dashboard_product_ui_binding_maps_panel_json_to_route() {
+    let root = temp_root("friday-dashboard-product-ui-binding");
+    export_friday_dashboard_bundle(&root).unwrap();
+
+    let binding = friday_dashboard_product_ui_binding_from_export(&root).unwrap();
+    assert_eq!(binding.product_name, "Friday");
+    assert_eq!(binding.route, "/dashboard");
+    assert_eq!(binding.score_out_of_100, 20);
+    assert_eq!(binding.card_count, 8);
+    assert_eq!(binding.bound_card_count, 8);
+    assert!(binding.panel_json_command.contains("--friday-dashboard-panel-json"));
+    assert!(binding.export_command.contains("--friday-dashboard-export"));
+    assert!(binding.data_bindings.iter().any(|data_binding| {
+        data_binding.id == "dashboard-panel-json"
+            && data_binding.writes_to == "Friday dashboard route state"
+            && data_binding.local_only
+    }));
+    assert!(binding
+        .cards
+        .iter()
+        .any(|card| card.card_id == "release-review"));
+    assert!(binding.action_bindings.iter().any(|action| {
+        action.card_id == "operator-readiness"
+            && action.kind == FridayDashboardActionKind::Recover
+            && action.command == "flow --friday-media-affordances"
+    }));
 
     let _ = fs::remove_dir_all(&root);
 }
