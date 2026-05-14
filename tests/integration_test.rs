@@ -16,11 +16,12 @@ use flow::friday::{
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
     FridayMultimodalSurface, FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow,
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
-    FridayVerificationStatus, FridayWorkspaceStore, default_friday_browser_verification_report,
-    default_friday_local_execution_checks, default_friday_product_plan,
+    FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
+    default_friday_browser_verification_report, default_friday_local_execution_checks,
+    default_friday_product_plan,
     default_friday_ui_integration_plan, friday_media_affordances, friday_multimodal_route,
-    friday_multimodal_ui_diagnostics, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    run_friday_vlm_contract,
+    friday_multimodal_ui_diagnostics, friday_multimodal_visual_check, run_friday_ocr_smoke,
+    run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -709,6 +710,29 @@ fn friday_media_affordances_include_image_and_video_paths() {
         .any(|item| item.request_kind == FridayMultimodalRequestKind::Video
             && item.run_command.contains("--plan video")
             && !item.resident));
+}
+
+#[test]
+fn friday_multimodal_visual_check_targets_route_and_viewports() {
+    let report = friday_multimodal_visual_check();
+
+    assert_eq!(report.route, "/multimodal");
+    assert_eq!(report.status, FridayUiVisualCheckStatus::Passed);
+    assert_eq!(report.score_out_of_100, 100);
+    assert_eq!(report.viewports.len(), 3);
+    assert!(report.blocking_count() == 0);
+    assert!(report
+        .requirements
+        .iter()
+        .any(|requirement| requirement.id == "multimodal-diagnostic-cards"));
+    assert!(report
+        .requirements
+        .iter()
+        .any(|requirement| requirement.id == "multimodal-artifact-metadata"));
+    assert!(report
+        .requirements
+        .iter()
+        .all(|requirement| requirement.status == FridayUiVisualCheckStatus::Passed));
 }
 
 #[test]

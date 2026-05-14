@@ -130,6 +130,10 @@ pub enum Command {
     FridayMultimodalDiagnostics,
     /// Print Friday's Multimodal UI diagnostics as JSON
     FridayMultimodalDiagnosticsJson,
+    /// Show Friday's Multimodal route visual check
+    FridayMultimodalVisualCheck,
+    /// Print Friday's Multimodal route visual check as JSON
+    FridayMultimodalVisualCheckJson,
     /// Validate a local screenshot and create a VLM handoff bundle
     FridayScreenshotVlm {
         output_dir: String,
@@ -503,6 +507,12 @@ impl Args {
             }
             "--friday-multimodal-diagnostics-json" | "--friday-ocr-diagnostics-json" => {
                 Command::FridayMultimodalDiagnosticsJson
+            }
+            "--friday-multimodal-visual-check" | "--friday-ocr-visual-check" => {
+                Command::FridayMultimodalVisualCheck
+            }
+            "--friday-multimodal-visual-check-json" | "--friday-ocr-visual-check-json" => {
+                Command::FridayMultimodalVisualCheckJson
             }
             "--friday-screenshot-vlm" | "--friday-vlm-screenshot" => {
                 let (output_dir, screenshot, prompt) = parse_friday_screenshot_vlm_args(&args);

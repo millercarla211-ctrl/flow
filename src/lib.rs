@@ -102,9 +102,11 @@ pub use friday::{
     FridayResearchStageStatus, FridayResearchWorkflow, FridayRuntimeFinding,
     FridayRuntimeRecordStatus, FridayRuntimeSurfaceManifest, FridayRuntimeSurfaceSnapshot,
     FridayRuntimeSurfaceStore, FridaySearchPolicy, FridaySourceGroup, FridaySynthesizedAnswer,
-    FridayUiDataBinding, FridayUiIntegrationPlan, FridayUiIntegrationStatus,
+    FridayMultimodalVisualCheckReport, FridayUiDataBinding, FridayUiIntegrationPlan,
+    FridayUiIntegrationStatus,
     FridayUiRouteContract, FridayUiSourceControl, FridayUiState, FridayUiStateKind,
-    FridayUiStateTone,
+    FridayUiStateTone, FridayUiVisualCheckStatus, FridayUiVisualRequirement,
+    FridayUiVisualViewport,
     FridayVoiceRuntimeRecord, FridayWorkspaceArea, FridayWorkspaceManifest,
     FridayWorkspaceSnapshot, FridayWorkspaceStore, FridayWorkspaceView, MetasearchExecutionMode,
     FridayVerificationStatus, FridayVlmContractReport, FridayVlmContractStatus,
@@ -112,8 +114,8 @@ pub use friday::{
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
-    friday_research_search_plan, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    run_friday_vlm_contract,
+    friday_multimodal_visual_check, friday_research_search_plan, run_friday_ocr_smoke,
+    run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
 pub use models::{KokoroTTS, LocalLlm, LocalSttEngine, MoonshineSTT};

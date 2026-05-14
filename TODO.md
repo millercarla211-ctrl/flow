@@ -122,19 +122,23 @@ Goal: finish Friday's local OCR, VLM, image, audio, and video foundations with e
 
 This set is complete. The next loop should open `Multimodal Product Execution` and connect these contracts to UI capture, real VLM execution, image/video install actions, and persisted user-facing artifacts without changing the low-resource idle defaults.
 
-## Next Active Set: Multimodal Product Execution
+## Completed Set: Multimodal Product Execution
 
-Status: 80/100
+Status: 100/100
 
 Goal: connect Friday's multimodal contracts to UI capture, install/run affordances, persisted artifacts, and visual checks without changing the low-resource idle defaults.
 
-### Remaining To Reach 100/100
+### Done
 
 - [x] Connect OCR smoke reports to the Multimodal UI and OCR page diagnostics.
 - [x] Add a screenshot capture command that feeds the VLM contract from a real local image path.
 - [x] Add explicit install/run affordances for image and video model candidates.
 - [x] Persist multimodal artifact metadata in the Friday artifact store.
-- [ ] Add browser or desktop visual checks for the Multimodal UI route.
+- [x] Add browser or desktop visual checks for the Multimodal UI route.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Browser And Extension Core` and connect these verification gates to live desktop/browser screenshot checks, packaged-extension smoke tests, offline browser model reuse, and quota recovery.
 
 ## Next Set Candidates
 

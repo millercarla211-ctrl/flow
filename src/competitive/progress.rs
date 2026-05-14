@@ -85,9 +85,9 @@ pub fn active_completion_set() -> CompletionSet {
             "multimodal-visual-check",
             "Multimodal route visual checks",
             20,
-            CompletionItemStatus::Planned,
-            "Friday has browser-gate contracts, but the Multimodal route still needs a focused visual check after diagnostics are wired into the UI",
-            "add browser or desktop visual checks for the Multimodal UI route",
+            CompletionItemStatus::Done,
+            "`flow --friday-multimodal-visual-check` verifies the Multimodal route contract, diagnostics, artifact metadata rail, image/video actions, production states, and responsive viewport targets",
+            "open the next 100-point set and connect visual gates to live desktop/browser screenshots",
         ),
     ];
 
@@ -137,14 +137,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_incomplete_ui_loop() {
+    fn active_set_tracks_completed_multimodal_product_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Multimodal Product Execution");
-        assert!(set.current_score_out_of_100 < set.target_score_out_of_100);
+        assert_eq!(set.current_score_out_of_100, set.target_score_out_of_100);
         assert!(
             set.items
                 .iter()
-                .any(|item| item.status == CompletionItemStatus::Planned)
+                .all(|item| item.status == CompletionItemStatus::Done)
         );
     }
 

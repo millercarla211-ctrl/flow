@@ -1,3 +1,5 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use serde::{Deserialize, Serialize};
 
 use super::FridayWorkspaceArea;
@@ -95,6 +97,54 @@ pub struct FridayUiIntegrationPlan {
     pub next_actions: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayUiVisualCheckStatus {
+    Passed,
+    Warning,
+    Failed,
+}
+
+impl FridayUiVisualCheckStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Passed => "passed",
+            Self::Warning => "warning",
+            Self::Failed => "failed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayUiVisualViewport {
+    pub id: String,
+    pub width: u16,
+    pub height: u16,
+    pub expected_layout: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayUiVisualRequirement {
+    pub id: String,
+    pub label: String,
+    pub status: FridayUiVisualCheckStatus,
+    pub evidence: Vec<String>,
+    pub next_action: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayMultimodalVisualCheckReport {
+    pub generated_at_unix_ms: u128,
+    pub route: String,
+    pub target_surface: String,
+    pub verification_command: String,
+    pub status: FridayUiVisualCheckStatus,
+    pub score_out_of_100: u8,
+    pub viewports: Vec<FridayUiVisualViewport>,
+    pub requirements: Vec<FridayUiVisualRequirement>,
+    pub notes: Vec<String>,
+}
+
 impl FridayUiIntegrationPlan {
     pub fn ready_route_count(&self) -> usize {
         self.routes
@@ -105,6 +155,26 @@ impl FridayUiIntegrationPlan {
 
     pub fn route(&self, area: FridayWorkspaceArea) -> Option<&FridayUiRouteContract> {
         self.routes.iter().find(|route| route.area == area)
+    }
+
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
+impl FridayMultimodalVisualCheckReport {
+    pub fn passed_count(&self) -> usize {
+        self.requirements
+            .iter()
+            .filter(|requirement| requirement.status == FridayUiVisualCheckStatus::Passed)
+            .count()
+    }
+
+    pub fn blocking_count(&self) -> usize {
+        self.requirements
+            .iter()
+            .filter(|requirement| requirement.status == FridayUiVisualCheckStatus::Failed)
+            .count()
     }
 
     pub fn to_pretty_json(&self) -> serde_json::Result<String> {
@@ -135,6 +205,166 @@ pub fn default_friday_ui_integration_plan() -> FridayUiIntegrationPlan {
         next_actions: vec![
             "Use `flow --friday-browser-gate` before any browser-extension or web-surface release.".to_string(),
             "Continue with Multimodal Local Core for OCR, VLM, image, audio, and video execution.".to_string(),
+        ],
+    }
+}
+
+pub fn friday_multimodal_visual_check() -> FridayMultimodalVisualCheckReport {
+    let plan = default_friday_ui_integration_plan();
+    let route = plan.route(FridayWorkspaceArea::Multimodal);
+    let diagnostics = super::friday_multimodal_ui_diagnostics();
+    let media_affordances = super::friday_media_affordances();
+
+    let requirements = vec![
+        visual_requirement(
+            "multimodal-route-contract",
+            "Route contract",
+            route
+                .map(|route| {
+                    route.route == FridayWorkspaceArea::Multimodal.route()
+                        && route.status == FridayUiIntegrationStatus::Wired
+                        && route
+                            .primary_command
+                            .contains("--friday-multimodal-diagnostics")
+                })
+                .unwrap_or(false),
+            route
+                .map(|route| {
+                    vec![
+                        format!("route={}", route.route),
+                        format!("title={}", route.title),
+                        format!("status={}", route.status.label()),
+                        format!("primary_command={}", route.primary_command),
+                    ]
+                })
+                .unwrap_or_else(|| vec!["route=missing".to_string()]),
+            "Render the Multimodal sidebar item to `/multimodal` and bind it to the diagnostics command.",
+        ),
+        visual_requirement(
+            "multimodal-diagnostic-cards",
+            "Diagnostic cards",
+            diagnostics.items.len() >= 5 && diagnostics.ready_count() >= 3,
+            vec![
+                format!("items={}", diagnostics.items.len()),
+                format!("ready={}", diagnostics.ready_count()),
+                format!("warnings={}", diagnostics.warning_count()),
+                format!("score={}", diagnostics.score_out_of_100),
+            ],
+            "Show OCR, VLM, routing, metadata, image, and video cards without loading models on page mount.",
+        ),
+        visual_requirement(
+            "multimodal-artifact-metadata",
+            "Artifact metadata rail",
+            diagnostics
+                .items
+                .iter()
+                .any(|item| item.artifact_output.contains("metadata")),
+            diagnostics
+                .items
+                .iter()
+                .map(|item| format!("{}={}", item.id, item.artifact_output))
+                .collect(),
+            "Keep the right-side artifact rail wired to metadata sidecars and imported store records.",
+        ),
+        visual_requirement(
+            "multimodal-media-actions",
+            "Image and video actions",
+            media_affordances.iter().any(|item| {
+                item.request_kind == super::FridayMultimodalRequestKind::Image
+                    && item.install_command.contains("--models image")
+            }) && media_affordances.iter().any(|item| {
+                item.request_kind == super::FridayMultimodalRequestKind::Video
+                    && item.run_command.contains("--plan video")
+                    && !item.resident
+            }),
+            media_affordances
+                .iter()
+                .map(|item| {
+                    format!(
+                        "{}:{} resident={}",
+                        item.request_kind.label(),
+                        item.status.label(),
+                        item.resident
+                    )
+                })
+                .collect(),
+            "Expose install/run buttons for image and video candidates while keeping them non-resident.",
+        ),
+        visual_requirement(
+            "multimodal-production-states",
+            "Production states",
+            route
+                .map(|route| {
+                    route.states.len() == 5
+                        && route
+                            .states
+                            .iter()
+                            .any(|state| state.kind == FridayUiStateKind::Error)
+                        && route
+                            .states
+                            .iter()
+                            .any(|state| state.kind == FridayUiStateKind::Permission)
+                        && route
+                            .states
+                            .iter()
+                            .any(|state| state.kind == FridayUiStateKind::Ready)
+                })
+                .unwrap_or(false),
+            route
+                .map(|route| {
+                    route
+                        .states
+                        .iter()
+                        .map(|state| format!("{:?}:{:?}", state.kind, state.tone))
+                        .collect()
+                })
+                .unwrap_or_else(|| vec!["states=missing".to_string()]),
+            "Keep empty, loading, error, permission, and ready states visible in the route implementation.",
+        ),
+        visual_requirement(
+            "multimodal-responsive-viewports",
+            "Responsive viewport plan",
+            true,
+            multimodal_viewports()
+                .iter()
+                .map(|viewport| {
+                    format!(
+                        "{}={}x{}:{}",
+                        viewport.id, viewport.width, viewport.height, viewport.expected_layout
+                    )
+                })
+                .collect(),
+            "Run the browser or desktop screenshot pass against these viewports after UI file edits.",
+        ),
+    ];
+
+    let score_out_of_100 = score_visual_requirements(&requirements);
+    let status = if requirements
+        .iter()
+        .any(|requirement| requirement.status == FridayUiVisualCheckStatus::Failed)
+    {
+        FridayUiVisualCheckStatus::Failed
+    } else if requirements
+        .iter()
+        .any(|requirement| requirement.status == FridayUiVisualCheckStatus::Warning)
+    {
+        FridayUiVisualCheckStatus::Warning
+    } else {
+        FridayUiVisualCheckStatus::Passed
+    };
+
+    FridayMultimodalVisualCheckReport {
+        generated_at_unix_ms: unix_ms(),
+        route: FridayWorkspaceArea::Multimodal.route().to_string(),
+        target_surface: "Friday desktop/Next.js Multimodal route".to_string(),
+        verification_command: "flow --friday-multimodal-visual-check".to_string(),
+        status,
+        score_out_of_100,
+        viewports: multimodal_viewports(),
+        requirements,
+        notes: vec![
+            "This check is intentionally no-load: it verifies the route contract, diagnostics, artifact metadata, responsive viewport plan, and media actions without starting OCR/VLM models.".to_string(),
+            "After tracked UI files change, pair this command with a browser screenshot pass for the same route.".to_string(),
         ],
     }
 }
@@ -630,6 +860,69 @@ fn binding(
         local_only,
         description: description.to_string(),
     }
+}
+
+fn visual_requirement(
+    id: &str,
+    label: &str,
+    passed: bool,
+    evidence: Vec<String>,
+    next_action: &str,
+) -> FridayUiVisualRequirement {
+    FridayUiVisualRequirement {
+        id: id.to_string(),
+        label: label.to_string(),
+        status: if passed {
+            FridayUiVisualCheckStatus::Passed
+        } else {
+            FridayUiVisualCheckStatus::Failed
+        },
+        evidence,
+        next_action: next_action.to_string(),
+    }
+}
+
+fn multimodal_viewports() -> Vec<FridayUiVisualViewport> {
+    vec![
+        viewport("desktop", 1440, 900, "sidebar + diagnostics grid + artifact rail"),
+        viewport("tablet", 820, 1180, "collapsed navigation + stacked diagnostic cards"),
+        viewport("mobile", 390, 844, "single-column route with sticky action bar"),
+    ]
+}
+
+fn viewport(
+    id: &str,
+    width: u16,
+    height: u16,
+    expected_layout: &str,
+) -> FridayUiVisualViewport {
+    FridayUiVisualViewport {
+        id: id.to_string(),
+        width,
+        height,
+        expected_layout: expected_layout.to_string(),
+    }
+}
+
+fn score_visual_requirements(requirements: &[FridayUiVisualRequirement]) -> u8 {
+    if requirements.is_empty() {
+        return 0;
+    }
+
+    let passed = requirements
+        .iter()
+        .filter(|requirement| requirement.status == FridayUiVisualCheckStatus::Passed)
+        .count() as f32;
+    ((passed / requirements.len() as f32) * 100.0)
+        .round()
+        .clamp(0.0, 100.0) as u8
+}
+
+fn unix_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0)
 }
 
 fn source(

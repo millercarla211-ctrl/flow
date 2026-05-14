@@ -72,6 +72,8 @@
 - advanced Multimodal Product Execution to 60/100
 - added `flow --friday-artifacts-index-multimodal` / `--friday-artifacts-index-multimodal-json` to import OCR/VLM artifact, checkpoint, and metadata sidecars into the durable Friday artifact store
 - advanced Multimodal Product Execution to 80/100
+- added `flow --friday-multimodal-visual-check` / `--friday-multimodal-visual-check-json` to verify the Multimodal route contract, diagnostics, artifact metadata rail, media actions, production states, and responsive viewport targets without loading OCR/VLM models
+- completed Multimodal Product Execution at 100/100
 
 ## 2026-04-26
 

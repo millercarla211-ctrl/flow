@@ -29,8 +29,8 @@ use crate::friday::{
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
-    friday_research_search_plan, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    run_friday_vlm_contract,
+    friday_multimodal_visual_check, friday_research_search_plan, run_friday_ocr_smoke,
+    run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -515,6 +515,14 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", friday_multimodal_ui_diagnostics().to_pretty_json()?);
         }
 
+        Command::FridayMultimodalVisualCheck => {
+            print_friday_multimodal_visual_check(&friday_multimodal_visual_check());
+        }
+
+        Command::FridayMultimodalVisualCheckJson => {
+            println!("{}", friday_multimodal_visual_check().to_pretty_json()?);
+        }
+
         Command::FridayScreenshotVlm {
             output_dir,
             screenshot,
@@ -744,6 +752,10 @@ fn print_interactive_help() {
     println!("                           Show Multimodal UI and OCR diagnostics");
     println!("  --friday-multimodal-diagnostics-json");
     println!("                           Print Multimodal UI diagnostics as JSON");
+    println!("  --friday-multimodal-visual-check");
+    println!("                           Show the Multimodal route visual verification target");
+    println!("  --friday-multimodal-visual-check-json");
+    println!("                           Print the Multimodal visual check as JSON");
     println!("  --friday-screenshot-vlm <dir> <screenshot> [prompt]");
     println!("                           Validate a local screenshot and write VLM handoff files");
     println!("  --friday-screenshot-vlm-json <dir> <screenshot> [prompt]");
@@ -1281,6 +1293,48 @@ fn print_friday_multimodal_diagnostics(
         println!("Findings:");
         for finding in &diagnostics.findings {
             println!("  - {}", finding);
+        }
+    }
+}
+
+fn print_friday_multimodal_visual_check(
+    report: &crate::friday::FridayMultimodalVisualCheckReport,
+) {
+    println!("Friday Multimodal Visual Check");
+    println!("==============================");
+    println!("Route: {}", report.route);
+    println!("Surface: {}", report.target_surface);
+    println!("Status: {}", report.status.label());
+    println!("Score: {} / 100", report.score_out_of_100);
+    println!("Command: {}", report.verification_command);
+    println!();
+    println!("Viewports:");
+    for viewport in &report.viewports {
+        println!(
+            "  - {}: {}x{} ({})",
+            viewport.id, viewport.width, viewport.height, viewport.expected_layout
+        );
+    }
+    println!();
+    println!("Requirements:");
+    for requirement in &report.requirements {
+        println!(
+            "  - [{}] {}",
+            requirement.status.label(),
+            requirement.label
+        );
+        for evidence in &requirement.evidence {
+            println!("    evidence: {}", evidence);
+        }
+        if requirement.status != crate::friday::FridayUiVisualCheckStatus::Passed {
+            println!("    next: {}", requirement.next_action);
+        }
+    }
+    if !report.notes.is_empty() {
+        println!();
+        println!("Notes:");
+        for note in &report.notes {
+            println!("  - {}", note);
         }
     }
 }
