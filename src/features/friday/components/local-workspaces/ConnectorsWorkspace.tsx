@@ -27,7 +27,7 @@ import {
   restoreFridayWorkspaceBackupToStorage,
   serializeFridayWorkspaceBackup,
   type FridayWorkspaceBackup,
-  validateFridayWorkspaceBackupSize,
+  validateFridayWorkspaceBackupFileMetadata,
 } from "../../utils/workspaceBackup";
 import { DEFAULT_CONNECTORS, STORAGE_KEYS, type ConnectorSettings } from "./types";
 
@@ -157,9 +157,9 @@ export function ConnectorsWorkspace() {
   const importWorkspaceBackup = async (file: File | undefined) => {
     if (!file) return;
 
-    const sizeCheck = validateFridayWorkspaceBackupSize(file.size);
-    if (sizeCheck) {
-      setBackupMessage({ tone: "error", text: sizeCheck.message });
+    const metadataCheck = validateFridayWorkspaceBackupFileMetadata(file);
+    if (metadataCheck) {
+      setBackupMessage({ tone: "error", text: metadataCheck.message });
       return;
     }
 

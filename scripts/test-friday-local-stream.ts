@@ -55,6 +55,7 @@ import {
   readFridayRestoreCheckpoint,
   restoreFridayWorkspaceBackupToStorage,
   serializeFridayWorkspaceBackup,
+  validateFridayWorkspaceBackupFileMetadata,
   validateFridayWorkspaceBackupSize,
 } from "../src/features/friday/utils/workspaceBackup";
 import { getFridayAuthConfigStatus } from "../src/server/auth/db";
@@ -862,6 +863,26 @@ if (
   validateFridayWorkspaceBackupSize(9 * 1024 * 1024)?.ok !== false
 ) {
   throw new Error("Friday workspace backup size guard did not accept small files and reject large files.");
+}
+
+if (
+  validateFridayWorkspaceBackupFileMetadata({
+    name: "friday-workspace.json",
+    size: 1024,
+    type: "",
+  }) !== null ||
+  validateFridayWorkspaceBackupFileMetadata({
+    name: "friday-workspace.txt",
+    size: 1024,
+    type: "text/plain",
+  })?.ok !== false ||
+  validateFridayWorkspaceBackupFileMetadata({
+    name: "friday-workspace.backup",
+    size: 1024,
+    type: "application/json",
+  }) !== null
+) {
+  throw new Error("Friday workspace backup metadata guard did not enforce JSON backup files.");
 }
 
 if (parsedBackup.ok) {

@@ -265,6 +265,28 @@ export function validateFridayWorkspaceBackupSize(
   };
 }
 
+export function validateFridayWorkspaceBackupFileMetadata({
+  name,
+  size,
+  type,
+}: {
+  name: string;
+  size: number;
+  type?: string;
+}): FridayWorkspaceBackupParseError | null {
+  const sizeError = validateFridayWorkspaceBackupSize(size);
+  if (sizeError) return sizeError;
+
+  const hasJsonExtension = name.toLowerCase().endsWith(".json");
+  const hasJsonMimeType = type ? type.toLowerCase().includes("json") : false;
+  if (hasJsonExtension || hasJsonMimeType) return null;
+
+  return {
+    ok: false,
+    message: "Choose a .json Friday workspace backup file.",
+  };
+}
+
 export function createFridayWorkspaceBackupFilename(
   backup: FridayWorkspaceBackup,
   prefix = "friday-workspace",
