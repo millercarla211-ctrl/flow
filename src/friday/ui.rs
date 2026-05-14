@@ -30,12 +30,26 @@ pub enum FridayUiStateKind {
     Ready,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayUiStateTone {
+    Neutral,
+    Working,
+    Critical,
+    Permission,
+    Success,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FridayUiState {
     pub kind: FridayUiStateKind,
+    pub tone: FridayUiStateTone,
     pub title: String,
     pub body: String,
     pub action_label: Option<String>,
+    pub visible_when: String,
+    pub blocks_interaction: bool,
+    pub recovery_command: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -102,7 +116,7 @@ pub fn default_friday_ui_integration_plan() -> FridayUiIntegrationPlan {
     FridayUiIntegrationPlan {
         product_name: "Friday".to_string(),
         loop_name: "Friday Product UI Integration".to_string(),
-        score_out_of_100: 45,
+        score_out_of_100: 85,
         routes: vec![
             ask_route(),
             search_route(),
@@ -119,8 +133,8 @@ pub fn default_friday_ui_integration_plan() -> FridayUiIntegrationPlan {
             automations_route(),
         ],
         next_actions: vec![
-            "Add end-to-end local checks for STT/TTS/OCR/metasearch/artifact preview flows.".to_string(),
-            "Deepen production permission and error states with actual frontend interaction handlers.".to_string(),
+            "Run targeted browser verification across the visible Friday routes.".to_string(),
+            "Deploy only after the next major user-visible feature lands.".to_string(),
         ],
     }
 }
@@ -156,7 +170,7 @@ fn ask_route() -> FridayUiRouteContract {
             ),
         ],
         states: states_for(
-            "Ask",
+            FridayWorkspaceArea::Ask,
             "Start with a prompt, file, voice transcript, or source question.",
         ),
     }
@@ -193,7 +207,7 @@ fn search_route() -> FridayUiRouteContract {
             ),
         ],
         states: states_for(
-            "Search",
+            FridayWorkspaceArea::Search,
             "Search locally with web, news, academic, code, model, and file source controls.",
         ),
     }
@@ -230,7 +244,7 @@ fn research_route() -> FridayUiRouteContract {
             ),
         ],
         states: states_for(
-            "Research",
+            FridayWorkspaceArea::Research,
             "Create an editable plan, run local metasearch, and save cited reports.",
         ),
     }
@@ -460,7 +474,7 @@ fn store_route(
         report_persistence,
         source_controls: Vec::new(),
         data_bindings,
-        states: states_for(area.label(), empty_hint),
+        states: states_for(area, empty_hint),
     }
 }
 
@@ -523,39 +537,81 @@ fn area_key(area: FridayWorkspaceArea) -> &'static str {
     }
 }
 
-fn states_for(route: &str, empty_hint: &str) -> Vec<FridayUiState> {
+fn states_for(area: FridayWorkspaceArea, empty_hint: &str) -> Vec<FridayUiState> {
+    let route = area.label();
+    let recovery_command = route_recovery_command(area);
+
     vec![
         state(
             FridayUiStateKind::Empty,
+            FridayUiStateTone::Neutral,
             format!("{route} is ready"),
             empty_hint,
             Some("Start".to_string()),
-        ),
-        state(
-            FridayUiStateKind::Loading,
-            format!("{route} is working"),
-            "Show the current local model, metasearch stage, and source count while work is running.",
+            format!("No {} input, local records, or selected project scope exists yet.", route),
+            false,
             None,
         ),
         state(
+            FridayUiStateKind::Loading,
+            FridayUiStateTone::Working,
+            format!("{route} is working"),
+            "Show the current local model, metasearch stage, and source count while work is running.",
+            None,
+            format!("A {} command is active and has not emitted a final result.", route),
+            false,
+            Some(recovery_command.clone()),
+        ),
+        state(
             FridayUiStateKind::Error,
+            FridayUiStateTone::Critical,
             format!("{route} needs attention"),
             "Surface model, metasearch, permission, and file errors directly with a retry action.",
             Some("Retry".to_string()),
+            format!("The latest {} command returned a model, source, file, or runtime error.", route),
+            true,
+            Some("flow --friday-local-checks".to_string()),
         ),
         state(
             FridayUiStateKind::Permission,
+            FridayUiStateTone::Permission,
             format!("{route} needs approval"),
             "Remote providers, broad file access, and background tools stay disabled until explicitly approved.",
             Some("Review access".to_string()),
+            format!("{} is asking for a provider, file, connector, automation, or tool permission.", route),
+            true,
+            Some("flow --friday-workspace-json [dir]".to_string()),
         ),
         state(
             FridayUiStateKind::Ready,
+            FridayUiStateTone::Success,
             format!("{route} has results"),
             "Show cited answer content, source controls, and local save/export actions.",
             Some("Save".to_string()),
+            format!("{} has a result, saved local record, artifact, citation set, or action log.", route),
+            false,
+            Some(recovery_command),
         ),
     ]
+}
+
+fn route_recovery_command(area: FridayWorkspaceArea) -> String {
+    match area {
+        FridayWorkspaceArea::Ask => "flow --friday-research-synthesize <prompt>",
+        FridayWorkspaceArea::Search => "flow --friday-metasearch-json <query>",
+        FridayWorkspaceArea::Research => "flow --friday-research-workflow-json <query>",
+        FridayWorkspaceArea::Agents => "flow --tool-agent <prompt>",
+        FridayWorkspaceArea::Canvas
+        | FridayWorkspaceArea::Artifacts
+        | FridayWorkspaceArea::Code => "flow --friday-artifacts-json [dir]",
+        FridayWorkspaceArea::Projects
+        | FridayWorkspaceArea::Memory
+        | FridayWorkspaceArea::Connectors => "flow --friday-workspace-json [dir]",
+        FridayWorkspaceArea::Voice
+        | FridayWorkspaceArea::Multimodal
+        | FridayWorkspaceArea::Automations => "flow --friday-runtime-json [dir]",
+    }
+    .to_string()
 }
 
 fn binding(
@@ -592,15 +648,23 @@ fn source(
 
 fn state(
     kind: FridayUiStateKind,
+    tone: FridayUiStateTone,
     title: String,
     body: &str,
     action_label: Option<String>,
+    visible_when: String,
+    blocks_interaction: bool,
+    recovery_command: Option<String>,
 ) -> FridayUiState {
     FridayUiState {
         kind,
+        tone,
         title,
         body: body.to_string(),
         action_label,
+        visible_when,
+        blocks_interaction,
+        recovery_command,
     }
 }
 
@@ -611,7 +675,7 @@ mod tests {
     #[test]
     fn ui_plan_wires_ask_search_and_research_routes() {
         let plan = default_friday_ui_integration_plan();
-        assert_eq!(plan.score_out_of_100, 45);
+        assert_eq!(plan.score_out_of_100, 85);
         assert_eq!(plan.ready_route_count(), 13);
 
         for area in [
@@ -671,6 +735,51 @@ mod tests {
                     .iter()
                     .any(|state| state.kind == FridayUiStateKind::Permission)
             );
+        }
+    }
+
+    #[test]
+    fn every_route_has_production_state_contracts() {
+        let plan = default_friday_ui_integration_plan();
+
+        for route in &plan.routes {
+            for kind in [
+                FridayUiStateKind::Empty,
+                FridayUiStateKind::Loading,
+                FridayUiStateKind::Error,
+                FridayUiStateKind::Permission,
+                FridayUiStateKind::Ready,
+            ] {
+                let state = route
+                    .states
+                    .iter()
+                    .find(|state| state.kind == kind)
+                    .unwrap();
+                assert!(!state.title.trim().is_empty());
+                assert!(!state.body.trim().is_empty());
+                assert!(!state.visible_when.trim().is_empty());
+            }
+
+            let error = route
+                .states
+                .iter()
+                .find(|state| state.kind == FridayUiStateKind::Error)
+                .unwrap();
+            assert_eq!(error.tone, FridayUiStateTone::Critical);
+            assert!(error.blocks_interaction);
+            assert_eq!(
+                error.recovery_command.as_deref(),
+                Some("flow --friday-local-checks")
+            );
+
+            let permission = route
+                .states
+                .iter()
+                .find(|state| state.kind == FridayUiStateKind::Permission)
+                .unwrap();
+            assert_eq!(permission.tone, FridayUiStateTone::Permission);
+            assert!(permission.blocks_interaction);
+            assert!(permission.action_label.is_some());
         }
     }
 }

@@ -51,6 +51,8 @@
 - advanced Friday Product UI Integration to 45/100
 - added `flow --friday-local-checks` / `--friday-local-checks-json` for low-resource STT, TTS, OCR, metasearch, artifact preview, and runtime readiness checks
 - advanced Friday Product UI Integration to 65/100
+- added production-ready Friday route state contracts with tone, visibility, blocking behavior, and recovery commands for every route
+- advanced Friday Product UI Integration to 85/100
 
 ## 2026-04-26
 

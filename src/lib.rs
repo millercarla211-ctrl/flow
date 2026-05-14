@@ -96,6 +96,7 @@ pub use friday::{
     FridayRuntimeSurfaceStore, FridaySearchPolicy, FridaySourceGroup, FridaySynthesizedAnswer,
     FridayUiDataBinding, FridayUiIntegrationPlan, FridayUiIntegrationStatus,
     FridayUiRouteContract, FridayUiSourceControl, FridayUiState, FridayUiStateKind,
+    FridayUiStateTone,
     FridayVoiceRuntimeRecord, FridayWorkspaceArea, FridayWorkspaceManifest,
     FridayWorkspaceSnapshot, FridayWorkspaceStore, FridayWorkspaceView, MetasearchExecutionMode,
     MetasearchExecutionTarget, default_friday_local_execution_checks,

@@ -14,8 +14,8 @@ use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
     FridayMultimodalSurface, FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
-    default_friday_local_execution_checks, default_friday_product_plan,
+    FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
+    FridayWorkspaceStore, default_friday_local_execution_checks, default_friday_product_plan,
     default_friday_ui_integration_plan,
 };
 use flow::long_context::RlmBridge;
@@ -488,7 +488,7 @@ fn friday_runtime_store_persists_voice_multimodal_and_automations() {
 #[test]
 fn friday_ui_plan_wires_ask_search_and_research_routes() {
     let plan = default_friday_ui_integration_plan();
-    assert_eq!(plan.score_out_of_100, 45);
+    assert_eq!(plan.score_out_of_100, 85);
     assert_eq!(plan.ready_route_count(), 13);
 
     let ask = plan.route(flow::FridayWorkspaceArea::Ask).unwrap();
@@ -550,6 +550,41 @@ fn friday_local_execution_checks_cover_low_resource_runtime_paths() {
     assert!(report.checks.iter().all(|check| check.local_only));
     assert!(report.checks.iter().all(|check| !check.loads_model));
     assert!(report.checks.iter().all(|check| !check.touches_network));
+}
+
+#[test]
+fn friday_ui_routes_have_production_state_contracts() {
+    let plan = default_friday_ui_integration_plan();
+
+    for route in &plan.routes {
+        assert_eq!(route.states.len(), 5);
+        assert!(
+            route
+                .states
+                .iter()
+                .any(|state| state.kind == FridayUiStateKind::Ready
+                    && state.tone == FridayUiStateTone::Success)
+        );
+        let error = route
+            .states
+            .iter()
+            .find(|state| state.kind == FridayUiStateKind::Error)
+            .unwrap();
+        assert_eq!(error.tone, FridayUiStateTone::Critical);
+        assert!(error.blocks_interaction);
+        assert_eq!(
+            error.recovery_command.as_deref(),
+            Some("flow --friday-local-checks")
+        );
+        let permission = route
+            .states
+            .iter()
+            .find(|state| state.kind == FridayUiStateKind::Permission)
+            .unwrap();
+        assert_eq!(permission.tone, FridayUiStateTone::Permission);
+        assert!(permission.blocks_interaction);
+        assert!(permission.action_label.is_some());
+    }
 }
 
 #[test]

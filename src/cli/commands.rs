@@ -861,6 +861,23 @@ fn print_friday_ui_plan() {
                 .collect::<Vec<_>>()
                 .join(", ")
         );
+        println!(
+            "  states: {}",
+            route
+                .states
+                .iter()
+                .map(|state| format!(
+                    "{:?}/{}",
+                    state.kind,
+                    if state.blocks_interaction {
+                        "blocking"
+                    } else {
+                        "nonblocking"
+                    }
+                ))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
         if route.status != FridayUiIntegrationStatus::Wired {
             println!("  next: connect route bindings");
         }

@@ -77,9 +77,9 @@ pub fn active_completion_set() -> CompletionSet {
             "route-states",
             "Production route states",
             20,
-            CompletionItemStatus::Planned,
-            "Core route state contracts started for Ask/Search/Research, but every Friday route needs polished empty/loading/error/permission states",
-            "finish route states and remove any dummy or dev-stack UI text from Friday surfaces",
+            CompletionItemStatus::Done,
+            "Every Friday route now exposes production empty, loading, error, permission, and ready state contracts with tone, visibility, blocking behavior, and recovery commands",
+            "connect these route-state contracts to the visible desktop/Next.js components",
         ),
         item(
             "browser-verification-deploy-gate",
