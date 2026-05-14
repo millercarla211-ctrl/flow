@@ -50,76 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "checkpoint",
-            "Professional git checkpoint before new work",
-            10,
+            "automation-audit",
+            "Host automation records read and replace actions",
+            25,
             CompletionItemStatus::Done,
-            "tracked runtime/model-policy work was typechecked, committed, and pushed",
-            "keep future commits focused and push at each healthy checkpoint",
+            "FlowAutomationEngine records ReadSelection and ReplaceSelection audit entries during rewrite-selection flows",
+            "persist host audit summaries into release/runtime handoff surfaces",
         ),
         item(
-            "roadmap",
-            "Active TODO loop replaces static release-ready wording",
-            15,
-            CompletionItemStatus::Done,
-            "TODO.md now names the current feature set, score, completed work, and next work",
-            "keep scoring conservative and update it after every completed slice",
+            "accessibility-diagnostics",
+            "Production-grade desktop accessibility diagnostics",
+            25,
+            CompletionItemStatus::Planned,
+            "health reporting detects disabled or fallback desktop accessibility paths",
+            "add a concise CLI/operator report that explains the exact native bridge state and fix",
         ),
         item(
-            "changelog",
-            "Changelog captures product-loop progress",
-            10,
-            CompletionItemStatus::Done,
-            "CHANGELOG.md has an Unreleased section for the completion-loop work",
-            "record every shipped slice before committing",
-        ),
-        item(
-            "completion-cli",
-            "CLI exposes the current feature-set score",
+            "pause-resume-snooze",
+            "Reliable pause, resume, and snooze controls for always-on hosts",
             20,
-            CompletionItemStatus::Done,
-            "`flow --completion` prints the active set, score, evidence, and next actions",
-            "expand the command with machine-readable output if downstream tooling needs it",
+            CompletionItemStatus::Planned,
+            "lifecycle and microphone primitives exist, but there is no complete operator-facing snooze path",
+            "add explicit pause windows and status reporting to hostkit/supervisor surfaces",
         ),
         item(
-            "release-handoff",
-            "Release summary includes the active completion loop",
+            "global-dictation-host",
+            "Harden Windows global dictation beyond CLI/demo paths",
             20,
-            CompletionItemStatus::Done,
-            "`flow --release-summary` carries active completion status into operator handoff",
-            "include TODO and changelog snapshots in exported production bundles next",
+            CompletionItemStatus::Planned,
+            "dictation CLI and local runtime paths exist, but production host behavior needs more hardening",
+            "connect host health, activation, overlay, and focused-input replacement into one checked path",
         ),
         item(
-            "bundle-handoff",
-            "Production bundle includes TODO and changelog snapshots",
-            15,
-            CompletionItemStatus::Done,
-            "production bundle exports copy TODO.md and CHANGELOG.md into handoff snapshots",
-            "start the next feature set after this control loop reaches 100/100",
-        ),
-        item(
-            "machine-export",
-            "Completion loop has a machine-readable export",
+            "persistent-audit",
+            "Persist native automation audit logs for host review",
             10,
-            CompletionItemStatus::Done,
-            "`flow --completion-json` prints the active completion loop for Friday/DX dashboards",
-            "wire the JSON into downstream host dashboards when they consume Flow status",
-        ),
-        item(
-            "guardrails",
-            "Completion guardrails prevent accidental 100% claims",
-            10,
-            CompletionItemStatus::Done,
-            "unit tests assert planned items keep a fixture set below 100/100",
-            "open the next 100-point set instead of stretching this one",
+            CompletionItemStatus::Planned,
+            "session state stores approvals, but host audit review is still in-memory only",
+            "export compact audit records through persistent state and release diagnostics",
         ),
     ];
 
     CompletionSet {
-        name: "Completion Control Loop".to_string(),
+        name: "Host Autonomy Core".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "When this set reaches 100/100, open the next set instead of declaring the whole product finished.".to_string(),
+        loop_rule: "Complete the host autonomy set, then open the next 100-point set instead of declaring the whole product finished.".to_string(),
         items,
     }
 }
@@ -163,9 +139,11 @@ mod tests {
     #[test]
     fn active_set_is_not_prematurely_complete() {
         let set = active_completion_set();
-        assert_eq!(
-            set.current_score_out_of_100,
-            set.target_score_out_of_100
+        assert!(set.current_score_out_of_100 < set.target_score_out_of_100);
+        assert!(
+            set.items
+                .iter()
+                .any(|item| item.status == CompletionItemStatus::Planned)
         );
     }
 

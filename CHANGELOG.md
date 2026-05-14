@@ -9,6 +9,8 @@
 - added `TODO.md` and `CHANGELOG.md` snapshots to exported production bundles
 - added completion-loop guardrail tests so planned items cannot accidentally score as 100/100
 - checkpointed the local model verification policy before starting the new completion loop
+- completed the Completion Control Loop and opened Host Autonomy Core at 25/100
+- added host automation audit records for selection-read and selection-replacement flows
 
 ## 2026-04-26
 

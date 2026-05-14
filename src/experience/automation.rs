@@ -1,6 +1,7 @@
 use super::{
     ExecutedActionReceipt, FlowCommandExecution, FlowPermissionGate, FlowTextExecution,
     contracts::FlowAutomationBridge,
+    control::ControlCapability,
     engine::FlowEngine,
     session::FlowSessionContext,
     types::{AppContext, TypingAssistRequest},
@@ -35,7 +36,22 @@ impl FlowAutomationEngine {
         P: FlowPermissionGate,
         A: FlowAutomationBridge,
     {
-        let selection = bridge.read_selection()?;
+        let surface = format!("{:?}", context.control.surface);
+        let Some(selection) = bridge.read_selection() else {
+            context.audit.record(
+                ControlCapability::ReadSelection,
+                surface,
+                "Read selection through automation bridge.",
+                false,
+            );
+            return None;
+        };
+        context.audit.record(
+            ControlCapability::ReadSelection,
+            surface.clone(),
+            "Read selection through automation bridge.",
+            true,
+        );
         let app_context = AppContext::default();
         let execution = engine.process_text(
             context,
@@ -60,6 +76,12 @@ impl FlowAutomationEngine {
         } else {
             false
         };
+        context.audit.record(
+            ControlCapability::ReplaceSelection,
+            surface,
+            "Replace selection through automation bridge.",
+            replaced,
+        );
 
         Some(FlowSelectionExecution {
             original_selection: selection,
@@ -109,5 +131,50 @@ impl FlowAutomationEngine {
         }
 
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::experience::{
+        FlowExperienceHub, FlowHostSnapshot, GrantAllPermissionGate, OperatingSystemFamily,
+        RecordingAutomationBridge,
+    };
+
+    #[test]
+    fn rewrite_selection_records_bridge_audit_entries() {
+        let snapshot =
+            FlowHostSnapshot::new(OperatingSystemFamily::Windows, "test-host", 8.0, None, true);
+        let hub = FlowExperienceHub::new("test");
+        let engine = FlowEngine::for_host(&snapshot, hub);
+        let mut context = engine
+            .session
+            .first_run_context(&engine.surface, snapshot.os.clone());
+        let mut permissions = GrantAllPermissionGate;
+        let mut bridge = RecordingAutomationBridge {
+            selection: Some("hello world".to_string()),
+            ..Default::default()
+        };
+
+        let execution = FlowAutomationEngine.rewrite_selection(
+            &engine,
+            &mut context,
+            &mut permissions,
+            &mut bridge,
+        );
+
+        assert!(execution.is_some());
+        assert!(
+            context.audit.entries().iter().any(|entry| {
+                entry.capability == ControlCapability::ReadSelection && entry.approved
+            })
+        );
+        assert!(
+            context.audit.entries().iter().any(|entry| {
+                entry.capability == ControlCapability::ReplaceSelection
+                    && entry.description == "Replace selection through automation bridge."
+            })
+        );
     }
 }

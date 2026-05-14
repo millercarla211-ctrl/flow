@@ -2,7 +2,7 @@
 
 Flow is not finished. Treat this file as the active product loop, not as a parking lot. When a set reaches 100/100, open the next set and keep moving.
 
-## Active Set: Completion Control Loop
+## Completed Set: Completion Control Loop
 
 Status: 100/100
 
@@ -23,14 +23,24 @@ Goal: make Flow's progress honest, visible, exportable, and hard to overstate wh
 
 This set is complete. The next loop should open `Host Autonomy Core` as the new active set and keep the same commit, typecheck, changelog, and TODO discipline.
 
-## Next Set Candidates
+## Active Set: Host Autonomy Core
 
-### Host Autonomy Core
+Status: 25/100
+
+Goal: make Flow safer and more reliable as a host-level assistant that can read selections, rewrite text, pause itself, diagnose accessibility, and leave an audit trail.
+
+### Done
+
+- [x] Record host audit entries when automation reads and replaces the active selection.
+
+### Remaining To Reach 100/100
 
 - [ ] Harden Windows global dictation host behavior beyond CLI/demo paths.
 - [ ] Add production-grade desktop accessibility diagnostics.
 - [ ] Add reliable pause/resume/snooze controls for always-on runtime hosts.
-- [ ] Add host-level audit logs for native automation and text replacement actions.
+- [ ] Persist and expose compact host audit logs for operator review.
+
+## Next Set Candidates
 
 ### Writing Quality Core
 
