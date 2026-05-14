@@ -4,6 +4,7 @@ import {
   createFridayGatewaySystemPrompt,
   resolveFridayModel,
   resolveFridayGatewayChatRequest,
+  sanitizeFridayGatewayContext,
 } from "../src/features/ai";
 import { createLocalAgentRun } from "../src/features/friday/utils/localAgentRunner";
 import {
@@ -355,6 +356,95 @@ if (!gatewayAllowed.ok || gatewayAllowed.modelId !== "openai/gpt-5.4") {
 const gatewayPrompt = createFridayGatewaySystemPrompt(gatewayAllowed.context);
 if (!gatewayPrompt.includes("Active project: Friday OS")) {
   throw new Error("Friday gateway prompt did not include approved project context.");
+}
+
+const unsafeGatewayContext = sanitizeFridayGatewayContext({
+  projectName: `Friday ${"OS ".repeat(80)}`,
+  projectInstructions: "Keep cloud context explicit. ".repeat(160),
+  contextItems: [
+    {
+      label: "source ".repeat(40),
+      kind: "note ".repeat(20),
+      content: "approved evidence ".repeat(100),
+    },
+    {
+      label: "",
+      kind: "note",
+      content: "drop this empty label",
+    },
+    {
+      label: "bad content",
+      kind: "note",
+      content: 42,
+    },
+    ...Array.from({ length: 12 }, (_, index) => ({
+      label: `extra-${index}`,
+      kind: "note",
+      content: "approved",
+    })),
+  ],
+});
+
+if (
+  !unsafeGatewayContext?.projectName?.endsWith("...") ||
+  !unsafeGatewayContext.projectInstructions?.endsWith("...")
+) {
+  throw new Error("Friday gateway context did not cap long project metadata.");
+}
+
+if ((unsafeGatewayContext.contextItems?.length ?? 0) !== 8) {
+  throw new Error("Friday gateway context did not cap approved context items.");
+}
+
+const firstUnsafeContextItem = unsafeGatewayContext.contextItems?.[0];
+if (
+  !firstUnsafeContextItem?.label.endsWith("...") ||
+  !firstUnsafeContextItem.kind.endsWith("...") ||
+  !firstUnsafeContextItem.content.endsWith("...")
+) {
+  throw new Error("Friday gateway context did not cap long context item fields.");
+}
+
+const malformedGatewayPrompt = createFridayGatewaySystemPrompt({
+  contextItems: { slice: "not an array" },
+} as never);
+
+if (!malformedGatewayPrompt.includes("You are Friday") || malformedGatewayPrompt.includes("Context ")) {
+  throw new Error("Friday gateway prompt did not safely ignore malformed context.");
+}
+
+const gatewayAllowedWithUnsafeContext = resolveFridayGatewayChatRequest(
+  {
+    allowCloud: true,
+    model: "gateway-openai-gpt-5-4",
+    context: {
+      projectName: "Friday OS",
+      projectInstructions: "x".repeat(3_000),
+      contextItems: [
+        {
+          label: "source",
+          kind: "note",
+          content: "y".repeat(900),
+        },
+      ],
+    },
+    messages: [
+      {
+        id: "msg_context_test",
+        role: "user",
+        parts: [{ type: "text", text: "hello" }],
+      },
+    ],
+  },
+  { cloudEnabled: true },
+);
+
+if (
+  !gatewayAllowedWithUnsafeContext.ok ||
+  (gatewayAllowedWithUnsafeContext.context?.projectInstructions.length ?? 0) > 2_000 ||
+  (gatewayAllowedWithUnsafeContext.context?.contextItems?.[0]?.content.length ?? 0) > 500
+) {
+  throw new Error("Friday gateway route did not sanitize approved context before provider use.");
 }
 
 const providerHealthText = parseFridayStreamPayload(

@@ -18,6 +18,12 @@ type FridayGatewayRuntime = {
 const MAX_GATEWAY_MESSAGES = 32;
 const MAX_GATEWAY_PARTS_PER_MESSAGE = 24;
 const MAX_GATEWAY_TEXT_CHARS = 24_000;
+const MAX_GATEWAY_PROJECT_NAME_CHARS = 160;
+const MAX_GATEWAY_PROJECT_INSTRUCTIONS_CHARS = 2_000;
+const MAX_GATEWAY_CONTEXT_ITEMS = 8;
+const MAX_GATEWAY_CONTEXT_KIND_CHARS = 48;
+const MAX_GATEWAY_CONTEXT_LABEL_CHARS = 160;
+const MAX_GATEWAY_CONTEXT_CONTENT_CHARS = 500;
 
 export type FridayGatewayChatRequest =
   | {
@@ -66,6 +72,58 @@ function getUiMessageTextLength(messages: UIMessage[]) {
   }, 0);
 }
 
+function sanitizeText(value: unknown, maxLength: number) {
+  if (typeof value !== "string") return undefined;
+  const text = value.replace(/\s+/g, " ").trim();
+  if (!text) return undefined;
+  return text.length > maxLength ? `${text.slice(0, Math.max(0, maxLength - 3))}...` : text;
+}
+
+export function sanitizeFridayGatewayContext(value: unknown): FridayChatContext | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+
+  const payload = value as {
+    contextItems?: unknown;
+    projectInstructions?: unknown;
+    projectName?: unknown;
+  };
+  const context: FridayChatContext = {};
+  const projectName = sanitizeText(payload.projectName, MAX_GATEWAY_PROJECT_NAME_CHARS);
+  const projectInstructions = sanitizeText(
+    payload.projectInstructions,
+    MAX_GATEWAY_PROJECT_INSTRUCTIONS_CHARS,
+  );
+
+  if (projectName) {
+    context.projectName = projectName;
+  }
+
+  if (projectInstructions) {
+    context.projectInstructions = projectInstructions;
+  }
+
+  if (Array.isArray(payload.contextItems)) {
+    const contextItems = payload.contextItems
+      .flatMap((item) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+        const candidate = item as { content?: unknown; kind?: unknown; label?: unknown };
+        const content = sanitizeText(candidate.content, MAX_GATEWAY_CONTEXT_CONTENT_CHARS);
+        const kind = sanitizeText(candidate.kind, MAX_GATEWAY_CONTEXT_KIND_CHARS);
+        const label = sanitizeText(candidate.label, MAX_GATEWAY_CONTEXT_LABEL_CHARS);
+
+        if (!content || !kind || !label) return [];
+        return [{ content, kind, label }];
+      })
+      .slice(0, MAX_GATEWAY_CONTEXT_ITEMS);
+
+    if (contextItems.length > 0) {
+      context.contextItems = contextItems;
+    }
+  }
+
+  return context.projectName || context.projectInstructions || context.contextItems ? context : undefined;
+}
+
 function isCloudEnabled(runtime?: FridayGatewayRuntime) {
   return runtime?.cloudEnabled ?? process.env.NEXT_PUBLIC_FRIDAY_ENABLE_CLOUD_AI === "true";
 }
@@ -110,6 +168,7 @@ export function resolveFridayGatewayChatRequest(
     };
   }
 
+  const context = sanitizeFridayGatewayContext(payload.context);
   const model = resolveFridayModel(payload.model);
   if (model.provider === "groq" && model.groqModel) {
     if (!isGroqEnabled(runtime)) {
@@ -122,7 +181,7 @@ export function resolveFridayGatewayChatRequest(
 
     return {
       ok: true,
-      context: payload.context,
+      context,
       model,
       modelId: model.groqModel,
       messages: payload.messages,
@@ -141,7 +200,7 @@ export function resolveFridayGatewayChatRequest(
 
     return {
       ok: true,
-      context: payload.context,
+      context,
       model,
       modelId: model.gatewayModel,
       messages: payload.messages,
@@ -165,23 +224,23 @@ export function resolveFridayGatewayChatRequest(
 }
 
 export function createFridayGatewaySystemPrompt(context?: FridayChatContext) {
+  const safeContext = sanitizeFridayGatewayContext(context);
   const lines = [
     "You are Friday, a local-first AI workspace assistant.",
     "Be concise, practical, and explicit about uncertainty.",
     "Use cloud capability only for this approved chat response. Do not claim access to local files, apps, or private data unless the user provided that context in the message.",
   ];
 
-  if (context?.projectName) {
-    lines.push(`Active project: ${context.projectName}`);
+  if (safeContext?.projectName) {
+    lines.push(`Active project: ${safeContext.projectName}`);
   }
 
-  if (context?.projectInstructions) {
-    lines.push(`Project instructions: ${context.projectInstructions}`);
+  if (safeContext?.projectInstructions) {
+    lines.push(`Project instructions: ${safeContext.projectInstructions}`);
   }
 
-  for (const item of context?.contextItems?.slice(0, 8) ?? []) {
-    const content = item.content.length > 500 ? `${item.content.slice(0, 497)}...` : item.content;
-    lines.push(`Context ${item.kind} - ${item.label}: ${content}`);
+  for (const item of safeContext?.contextItems ?? []) {
+    lines.push(`Context ${item.kind} - ${item.label}: ${item.content}`);
   }
 
   return lines.join("\n");
