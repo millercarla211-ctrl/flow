@@ -11,6 +11,7 @@ import {
 import { checkFridayProviderHealth, type ProviderHealthResult } from "../../utils/providerHealth";
 import { checkFridaySyncHealth, type FridaySyncHealthResult } from "../../utils/syncHealth";
 import {
+  formatFridayWorkspaceUploadStatus,
   pullFridayWorkspaceSnapshot,
   pushFridayWorkspaceSnapshot,
 } from "../../utils/workspaceCloudSync";
@@ -230,9 +231,7 @@ export function ConnectorsWorkspace() {
       const result = await pushFridayWorkspaceSnapshot();
       setWorkspaceSyncMessage({
         tone: result.ok ? "success" : "error",
-        text: result.ok
-          ? `${result.keyCount} local section${result.keyCount === 1 ? "" : "s"} uploaded.`
-          : result.message,
+        text: result.ok ? formatFridayWorkspaceUploadStatus(result) : result.message,
       });
     } finally {
       setIsSyncingWorkspace(false);

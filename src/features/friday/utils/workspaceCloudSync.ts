@@ -24,6 +24,27 @@ type WorkspaceSyncOptions = {
   timeoutMs?: number;
 };
 
+export function formatFridayWorkspaceSyncTimestamp(value: string) {
+  const syncedAt = new Date(value);
+  if (Number.isNaN(syncedAt.getTime())) return value;
+
+  return syncedAt
+    .toISOString()
+    .replace(/\.\d{3}Z$/, " UTC")
+    .replace("T", " ");
+}
+
+export function formatFridayWorkspaceUploadStatus(
+  result: Extract<FridayWorkspaceCloudSyncResult, { ok: true }>,
+) {
+  const sectionLabel = result.keyCount === 1 ? "section" : "sections";
+  const savedAt = result.updatedAt
+    ? ` Cloud snapshot saved ${formatFridayWorkspaceSyncTimestamp(result.updatedAt)}.`
+    : "";
+
+  return `${result.keyCount} local ${sectionLabel} uploaded.${savedAt}`;
+}
+
 function getBrowserLocalStorage() {
   return typeof window === "undefined" ? null : window.localStorage;
 }

@@ -39,6 +39,8 @@ import {
 } from "../src/features/friday/utils/webInspection";
 import { parseDuckDuckGoLiteResults, searchWebSources } from "../src/features/friday/utils/webSearch";
 import {
+  formatFridayWorkspaceSyncTimestamp,
+  formatFridayWorkspaceUploadStatus,
   pullFridayWorkspaceSnapshot,
   pushFridayWorkspaceSnapshot,
 } from "../src/features/friday/utils/workspaceCloudSync";
@@ -1105,6 +1107,17 @@ const pushedWorkspace = await pushFridayWorkspaceSnapshot({
 
 if (!pushedWorkspace.ok || pushedWorkspace.keyCount !== 1) {
   throw new Error("Friday workspace push did not report a successful upload.");
+}
+
+if (pushedWorkspace.ok) {
+  const pushedAt = formatFridayWorkspaceSyncTimestamp(timestamp);
+  if (
+    formatFridayWorkspaceSyncTimestamp(pushedWorkspace.updatedAt ?? "") !== pushedAt ||
+    formatFridayWorkspaceUploadStatus(pushedWorkspace) !==
+      `1 local section uploaded. Cloud snapshot saved ${pushedAt}.`
+  ) {
+    throw new Error("Friday workspace push did not report the cloud snapshot timestamp.");
+  }
 }
 
 const failedWorkspacePush = await pushFridayWorkspaceSnapshot({
