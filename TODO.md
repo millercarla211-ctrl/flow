@@ -178,17 +178,17 @@ This set is complete. The next loop should open `Friday Dashboard Runtime Wiring
 
 ## Active Set: Friday Dashboard Runtime Wiring
 
-Status: 20/100
+Status: 40/100
 
 Goal: make Friday's dashboard and DX surfaces consume live readiness exports, display recent visual captures, and guide the next release loop without manual CLI copying.
 
 ### Done
 
 - [x] Wire the dashboard export bundle into a real Friday/DX UI panel.
+- [x] Add recent screenshot capture history and missing-capture prompts for top Friday routes.
 
 ### Remaining To Reach 100/100
 
-- [ ] Add recent screenshot capture history and missing-capture prompts for top Friday routes.
 - [ ] Add one-click local command launch/recovery actions from dashboard readiness cards.
 - [ ] Persist export history so operators can compare readiness between checkpoints.
 - [ ] Add a release-review handoff that links completion, changelog, TODO, visual targets, and dashboard export files.

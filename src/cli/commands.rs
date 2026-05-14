@@ -1430,6 +1430,29 @@ fn print_friday_dashboard_panel(input_dir: &str) -> Result<()> {
         }
     }
 
+    println!();
+    println!(
+        "Screenshots: {} captured, {} missing, {} missing metadata",
+        panel.screenshot_history.captured_count,
+        panel.screenshot_history.missing_count,
+        panel.screenshot_history.metadata_missing_count
+    );
+    for record in panel
+        .screenshot_history
+        .records
+        .iter()
+        .filter(|record| record.status != crate::friday::FridayDashboardScreenshotStatus::Captured)
+        .take(5)
+    {
+        println!(
+            "  - [{}] {} {}: {}",
+            record.status.label(),
+            record.title,
+            record.viewport_id,
+            record.prompt
+        );
+    }
+
     if !panel.warnings.is_empty() {
         println!();
         println!("Warnings:");

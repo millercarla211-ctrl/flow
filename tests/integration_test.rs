@@ -20,19 +20,21 @@ use flow::experience::{
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
-    FridayDashboardPanelStatus, FridayExecutionHandoffStatus, FridayLiveUiBindingStatus,
-    FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
-    FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
-    FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
+    FridayDashboardPanelStatus, FridayDashboardScreenshotStatus, FridayExecutionHandoffStatus,
+    FridayLiveUiBindingStatus, FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind,
+    FridayMultimodalRouteStatus, FridayMultimodalSurface, FridayOperatorReadinessStatus,
+    FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
     FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
     export_friday_dashboard_bundle, friday_dashboard_panel_from_export,
-    friday_execution_handoff_report, friday_live_ui_route_binding_report,
+    friday_dashboard_screenshot_history, friday_execution_handoff_report,
+    friday_live_ui_route_binding_report,
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
     friday_multimodal_visual_check, friday_operator_readiness_report, friday_route_visual_report,
-    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
+    friday_route_visual_report_for_root, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
+    run_friday_vlm_contract,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -936,8 +938,8 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
     let bundle = export_friday_dashboard_bundle(&root).unwrap();
 
     assert_eq!(bundle.completion.name, "Friday Dashboard Runtime Wiring");
-    assert_eq!(bundle.completion.current_score_out_of_100, 20);
-    assert_eq!(bundle.manifest.score_out_of_100, 20);
+    assert_eq!(bundle.completion.current_score_out_of_100, 40);
+    assert_eq!(bundle.manifest.score_out_of_100, 40);
     assert_eq!(bundle.readiness.blocking_count, 0);
     assert_eq!(bundle.route_bindings.blocking_count, 0);
     assert_eq!(bundle.route_visuals.blocking_count, 0);
@@ -969,9 +971,9 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
     assert_eq!(panel.loop_name, "Friday Dashboard Runtime Wiring");
-    assert_eq!(panel.score_out_of_100, 20);
+    assert_eq!(panel.score_out_of_100, 40);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
-    assert_eq!(panel.cards.len(), 5);
+    assert_eq!(panel.cards.len(), 6);
     assert!(panel.cards.iter().any(|card| {
         card.id == "completion-loop"
             && card.source_json.ends_with("completion.json")
@@ -988,11 +990,55 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
                 .iter()
                 .any(|action| action.command == "flow --friday-readiness")
     }));
+    assert!(panel.cards.iter().any(|card| {
+        card.id == "screenshot-history"
+            && card.primary_metric.contains("captures present")
+            && card
+                .actions
+                .iter()
+                .any(|action| action.command == "flow --friday-route-visuals")
+    }));
+    assert_eq!(panel.screenshot_history.total_targets, 10);
+    assert!(panel.screenshot_history.missing_count > 0);
+    assert!(panel.screenshot_history.records.iter().any(|record| {
+        record.status == FridayDashboardScreenshotStatus::Missing
+            && record.prompt.contains("Capture the")
+            && record.capture_command.contains("agent-browser screenshot")
+    }));
     assert!(panel.source_files.iter().any(|file| {
         file.path.ends_with("route-visuals.json") && file.kind == "route-visuals" && file.bytes > 0
     }));
     assert!(panel.warnings.iter().any(|warning| {
         warning.contains("Completion Loop") || warning.contains("Operator Readiness")
+    }));
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn friday_dashboard_screenshot_history_tracks_captures_and_prompts() {
+    let root = temp_root("friday-dashboard-screenshot-history");
+    fs::write(root.join("ask-desktop.png"), b"png-fixture").unwrap();
+    fs::write(root.join("ask-desktop.json"), b"{\"ok\":true}").unwrap();
+
+    let report = friday_route_visual_report_for_root(&root);
+    let history = friday_dashboard_screenshot_history(&report);
+
+    assert_eq!(history.total_targets, 10);
+    assert_eq!(history.captured_count, 1);
+    assert_eq!(history.missing_count, 9);
+    assert_eq!(history.metadata_missing_count, 0);
+    assert!(history.records.iter().any(|record| {
+        record.route == "/ask"
+            && record.viewport_id == "desktop"
+            && record.status == FridayDashboardScreenshotStatus::Captured
+            && record.screenshot_bytes > 0
+            && record.metadata_bytes > 0
+            && record.captured_at_unix_ms.is_some()
+    }));
+    assert!(history.records.iter().any(|record| {
+        record.status == FridayDashboardScreenshotStatus::Missing
+            && record.prompt.contains("agent-browser screenshot")
     }));
 
     let _ = fs::remove_dir_all(&root);

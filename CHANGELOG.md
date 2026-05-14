@@ -96,6 +96,8 @@
 - completed Friday Live UI Execution at 100/100 and listed Friday Dashboard Runtime Wiring as the next candidate loop
 - opened Friday Dashboard Runtime Wiring at 20/100
 - added `flow --friday-dashboard-panel` / `--friday-dashboard-panel-json` to load exported readiness bundles into typed dashboard cards and safe UI actions
+- advanced Friday Dashboard Runtime Wiring to 40/100
+- added dashboard screenshot history records with captured/missing/metadata-missing states and per-route capture prompts for top Friday routes
 
 ## 2026-04-26
 

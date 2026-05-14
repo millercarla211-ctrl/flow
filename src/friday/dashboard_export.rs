@@ -8,8 +8,9 @@ use serde_json::json;
 
 use super::{
     FridayExecutionHandoffReport, FridayLiveUiRouteBindingReport, FridayOperatorReadinessReport,
-    FridayRouteVisualReport, friday_execution_handoff_report, friday_live_ui_route_binding_report,
-    friday_operator_readiness_report, friday_route_visual_report,
+    FridayRouteVisualReport, FridayRouteVisualTarget, friday_execution_handoff_report,
+    friday_live_ui_route_binding_report, friday_operator_readiness_report,
+    friday_route_visual_report,
 };
 use crate::competitive::{CompletionSet, active_completion_set};
 
@@ -36,6 +37,50 @@ pub struct FridayDashboardExportFile {
     pub path: String,
     pub kind: String,
     pub bytes: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayDashboardScreenshotStatus {
+    Captured,
+    Missing,
+    MetadataMissing,
+}
+
+impl FridayDashboardScreenshotStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Captured => "captured",
+            Self::Missing => "missing",
+            Self::MetadataMissing => "metadata-missing",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardScreenshotRecord {
+    pub route: String,
+    pub title: String,
+    pub viewport_id: String,
+    pub viewport_width: u16,
+    pub viewport_height: u16,
+    pub screenshot_path: String,
+    pub metadata_path: String,
+    pub status: FridayDashboardScreenshotStatus,
+    pub screenshot_bytes: u64,
+    pub metadata_bytes: u64,
+    pub captured_at_unix_ms: Option<u128>,
+    pub capture_command: String,
+    pub prompt: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardScreenshotHistory {
+    pub total_targets: usize,
+    pub captured_count: usize,
+    pub missing_count: usize,
+    pub metadata_missing_count: usize,
+    pub records: Vec<FridayDashboardScreenshotRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -104,6 +149,7 @@ pub struct FridayDashboardPanel {
     pub summary: String,
     pub status: FridayDashboardPanelStatus,
     pub cards: Vec<FridayDashboardCard>,
+    pub screenshot_history: FridayDashboardScreenshotHistory,
     pub warnings: Vec<String>,
     pub blocking_count: usize,
     pub source_files: Vec<FridayDashboardExportFile>,
@@ -132,6 +178,7 @@ pub fn export_friday_dashboard_bundle(
     let readiness = friday_operator_readiness_report();
     let route_bindings = friday_live_ui_route_binding_report();
     let route_visuals = friday_route_visual_report();
+    let screenshot_history = friday_dashboard_screenshot_history(&route_visuals);
     let execution_handoffs = friday_execution_handoff_report();
     let completion = active_completion_set();
 
@@ -176,6 +223,12 @@ pub fn export_friday_dashboard_bundle(
             "targets": route_visuals.target_count,
             "artifact_root": &route_visuals.artifact_root,
             "blocking": route_visuals.blocking_count,
+        },
+        "screenshot_history": {
+            "captured": screenshot_history.captured_count,
+            "missing": screenshot_history.missing_count,
+            "metadata_missing": screenshot_history.metadata_missing_count,
+            "targets": screenshot_history.total_targets,
         },
         "execution_handoffs": {
             "score_out_of_100": execution_handoffs.score_out_of_100,
@@ -256,11 +309,13 @@ pub fn friday_dashboard_panel_from_export(
     let execution_handoffs: FridayExecutionHandoffReport =
         read_json_file(&manifest.execution_handoffs_json)?;
     let completion: CompletionSet = read_json_file(&manifest.completion_json)?;
+    let screenshot_history = friday_dashboard_screenshot_history(&route_visuals);
 
     let cards = vec![
         completion_card(&manifest, &completion),
         readiness_card(&manifest, &readiness),
         route_bindings_card(&manifest, &route_bindings),
+        screenshot_history_card(&manifest, &screenshot_history),
         route_visuals_card(&manifest, &route_visuals),
         execution_handoffs_card(&manifest, &execution_handoffs),
     ];
@@ -289,10 +344,41 @@ pub fn friday_dashboard_panel_from_export(
         summary: manifest.summary.clone(),
         status,
         cards,
+        screenshot_history,
         warnings,
         blocking_count,
         source_files: manifest.files.clone(),
     })
+}
+
+pub fn friday_dashboard_screenshot_history(
+    report: &FridayRouteVisualReport,
+) -> FridayDashboardScreenshotHistory {
+    let records = report
+        .targets
+        .iter()
+        .map(screenshot_record)
+        .collect::<Vec<_>>();
+    let captured_count = records
+        .iter()
+        .filter(|record| record.status == FridayDashboardScreenshotStatus::Captured)
+        .count();
+    let missing_count = records
+        .iter()
+        .filter(|record| record.status == FridayDashboardScreenshotStatus::Missing)
+        .count();
+    let metadata_missing_count = records
+        .iter()
+        .filter(|record| record.status == FridayDashboardScreenshotStatus::MetadataMissing)
+        .count();
+
+    FridayDashboardScreenshotHistory {
+        total_targets: records.len(),
+        captured_count,
+        missing_count,
+        metadata_missing_count,
+        records,
+    }
 }
 
 fn dashboard_summary_markdown(
@@ -429,6 +515,37 @@ fn route_bindings_card(
     )
 }
 
+fn screenshot_history_card(
+    manifest: &FridayDashboardExportManifest,
+    history: &FridayDashboardScreenshotHistory,
+) -> FridayDashboardCard {
+    let missing_or_incomplete = history.missing_count + history.metadata_missing_count;
+    card(
+        "screenshot-history",
+        "Screenshot History",
+        status_from_counts(missing_or_incomplete, 0),
+        percentage(history.captured_count, history.total_targets),
+        format!(
+            "{}/{} captures present",
+            history.captured_count, history.total_targets
+        ),
+        if missing_or_incomplete == 0 {
+            "All configured route screenshot targets have captures and metadata.".to_string()
+        } else {
+            format!(
+                "{} screenshot target(s) need capture or metadata before the visual review is complete.",
+                missing_or_incomplete
+            )
+        },
+        &manifest.route_visuals_json,
+        vec![action(
+            "capture-route-screenshots",
+            "Capture screenshots",
+            "flow --friday-route-visuals",
+        )],
+    )
+}
+
 fn route_visuals_card(
     manifest: &FridayDashboardExportManifest,
     report: &FridayRouteVisualReport,
@@ -473,6 +590,72 @@ fn execution_handoffs_card(
             "flow --friday-execution-handoffs",
         )],
     )
+}
+
+fn screenshot_record(target: &FridayRouteVisualTarget) -> FridayDashboardScreenshotRecord {
+    let screenshot_path = Path::new(&target.screenshot_path);
+    let metadata_path = Path::new(&target.metadata_path);
+    let screenshot_metadata = screenshot_path.metadata().ok();
+    let metadata_metadata = metadata_path.metadata().ok();
+    let screenshot_present = screenshot_metadata
+        .as_ref()
+        .map(|metadata| metadata.is_file() && metadata.len() > 0)
+        .unwrap_or(false);
+    let metadata_present = metadata_metadata
+        .as_ref()
+        .map(|metadata| metadata.is_file() && metadata.len() > 0)
+        .unwrap_or(false);
+    let status = if !screenshot_present {
+        FridayDashboardScreenshotStatus::Missing
+    } else if !metadata_present {
+        FridayDashboardScreenshotStatus::MetadataMissing
+    } else {
+        FridayDashboardScreenshotStatus::Captured
+    };
+
+    FridayDashboardScreenshotRecord {
+        route: target.route.clone(),
+        title: target.title.clone(),
+        viewport_id: target.viewport.id.clone(),
+        viewport_width: target.viewport.width,
+        viewport_height: target.viewport.height,
+        screenshot_path: target.screenshot_path.clone(),
+        metadata_path: target.metadata_path.clone(),
+        status,
+        screenshot_bytes: screenshot_metadata
+            .as_ref()
+            .map(|metadata| metadata.len())
+            .unwrap_or(0),
+        metadata_bytes: metadata_metadata
+            .as_ref()
+            .map(|metadata| metadata.len())
+            .unwrap_or(0),
+        captured_at_unix_ms: screenshot_metadata
+            .and_then(|metadata| metadata.modified().ok())
+            .and_then(system_time_to_unix_ms),
+        capture_command: target.capture_command.clone(),
+        prompt: screenshot_prompt(target, status),
+    }
+}
+
+fn screenshot_prompt(
+    target: &FridayRouteVisualTarget,
+    status: FridayDashboardScreenshotStatus,
+) -> String {
+    match status {
+        FridayDashboardScreenshotStatus::Captured => format!(
+            "Review the captured {} {} screenshot before release.",
+            target.title, target.viewport.id
+        ),
+        FridayDashboardScreenshotStatus::MetadataMissing => format!(
+            "Add metadata for the {} {} screenshot at {}.",
+            target.title, target.viewport.id, target.metadata_path
+        ),
+        FridayDashboardScreenshotStatus::Missing => format!(
+            "Capture the {} {} route screenshot with `{}`.",
+            target.title, target.viewport.id, target.capture_command
+        ),
+    }
 }
 
 fn card(
@@ -528,6 +711,16 @@ fn status_from_counts(warning_count: usize, blocking_count: usize) -> FridayDash
     } else {
         FridayDashboardPanelStatus::Ready
     }
+}
+
+fn percentage(numerator: usize, denominator: usize) -> u8 {
+    if denominator == 0 {
+        return 0;
+    }
+
+    ((numerator as f32 / denominator as f32) * 100.0)
+        .round()
+        .clamp(0.0, 100.0) as u8
 }
 
 fn dashboard_commands() -> Vec<String> {
@@ -597,4 +790,10 @@ fn unix_ms() -> u128 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
         .unwrap_or(0)
+}
+
+fn system_time_to_unix_ms(time: SystemTime) -> Option<u128> {
+    time.duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_millis())
 }

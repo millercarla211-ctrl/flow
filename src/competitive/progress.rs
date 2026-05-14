@@ -61,9 +61,9 @@ pub fn active_completion_set() -> CompletionSet {
             "recent-screenshot-history",
             "Recent screenshot history",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "add recent screenshot capture history and missing-capture prompts for top Friday routes",
+            CompletionItemStatus::Done,
+            "`flow --friday-dashboard-panel` exposes screenshot capture history, missing-capture prompts, metadata gaps, and per-route capture commands for top Friday routes",
+            "connect screenshot prompt actions to one-click capture controls in the dashboard shell",
         ),
         item(
             "dashboard-recovery-actions",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_friday_dashboard_runtime_wiring_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Dashboard Runtime Wiring");
-        assert_eq!(set.current_score_out_of_100, 20);
+        assert_eq!(set.current_score_out_of_100, 40);
         assert!(
             set.items
                 .iter()
