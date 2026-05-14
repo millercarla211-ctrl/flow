@@ -31,8 +31,8 @@ use crate::friday::{
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
-    export_friday_dashboard_bundle, friday_execution_handoff_report,
-    friday_live_ui_route_binding_report,
+    export_friday_dashboard_bundle, friday_dashboard_panel_from_export,
+    friday_execution_handoff_report, friday_live_ui_route_binding_report,
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
     friday_multimodal_visual_check, friday_operator_readiness_report, friday_research_search_plan,
     friday_route_visual_report, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
@@ -465,6 +465,16 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", bundle.to_pretty_json()?);
         }
 
+        Command::FridayDashboardPanel { input_dir } => {
+            print_friday_dashboard_panel(&input_dir)?;
+        }
+
+        Command::FridayDashboardPanelJson { input_dir } => {
+            let panel =
+                friday_dashboard_panel_from_export(resolve_repo_relative_path(&input_dir))?;
+            println!("{}", panel.to_pretty_json()?);
+        }
+
         Command::FridayLocalChecks => {
             print_friday_local_execution_checks();
         }
@@ -842,6 +852,10 @@ fn print_interactive_help() {
     println!("                           Export readiness bundle for Friday/DX dashboards");
     println!("  --friday-dashboard-export-json [dir]");
     println!("                           Export readiness bundle and print JSON");
+    println!("  --friday-dashboard-panel [dir]");
+    println!("                           Show dashboard UI panel data from an export bundle");
+    println!("  --friday-dashboard-panel-json [dir]");
+    println!("                           Print dashboard UI panel data as JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
@@ -1382,6 +1396,46 @@ fn print_friday_dashboard_export(output_dir: &str) -> Result<()> {
     println!("Commands:");
     for command in &manifest.commands {
         println!("  - {}", command);
+    }
+
+    Ok(())
+}
+
+fn print_friday_dashboard_panel(input_dir: &str) -> Result<()> {
+    let panel = friday_dashboard_panel_from_export(resolve_repo_relative_path(input_dir))?;
+
+    println!("Friday Dashboard Panel");
+    println!("======================");
+    println!("{}", panel.summary);
+    println!(
+        "Status: {} ({} / 100)",
+        panel.status.label(),
+        panel.score_out_of_100
+    );
+    println!("Export: {}", panel.export_dir);
+    println!();
+
+    println!("Cards:");
+    for card in &panel.cards {
+        println!(
+            "- [{}] {} ({} / 100)",
+            card.status.label(),
+            card.title,
+            card.score_out_of_100
+        );
+        println!("  metric: {}", card.primary_metric);
+        println!("  source: {}", card.source_json);
+        for action in &card.actions {
+            println!("  action: {} -> {}", action.label, action.command);
+        }
+    }
+
+    if !panel.warnings.is_empty() {
+        println!();
+        println!("Warnings:");
+        for warning in &panel.warnings {
+            println!("  - {}", warning);
+        }
     }
 
     Ok(())

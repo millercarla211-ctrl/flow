@@ -94,6 +94,8 @@
 - advanced Friday Live UI Execution to 80/100
 - added `flow --friday-dashboard-export` / `--friday-dashboard-export-json` to write dashboard-ready readiness, route binding, route visual, execution handoff, completion, manifest, index, and markdown summary files
 - completed Friday Live UI Execution at 100/100 and listed Friday Dashboard Runtime Wiring as the next candidate loop
+- opened Friday Dashboard Runtime Wiring at 20/100
+- added `flow --friday-dashboard-panel` / `--friday-dashboard-panel-json` to load exported readiness bundles into typed dashboard cards and safe UI actions
 
 ## 2026-04-26
 

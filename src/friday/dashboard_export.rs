@@ -13,6 +13,24 @@ use super::{
 };
 use crate::competitive::{CompletionSet, active_completion_set};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayDashboardPanelStatus {
+    Ready,
+    Warning,
+    Blocked,
+}
+
+impl FridayDashboardPanelStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::Warning => "warning",
+            Self::Blocked => "blocked",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FridayDashboardExportFile {
     pub path: String,
@@ -51,6 +69,47 @@ pub struct FridayDashboardExportBundle {
 }
 
 impl FridayDashboardExportBundle {
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardAction {
+    pub id: String,
+    pub label: String,
+    pub command: String,
+    pub destructive: bool,
+    pub requires_confirmation: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardCard {
+    pub id: String,
+    pub title: String,
+    pub status: FridayDashboardPanelStatus,
+    pub score_out_of_100: u8,
+    pub primary_metric: String,
+    pub detail: String,
+    pub source_json: String,
+    pub actions: Vec<FridayDashboardAction>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardPanel {
+    pub product_name: String,
+    pub loop_name: String,
+    pub score_out_of_100: u8,
+    pub export_dir: String,
+    pub summary: String,
+    pub status: FridayDashboardPanelStatus,
+    pub cards: Vec<FridayDashboardCard>,
+    pub warnings: Vec<String>,
+    pub blocking_count: usize,
+    pub source_files: Vec<FridayDashboardExportFile>,
+}
+
+impl FridayDashboardPanel {
     pub fn to_pretty_json(&self) -> serde_json::Result<String> {
         serde_json::to_string_pretty(self)
     }
@@ -184,6 +243,58 @@ pub fn export_friday_dashboard_bundle(
     })
 }
 
+pub fn friday_dashboard_panel_from_export(
+    export_dir: impl AsRef<Path>,
+) -> Result<FridayDashboardPanel> {
+    let export_dir = export_dir.as_ref();
+    let manifest_path = export_dir.join("manifest.json");
+    let manifest: FridayDashboardExportManifest = read_json_file(&manifest_path)?;
+    let readiness: FridayOperatorReadinessReport = read_json_file(&manifest.readiness_json)?;
+    let route_bindings: FridayLiveUiRouteBindingReport =
+        read_json_file(&manifest.route_bindings_json)?;
+    let route_visuals: FridayRouteVisualReport = read_json_file(&manifest.route_visuals_json)?;
+    let execution_handoffs: FridayExecutionHandoffReport =
+        read_json_file(&manifest.execution_handoffs_json)?;
+    let completion: CompletionSet = read_json_file(&manifest.completion_json)?;
+
+    let cards = vec![
+        completion_card(&manifest, &completion),
+        readiness_card(&manifest, &readiness),
+        route_bindings_card(&manifest, &route_bindings),
+        route_visuals_card(&manifest, &route_visuals),
+        execution_handoffs_card(&manifest, &execution_handoffs),
+    ];
+    let blocking_count = cards
+        .iter()
+        .filter(|card| card.status == FridayDashboardPanelStatus::Blocked)
+        .count();
+    let warnings = cards
+        .iter()
+        .filter(|card| card.status == FridayDashboardPanelStatus::Warning)
+        .map(|card| format!("{} needs attention: {}", card.title, card.detail))
+        .collect::<Vec<_>>();
+    let status = if blocking_count > 0 {
+        FridayDashboardPanelStatus::Blocked
+    } else if !warnings.is_empty() {
+        FridayDashboardPanelStatus::Warning
+    } else {
+        FridayDashboardPanelStatus::Ready
+    };
+
+    Ok(FridayDashboardPanel {
+        product_name: manifest.product_name.clone(),
+        loop_name: manifest.loop_name.clone(),
+        score_out_of_100: manifest.score_out_of_100,
+        export_dir: manifest.export_dir.clone(),
+        summary: manifest.summary.clone(),
+        status,
+        cards,
+        warnings,
+        blocking_count,
+        source_files: manifest.files.clone(),
+    })
+}
+
 fn dashboard_summary_markdown(
     completion: &CompletionSet,
     readiness: &FridayOperatorReadinessReport,
@@ -235,6 +346,190 @@ Open the next 100-point set after this export is consumed by Friday and DX dashb
     )
 }
 
+fn completion_card(
+    manifest: &FridayDashboardExportManifest,
+    completion: &CompletionSet,
+) -> FridayDashboardCard {
+    let remaining = completion
+        .items
+        .iter()
+        .filter(|item| item.status != crate::competitive::CompletionItemStatus::Done)
+        .count();
+    let blocked = completion
+        .items
+        .iter()
+        .filter(|item| item.status == crate::competitive::CompletionItemStatus::Blocked)
+        .count();
+    card(
+        "completion-loop",
+        "Completion Loop",
+        status_from_score_and_blocking(completion.current_score_out_of_100, blocked),
+        completion.current_score_out_of_100,
+        format!(
+            "{} / {}",
+            completion.current_score_out_of_100, completion.target_score_out_of_100
+        ),
+        if remaining == 0 {
+            "All items in this loop are done.".to_string()
+        } else {
+            format!("{remaining} item(s) remain before the loop is done.")
+        },
+        &manifest.completion_json,
+        vec![action(
+            "open-completion",
+            "Open completion",
+            "flow --completion",
+        )],
+    )
+}
+
+fn readiness_card(
+    manifest: &FridayDashboardExportManifest,
+    readiness: &FridayOperatorReadinessReport,
+) -> FridayDashboardCard {
+    card(
+        "operator-readiness",
+        "Operator Readiness",
+        status_from_counts(readiness.warning_count, readiness.blocking_count),
+        readiness.score_out_of_100,
+        format!(
+            "{} passed / {} warning / {} blocking",
+            readiness.passed_count, readiness.warning_count, readiness.blocking_count
+        ),
+        readiness.summary.clone(),
+        &manifest.readiness_json,
+        vec![action(
+            "run-readiness",
+            "Run readiness",
+            "flow --friday-readiness",
+        )],
+    )
+}
+
+fn route_bindings_card(
+    manifest: &FridayDashboardExportManifest,
+    report: &FridayLiveUiRouteBindingReport,
+) -> FridayDashboardCard {
+    card(
+        "route-bindings",
+        "Route Bindings",
+        status_from_counts(report.warning_count, report.blocking_count),
+        report.score_out_of_100,
+        format!(
+            "{}/{} routes bound",
+            report.passed_count, report.route_count
+        ),
+        report.summary.clone(),
+        &manifest.route_bindings_json,
+        vec![action(
+            "check-route-bindings",
+            "Check routes",
+            "flow --friday-live-ui-routes",
+        )],
+    )
+}
+
+fn route_visuals_card(
+    manifest: &FridayDashboardExportManifest,
+    report: &FridayRouteVisualReport,
+) -> FridayDashboardCard {
+    card(
+        "route-visuals",
+        "Route Visuals",
+        status_from_counts(report.warning_count, report.blocking_count),
+        report.score_out_of_100,
+        format!(
+            "{}/{} targets configured",
+            report.passed_count, report.target_count
+        ),
+        format!("{} Artifact root: {}", report.summary, report.artifact_root),
+        &manifest.route_visuals_json,
+        vec![action(
+            "check-route-visuals",
+            "Check visuals",
+            "flow --friday-route-visuals",
+        )],
+    )
+}
+
+fn execution_handoffs_card(
+    manifest: &FridayDashboardExportManifest,
+    report: &FridayExecutionHandoffReport,
+) -> FridayDashboardCard {
+    card(
+        "execution-handoffs",
+        "Execution Handoffs",
+        status_from_counts(report.warning_count, report.blocking_count),
+        report.score_out_of_100,
+        format!(
+            "{}/{} handoffs ready",
+            report.passed_count, report.handoff_count
+        ),
+        report.summary.clone(),
+        &manifest.execution_handoffs_json,
+        vec![action(
+            "check-execution-handoffs",
+            "Check handoffs",
+            "flow --friday-execution-handoffs",
+        )],
+    )
+}
+
+fn card(
+    id: &str,
+    title: &str,
+    status: FridayDashboardPanelStatus,
+    score_out_of_100: u8,
+    primary_metric: String,
+    detail: String,
+    source_json: &str,
+    actions: Vec<FridayDashboardAction>,
+) -> FridayDashboardCard {
+    FridayDashboardCard {
+        id: id.to_string(),
+        title: title.to_string(),
+        status,
+        score_out_of_100,
+        primary_metric,
+        detail,
+        source_json: source_json.to_string(),
+        actions,
+    }
+}
+
+fn action(id: &str, label: &str, command: &str) -> FridayDashboardAction {
+    FridayDashboardAction {
+        id: id.to_string(),
+        label: label.to_string(),
+        command: command.to_string(),
+        destructive: false,
+        requires_confirmation: false,
+    }
+}
+
+fn status_from_score_and_blocking(
+    score_out_of_100: u8,
+    blocking_count: usize,
+) -> FridayDashboardPanelStatus {
+    if blocking_count > 0 {
+        FridayDashboardPanelStatus::Blocked
+    } else if score_out_of_100 < 100 {
+        FridayDashboardPanelStatus::Warning
+    } else {
+        FridayDashboardPanelStatus::Ready
+    }
+}
+
+fn status_from_counts(warning_count: usize, blocking_count: usize) -> FridayDashboardPanelStatus {
+    if blocking_count > 0 {
+        FridayDashboardPanelStatus::Blocked
+    } else if warning_count > 0 {
+        FridayDashboardPanelStatus::Warning
+    } else {
+        FridayDashboardPanelStatus::Ready
+    }
+}
+
 fn dashboard_commands() -> Vec<String> {
     vec![
         "flow --friday-dashboard-export tmp/friday-dashboard".to_string(),
@@ -245,6 +540,14 @@ fn dashboard_commands() -> Vec<String> {
         "flow --friday-execution-handoffs".to_string(),
         "flow --completion".to_string(),
     ]
+}
+
+fn read_json_file<T: for<'de> Deserialize<'de>>(path: impl AsRef<Path>) -> Result<T> {
+    let path = path.as_ref();
+    let bytes = fs::read(path)
+        .with_context(|| format!("Could not read Friday dashboard JSON {}", path.display()))?;
+    serde_json::from_slice(&bytes)
+        .with_context(|| format!("Could not parse Friday dashboard JSON {}", path.display()))
 }
 
 fn write_json_file<T: ?Sized + Serialize>(

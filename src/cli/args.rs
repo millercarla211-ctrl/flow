@@ -104,6 +104,10 @@ pub enum Command {
     FridayDashboardExport { output_dir: String },
     /// Export Friday readiness bundle and print JSON
     FridayDashboardExportJson { output_dir: String },
+    /// Show dashboard UI panel data loaded from an exported Friday readiness bundle
+    FridayDashboardPanel { input_dir: String },
+    /// Print dashboard UI panel data as JSON
+    FridayDashboardPanelJson { input_dir: String },
     /// Run low-resource Friday local execution readiness checks
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
@@ -517,6 +521,20 @@ impl Args {
             "--friday-dashboard-export-json" | "--friday-readiness-export-json" => {
                 Command::FridayDashboardExportJson {
                     output_dir: args
+                        .get(2)
+                        .cloned()
+                        .unwrap_or_else(|| "tmp/friday-dashboard".to_string()),
+                }
+            }
+            "--friday-dashboard-panel" | "--friday-dashboard-ui" => Command::FridayDashboardPanel {
+                input_dir: args
+                    .get(2)
+                    .cloned()
+                    .unwrap_or_else(|| "tmp/friday-dashboard".to_string()),
+            },
+            "--friday-dashboard-panel-json" | "--friday-dashboard-ui-json" => {
+                Command::FridayDashboardPanelJson {
+                    input_dir: args
                         .get(2)
                         .cloned()
                         .unwrap_or_else(|| "tmp/friday-dashboard".to_string()),

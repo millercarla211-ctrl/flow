@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "tracked-route-file-bindings",
-            "Tracked route file bindings",
+            "dashboard-export-panel",
+            "Dashboard export panel",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-live-ui-routes` verifies every Friday route points at tracked UI/runtime files instead of contract-only placeholders",
-            "add screenshot-backed checks for the most-used routes",
+            "`flow --friday-dashboard-panel` reads the exported manifest and JSON reports into typed dashboard cards/actions for Friday and DX UI surfaces",
+            "wire the panel into the product UI and DX dashboard shell",
         ),
         item(
-            "screenshot-backed-route-checks",
-            "Screenshot-backed route checks",
+            "recent-screenshot-history",
+            "Recent screenshot history",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-route-visuals` defines screenshot capture targets for Ask, Search, Research, Voice, and Multimodal across desktop/mobile viewports with tracked source files and artifact paths",
-            "run the browser screenshot pass after the next visible UI change",
+            CompletionItemStatus::Planned,
+            "not started",
+            "add recent screenshot capture history and missing-capture prompts for top Friday routes",
         ),
         item(
-            "operator-readiness-summary",
-            "Operator readiness summary",
+            "dashboard-recovery-actions",
+            "Dashboard recovery actions",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-readiness` summarizes route bindings, local checks, browser gate, desktop host entries, multimodal visual contracts, media actions, and release controls in one local-only report",
-            "connect this readiness summary to dashboard export files",
+            CompletionItemStatus::Planned,
+            "not started",
+            "add one-click local command launch and recovery actions from readiness cards",
         ),
         item(
-            "desktop-web-execution-handoff",
-            "Desktop/web execution handoff",
+            "export-history-store",
+            "Export history store",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-execution-handoffs` binds Ask, Search, Research, Voice, Multimodal, and Readiness UI actions to local commands, permission scopes, artifact paths, source files, and recovery commands",
-            "export this handoff report into Friday/DX dashboard files",
+            CompletionItemStatus::Planned,
+            "not started",
+            "persist dashboard export history for checkpoint-to-checkpoint readiness comparison",
         ),
         item(
-            "release-dashboard-export",
-            "Release dashboard export",
+            "release-review-handoff",
+            "Release review handoff",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-dashboard-export` writes readiness, route bindings, route visuals, execution handoffs, completion status, dashboard index, manifest, and markdown summary for Friday/DX dashboards",
-            "open the next 100-point set after dashboard export consumers are wired",
+            CompletionItemStatus::Planned,
+            "not started",
+            "link completion, changelog, TODO, visual targets, and dashboard export files into a release-review handoff",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Live UI Execution".to_string(),
+        name: "Friday Dashboard Runtime Wiring".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Connect Friday's Rust contracts to tracked desktop/web UI route files, screenshot-backed verification, and operator-facing readiness summaries without weakening local-first execution.".to_string(),
+        loop_rule: "Consume Friday readiness exports from product and DX dashboard surfaces, preserve local-first status visibility, and guide release work without manual CLI scraping.".to_string(),
         items,
     }
 }
@@ -137,14 +137,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_live_ui_execution_loop() {
+    fn active_set_tracks_friday_dashboard_runtime_wiring_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Live UI Execution");
-        assert_eq!(set.current_score_out_of_100, 100);
+        assert_eq!(set.name, "Friday Dashboard Runtime Wiring");
+        assert_eq!(set.current_score_out_of_100, 20);
         assert!(
             set.items
                 .iter()
-                .all(|item| item.status == CompletionItemStatus::Done)
+                .any(|item| item.status == CompletionItemStatus::Planned)
         );
     }
 
