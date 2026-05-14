@@ -53,6 +53,7 @@ import {
   FRIDAY_RESTORE_CHECKPOINT_KEY,
   formatFridayWorkspaceBackupSummary,
   formatFridayWorkspaceBackupStatus,
+  formatFridayWorkspaceExportStatus,
   formatFridayWorkspaceRestoreStatus,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
@@ -852,6 +853,14 @@ if (
     "Backup saved 2026-05-14 00:00:00 UTC: Projects: 1, Connector settings: 3."
 ) {
   throw new Error("Friday workspace backup status did not include stable timestamp and counts.");
+}
+
+if (
+  !parsedBackup.ok ||
+  formatFridayWorkspaceExportStatus(parsedBackup.backup) !==
+    "2 local sections exported. Backup saved 2026-05-14 00:00:00 UTC: Projects: 1, Connector settings: 3."
+) {
+  throw new Error("Friday workspace export status did not include stable timestamp and counts.");
 }
 
 if (

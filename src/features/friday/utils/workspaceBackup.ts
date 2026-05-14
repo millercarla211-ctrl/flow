@@ -416,6 +416,13 @@ export function formatFridayWorkspaceBackupStatus(
   return `${label} saved ${formatFridayWorkspaceBackupTimestamp(backup)}: ${formatFridayWorkspaceBackupSummary(backup)}.`;
 }
 
+export function formatFridayWorkspaceExportStatus(backup: FridayWorkspaceBackup) {
+  const sectionCount = getFridayWorkspaceBackupEntries(backup).length;
+  const sectionLabel = sectionCount === 1 ? "section" : "sections";
+
+  return `${sectionCount} local ${sectionLabel} exported. ${formatFridayWorkspaceBackupStatus(backup)}`;
+}
+
 export function formatFridayWorkspaceRestoreStatus({
   action,
   backup,

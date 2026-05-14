@@ -21,10 +21,9 @@ import {
   clearFridayRestoreCheckpoint,
   createFridayWorkspaceBackupFilename,
   formatFridayRestoreCheckpointClearMessage,
-  formatFridayWorkspaceBackupSummary,
+  formatFridayWorkspaceExportStatus,
   formatFridayWorkspaceRestoreStatus,
   formatFridayWorkspaceBackupStatus,
-  getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
   readFridayRestoreCheckpoint,
   restoreFridayWorkspaceBackupToStorage,
@@ -136,10 +135,9 @@ export function ConnectorsWorkspace() {
     const backup = buildFridayWorkspaceBackup((key) => window.localStorage.getItem(key));
     downloadWorkspaceBackup(backup);
 
-    const count = getFridayWorkspaceBackupEntries(backup).length;
     setBackupMessage({
       tone: "success",
-      text: `${count} local section${count === 1 ? "" : "s"} exported: ${formatFridayWorkspaceBackupSummary(backup)}.`,
+      text: formatFridayWorkspaceExportStatus(backup),
     });
   };
 
