@@ -28,6 +28,7 @@ import {
   extractHtmlTitle,
   extractReadableHtmlText,
   inspectWebSource,
+  isPrivateWebInspectionHostname,
   normalizeWebInspectionUrl,
 } from "../src/features/friday/utils/webInspection";
 import { parseDuckDuckGoLiteResults, searchWebSources } from "../src/features/friday/utils/webSearch";
@@ -476,6 +477,32 @@ if (failedProviderResearch.ok || failedProviderResearch.message !== "research of
 const blockedLocalUrl = normalizeWebInspectionUrl("http://localhost:8735");
 if (blockedLocalUrl.ok) {
   throw new Error("Friday web inspection allowed a local URL.");
+}
+
+const blockedPrivateHosts = [
+  "10.0.0.5",
+  "172.16.0.5",
+  "192.168.1.10",
+  "169.254.10.1",
+  "service.local",
+  "[fd00::1]",
+];
+
+if (!blockedPrivateHosts.every((host) => isPrivateWebInspectionHostname(host))) {
+  throw new Error("Friday web inspection did not block private hostnames consistently.");
+}
+
+const blockedPrivateSearchResults = parseDuckDuckGoLiteResults(`
+  <html>
+    <body>
+      <a rel="nofollow" href="//duckduckgo.com/l/?uddg=http%3A%2F%2F192.168.1.10%2Fadmin">Private admin</a>
+      <td class="result-snippet">This should not become an approved source.</td>
+    </body>
+  </html>
+`);
+
+if (blockedPrivateSearchResults.length !== 0) {
+  throw new Error("Friday web search accepted private network source results.");
 }
 
 const normalizedWebUrl = normalizeWebInspectionUrl("https://example.com/path");

@@ -13,6 +13,7 @@ export type WebInspectionResult =
     };
 
 const PRIVATE_HOSTS = new Set(["localhost", "0.0.0.0", "127.0.0.1", "::1"]);
+const PRIVATE_HOST_SUFFIXES = [".localhost", ".local", ".internal", ".lan"];
 
 type WebInspectionOptions = {
   fetcher?: typeof fetch;
@@ -31,6 +32,30 @@ function createWebInspectionFailure(error: unknown, url?: string): WebInspection
   return { ok: false, message, url };
 }
 
+function normalizeHostname(hostname: string) {
+  return hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "").replace(/\.$/, "");
+}
+
+export function isPrivateWebInspectionHostname(hostname: string) {
+  const lowerHost = normalizeHostname(hostname);
+  if (PRIVATE_HOSTS.has(lowerHost)) return true;
+  if (PRIVATE_HOST_SUFFIXES.some((suffix) => lowerHost.endsWith(suffix))) return true;
+
+  const ipv4Parts = lowerHost.split(".");
+  if (ipv4Parts.length === 4 && ipv4Parts.every((part) => /^\d+$/.test(part))) {
+    const [firstRaw, secondRaw] = ipv4Parts;
+    const first = Number(firstRaw);
+    const second = Number(secondRaw);
+
+    if (first === 0 || first === 10 || first === 127) return true;
+    if (first === 169 && second === 254) return true;
+    if (first === 172 && second >= 16 && second <= 31) return true;
+    if (first === 192 && second === 168) return true;
+  }
+
+  return lowerHost === "::1" || lowerHost.startsWith("fc") || lowerHost.startsWith("fd") || lowerHost.startsWith("fe80:");
+}
+
 export function normalizeWebInspectionUrl(input: string): WebInspectionResult {
   try {
     const url = new URL(input.trim());
@@ -38,7 +63,7 @@ export function normalizeWebInspectionUrl(input: string): WebInspectionResult {
       return { ok: false, message: "Only http and https URLs are supported." };
     }
 
-    if (PRIVATE_HOSTS.has(url.hostname.toLowerCase())) {
+    if (isPrivateWebInspectionHostname(url.hostname)) {
       return { ok: false, message: "Local network URLs are not available for web inspection." };
     }
 
