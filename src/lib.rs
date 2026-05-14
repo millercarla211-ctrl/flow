@@ -47,14 +47,14 @@ pub use codex::{
     CodexTaskResponse,
 };
 pub use competitive::{
-    CompetitiveFeature, CompetitiveScorecard, CompetitiveSegment, FeatureStatus,
-    default_competitive_scorecard,
+    CompletionItem, CompletionItemStatus, CompletionSet, CompetitiveFeature, CompetitiveScorecard,
+    CompetitiveSegment, FeatureStatus, active_completion_set, default_competitive_scorecard,
 };
 pub use config::{
     FlowBrowserProductionConfig, FlowCodexProductionConfig, FlowDeploymentEnvironment,
-    FlowIntegrationTarget, FlowProductionBundleEntry, FlowProductionBundleManifest,
-    FlowProductionConfig, FlowReleaseFileRecord, FlowReleaseSummary, FlowReleaseTask,
-    FlowReleaseTaskStatus, FlowRuntimeProductionConfig, FlowZedProductionConfig,
+    FlowIntegrationTarget, FlowProductionBundleDocument, FlowProductionBundleEntry,
+    FlowProductionBundleManifest, FlowProductionConfig, FlowReleaseFileRecord, FlowReleaseSummary,
+    FlowReleaseTask, FlowReleaseTaskStatus, FlowRuntimeProductionConfig, FlowZedProductionConfig,
     FlowZeroClawProductionConfig,
 };
 pub use dx::DxFlowRuntime;

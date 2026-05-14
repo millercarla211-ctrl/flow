@@ -15,6 +15,7 @@ use crate::browser::{
     BrowserHostFlavor, BrowserTask, FlowBrowserEngine, default_browser_pack_catalog,
 };
 use crate::cli::Command;
+use crate::competitive::active_completion_set;
 use crate::competitive::default_competitive_scorecard;
 use crate::config::FlowIntegrationTarget;
 use crate::embed::{FlowEmbeddingRegistry, HostSurface};
@@ -187,6 +188,14 @@ pub async fn execute(command: Command) -> Result<()> {
             print_scorecard();
         }
 
+        Command::Completion => {
+            print_completion();
+        }
+
+        Command::CompletionJson => {
+            print_completion_json()?;
+        }
+
         Command::Models { modality } => {
             print_models(&RuntimeBroker::detect(), modality.as_deref())?;
         }
@@ -311,6 +320,8 @@ fn print_interactive_help() {
     println!("  --profile                Show device profile and activation config");
     println!("  --projects               Show the DX project stack");
     println!("  --scorecard              Show the Flow competitive scorecard");
+    println!("  --completion             Show the active 100-point completion loop");
+    println!("  --completion-json        Print the active completion loop as JSON");
     println!("  --models [modality]      Show broker model catalog");
     println!("  --install-model <key>    Download a known local model artifact");
     println!("  --ui-model-candidates    Show ranked local UI model options");
@@ -346,6 +357,8 @@ fn print_interactive_help() {
     println!("  cargo run --bin flow -- --profile");
     println!("  cargo run --bin flow -- --projects");
     println!("  cargo run --bin flow -- --scorecard");
+    println!("  cargo run --bin flow -- --completion");
+    println!("  cargo run --bin flow -- --completion-json");
     println!("  cargo run --bin flow -- --models chat");
     println!("  cargo run --release --bin flow -- --install-model qwen3-0.6b");
     println!("  cargo run --release --bin flow -- --install-model qwen35-4b-revised-q4km");
@@ -493,6 +506,54 @@ fn print_scorecard() {
     for gap in scorecard.top_gaps {
         println!("  - {}", gap);
     }
+}
+
+fn print_completion() {
+    let set = active_completion_set();
+
+    println!("Flow Completion Loop");
+    println!("====================");
+    println!("Active set: {}", set.name);
+    println!(
+        "Current: {} / {}",
+        set.current_score_out_of_100, set.target_score_out_of_100
+    );
+    println!("Rule: {}", set.loop_rule);
+    println!();
+
+    println!("Items:");
+    for item in &set.items {
+        println!(
+            "  - [{}] {} ({} pts)",
+            item.status.label(),
+            item.title,
+            item.weight
+        );
+        println!("    proof: {}", item.proof);
+        if item.status != crate::competitive::CompletionItemStatus::Done {
+            println!("    next: {}", item.next_action);
+        }
+    }
+
+    println!();
+    println!("Next actions:");
+    let remaining = set
+        .items
+        .iter()
+        .filter(|item| item.status != crate::competitive::CompletionItemStatus::Done)
+        .collect::<Vec<_>>();
+    if remaining.is_empty() {
+        println!("  - Open the next 100-point feature set in TODO.md and keep the loop moving.");
+    } else {
+        for item in remaining {
+            println!("  - {}", item.next_action);
+        }
+    }
+}
+
+fn print_completion_json() -> Result<()> {
+    println!("{}", serde_json::to_string_pretty(&active_completion_set())?);
+    Ok(())
 }
 
 fn print_models(broker: &RuntimeBroker, modality_filter: Option<&str>) -> Result<()> {

@@ -143,7 +143,11 @@ impl DxFlowRuntime {
                 filename: format!("{}.json", target.slug()),
             })
             .collect();
-        Ok(FlowProductionBundleManifest::for_summary(&summary, entries))
+        Ok(FlowProductionBundleManifest::for_summary(
+            &summary,
+            entries,
+            Vec::new(),
+        ))
     }
 
     pub fn export_production_bundle(

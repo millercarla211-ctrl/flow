@@ -5,6 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+use crate::competitive::{CompletionItem, active_completion_set};
 use crate::runtime::FlowLocalRuntimeSummary;
 
 use super::{FlowIntegrationTarget, FlowProductionConfig};
@@ -26,10 +27,19 @@ pub const BROWSER_RELEASE_ARTIFACTS: [&str; 3] = [
     "extensions/flow-webext/artifacts/flow-webext-safari-v0.1.0.zip",
 ];
 
+pub const HANDOFF_DOCUMENT_SNAPSHOTS: [&str; 2] = ["TODO.md", "CHANGELOG.md"];
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FlowProductionBundleEntry {
     pub target: FlowIntegrationTarget,
     pub filename: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FlowProductionBundleDocument {
+    pub source: String,
+    pub filename: String,
+    pub copied: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -44,6 +54,11 @@ pub struct FlowProductionBundleManifest {
     pub all_models_ready: bool,
     pub missing_model_paths: Vec<String>,
     pub entries: Vec<FlowProductionBundleEntry>,
+    pub handoff_documents: Vec<FlowProductionBundleDocument>,
+    pub active_completion_set: String,
+    pub completion_score_out_of_100: u8,
+    pub completion_target_score_out_of_100: u8,
+    pub completion_items: Vec<CompletionItem>,
     pub browser_release_artifacts: Vec<String>,
     pub validated_commands: Vec<String>,
     pub notes: Vec<String>,
@@ -53,7 +68,10 @@ impl FlowProductionBundleManifest {
     pub fn for_summary(
         summary: &FlowLocalRuntimeSummary,
         entries: Vec<FlowProductionBundleEntry>,
+        handoff_documents: Vec<FlowProductionBundleDocument>,
     ) -> Self {
+        let completion_set = active_completion_set();
+
         Self {
             project: "flow".to_string(),
             crate_version: env!("CARGO_PKG_VERSION").to_string(),
@@ -68,6 +86,11 @@ impl FlowProductionBundleManifest {
             all_models_ready: summary.all_ready(),
             missing_model_paths: summary.missing_model_paths(),
             entries,
+            handoff_documents,
+            active_completion_set: completion_set.name,
+            completion_score_out_of_100: completion_set.current_score_out_of_100,
+            completion_target_score_out_of_100: completion_set.target_score_out_of_100,
+            completion_items: completion_set.items,
             browser_release_artifacts: BROWSER_RELEASE_ARTIFACTS
                 .into_iter()
                 .map(str::to_string)
@@ -78,6 +101,7 @@ impl FlowProductionBundleManifest {
                 .collect(),
             notes: vec![
                 "This bundle contains low-end-safe production defaults for every supported Flow host target.".to_string(),
+                "TODO.md and CHANGELOG.md snapshots are included when the command is run from the repository root.".to_string(),
                 "Firebase wiring, browser-store publishing, and vendor-side signing stay external to this repository.".to_string(),
             ],
         }
@@ -102,6 +126,16 @@ pub fn export_production_bundle(
     summary: &FlowLocalRuntimeSummary,
     output_dir: impl AsRef<Path>,
 ) -> Result<FlowProductionBundleManifest> {
+    let repo_root = std::env::current_dir()?;
+    export_production_bundle_from_repo(summary, repo_root, output_dir)
+}
+
+pub fn export_production_bundle_from_repo(
+    summary: &FlowLocalRuntimeSummary,
+    repo_root: impl AsRef<Path>,
+    output_dir: impl AsRef<Path>,
+) -> Result<FlowProductionBundleManifest> {
+    let repo_root = repo_root.as_ref();
     let output_dir = output_dir.as_ref();
     fs::create_dir_all(output_dir)?;
 
@@ -114,7 +148,8 @@ pub fn export_production_bundle(
         entries.push(FlowProductionBundleEntry { target, filename });
     }
 
-    let manifest = FlowProductionBundleManifest::for_summary(summary, entries);
+    let handoff_documents = copy_handoff_documents(repo_root, output_dir)?;
+    let manifest = FlowProductionBundleManifest::for_summary(summary, entries, handoff_documents);
     fs::write(output_dir.join("manifest.json"), manifest.to_pretty_json()?)?;
     fs::write(
         output_dir.join("README.txt"),
@@ -122,6 +157,32 @@ pub fn export_production_bundle(
     )?;
 
     Ok(manifest)
+}
+
+fn copy_handoff_documents(
+    repo_root: &Path,
+    output_dir: &Path,
+) -> Result<Vec<FlowProductionBundleDocument>> {
+    let handoff_dir = output_dir.join("handoff");
+    fs::create_dir_all(&handoff_dir)?;
+
+    HANDOFF_DOCUMENT_SNAPSHOTS
+        .iter()
+        .map(|source| {
+            let filename = source.to_ascii_lowercase().replace(".md", "-snapshot.md");
+            let copied = match fs::copy(repo_root.join(source), handoff_dir.join(&filename)) {
+                Ok(_) => true,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+                Err(error) => return Err(error.into()),
+            };
+
+            Ok(FlowProductionBundleDocument {
+                source: (*source).to_string(),
+                filename: format!("handoff/{filename}"),
+                copied,
+            })
+        })
+        .collect()
 }
 
 fn build_bundle_readme(
@@ -162,6 +223,25 @@ fn build_bundle_readme(
     for entry in &manifest.entries {
         lines.push(format!("  - {} -> {}", entry.target.slug(), entry.filename));
     }
+
+    lines.push(String::new());
+    lines.push("Handoff snapshots:".to_string());
+    for document in &manifest.handoff_documents {
+        lines.push(format!(
+            "  - {} -> {} ({})",
+            document.source,
+            document.filename,
+            if document.copied { "copied" } else { "missing" }
+        ));
+    }
+
+    lines.push(String::new());
+    lines.push(format!(
+        "Completion loop: {} ({}/{})",
+        manifest.active_completion_set,
+        manifest.completion_score_out_of_100,
+        manifest.completion_target_score_out_of_100
+    ));
 
     if !manifest.missing_model_paths.is_empty() {
         lines.push(String::new());
@@ -238,13 +318,30 @@ mod tests {
                 .unwrap_or_default()
                 .as_nanos()
         ));
-        let manifest = export_production_bundle(&low_end_runtime_summary(), &temp_dir).unwrap();
+        let repo_root = temp_dir.join("repo");
+        let output = temp_dir.join("out");
+        fs::create_dir_all(&repo_root).unwrap();
+        fs::write(repo_root.join("TODO.md"), "# TODO").unwrap();
+        fs::write(repo_root.join("CHANGELOG.md"), "# Changelog").unwrap();
 
-        assert!(temp_dir.join("manifest.json").exists());
-        assert!(temp_dir.join("README.txt").exists());
+        let manifest =
+            export_production_bundle_from_repo(&low_end_runtime_summary(), &repo_root, &output)
+                .unwrap();
+
+        assert!(output.join("manifest.json").exists());
+        assert!(output.join("README.txt").exists());
         for entry in &manifest.entries {
-            assert!(temp_dir.join(&entry.filename).exists());
+            assert!(output.join(&entry.filename).exists());
         }
+        assert!(
+            manifest
+                .handoff_documents
+                .iter()
+                .all(|document| document.copied)
+        );
+        assert!(output.join("handoff/todo-snapshot.md").exists());
+        assert!(output.join("handoff/changelog-snapshot.md").exists());
+        assert!(manifest.completion_score_out_of_100 <= 100);
 
         let _ = fs::remove_dir_all(&temp_dir);
     }

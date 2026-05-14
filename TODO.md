@@ -1,51 +1,54 @@
 # Flow TODO
 
-The current repository scope is validated and release-ready. The items below are next-wave expansion work, not blockers for the present build, test, or packaging baseline.
+Flow is not finished. Treat this file as the active product loop, not as a parking lot. When a set reaches 100/100, open the next set and keep moving.
 
-## Host Expansion
+## Active Set: Completion Control Loop
 
-- add deeper Windows native automation and accessibility adapters
-- add deeper macOS native automation and accessibility adapters
-- add deeper Linux native automation and accessibility adapters
-- add Android host-bridge implementations
-- add iOS host-bridge implementations
-- add richer Tauri embed helpers
-- add richer Flutter embed helpers
+Status: 100/100
 
-## Product Uplift
+Goal: make Flow's progress honest, visible, exportable, and hard to overstate while we continue building the actual product.
 
-- improve global desktop dictation polish
-- improve global desktop rewrite overlays
-- deepen command mode for editing, apps, navigation, and search
-- improve live grammar and rewrite-on-paste behavior
-- improve cross-app snippets and personal dictionary sync
-- deepen privacy controls, local-only mode, and audit-log UX
+### Done
 
-## Competitive Uplift
+- [x] Create a professional git checkpoint before starting the new loop.
+- [x] Replace static "release-ready" TODO language with this active completion loop.
+- [x] Add `flow --completion` / `flow --progress` / `flow --next-100` so operators can see the current set and next actions.
+- [x] Add `flow --completion-json` / `flow --progress-json` / `flow --next-100-json` for Friday/DX dashboard consumers.
+- [x] Add completion-loop data to `flow --release-summary` and exported release handoff files.
+- [x] Include `TODO.md` and `CHANGELOG.md` snapshots in exported production bundles.
+- [x] Add tests that prevent accidental 100/100 claims while planned items remain.
+- [x] Update `CHANGELOG.md` with the current loop progress.
 
-- improve Wispr-grade variable recognition quality
-- improve Wispr-grade polished file tagging across editors and docs
-- improve Grammarly-grade academic assistance
-- improve Grammarly-grade citation and source workflows
-- improve Grammarly-grade plagiarism review paths
-- improve tone and clarity coaching quality
+### Completed Control Rule
 
-## Multimodal Runtime
+This set is complete. The next loop should open `Host Autonomy Core` as the new active set and keep the same commit, typecheck, changelog, and TODO discipline.
 
-- deepen STT, TTS, OCR, VLM, image, and video runtime adapters
-- deepen low-end routing defaults and promotion logic
-- deepen model conversion and validation flows
-- deepen publish-ready local artifact metadata
+## Next Set Candidates
 
-## Browser Extension
+### Host Autonomy Core
 
-- run manual smoke tests in real Chrome, Edge, Firefox, and Safari installs against the packaged extension artifacts
-- verify offline reuse after first browser-pack download on each target browser
-- verify partial-download resume, hash rejection, and quota-recovery flows on each target browser
-- add optional Chromium-only WebLLM acceleration once the Qwen browser packs are validated there
+- [ ] Harden Windows global dictation host behavior beyond CLI/demo paths.
+- [ ] Add production-grade desktop accessibility diagnostics.
+- [ ] Add reliable pause/resume/snooze controls for always-on runtime hosts.
+- [ ] Add host-level audit logs for native automation and text replacement actions.
 
-## Release Follow-Up
+### Writing Quality Core
 
-- refresh the competitive scorecard after the next product-quality pass
-- keep checked-in `configs/production` exports refreshed when production defaults change
-- keep checked-in `release/` handoff exports refreshed when release metadata changes
+- [ ] Deepen grammar, clarity, and rewrite explanations beyond the current Harper-backed baseline.
+- [ ] Add citation, fact-checking, and academic assistance paths.
+- [ ] Add style-guide and brand-tone policy enforcement.
+- [ ] Add multilingual writing assistance.
+
+### Multimodal Local Core
+
+- [ ] Finish local OCR/VLM/image/video runtime execution paths.
+- [ ] Add conversion and validation workflows for community model artifacts.
+- [ ] Add publish-ready local artifact metadata.
+- [ ] Add low-end routing promotion/demotion checks for every model role.
+
+### Browser And Extension Core
+
+- [ ] Smoke test packaged browser extensions in real Chrome, Edge, Firefox, and Safari installs.
+- [ ] Verify offline browser-pack reuse after first download.
+- [ ] Verify partial-download resume, hash rejection, and quota recovery.
+- [ ] Add optional Chromium WebLLM acceleration after Qwen browser packs are validated.

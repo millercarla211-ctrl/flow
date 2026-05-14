@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- added an active completion-control loop to `TODO.md` with a conservative 75/100 score for the current feature set
+- added `flow --completion`, `flow --progress`, and `flow --next-100` for a CLI-visible current set, evidence, and next actions
+- added `flow --completion-json`, `flow --progress-json`, and `flow --next-100-json` for machine-readable completion status
+- added completion-loop status to release summaries and exported release handoff data
+- added `TODO.md` and `CHANGELOG.md` snapshots to exported production bundles
+- added completion-loop guardrail tests so planned items cannot accidentally score as 100/100
+- checkpointed the local model verification policy before starting the new completion loop
+
 ## 2026-04-26
 
 - refocused the repository narrative around standalone Flow instead of the broader sibling-project stack

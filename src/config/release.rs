@@ -5,6 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+use crate::competitive::{CompletionItem, active_completion_set};
 use crate::runtime::FlowLocalRuntimeSummary;
 
 use super::export::VALIDATED_RELEASE_COMMANDS;
@@ -46,6 +47,10 @@ pub struct FlowReleaseSummary {
     pub production_bundle_files: Vec<FlowReleaseFileRecord>,
     pub browser_release_artifacts: Vec<FlowReleaseFileRecord>,
     pub validated_commands: Vec<String>,
+    pub active_completion_set: String,
+    pub completion_score_out_of_100: u8,
+    pub completion_target_score_out_of_100: u8,
+    pub completion_items: Vec<CompletionItem>,
     pub external_tasks: Vec<FlowReleaseTask>,
     pub notes: Vec<String>,
 }
@@ -78,6 +83,7 @@ impl FlowReleaseSummary {
         )?;
 
         let production_bundle_ready = production_bundle_files.iter().all(|file| file.exists);
+        let completion_set = active_completion_set();
 
         Ok(Self {
             project: "flow".to_string(),
@@ -98,6 +104,10 @@ impl FlowReleaseSummary {
                 .iter()
                 .map(|command| (*command).to_string())
                 .collect(),
+            active_completion_set: completion_set.name,
+            completion_score_out_of_100: completion_set.current_score_out_of_100,
+            completion_target_score_out_of_100: completion_set.target_score_out_of_100,
+            completion_items: completion_set.items,
             external_tasks: vec![
                 FlowReleaseTask {
                     key: "firebase-project-linking".to_string(),
@@ -121,7 +131,7 @@ impl FlowReleaseSummary {
                 },
             ],
             notes: vec![
-                "The repository scope is code-complete and validated; the remaining tasks are vendor-side release operations.".to_string(),
+                "The active completion loop is intentionally below 100 until all checked TODO items are implemented and verified.".to_string(),
                 "This summary is intended for client handoff, operator review, and downstream host integration.".to_string(),
             ],
         })
@@ -163,6 +173,26 @@ impl FlowReleaseSummary {
                 "- `{}`: {}",
                 file.path,
                 if file.exists { "ready" } else { "missing" }
+            ));
+        }
+
+        lines.push(String::new());
+        lines.push("## Active Completion Loop".to_string());
+        lines.push(format!(
+            "- set: `{}`",
+            self.active_completion_set
+        ));
+        lines.push(format!(
+            "- score: `{}/{}`",
+            self.completion_score_out_of_100, self.completion_target_score_out_of_100
+        ));
+        for item in &self.completion_items {
+            lines.push(format!(
+                "- `[{}]` {} ({} pts): {}",
+                item.status.label(),
+                item.title,
+                item.weight,
+                item.proof
             ));
         }
 

@@ -36,6 +36,10 @@ pub enum Command {
     Projects,
     /// Show the Flow competitive scorecard
     Scorecard,
+    /// Show the active completion loop and next 100-point feature set
+    Completion,
+    /// Print the active completion loop as JSON
+    CompletionJson,
     /// List the broker catalog, optionally filtered by modality
     Models { modality: Option<String> },
     /// Download a known local model artifact
@@ -176,6 +180,8 @@ impl Args {
             "--profile" => Command::Profile,
             "--projects" => Command::Projects,
             "--scorecard" => Command::Scorecard,
+            "--completion" | "--progress" | "--next-100" => Command::Completion,
+            "--completion-json" | "--progress-json" | "--next-100-json" => Command::CompletionJson,
             "--models" => {
                 let modality = args.get(2).cloned();
                 Command::Models { modality }
