@@ -176,9 +176,9 @@ Goal: connect Friday's Rust contracts to tracked desktop/web UI route files, scr
 
 This set is complete. The next loop should open `Friday Dashboard Runtime Wiring` and consume the exported readiness bundle from the product UI/DX dashboard instead of scraping CLI text.
 
-## Active Set: Friday Dashboard Runtime Wiring
+## Completed Set: Friday Dashboard Runtime Wiring
 
-Status: 80/100
+Status: 100/100
 
 Goal: make Friday's dashboard and DX surfaces consume live readiness exports, display recent visual captures, and guide the next release loop without manual CLI copying.
 
@@ -188,7 +188,22 @@ Goal: make Friday's dashboard and DX surfaces consume live readiness exports, di
 - [x] Add recent screenshot capture history and missing-capture prompts for top Friday routes.
 - [x] Add one-click local command launch/recovery actions from dashboard readiness cards.
 - [x] Persist export history so operators can compare readiness between checkpoints.
+- [x] Add a release-review handoff that links completion, changelog, TODO, visual targets, and dashboard export files.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Dashboard Product UI Wiring` and consume these typed cards, actions, history records, and release-review handoffs from the visible Friday dashboard without scraping CLI text.
+
+## Next Set: Friday Dashboard Product UI Wiring
+
+Status: 0/100
+
+Goal: make the visible Friday desktop/web dashboard consume the live Rust dashboard panel contract, execute safe local actions, and show release readiness without dummy product copy.
 
 ### Remaining To Reach 100/100
 
-- [ ] Add a release-review handoff that links completion, changelog, TODO, visual targets, and dashboard export files.
+- [ ] Bind the dashboard panel JSON to the visible Friday dashboard surface.
+- [ ] Wire typed dashboard actions to safe UI buttons with disabled/loading/error states.
+- [ ] Show export history deltas and screenshot prompts in the product UI.
+- [ ] Render release-review handoff links for TODO, changelog, visual targets, and export artifacts.
+- [ ] Add a small UI smoke contract proving the dashboard can load the exported panel.

@@ -102,6 +102,8 @@
 - advanced Friday Dashboard Runtime Wiring to 60/100
 - added persisted Friday dashboard export history with latest/previous checkpoint records and score/readiness deltas
 - advanced Friday Dashboard Runtime Wiring to 80/100
+- added Friday release-review dashboard handoffs that link completion, TODO, changelog, visual targets, export history, and dashboard files
+- completed Friday Dashboard Runtime Wiring at 100/100 and listed Friday Dashboard Product UI Wiring as the next set
 
 ## 2026-04-26
 

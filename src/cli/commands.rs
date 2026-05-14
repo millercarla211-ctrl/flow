@@ -1448,6 +1448,12 @@ fn print_friday_dashboard_panel(input_dir: &str) -> Result<()> {
         panel.export_history.score_delta_from_previous,
         panel.export_history.readiness_delta_from_previous
     );
+    println!(
+        "Release review: {} ({}/{} checks ready)",
+        panel.release_review.status.label(),
+        panel.release_review.ready_count,
+        panel.release_review.total_count
+    );
     for record in panel
         .screenshot_history
         .records

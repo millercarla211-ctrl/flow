@@ -30,7 +30,7 @@ use flow::friday::{
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
     export_friday_dashboard_bundle, friday_dashboard_export_history_from_export,
-    friday_dashboard_panel_from_export,
+    friday_dashboard_panel_from_export, friday_dashboard_release_review_from_export,
     friday_dashboard_screenshot_history, friday_execution_handoff_report,
     friday_live_ui_route_binding_report,
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
@@ -940,10 +940,12 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
     let bundle = export_friday_dashboard_bundle(&root).unwrap();
 
     assert_eq!(bundle.completion.name, "Friday Dashboard Runtime Wiring");
-    assert_eq!(bundle.completion.current_score_out_of_100, 80);
-    assert_eq!(bundle.manifest.score_out_of_100, 80);
+    assert_eq!(bundle.completion.current_score_out_of_100, 100);
+    assert_eq!(bundle.manifest.score_out_of_100, 100);
     assert_eq!(bundle.export_history.record_count, 1);
+    assert_eq!(bundle.release_review.loop_name, "Friday Dashboard Runtime Wiring");
     assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
+    assert!(PathBuf::from(&bundle.manifest.release_review_json).exists());
     assert_eq!(bundle.readiness.blocking_count, 0);
     assert_eq!(bundle.route_bindings.blocking_count, 0);
     assert_eq!(bundle.route_visuals.blocking_count, 0);
@@ -962,6 +964,9 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
     assert!(bundle.manifest.files.iter().any(|file| {
         file.path.ends_with("dashboard-history.json") && file.kind == "dashboard-history" && file.bytes > 0
     }));
+    assert!(bundle.manifest.files.iter().any(|file| {
+        file.path.ends_with("release-review.json") && file.kind == "release-review" && file.bytes > 0
+    }));
     assert!(bundle
         .manifest
         .commands
@@ -978,9 +983,9 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
     assert_eq!(panel.loop_name, "Friday Dashboard Runtime Wiring");
-    assert_eq!(panel.score_out_of_100, 80);
+    assert_eq!(panel.score_out_of_100, 100);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
-    assert_eq!(panel.cards.len(), 7);
+    assert_eq!(panel.cards.len(), 8);
     assert!(panel.cards.iter().any(|card| {
         card.id == "completion-loop"
             && card.source_json.ends_with("completion.json")
@@ -1023,12 +1028,26 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
                 .any(|action| action.kind == FridayDashboardActionKind::RunCheck
                     && action.command.contains("--friday-dashboard-export"))
     }));
+    assert!(panel.cards.iter().any(|card| {
+        card.id == "release-review"
+            && card.source_json.ends_with("release-review.json")
+            && card
+                .actions
+                .iter()
+                .any(|action| action.kind == FridayDashboardActionKind::Open
+                    && action.command.contains("--friday-dashboard-panel"))
+    }));
     assert!(panel.cards.iter().flat_map(|card| &card.actions).all(|action| {
         action.local_only && action.enabled && !action.destructive && !action.requires_confirmation
     }));
     assert_eq!(panel.screenshot_history.total_targets, 10);
     assert_eq!(panel.export_history.record_count, 1);
     assert_eq!(panel.export_history.score_delta_from_previous, 0);
+    assert!(panel
+        .release_review
+        .links
+        .iter()
+        .any(|link| link.path == "TODO.md"));
     assert!(panel.screenshot_history.missing_count > 0);
     assert!(panel.screenshot_history.records.iter().any(|record| {
         record.status == FridayDashboardScreenshotStatus::Missing
@@ -1067,6 +1086,35 @@ fn friday_dashboard_export_history_tracks_checkpoints() {
     assert!(panel.cards.iter().any(|card| {
         card.id == "export-history" && card.status == FridayDashboardPanelStatus::Ready
     }));
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn friday_dashboard_release_review_links_release_artifacts() {
+    let root = temp_root("friday-dashboard-release-review");
+    export_friday_dashboard_bundle(&root).unwrap();
+
+    let review = friday_dashboard_release_review_from_export(&root).unwrap();
+    assert_eq!(review.loop_name, "Friday Dashboard Runtime Wiring");
+    assert_eq!(review.score_out_of_100, 100);
+    assert!(review.total_count >= 6);
+    assert!(review
+        .checklist
+        .iter()
+        .any(|item| item.id == "completion-loop" && item.ready));
+    assert!(review
+        .links
+        .iter()
+        .any(|link| link.id == "changelog" && link.path == "CHANGELOG.md"));
+    assert!(review
+        .links
+        .iter()
+        .any(|link| link.id == "route-visuals" && link.path.ends_with("route-visuals.json")));
+    assert!(review
+        .commands
+        .iter()
+        .any(|command| command.contains("--friday-dashboard-panel")));
 
     let _ = fs::remove_dir_all(&root);
 }

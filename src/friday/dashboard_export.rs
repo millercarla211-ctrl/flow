@@ -100,6 +100,8 @@ pub struct FridayDashboardExportManifest {
     pub dashboard_index_json: String,
     #[serde(default)]
     pub dashboard_history_json: String,
+    #[serde(default)]
+    pub release_review_json: String,
     pub summary_markdown: String,
     pub commands: Vec<String>,
     pub files: Vec<FridayDashboardExportFile>,
@@ -133,6 +135,41 @@ pub struct FridayDashboardExportHistory {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardReleaseReviewItem {
+    pub id: String,
+    pub title: String,
+    pub ready: bool,
+    pub detail: String,
+    pub source_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardReleaseReviewLink {
+    pub id: String,
+    pub label: String,
+    pub kind: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardReleaseReviewHandoff {
+    pub generated_at_unix_ms: u128,
+    pub product_name: String,
+    pub loop_name: String,
+    pub score_out_of_100: u8,
+    pub status: FridayDashboardPanelStatus,
+    pub summary: String,
+    pub ready_count: usize,
+    pub total_count: usize,
+    pub export_file_count: usize,
+    pub visual_target_count: usize,
+    pub screenshot_missing_count: usize,
+    pub checklist: Vec<FridayDashboardReleaseReviewItem>,
+    pub links: Vec<FridayDashboardReleaseReviewLink>,
+    pub commands: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FridayDashboardExportBundle {
     pub manifest: FridayDashboardExportManifest,
     pub readiness: FridayOperatorReadinessReport,
@@ -141,6 +178,7 @@ pub struct FridayDashboardExportBundle {
     pub execution_handoffs: FridayExecutionHandoffReport,
     pub completion: CompletionSet,
     pub export_history: FridayDashboardExportHistory,
+    pub release_review: FridayDashboardReleaseReviewHandoff,
 }
 
 impl FridayDashboardExportBundle {
@@ -208,6 +246,7 @@ pub struct FridayDashboardPanel {
     pub blocking_count: usize,
     pub source_files: Vec<FridayDashboardExportFile>,
     pub export_history: FridayDashboardExportHistory,
+    pub release_review: FridayDashboardReleaseReviewHandoff,
 }
 
 impl FridayDashboardPanel {
@@ -245,6 +284,7 @@ pub fn export_friday_dashboard_bundle(
     let completion_path = export_dir.join("completion.json");
     let dashboard_index_path = export_dir.join("dashboard-index.json");
     let dashboard_history_path = export_dir.join("dashboard-history.json");
+    let release_review_path = export_dir.join("release-review.json");
     let summary_path = export_dir.join("summary.md");
 
     let mut files = vec![
@@ -340,6 +380,7 @@ pub fn export_friday_dashboard_bundle(
         completion_json: path_string(&completion_path),
         dashboard_index_json: path_string(&dashboard_index_path),
         dashboard_history_json: path_string(&dashboard_history_path),
+        release_review_json: path_string(&release_review_path),
         summary_markdown: path_string(&summary_path),
         commands: dashboard_commands(),
         files,
@@ -355,6 +396,26 @@ pub fn export_friday_dashboard_bundle(
     manifest
         .files
         .push(file_record(&dashboard_history_path, "dashboard-history")?);
+    let mut release_review = dashboard_release_review_handoff(
+        &manifest,
+        &completion,
+        &route_visuals,
+        &screenshot_history,
+        &export_history,
+    );
+    manifest.files.push(write_json_file(
+        &release_review_path,
+        "release-review",
+        &release_review,
+    )?);
+    release_review = dashboard_release_review_handoff(
+        &manifest,
+        &completion,
+        &route_visuals,
+        &screenshot_history,
+        &export_history,
+    );
+    write_json_file(&release_review_path, "release-review", &release_review)?;
 
     write_json_file(&manifest_path, "manifest", &manifest)?;
 
@@ -366,6 +427,7 @@ pub fn export_friday_dashboard_bundle(
         execution_handoffs,
         completion,
         export_history,
+        release_review,
     })
 }
 
@@ -384,10 +446,19 @@ pub fn friday_dashboard_panel_from_export(
     let completion: CompletionSet = read_json_file(&manifest.completion_json)?;
     let screenshot_history = friday_dashboard_screenshot_history(&route_visuals);
     let export_history = read_dashboard_export_history(&dashboard_history_path(&manifest, export_dir))?;
+    let release_review = read_release_review_handoff(
+        &release_review_path(&manifest, export_dir),
+        &manifest,
+        &completion,
+        &route_visuals,
+        &screenshot_history,
+        &export_history,
+    )?;
 
     let cards = vec![
         completion_card(&manifest, &completion),
         export_history_card(&manifest, &export_history),
+        release_review_card(&manifest, &release_review),
         readiness_card(&manifest, &readiness),
         route_bindings_card(&manifest, &route_bindings),
         screenshot_history_card(&manifest, &screenshot_history),
@@ -424,6 +495,7 @@ pub fn friday_dashboard_panel_from_export(
         blocking_count,
         source_files: manifest.files.clone(),
         export_history,
+        release_review,
     })
 }
 
@@ -434,6 +506,26 @@ pub fn friday_dashboard_export_history_from_export(
     let manifest_path = export_dir.join("manifest.json");
     let manifest: FridayDashboardExportManifest = read_json_file(&manifest_path)?;
     read_dashboard_export_history(&dashboard_history_path(&manifest, export_dir))
+}
+
+pub fn friday_dashboard_release_review_from_export(
+    export_dir: impl AsRef<Path>,
+) -> Result<FridayDashboardReleaseReviewHandoff> {
+    let export_dir = export_dir.as_ref();
+    let manifest_path = export_dir.join("manifest.json");
+    let manifest: FridayDashboardExportManifest = read_json_file(&manifest_path)?;
+    let route_visuals: FridayRouteVisualReport = read_json_file(&manifest.route_visuals_json)?;
+    let completion: CompletionSet = read_json_file(&manifest.completion_json)?;
+    let screenshot_history = friday_dashboard_screenshot_history(&route_visuals);
+    let export_history = read_dashboard_export_history(&dashboard_history_path(&manifest, export_dir))?;
+    read_release_review_handoff(
+        &release_review_path(&manifest, export_dir),
+        &manifest,
+        &completion,
+        &route_visuals,
+        &screenshot_history,
+        &export_history,
+    )
 }
 
 pub fn friday_dashboard_screenshot_history(
@@ -586,6 +678,28 @@ fn export_history_card(
             "Refresh history",
             &format!("flow --friday-dashboard-export {}", manifest.export_dir),
             FridayDashboardActionKind::RunCheck,
+        )],
+    )
+}
+
+fn release_review_card(
+    manifest: &FridayDashboardExportManifest,
+    handoff: &FridayDashboardReleaseReviewHandoff,
+) -> FridayDashboardCard {
+    card(
+        "release-review",
+        "Release Review",
+        handoff.status,
+        percentage(handoff.ready_count, handoff.total_count),
+        format!("{}/{} checks ready", handoff.ready_count, handoff.total_count),
+        handoff.summary.clone(),
+        &manifest.release_review_json,
+        vec![action(
+            "release-review",
+            "open-release-review",
+            "Open release review",
+            &format!("flow --friday-dashboard-panel {}", manifest.export_dir),
+            FridayDashboardActionKind::Open,
         )],
     )
 }
@@ -923,6 +1037,27 @@ fn read_dashboard_export_history(history_path: &Path) -> Result<FridayDashboardE
     }
 }
 
+fn read_release_review_handoff(
+    release_review_path: &Path,
+    manifest: &FridayDashboardExportManifest,
+    completion: &CompletionSet,
+    route_visuals: &FridayRouteVisualReport,
+    screenshots: &FridayDashboardScreenshotHistory,
+    export_history: &FridayDashboardExportHistory,
+) -> Result<FridayDashboardReleaseReviewHandoff> {
+    if release_review_path.exists() {
+        read_json_file(release_review_path)
+    } else {
+        Ok(dashboard_release_review_handoff(
+            manifest,
+            completion,
+            route_visuals,
+            screenshots,
+            export_history,
+        ))
+    }
+}
+
 fn dashboard_history_path(
     manifest: &FridayDashboardExportManifest,
     export_dir: &Path,
@@ -931,6 +1066,17 @@ fn dashboard_history_path(
         export_dir.join("dashboard-history.json")
     } else {
         PathBuf::from(&manifest.dashboard_history_json)
+    }
+}
+
+fn release_review_path(
+    manifest: &FridayDashboardExportManifest,
+    export_dir: &Path,
+) -> PathBuf {
+    if manifest.release_review_json.trim().is_empty() {
+        export_dir.join("release-review.json")
+    } else {
+        PathBuf::from(&manifest.release_review_json)
     }
 }
 
@@ -952,6 +1098,176 @@ fn dashboard_history_record(
         export_dir: manifest.export_dir.clone(),
         manifest_json: manifest.manifest_json.clone(),
         summary: manifest.summary.clone(),
+    }
+}
+
+fn dashboard_release_review_handoff(
+    manifest: &FridayDashboardExportManifest,
+    completion: &CompletionSet,
+    route_visuals: &FridayRouteVisualReport,
+    screenshots: &FridayDashboardScreenshotHistory,
+    export_history: &FridayDashboardExportHistory,
+) -> FridayDashboardReleaseReviewHandoff {
+    let checklist = release_review_checklist(
+        manifest,
+        completion,
+        route_visuals,
+        screenshots,
+        export_history,
+    );
+    let ready_count = checklist.iter().filter(|item| item.ready).count();
+    let total_count = checklist.len();
+    let status = if ready_count == total_count {
+        FridayDashboardPanelStatus::Ready
+    } else {
+        FridayDashboardPanelStatus::Warning
+    };
+
+    FridayDashboardReleaseReviewHandoff {
+        generated_at_unix_ms: manifest.generated_at_unix_ms,
+        product_name: manifest.product_name.clone(),
+        loop_name: manifest.loop_name.clone(),
+        score_out_of_100: manifest.score_out_of_100,
+        status,
+        summary: format!(
+            "Release review handoff links {} checklist item(s), {} export file(s), and {} visual target(s).",
+            total_count,
+            manifest.files.len(),
+            route_visuals.target_count
+        ),
+        ready_count,
+        total_count,
+        export_file_count: manifest.files.len(),
+        visual_target_count: route_visuals.target_count,
+        screenshot_missing_count: screenshots.missing_count + screenshots.metadata_missing_count,
+        checklist,
+        links: release_review_links(manifest),
+        commands: vec![
+            format!("flow --friday-dashboard-panel {}", manifest.export_dir),
+            format!("flow --friday-dashboard-export {}", manifest.export_dir),
+            "flow --completion".to_string(),
+            "flow --friday-route-visuals".to_string(),
+        ],
+    }
+}
+
+fn release_review_checklist(
+    manifest: &FridayDashboardExportManifest,
+    completion: &CompletionSet,
+    route_visuals: &FridayRouteVisualReport,
+    screenshots: &FridayDashboardScreenshotHistory,
+    export_history: &FridayDashboardExportHistory,
+) -> Vec<FridayDashboardReleaseReviewItem> {
+    vec![
+        release_review_item(
+            "completion-loop",
+            "Completion loop",
+            completion.current_score_out_of_100 == completion.target_score_out_of_100,
+            format!(
+                "{} / {} complete",
+                completion.current_score_out_of_100, completion.target_score_out_of_100
+            ),
+            &manifest.completion_json,
+        ),
+        release_review_item(
+            "todo",
+            "TODO checkpoint",
+            Path::new("TODO.md").exists(),
+            "TODO.md is available for the release narrative.".to_string(),
+            "TODO.md",
+        ),
+        release_review_item(
+            "changelog",
+            "Changelog checkpoint",
+            Path::new("CHANGELOG.md").exists(),
+            "CHANGELOG.md is available for the release narrative.".to_string(),
+            "CHANGELOG.md",
+        ),
+        release_review_item(
+            "visual-targets",
+            "Visual target contract",
+            route_visuals.blocking_count == 0 && route_visuals.target_count > 0,
+            format!("{} visual target(s) configured", route_visuals.target_count),
+            &manifest.route_visuals_json,
+        ),
+        release_review_item(
+            "export-files",
+            "Export files",
+            manifest.files.iter().all(|file| file.bytes > 0),
+            format!("{} export file(s) recorded", manifest.files.len()),
+            &manifest.manifest_json,
+        ),
+        release_review_item(
+            "export-history",
+            "Export history",
+            export_history.record_count > 0,
+            format!("{} checkpoint(s) recorded", export_history.record_count),
+            &manifest.dashboard_history_json,
+        ),
+        release_review_item(
+            "screenshot-review",
+            "Screenshot review",
+            screenshots.missing_count + screenshots.metadata_missing_count == 0,
+            format!(
+                "{} missing, {} missing metadata",
+                screenshots.missing_count, screenshots.metadata_missing_count
+            ),
+            &manifest.route_visuals_json,
+        ),
+    ]
+}
+
+fn release_review_item(
+    id: &str,
+    title: &str,
+    ready: bool,
+    detail: String,
+    source_path: &str,
+) -> FridayDashboardReleaseReviewItem {
+    FridayDashboardReleaseReviewItem {
+        id: id.to_string(),
+        title: title.to_string(),
+        ready,
+        detail,
+        source_path: source_path.to_string(),
+    }
+}
+
+fn release_review_links(
+    manifest: &FridayDashboardExportManifest,
+) -> Vec<FridayDashboardReleaseReviewLink> {
+    vec![
+        release_review_link("manifest", "Manifest", "json", &manifest.manifest_json),
+        release_review_link("summary", "Summary", "markdown", &manifest.summary_markdown),
+        release_review_link("todo", "TODO", "markdown", "TODO.md"),
+        release_review_link("changelog", "Changelog", "markdown", "CHANGELOG.md"),
+        release_review_link("completion", "Completion", "json", &manifest.completion_json),
+        release_review_link(
+            "route-visuals",
+            "Route visuals",
+            "json",
+            &manifest.route_visuals_json,
+        ),
+        release_review_link(
+            "dashboard-history",
+            "Dashboard history",
+            "json",
+            &manifest.dashboard_history_json,
+        ),
+    ]
+}
+
+fn release_review_link(
+    id: &str,
+    label: &str,
+    kind: &str,
+    path: &str,
+) -> FridayDashboardReleaseReviewLink {
+    FridayDashboardReleaseReviewLink {
+        id: id.to_string(),
+        label: label.to_string(),
+        kind: kind.to_string(),
+        path: path.to_string(),
     }
 }
 

@@ -85,9 +85,9 @@ pub fn active_completion_set() -> CompletionSet {
             "release-review-handoff",
             "Release review handoff",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "link completion, changelog, TODO, visual targets, and dashboard export files into a release-review handoff",
+            CompletionItemStatus::Done,
+            "`flow --friday-dashboard-export` writes release-review.json linking completion, TODO, changelog, visual targets, history, and export files",
+            "open the next 100-point set for product UI dashboard consumption",
         ),
     ];
 
@@ -140,11 +140,11 @@ mod tests {
     fn active_set_tracks_friday_dashboard_runtime_wiring_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Dashboard Runtime Wiring");
-        assert_eq!(set.current_score_out_of_100, 80);
+        assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items
                 .iter()
-                .any(|item| item.status == CompletionItemStatus::Planned)
+                .all(|item| item.status == CompletionItemStatus::Done)
         );
     }
 
