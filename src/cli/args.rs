@@ -132,6 +132,10 @@ pub enum Command {
         screenshot: String,
         prompt: Option<String>,
     },
+    /// Show explicit image and video install/run affordances
+    FridayMediaAffordances,
+    /// Print explicit image and video install/run affordances as JSON
+    FridayMediaAffordancesJson,
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -485,6 +489,12 @@ impl Args {
                     screenshot,
                     prompt,
                 }
+            }
+            "--friday-media-affordances" | "--friday-media-actions" => {
+                Command::FridayMediaAffordances
+            }
+            "--friday-media-affordances-json" | "--friday-media-actions-json" => {
+                Command::FridayMediaAffordancesJson
             }
             "--accessibility-diagnostics" | "--accessibility" => {
                 let live = !args.iter().any(|value| value == "--dry-run");

@@ -280,6 +280,38 @@ pub struct FridayScreenshotVlmHandoffReport {
     pub findings: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayMediaAffordanceStatus {
+    Ready,
+    NeedsInstaller,
+    Planned,
+}
+
+impl FridayMediaAffordanceStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::NeedsInstaller => "needs-installer",
+            Self::Planned => "planned",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayMediaAffordance {
+    pub request_kind: FridayMultimodalRequestKind,
+    pub model_key: String,
+    pub label: String,
+    pub repo_id: String,
+    pub status: FridayMediaAffordanceStatus,
+    pub install_command: String,
+    pub run_command: String,
+    pub local_only: bool,
+    pub resident: bool,
+    pub notes: Vec<String>,
+}
+
 impl FridayOcrSmokeReport {
     pub fn to_pretty_json(&self) -> serde_json::Result<String> {
         serde_json::to_string_pretty(self)
@@ -296,6 +328,41 @@ impl FridayScreenshotVlmHandoffReport {
     pub fn to_pretty_json(&self) -> serde_json::Result<String> {
         serde_json::to_string_pretty(self)
     }
+}
+
+pub fn friday_media_affordances() -> Vec<FridayMediaAffordance> {
+    vec![
+        FridayMediaAffordance {
+            request_kind: FridayMultimodalRequestKind::Image,
+            model_key: "sd-turbo".to_string(),
+            label: "SD-Turbo local image generation".to_string(),
+            repo_id: "stabilityai/sd-turbo".to_string(),
+            status: FridayMediaAffordanceStatus::NeedsInstaller,
+            install_command: "flow --models image".to_string(),
+            run_command: "flow --plan image sd-turbo".to_string(),
+            local_only: true,
+            resident: false,
+            notes: vec![
+                "Catalog entry exists, but no built-in downloader is registered yet.".to_string(),
+                "Keep this as an explicit install/run affordance before exposing image generation in the UI.".to_string(),
+            ],
+        },
+        FridayMediaAffordance {
+            request_kind: FridayMultimodalRequestKind::Video,
+            model_key: "wan2.1-14b".to_string(),
+            label: "Wan2.1 high-end local video generation".to_string(),
+            repo_id: "Wan-AI/Wan2.1-FLF2V-14B-720P".to_string(),
+            status: FridayMediaAffordanceStatus::Planned,
+            install_command: "flow --models video".to_string(),
+            run_command: "flow --plan video wan2.1-14b".to_string(),
+            local_only: true,
+            resident: false,
+            notes: vec![
+                "Marked high-end because this model is not appropriate for the default low-resource idle path.".to_string(),
+                "UI should present this as an explicit advanced workflow, not a default feature.".to_string(),
+            ],
+        },
+    ]
 }
 
 pub fn friday_multimodal_route(
@@ -1108,5 +1175,20 @@ mod tests {
         assert!(PathBuf::from(&report.vlm_report.report_json).exists());
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn media_affordances_expose_explicit_install_and_run_commands() {
+        let affordances = friday_media_affordances();
+        assert!(affordances
+            .iter()
+            .any(|item| item.request_kind == FridayMultimodalRequestKind::Image
+                && item.install_command.contains("--models image")
+                && item.run_command.contains("--plan image")));
+        assert!(affordances
+            .iter()
+            .any(|item| item.request_kind == FridayMultimodalRequestKind::Video
+                && item.local_only
+                && !item.resident));
     }
 }

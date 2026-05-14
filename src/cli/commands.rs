@@ -28,8 +28,9 @@ use crate::friday::{
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
-    friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_research_search_plan,
-    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
+    friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
+    friday_research_search_plan, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
+    run_friday_vlm_contract,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -524,6 +525,14 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayMediaAffordances => {
+            print_friday_media_affordances(&friday_media_affordances());
+        }
+
+        Command::FridayMediaAffordancesJson => {
+            println!("{}", serde_json::to_string_pretty(&friday_media_affordances())?);
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -719,6 +728,10 @@ fn print_interactive_help() {
     println!("                           Validate a local screenshot and write VLM handoff files");
     println!("  --friday-screenshot-vlm-json <dir> <screenshot> [prompt]");
     println!("                           Print screenshot VLM handoff status as JSON");
+    println!("  --friday-media-affordances");
+    println!("                           Show image/video install and run affordances");
+    println!("  --friday-media-affordances-json");
+    println!("                           Print image/video affordances as JSON");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");
@@ -1271,6 +1284,26 @@ fn print_friday_screenshot_vlm_handoff(
         println!("Findings:");
         for finding in &report.findings {
             println!("  - {}", finding);
+        }
+    }
+}
+
+fn print_friday_media_affordances(affordances: &[crate::friday::FridayMediaAffordance]) {
+    println!("Friday Media Affordances");
+    println!("========================");
+    for item in affordances {
+        println!("- [{}] {}", item.status.label(), item.label);
+        println!("  kind: {}", item.request_kind.label());
+        println!("  model: {} ({})", item.model_key, item.repo_id);
+        println!("  install: {}", item.install_command);
+        println!("  run: {}", item.run_command);
+        println!(
+            "  local_only={}, resident={}",
+            yes_no(item.local_only),
+            yes_no(item.resident)
+        );
+        for note in &item.notes {
+            println!("  note: {}", note);
         }
     }
 }

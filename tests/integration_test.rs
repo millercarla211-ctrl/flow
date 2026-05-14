@@ -18,7 +18,7 @@ use flow::friday::{
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
     FridayVerificationStatus, FridayWorkspaceStore, default_friday_browser_verification_report,
     default_friday_local_execution_checks, default_friday_product_plan,
-    default_friday_ui_integration_plan, friday_multimodal_route,
+    default_friday_ui_integration_plan, friday_media_affordances, friday_multimodal_route,
     friday_multimodal_ui_diagnostics, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
     run_friday_vlm_contract,
 };
@@ -666,6 +666,21 @@ fn friday_screenshot_vlm_handoff_accepts_local_image_file() {
     );
 
     let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn friday_media_affordances_include_image_and_video_paths() {
+    let affordances = friday_media_affordances();
+
+    assert!(affordances
+        .iter()
+        .any(|item| item.request_kind == FridayMultimodalRequestKind::Image
+            && item.install_command.contains("--models image")));
+    assert!(affordances
+        .iter()
+        .any(|item| item.request_kind == FridayMultimodalRequestKind::Video
+            && item.run_command.contains("--plan video")
+            && !item.resident));
 }
 
 #[test]

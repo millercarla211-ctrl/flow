@@ -124,7 +124,7 @@ This set is complete. The next loop should open `Multimodal Product Execution` a
 
 ## Next Active Set: Multimodal Product Execution
 
-Status: 40/100
+Status: 60/100
 
 Goal: connect Friday's multimodal contracts to UI capture, install/run affordances, persisted artifacts, and visual checks without changing the low-resource idle defaults.
 
@@ -132,7 +132,7 @@ Goal: connect Friday's multimodal contracts to UI capture, install/run affordanc
 
 - [x] Connect OCR smoke reports to the Multimodal UI and OCR page diagnostics.
 - [x] Add a screenshot capture command that feeds the VLM contract from a real local image path.
-- [ ] Add explicit install/run affordances for image and video model candidates.
+- [x] Add explicit install/run affordances for image and video model candidates.
 - [ ] Persist multimodal artifact metadata in the Friday artifact store.
 - [ ] Add browser or desktop visual checks for the Multimodal UI route.
 

@@ -68,6 +68,8 @@
 - added `flow --friday-multimodal-diagnostics` / `--friday-multimodal-diagnostics-json` to connect OCR smoke reports, VLM contracts, routing policy, and metadata sidecars to the Multimodal UI contract
 - added `flow --friday-screenshot-vlm` / `--friday-screenshot-vlm-json` to validate local screenshot files, write source metadata, and feed the VLM contract without loading the model
 - advanced Multimodal Product Execution to 40/100
+- added `flow --friday-media-affordances` / `--friday-media-affordances-json` for explicit local-only image/video model keys, repos, install inspection commands, run planning commands, and resident-load policy
+- advanced Multimodal Product Execution to 60/100
 
 ## 2026-04-26
 

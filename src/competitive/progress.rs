@@ -69,9 +69,9 @@ pub fn active_completion_set() -> CompletionSet {
             "image-video-affordances",
             "Image and video install/run affordances",
             20,
-            CompletionItemStatus::Planned,
-            "Image and video routes are explicit but still planned, so operators need install/run affordances before the UI can expose them safely",
-            "add explicit install/run affordances for image and video model candidates",
+            CompletionItemStatus::Done,
+            "`flow --friday-media-affordances` exposes explicit local-only image/video model keys, repos, install inspection commands, run planning commands, and resident-load policy",
+            "convert the affordances into UI install/run controls after metadata persistence is indexed",
         ),
         item(
             "artifact-store-metadata",
