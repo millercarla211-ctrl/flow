@@ -64,7 +64,7 @@ This set remains important, but the active product direction has moved to Friday
 
 ## Active Set: Friday Competitive AI Workspace
 
-Status: 72/100
+Status: 86/100
 
 Goal: make Friday a local-first AI workspace that can compete with the useful surfaces of ChatGPT, Gemini, Perplexity, Grok, and Claude without depending on Perplexity Computer. Search and research must use the adjacent Rust metasearch crate.
 
@@ -79,10 +79,10 @@ Goal: make Friday a local-first AI workspace that can compete with the useful su
 - [x] Add progress-event records and persisted research bundles for reports, citations, source groups, events, and manifests.
 - [x] Add local-first research synthesis prompts, answer deltas, citation references, and a local model synthesis CLI.
 - [x] Add durable Projects, Memory, and Connectors stores with permission-scoped local data boundaries.
+- [x] Build Canvas, Artifacts, and Code workspaces with editable outputs, previews, diffs, and checkpoints.
 
 ### Remaining To Reach 100/100
 
-- [ ] Build Canvas, Artifacts, and Code workspaces with editable outputs, previews, diffs, and checkpoints.
 - [ ] Connect Voice, Multimodal, and Automations surfaces to STT/TTS/OCR/VLM planning, scheduler, and audit records.
 
 ## Next Set Candidates

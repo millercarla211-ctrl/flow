@@ -93,9 +93,9 @@ pub fn active_completion_set() -> CompletionSet {
             "canvas-artifacts-code",
             "Canvas, Artifacts, and coding-agent workspace",
             14,
-            CompletionItemStatus::Planned,
-            "Codex/Zed/ZeroClaw adapters and UI generation paths exist, but Friday needs an editable artifact canvas, previews, diffs, and checkpoints",
-            "build artifact storage plus editable docs/code/UI previews and code-agent task checkpoints",
+            CompletionItemStatus::Done,
+            "Friday now has durable artifact, checkpoint, diff, preview-runner, and code-task records for Canvas, Artifacts, and Code workspace wiring",
+            "connect artifact records to editable UI panes, preview execution, and code review actions",
         ),
         item(
             "voice-multimodal-automations",

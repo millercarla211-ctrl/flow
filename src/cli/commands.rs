@@ -24,8 +24,9 @@ use crate::experience::{
     FlowFileStateStore, FlowStateStore, NativeSelectionBridge, OperatingSystemFamily,
 };
 use crate::friday::{
-    FridayFeatureStatus, FridayResearchReport, FridayResearchWorkflow, FridayWorkspaceStore,
-    default_friday_product_plan, friday_answer_search_plan, friday_research_search_plan,
+    FridayArtifactStore, FridayFeatureStatus, FridayResearchReport, FridayResearchWorkflow,
+    FridayWorkspaceStore, default_friday_product_plan, friday_answer_search_plan,
+    friday_research_search_plan,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -319,6 +320,43 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", store.to_pretty_json()?);
         }
 
+        Command::FridayArtifactsInit { output_dir } => {
+            let store = FridayArtifactStore::seed_for_local_workspace();
+            let snapshot = store.write_to_dir(resolve_repo_relative_path(&output_dir))?;
+            println!("Friday Artifact Store");
+            println!("=====================");
+            println!("Root: {}", snapshot.root_dir.display());
+            println!("Artifacts: {}", snapshot.artifacts_json.display());
+            println!("Checkpoints: {}", snapshot.checkpoints_json.display());
+            println!("Diffs: {}", snapshot.diffs_json.display());
+            println!("Code tasks: {}", snapshot.code_tasks_json.display());
+            println!("Manifest: {}", snapshot.manifest_json.display());
+            println!(
+                "Counts: {} artifacts, {} checkpoints, {} diffs, {} code tasks",
+                snapshot.manifest.artifact_count,
+                snapshot.manifest.checkpoint_count,
+                snapshot.manifest.diff_count,
+                snapshot.manifest.code_task_count
+            );
+            if snapshot.manifest.findings.is_empty() {
+                println!("Artifact findings: none");
+            } else {
+                println!("Artifact findings:");
+                for finding in &snapshot.manifest.findings {
+                    println!("  - {}", finding.message);
+                }
+            }
+        }
+
+        Command::FridayArtifactsJson { input_dir } => {
+            let store = if let Some(input_dir) = input_dir {
+                FridayArtifactStore::read_from_dir(resolve_repo_relative_path(&input_dir))?
+            } else {
+                FridayArtifactStore::seed_for_local_workspace()
+            };
+            println!("{}", store.to_pretty_json()?);
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -478,6 +516,10 @@ fn print_interactive_help() {
     println!("                           Seed durable Projects, Memory, and Connectors state");
     println!("  --friday-workspace-json [dir]");
     println!("                           Print seeded or persisted Friday workspace state");
+    println!("  --friday-artifacts-init <dir>");
+    println!("                           Seed Canvas, Artifacts, and Code checkpoint state");
+    println!("  --friday-artifacts-json [dir]");
+    println!("                           Print seeded or persisted artifact state");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");

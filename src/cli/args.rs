@@ -62,6 +62,10 @@ pub enum Command {
     FridayWorkspaceInit { output_dir: String },
     /// Print the durable Friday workspace state as JSON
     FridayWorkspaceJson { input_dir: Option<String> },
+    /// Seed durable Friday artifact/canvas/code records
+    FridayArtifactsInit { output_dir: String },
+    /// Print durable Friday artifact/canvas/code state as JSON
+    FridayArtifactsJson { input_dir: Option<String> },
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -314,6 +318,17 @@ impl Args {
                 Command::FridayWorkspaceInit { output_dir }
             }
             "--friday-workspace-json" => Command::FridayWorkspaceJson {
+                input_dir: args.get(2).cloned(),
+            },
+            "--friday-artifacts-init" | "--friday-canvas-init" => {
+                let output_dir = args.get(2).cloned().unwrap_or_else(|| {
+                    eprintln!("Error: output directory required");
+                    eprintln!("Usage: flow --friday-artifacts-init <output-dir>");
+                    std::process::exit(1);
+                });
+                Command::FridayArtifactsInit { output_dir }
+            }
+            "--friday-artifacts-json" | "--friday-canvas-json" => Command::FridayArtifactsJson {
                 input_dir: args.get(2).cloned(),
             },
             "--accessibility-diagnostics" | "--accessibility" => {

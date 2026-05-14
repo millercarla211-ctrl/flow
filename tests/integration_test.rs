@@ -12,8 +12,8 @@ use flow::experience::{
 };
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
-    FridayCompetitor, FridayConnectorAuthState, FridayPermissionScope, FridayResearchWorkflow,
-    FridayWorkspaceStore, default_friday_product_plan,
+    FridayArtifactStore, FridayCompetitor, FridayConnectorAuthState, FridayPermissionScope,
+    FridayPreviewRunner, FridayResearchWorkflow, FridayWorkspaceStore, default_friday_product_plan,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -420,6 +420,33 @@ fn friday_workspace_store_persists_projects_memory_and_connectors() {
         metasearch
             .permission_scopes
             .contains(&FridayPermissionScope::Metasearch)
+    );
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn friday_artifact_store_persists_canvas_code_and_artifact_records() {
+    let root = temp_root("friday-artifacts");
+    let store = FridayArtifactStore::seed_for_local_workspace();
+    let snapshot = store.write_to_dir(&root).unwrap();
+
+    assert!(snapshot.artifacts_json.exists());
+    assert!(snapshot.checkpoints_json.exists());
+    assert!(snapshot.diffs_json.exists());
+    assert!(snapshot.code_tasks_json.exists());
+    assert_eq!(snapshot.manifest.artifact_count, 2);
+    assert_eq!(snapshot.manifest.code_task_count, 1);
+    assert!(snapshot.manifest.findings.is_empty());
+
+    let restored = FridayArtifactStore::read_from_dir(&root).unwrap();
+    let ui = restored.artifact("ui-prototype").unwrap();
+    assert_eq!(ui.preview_runner, FridayPreviewRunner::Html);
+    assert_eq!(restored.checkpoints_for_artifact(&ui.id).len(), 1);
+    assert_eq!(restored.diffs_for_artifact(&ui.id).len(), 1);
+    assert_eq!(
+        restored.task_artifacts("artifact-canvas-checkpoint").len(),
+        2
     );
 
     let _ = fs::remove_dir_all(&root);

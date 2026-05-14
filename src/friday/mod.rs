@@ -1,6 +1,8 @@
+pub mod artifacts;
 pub mod research;
 pub mod workspace;
 
+pub use artifacts::*;
 pub use research::*;
 pub use workspace::*;
 
@@ -378,10 +380,10 @@ fn friday_capabilities() -> Vec<FridayCapability> {
             FridayWorkspaceArea::Canvas,
             "Canvas for co-writing, editing, debugging, and generated UI/code snippets",
             7,
-            FridayFeatureStatus::Planned,
+            FridayFeatureStatus::Partial,
             true,
             false,
-            "Writing and code models exist; editable artifact state and previews need product wiring.",
+            "Friday now has artifact, preview, diff, and checkpoint records; rich editor UI and live preview execution are next.",
             "ChatGPT Canvas and Gemini Canvas.",
         ),
         capability(
@@ -499,10 +501,10 @@ fn friday_capabilities() -> Vec<FridayCapability> {
             FridayWorkspaceArea::Artifacts,
             "Artifacts for live apps, documents, visual work, and reusable generated outputs",
             9,
-            FridayFeatureStatus::Planned,
+            FridayFeatureStatus::Partial,
             true,
             false,
-            "Friday needs a durable artifact store plus preview runners for docs, code, UI, charts, and media.",
+            "Friday now has a durable artifact store plus preview-runner and checkpoint contracts for docs, code, UI, and reports.",
             "Claude Artifacts and Claude Design.",
         ),
         capability(
@@ -513,7 +515,7 @@ fn friday_capabilities() -> Vec<FridayCapability> {
             FridayFeatureStatus::Partial,
             true,
             true,
-            "Codex, Zed, and ZeroClaw adapters exist; Friday needs the unified product page and checkpoint store.",
+            "Codex, Zed, and ZeroClaw adapters exist, and Friday now has code-task checkpoint records; terminal/review UI wiring is next.",
             "Claude Code, subagents, hooks, MCP, and cloud coding tasks.",
         ),
         capability(
@@ -619,7 +621,7 @@ mod tests {
         assert!(
             plan.capabilities
                 .iter()
-                .any(|capability| capability.friday_status == FridayFeatureStatus::Planned)
+                .any(|capability| capability.friday_status != FridayFeatureStatus::Shipped)
         );
     }
 }

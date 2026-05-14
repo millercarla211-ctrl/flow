@@ -79,10 +79,13 @@ pub use experience::{
 };
 pub use forge_bridge::{ForgeAssetKind, ForgeBridge, ForgeRemoteKind, ForgeSyncPlan};
 pub use friday::{
-    FridayAnswerDelta, FridayAnswerDeltaKind, FridayBoundarySeverity, FridayCapability,
-    FridayCitationRecord, FridayCompetitor, FridayConnectorAuthState, FridayConnectorKind,
-    FridayConnectorRecord, FridayFeatureStatus, FridayGenerationSummary, FridayMemoryRecord,
-    FridayMemoryState, FridayPermissionFinding, FridayPermissionScope, FridayProductPlan,
+    FridayAnswerDelta, FridayAnswerDeltaKind, FridayArtifactCheckpoint, FridayArtifactDiff,
+    FridayArtifactFinding, FridayArtifactKind, FridayArtifactManifest, FridayArtifactRecord,
+    FridayArtifactSnapshot, FridayArtifactStore, FridayBoundarySeverity, FridayCapability,
+    FridayCheckpointReason, FridayCitationRecord, FridayCodeTaskRecord, FridayCodeTaskStatus,
+    FridayCompetitor, FridayConnectorAuthState, FridayConnectorKind, FridayConnectorRecord,
+    FridayFeatureStatus, FridayGenerationSummary, FridayMemoryRecord, FridayMemoryState,
+    FridayPermissionFinding, FridayPermissionScope, FridayPreviewRunner, FridayProductPlan,
     FridayProjectFile, FridayProjectRecord, FridayResearchEventKind, FridayResearchExportManifest,
     FridayResearchReport, FridayResearchRunEvent, FridayResearchStage, FridayResearchStageKind,
     FridayResearchStageStatus, FridayResearchWorkflow, FridaySearchPolicy, FridaySourceGroup,
