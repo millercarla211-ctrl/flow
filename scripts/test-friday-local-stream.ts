@@ -859,10 +859,11 @@ if (
 }
 
 if (
+  validateFridayWorkspaceBackupSize(0)?.ok !== false ||
   validateFridayWorkspaceBackupSize(1024) !== null ||
   validateFridayWorkspaceBackupSize(9 * 1024 * 1024)?.ok !== false
 ) {
-  throw new Error("Friday workspace backup size guard did not accept small files and reject large files.");
+  throw new Error("Friday workspace backup size guard did not reject empty/large files and accept small files.");
 }
 
 if (

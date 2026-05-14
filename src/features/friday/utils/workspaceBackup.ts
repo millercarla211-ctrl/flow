@@ -254,6 +254,13 @@ export function validateFridayWorkspaceBackupSize(
   byteSize: number,
   maxBytes = FRIDAY_WORKSPACE_BACKUP_MAX_BYTES,
 ): FridayWorkspaceBackupParseError | null {
+  if (byteSize <= 0) {
+    return {
+      ok: false,
+      message: "This Friday backup file is empty.",
+    };
+  }
+
   if (byteSize <= maxBytes) return null;
 
   const maxMegabytes = (maxBytes / 1024 / 1024).toLocaleString("en", {
