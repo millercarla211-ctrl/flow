@@ -1,9 +1,13 @@
 import { Activity, Database, Download, Link2, RefreshCw, RotateCcw, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { emitFridayStorageChange, useLocalSettings } from "../../hooks/useLocalPersistence";
+import {
+  emitFridayStorageChange,
+  FRIDAY_STORAGE_EVENT,
+  useLocalSettings,
+} from "../../hooks/useLocalPersistence";
 import { checkFridayProviderHealth, type ProviderHealthResult } from "../../utils/providerHealth";
 import { checkFridaySyncHealth, type FridaySyncHealthResult } from "../../utils/syncHealth";
 import {
@@ -28,6 +32,11 @@ const CONNECTOR_OPTIONS: Array<[keyof ConnectorSettings, string, string]> = [
   ["mcpConnectors", "MCP connectors", "Future app connectors stay off until configured."],
 ];
 
+type RestoreCheckpointState = {
+  tone: "idle" | "ready" | "error";
+  text: string;
+};
+
 export function ConnectorsWorkspace() {
   const backupInputRef = useRef<HTMLInputElement>(null);
   const [providerHealth, setProviderHealth] = useState<ProviderHealthResult | null>(null);
@@ -43,6 +52,10 @@ export function ConnectorsWorkspace() {
     tone: "success" | "error" | "idle";
     text: string;
   } | null>(null);
+  const [restoreCheckpoint, setRestoreCheckpoint] = useState<RestoreCheckpointState>({
+    tone: "idle",
+    text: "No restore checkpoint saved yet.",
+  });
   const { settings, updateSettings } = useLocalSettings<ConnectorSettings>(
     STORAGE_KEYS.connectors,
     DEFAULT_CONNECTORS,
@@ -51,6 +64,36 @@ export function ConnectorsWorkspace() {
     process.env.NEXT_PUBLIC_FRIDAY_ENABLE_CLOUD_AI === "true" ||
     process.env.NEXT_PUBLIC_FRIDAY_ENABLE_GROQ_AI === "true";
   const providerCheckDisabled = !settings.aiGateway || !cloudEnvEnabled || isCheckingProvider;
+
+  const refreshRestoreCheckpoint = useCallback(() => {
+    const parsed = readFridayRestoreCheckpoint(window.localStorage);
+
+    if (parsed.ok) {
+      setRestoreCheckpoint({
+        tone: "ready",
+        text: `Available checkpoint: ${formatFridayWorkspaceBackupSummary(parsed.backup)}.`,
+      });
+      return;
+    }
+
+    const hasMissingCheckpoint = parsed.message.includes("No Friday restore checkpoint");
+    setRestoreCheckpoint({
+      tone: hasMissingCheckpoint ? "idle" : "error",
+      text: parsed.message,
+    });
+  }, []);
+
+  useEffect(() => {
+    refreshRestoreCheckpoint();
+
+    const onChange = () => refreshRestoreCheckpoint();
+    window.addEventListener(FRIDAY_STORAGE_EVENT, onChange);
+    window.addEventListener("storage", onChange);
+    return () => {
+      window.removeEventListener(FRIDAY_STORAGE_EVENT, onChange);
+      window.removeEventListener("storage", onChange);
+    };
+  }, [refreshRestoreCheckpoint]);
 
   const runProviderCheck = async () => {
     if (providerCheckDisabled) return;
@@ -123,6 +166,7 @@ export function ConnectorsWorkspace() {
       tone: "success",
       text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored from checkpoint: ${formatFridayWorkspaceBackupSummary(parsed.backup)}. New safety checkpoint saved: ${formatFridayWorkspaceBackupSummary(checkpoint)}.`,
     });
+    refreshRestoreCheckpoint();
   };
 
   const pushWorkspaceSnapshot = async () => {
@@ -411,7 +455,13 @@ export function ConnectorsWorkspace() {
               <Upload size={14} />
               Import
             </Button>
-            <Button type="button" size="sm" variant="outline" onClick={restoreSafetyCheckpoint}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={restoreCheckpoint.tone !== "ready"}
+              onClick={restoreSafetyCheckpoint}
+            >
               <RotateCcw size={14} />
               Restore checkpoint
             </Button>
@@ -430,6 +480,18 @@ export function ConnectorsWorkspace() {
         <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs leading-5 text-[var(--muted-foreground)]">
           {backupMessage?.text ??
             "Backups stay on your machine. Import only restores known Friday workspace keys."}
+        </div>
+        <div
+          className={
+            "mt-2 rounded-md border p-3 text-xs leading-5 " +
+            (restoreCheckpoint.tone === "ready"
+              ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-200"
+              : restoreCheckpoint.tone === "error"
+                ? "border-red-500/30 bg-red-500/5 text-red-200"
+                : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)]")
+          }
+        >
+          {restoreCheckpoint.text}
         </div>
       </div>
 
