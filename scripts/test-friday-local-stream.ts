@@ -30,7 +30,11 @@ import {
   serializeFridayWorkspaceBackup,
 } from "../src/features/friday/utils/workspaceBackup";
 import { getFridayAuthConfigStatus } from "../src/server/auth/db";
-import { validateFridayWorkspaceSyncPayload } from "../src/server/friday/workspaceSync";
+import {
+  parseStoredFridayWorkspaceSnapshot,
+  requireFridayWorkspaceSyncSession,
+  validateFridayWorkspaceSyncPayload,
+} from "../src/server/friday/workspaceSync";
 
 const model = resolveFridayModel("qwen35-4b-revised-q4km");
 const draft = createLocalAssistantDraft("write a short Friday status", model, {
@@ -369,9 +373,49 @@ if (!syncPayload.ok || !syncPayload.raw.includes("Friday")) {
   throw new Error("Friday workspace sync did not accept a valid backup snapshot.");
 }
 
+const storedSnapshot = parseStoredFridayWorkspaceSnapshot(syncPayload.raw);
+if (!storedSnapshot.ok || JSON.stringify(storedSnapshot.payload) !== syncPayload.raw) {
+  throw new Error("Friday workspace sync did not parse a stored backup snapshot.");
+}
+
+const corruptedStoredSnapshot = parseStoredFridayWorkspaceSnapshot("{bad json");
+if (corruptedStoredSnapshot.ok) {
+  throw new Error("Friday workspace sync accepted a corrupted stored snapshot.");
+}
+
 const rejectedSyncPayload = validateFridayWorkspaceSyncPayload({ app: "Other" });
 if (rejectedSyncPayload.ok) {
   throw new Error("Friday workspace sync accepted an invalid backup snapshot.");
+}
+
+const savedAuthEnv = {
+  betterAuthUrl: process.env.BETTER_AUTH_URL,
+  tursoAuthToken: process.env.TURSO_AUTH_TOKEN,
+  tursoDatabaseUrl: process.env.TURSO_DATABASE_URL,
+};
+const restoreEnv = (key: "BETTER_AUTH_URL" | "TURSO_AUTH_TOKEN" | "TURSO_DATABASE_URL", value: string | undefined) => {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+
+  process.env[key] = value;
+};
+
+delete process.env.BETTER_AUTH_URL;
+delete process.env.TURSO_AUTH_TOKEN;
+delete process.env.TURSO_DATABASE_URL;
+
+const localOnlySyncSession = await requireFridayWorkspaceSyncSession(
+  new Request("http://localhost/api/friday/sync/workspace"),
+);
+
+restoreEnv("BETTER_AUTH_URL", savedAuthEnv.betterAuthUrl);
+restoreEnv("TURSO_AUTH_TOKEN", savedAuthEnv.tursoAuthToken);
+restoreEnv("TURSO_DATABASE_URL", savedAuthEnv.tursoDatabaseUrl);
+
+if (localOnlySyncSession.ok || localOnlySyncSession.response.status !== 503) {
+  throw new Error("Friday workspace sync did not stay controlled in local-only mode.");
 }
 
 const automationBase = new Date("2026-05-14T00:00:00.000Z");
