@@ -56,6 +56,8 @@ pub enum Command {
     FridayResearchReport { query: String },
     /// Execute Friday research and persist report, citations, source groups, and events
     FridayResearchReportSave { output_dir: String, query: String },
+    /// Execute Friday research and synthesize a cited local answer
+    FridayResearchSynthesize { query: String },
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -287,6 +289,16 @@ impl Args {
                 Command::FridayResearchReportSave {
                     output_dir: args[2].clone(),
                     query: args[3..].join(" "),
+                }
+            }
+            "--friday-research-synthesize" | "--friday-synthesize" => {
+                if args.len() <= 2 {
+                    eprintln!("Error: query required");
+                    eprintln!("Usage: flow --friday-research-synthesize <query>");
+                    std::process::exit(1);
+                }
+                Command::FridayResearchSynthesize {
+                    query: args[2..].join(" "),
                 }
             }
             "--accessibility-diagnostics" | "--accessibility" => {

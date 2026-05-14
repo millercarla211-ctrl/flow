@@ -262,6 +262,28 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("Manifest: {}", manifest.manifest_json.display());
         }
 
+        Command::FridayResearchSynthesize { query } => {
+            let response = MetasearchServerConfig::default()
+                .search_blocking(&friday_research_search_plan(query))?;
+            let report = FridayResearchReport::from_metasearch_response(&response);
+            let runtime = crate::FlowLocalRuntime::detect()?;
+            let synthesized = report.synthesize_with_runtime(&runtime).await?;
+            println!("Friday Research Answer");
+            println!("======================");
+            println!("{}", synthesized.answer);
+            println!();
+            println!("Citations: {}", synthesized.citation_ids.join(", "));
+            println!("Deltas: {}", synthesized.deltas.len());
+            if let Some(generation) = synthesized.generation {
+                println!(
+                    "Generation: {} tokens at {:.2} tok/s in {} ms",
+                    generation.generated_tokens,
+                    generation.tokens_per_second,
+                    generation.total_time_ms
+                );
+            }
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -415,6 +437,8 @@ fn print_interactive_help() {
     println!("                           Search locally and print a markdown research report");
     println!("  --friday-research-report-save <dir> <query>");
     println!("                           Persist report, citations, source groups, and events");
+    println!("  --friday-research-synthesize <query>");
+    println!("                           Search locally and synthesize a cited answer");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");

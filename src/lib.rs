@@ -79,12 +79,14 @@ pub use experience::{
 };
 pub use forge_bridge::{ForgeAssetKind, ForgeBridge, ForgeRemoteKind, ForgeSyncPlan};
 pub use friday::{
-    FridayCapability, FridayCitationRecord, FridayCompetitor, FridayFeatureStatus,
-    FridayProductPlan, FridayResearchEventKind, FridayResearchExportManifest, FridayResearchReport,
+    FridayAnswerDelta, FridayAnswerDeltaKind, FridayCapability, FridayCitationRecord,
+    FridayCompetitor, FridayFeatureStatus, FridayGenerationSummary, FridayProductPlan,
+    FridayResearchEventKind, FridayResearchExportManifest, FridayResearchReport,
     FridayResearchRunEvent, FridayResearchStage, FridayResearchStageKind,
     FridayResearchStageStatus, FridayResearchWorkflow, FridaySearchPolicy, FridaySourceGroup,
-    FridayWorkspaceArea, FridayWorkspaceView, MetasearchExecutionMode, MetasearchExecutionTarget,
-    default_friday_product_plan, friday_answer_search_plan, friday_research_search_plan,
+    FridaySynthesizedAnswer, FridayWorkspaceArea, FridayWorkspaceView, MetasearchExecutionMode,
+    MetasearchExecutionTarget, default_friday_product_plan, friday_answer_search_plan,
+    friday_research_search_plan,
 };
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
 pub use models::{KokoroTTS, LocalLlm, LocalSttEngine, MoonshineSTT};

@@ -34,9 +34,11 @@
 - added a local metasearch API client path plus `flow --friday-metasearch` / `flow --friday-metasearch-json`
 - added Friday source-group, citation-ledger, and markdown-report records plus `flow --friday-research-report`
 - added persisted Friday research bundles with report, citations, source groups, progress events, manifest files, and `flow --friday-research-report-save`
+- added local-first Friday research synthesis prompts, citation-aware answer deltas, and `flow --friday-research-synthesize`
 - added `flow --friday-research-workflow` and `flow --friday-research-workflow-json`
 - advanced Friday Competitive AI Workspace to 47/100
 - advanced Friday Competitive AI Workspace to 51/100
+- advanced Friday Competitive AI Workspace to 59/100
 
 ## 2026-04-26
 

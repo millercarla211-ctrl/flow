@@ -6,6 +6,8 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use super::{friday_answer_search_plan, friday_research_search_plan};
+use crate::models::GenerationMetrics;
+use crate::runtime::FlowLocalRuntime;
 use crate::search::{
     MetasearchApiResponse, MetasearchApiResult, MetasearchServerConfig, SearchRequestPlan,
 };
@@ -143,6 +145,40 @@ pub struct FridayResearchExportManifest {
     pub source_group_count: usize,
     pub search_time_ms: u64,
     pub cached: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayAnswerDeltaKind {
+    Text,
+    CitationReference,
+    Done,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayAnswerDelta {
+    pub sequence: u16,
+    pub kind: FridayAnswerDeltaKind,
+    pub text: String,
+    pub citation_ids: Vec<String>,
+    pub progress_percent: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FridayGenerationSummary {
+    pub prompt_tokens: usize,
+    pub generated_tokens: usize,
+    pub total_time_ms: u128,
+    pub tokens_per_second: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FridaySynthesizedAnswer {
+    pub query: String,
+    pub answer: String,
+    pub citation_ids: Vec<String>,
+    pub deltas: Vec<FridayAnswerDelta>,
+    pub generation: Option<FridayGenerationSummary>,
 }
 
 impl FridayResearchWorkflow {
@@ -355,6 +391,84 @@ impl FridayResearchReport {
 
         Ok(manifest)
     }
+
+    pub fn synthesis_prompt(&self) -> String {
+        let sources = self
+            .citations
+            .iter()
+            .take(10)
+            .map(|citation| {
+                format!(
+                    "[{}] {} | {} | {}",
+                    citation.id, citation.title, citation.url, citation.snippet
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        format!(
+            "\
+You are Friday's local research synthesizer.
+Answer the query using only the provided source notes.
+Use compact paragraphs.
+Cite claims with bracketed source IDs like [S1].
+If the sources are not enough, say what is missing.
+
+Query:
+{}
+
+Sources:
+{}
+
+Answer:",
+            self.query, sources
+        )
+    }
+
+    pub async fn synthesize_with_runtime(
+        &self,
+        runtime: &FlowLocalRuntime,
+    ) -> Result<FridaySynthesizedAnswer> {
+        let prompt = self.synthesis_prompt();
+        let (answer, metrics) = runtime.generate_quality_chat_with_metrics(&prompt).await?;
+        Ok(self.synthesized_answer_from_text(answer, Some(metrics.into())))
+    }
+
+    pub fn synthesized_answer_from_text(
+        &self,
+        answer: impl Into<String>,
+        generation: Option<FridayGenerationSummary>,
+    ) -> FridaySynthesizedAnswer {
+        let answer = answer.into();
+        let citation_ids = extract_citation_ids(&answer, &self.citations);
+        let mut deltas = chunk_answer_deltas(&answer, &citation_ids);
+        deltas.push(FridayAnswerDelta {
+            sequence: deltas.len() as u16 + 1,
+            kind: FridayAnswerDeltaKind::Done,
+            text: "done".to_string(),
+            citation_ids: citation_ids.clone(),
+            progress_percent: 100,
+        });
+
+        FridaySynthesizedAnswer {
+            query: self.query.clone(),
+            answer,
+            citation_ids,
+            deltas,
+            generation,
+        }
+    }
+}
+
+impl From<GenerationMetrics> for FridayGenerationSummary {
+    fn from(metrics: GenerationMetrics) -> Self {
+        Self {
+            prompt_tokens: metrics.prompt_tokens,
+            generated_tokens: metrics.generated_tokens,
+            total_time_ms: metrics.total_time_ms,
+            tokens_per_second: metrics.tokens_per_second,
+        }
+    }
 }
 
 pub fn default_metasearch_targets() -> Vec<MetasearchExecutionTarget> {
@@ -524,6 +638,70 @@ fn compact_snippet(content: &str) -> String {
     format!("{truncated}...")
 }
 
+fn extract_citation_ids(answer: &str, citations: &[FridayCitationRecord]) -> Vec<String> {
+    citations
+        .iter()
+        .filter(|citation| answer.contains(&format!("[{}]", citation.id)))
+        .map(|citation| citation.id.clone())
+        .collect()
+}
+
+fn chunk_answer_deltas(answer: &str, citation_ids: &[String]) -> Vec<FridayAnswerDelta> {
+    let chunks = sentence_like_chunks(answer);
+    let total = chunks.len().max(1);
+    chunks
+        .into_iter()
+        .enumerate()
+        .map(|(index, chunk)| {
+            let sequence = index as u16 + 1;
+            let citation_ids = citation_ids
+                .iter()
+                .filter(|id| chunk.contains(&format!("[{id}]")))
+                .cloned()
+                .collect::<Vec<_>>();
+            FridayAnswerDelta {
+                sequence,
+                kind: if citation_ids.is_empty() {
+                    FridayAnswerDeltaKind::Text
+                } else {
+                    FridayAnswerDeltaKind::CitationReference
+                },
+                text: chunk,
+                citation_ids,
+                progress_percent: (((index + 1) as f32 / total as f32) * 95.0)
+                    .round()
+                    .clamp(1.0, 95.0) as u8,
+            }
+        })
+        .collect()
+}
+
+fn sentence_like_chunks(answer: &str) -> Vec<String> {
+    let mut chunks = Vec::new();
+    let mut current = String::new();
+    for ch in answer.chars() {
+        current.push(ch);
+        if matches!(ch, '.' | '?' | '!' | '\n') {
+            let chunk = current.trim();
+            if !chunk.is_empty() {
+                chunks.push(chunk.to_string());
+            }
+            current.clear();
+        }
+    }
+
+    let trailing = current.trim();
+    if !trailing.is_empty() {
+        chunks.push(trailing.to_string());
+    }
+
+    if chunks.is_empty() && !answer.trim().is_empty() {
+        chunks.push(answer.trim().to_string());
+    }
+
+    chunks
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -651,5 +829,50 @@ mod tests {
         assert_eq!(manifest.citation_count, 1);
 
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn research_report_builds_citation_aware_answer_deltas() {
+        let response = MetasearchApiResponse {
+            query: "citation synthesis".to_string(),
+            results: vec![MetasearchApiResult {
+                title: "Citation source".to_string(),
+                url: "https://example.com/citation".to_string(),
+                content: "Citation evidence.".to_string(),
+                engine: "duckduckgo".to_string(),
+                engine_rank: 1,
+                score: 0.7,
+                thumbnail: None,
+                published_date: None,
+                category: "general".to_string(),
+                metadata: serde_json::Value::Null,
+            }],
+            number_of_results: 1,
+            engines_used: vec!["duckduckgo".to_string()],
+            engines_failed: Vec::new(),
+            search_time_ms: 12,
+            cached: false,
+            category: None,
+            categories: vec!["general".to_string()],
+            page: 1,
+            language: Some("en".to_string()),
+        };
+        let report = FridayResearchReport::from_metasearch_response(&response);
+        let answer = report.synthesized_answer_from_text(
+            "Friday can cite local metasearch sources [S1]. This answer is chunked.",
+            None,
+        );
+
+        assert_eq!(answer.citation_ids, vec!["S1".to_string()]);
+        assert!(
+            answer
+                .deltas
+                .iter()
+                .any(|delta| delta.kind == FridayAnswerDeltaKind::CitationReference)
+        );
+        assert_eq!(
+            answer.deltas.last().map(|delta| delta.kind),
+            Some(FridayAnswerDeltaKind::Done)
+        );
     }
 }

@@ -77,9 +77,9 @@ pub fn active_completion_set() -> CompletionSet {
             "ask-research-streaming",
             "Ask and Research local-first streaming synthesis",
             8,
-            CompletionItemStatus::Planned,
-            "Friday can gather and export sources, but it still needs local-first model streaming over those sources",
-            "wire local model synthesis with progress events, answer deltas, and citation references",
+            CompletionItemStatus::Done,
+            "Friday can gather sources, build a citation-aware synthesis prompt, run the local quality-chat model, and expose answer deltas with citation references",
+            "connect the synthesis deltas to the Friday Ask and Research UI surfaces",
         ),
         item(
             "projects-memory-connectors",
