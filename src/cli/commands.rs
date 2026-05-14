@@ -23,6 +23,10 @@ use crate::experience::{
     FlowAccessibilityDiagnostic, FlowAccessibilityRuntime, FlowAutomationBridge,
     FlowFileStateStore, FlowStateStore, NativeSelectionBridge, OperatingSystemFamily,
 };
+use crate::friday::{
+    FridayFeatureStatus, default_friday_product_plan, friday_answer_search_plan,
+    friday_research_search_plan,
+};
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
     GenerationMetrics, GlmOcr, KokoroTTS, LocalLlm, LocalSttEngine,
@@ -191,6 +195,28 @@ pub async fn execute(command: Command) -> Result<()> {
             print_scorecard();
         }
 
+        Command::FridayPlan => {
+            print_friday_plan();
+        }
+
+        Command::FridayPlanJson => {
+            print_friday_plan_json()?;
+        }
+
+        Command::FridaySearchPlan { query } => {
+            print_search_request_plan(
+                "Friday Answer Search Plan",
+                &friday_answer_search_plan(query),
+            )?;
+        }
+
+        Command::FridayResearchPlan { query } => {
+            print_search_request_plan(
+                "Friday Deep Research Plan",
+                &friday_research_search_plan(query),
+            )?;
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -331,6 +357,11 @@ fn print_interactive_help() {
     println!("  --profile                Show device profile and activation config");
     println!("  --projects               Show the DX project stack");
     println!("  --scorecard              Show the Flow competitive scorecard");
+    println!("  --friday                 Show Friday's AI workspace capability plan");
+    println!("  --friday-json            Print Friday's capability plan as JSON");
+    println!("  --friday-search <query>  Plan a metasearch-first cited answer search");
+    println!("  --friday-research <query>");
+    println!("                           Plan a metasearch-first deep research run");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");
@@ -523,6 +554,85 @@ fn print_scorecard() {
     for gap in scorecard.top_gaps {
         println!("  - {}", gap);
     }
+}
+
+fn print_friday_plan() {
+    let plan = default_friday_product_plan();
+
+    println!("Friday Competitive AI Workspace");
+    println!("================================");
+    println!("Measured on: {}", plan.measured_on);
+    println!("Progress: {} / 100", plan.score_out_of_100);
+    println!("Search engine: {}", plan.search_policy.engine);
+    println!(
+        "Perplexity Computer dependency: {}",
+        if plan.search_policy.forbids_perplexity_computer {
+            "forbidden"
+        } else {
+            "allowed"
+        }
+    );
+    println!();
+
+    println!("Workspace views:");
+    for view in &plan.workspace_views {
+        println!("  - {} ({})", view.title, view.route);
+        println!("    {}", view.objective);
+    }
+    println!();
+
+    println!("Capability map:");
+    for capability in &plan.capabilities {
+        println!(
+            "  - [{}] {} / {} -> {}",
+            capability.friday_status.label(),
+            capability.competitor.label(),
+            capability.area.label(),
+            capability.feature
+        );
+        if capability.uses_metasearch {
+            println!("    search: metasearch-first");
+        }
+        if capability.friday_status != FridayFeatureStatus::Shipped {
+            println!("    next: {}", capability.implementation_note);
+        }
+    }
+    println!();
+
+    println!("Top priorities:");
+    for priority in &plan.top_priorities {
+        println!("  - {}", priority);
+    }
+}
+
+fn print_friday_plan_json() -> Result<()> {
+    println!("{}", default_friday_product_plan().to_pretty_json()?);
+    Ok(())
+}
+
+fn print_search_request_plan(title: &str, plan: &crate::search::SearchRequestPlan) -> Result<()> {
+    println!("{}", title);
+    println!("{}", "=".repeat(title.len()));
+    println!("Query: {}", plan.query);
+    println!("Intent: {:?}", plan.intent);
+    println!(
+        "Adjacent metasearch: {}",
+        yes_no(plan.use_adjacent_metasearch)
+    );
+    println!(
+        "Verticals: {}",
+        plan.verticals
+            .iter()
+            .map(|vertical| format!("{:?}", vertical))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    println!();
+    println!("Notes:");
+    for note in &plan.notes {
+        println!("  - {}", note);
+    }
+    Ok(())
 }
 
 fn print_accessibility_diagnostics(os: Option<&str>, live: bool) -> Result<()> {

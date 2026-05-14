@@ -13,6 +13,7 @@ pub mod dx;
 pub mod embed;
 pub mod experience;
 pub mod forge_bridge;
+pub mod friday;
 pub mod long_context;
 pub mod models;
 pub mod pipeline;
@@ -77,6 +78,11 @@ pub use experience::{
     WritingDomain,
 };
 pub use forge_bridge::{ForgeAssetKind, ForgeBridge, ForgeRemoteKind, ForgeSyncPlan};
+pub use friday::{
+    FridayCapability, FridayCompetitor, FridayFeatureStatus, FridayProductPlan, FridaySearchPolicy,
+    FridayWorkspaceArea, FridayWorkspaceView, default_friday_product_plan,
+    friday_answer_search_plan, friday_research_search_plan,
+};
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
 pub use models::{KokoroTTS, LocalLlm, LocalSttEngine, MoonshineSTT};
 pub use pipeline::VoicePipeline;

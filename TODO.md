@@ -41,7 +41,7 @@ Goal: make Flow safer and more reliable as a host-level assistant that can read 
 
 This set is complete. The next loop should open `Writing Quality Core` as the new active set and keep host autonomy stable while improving Flow's writing intelligence.
 
-## Active Set: Writing Quality Core
+## Paused Set: Writing Quality Core
 
 Status: 55/100
 
@@ -57,6 +57,29 @@ Goal: make Flow's writing assistance excellent enough to feel useful every day, 
 - [ ] Add style-guide and brand-tone policy enforcement.
 - [ ] Add multilingual writing assistance.
 - [ ] Add host-facing writing review summaries with accept/reject handoff.
+
+### Pause Rule
+
+This set remains important, but the active product direction has moved to Friday's competitive AI workspace. Resume this set after the Friday assistant shell has real Ask, Search, Research, Projects, Memory, Connectors, Voice, Artifacts, Automations, Code, and Multimodal surfaces.
+
+## Active Set: Friday Competitive AI Workspace
+
+Status: 39/100
+
+Goal: make Friday a local-first AI workspace that can compete with the useful surfaces of ChatGPT, Gemini, Perplexity, Grok, and Claude without depending on Perplexity Computer. Search and research must use the adjacent Rust metasearch crate.
+
+### Done
+
+- [x] Add a Friday capability map covering ChatGPT, Gemini, Perplexity, Grok, and Claude feature targets.
+- [x] Add Friday workspace route definitions for Ask, Search, Research, Agents, Canvas, Projects, Memory, Connectors, Voice, Artifacts, Automations, Code, and Multimodal.
+- [x] Add metasearch-first answer search and deep research planning that explicitly forbids Perplexity Computer as a dependency.
+
+### Remaining To Reach 100/100
+
+- [ ] Wire Ask and Research to streaming local-first runtime output with source groups, citation records, and exportable reports.
+- [ ] Add durable Projects, Memory, and Connectors stores with permission-scoped local data boundaries.
+- [ ] Build Canvas, Artifacts, and Code workspaces with editable outputs, previews, diffs, and checkpoints.
+- [ ] Connect Voice, Multimodal, and Automations surfaces to STT/TTS/OCR/VLM planning, scheduler, and audit records.
 
 ## Next Set Candidates
 

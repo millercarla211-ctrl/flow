@@ -24,6 +24,12 @@
 - advanced Writing Quality Core to 30/100
 - added local-first academic review reports for citation needs, claim review, fact-check risk, supplied-source matching, and source-overlap warnings
 - advanced Writing Quality Core to 55/100
+- paused Writing Quality Core so the active loop can follow the Friday competitive AI workspace pivot
+- added a Friday capability map covering ChatGPT, Gemini, Perplexity, Grok, and Claude feature targets
+- added Friday workspace view definitions for Ask, Search, Research, Agents, Canvas, Projects, Memory, Connectors, Voice, Artifacts, Automations, Code, and Multimodal
+- added metasearch-first Friday answer-search and deep-research plans that explicitly forbid Perplexity Computer as a dependency
+- added `flow --friday`, `flow --friday-json`, `flow --friday-search`, and `flow --friday-research`
+- opened Friday Competitive AI Workspace at 39/100
 
 ## 2026-04-26
 

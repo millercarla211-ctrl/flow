@@ -21,6 +21,10 @@ use crate::experience::{
     TypingAssistResult,
 };
 use crate::forge_bridge::{ForgeBridge, ForgeSyncPlan};
+use crate::friday::{
+    FridayProductPlan, default_friday_product_plan, friday_answer_search_plan,
+    friday_research_search_plan,
+};
 use crate::long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
 use crate::prompt::{DxSerializer, SerializedPromptEnvelope};
 use crate::provider_catalog::{ProviderCatalogBridge, ProviderCatalogPlan};
@@ -75,6 +79,10 @@ impl DxFlowRuntime {
 
     pub fn competitive_scorecard(&self) -> CompetitiveScorecard {
         default_competitive_scorecard()
+    }
+
+    pub fn friday_product_plan(&self) -> FridayProductPlan {
+        default_friday_product_plan()
     }
 
     pub fn runtime_plan(&self, modality: Modality, model: Option<String>) -> ExecutionPlan {
@@ -231,6 +239,14 @@ impl DxFlowRuntime {
 
     pub fn agent_search_plan(&self, query: impl Into<String>) -> SearchRequestPlan {
         MetasearchBridge::for_agent_grounding(query)
+    }
+
+    pub fn friday_answer_search_plan(&self, query: impl Into<String>) -> SearchRequestPlan {
+        friday_answer_search_plan(query)
+    }
+
+    pub fn friday_research_search_plan(&self, query: impl Into<String>) -> SearchRequestPlan {
+        friday_research_search_plan(query)
     }
 
     pub fn model_search_plan(&self, query: impl Into<String>) -> SearchRequestPlan {

@@ -36,6 +36,14 @@ pub enum Command {
     Projects,
     /// Show the Flow competitive scorecard
     Scorecard,
+    /// Show Friday's competitive AI workspace feature plan
+    FridayPlan,
+    /// Print Friday's competitive AI workspace feature plan as JSON
+    FridayPlanJson,
+    /// Build a metasearch-first Friday answer-search plan
+    FridaySearchPlan { query: String },
+    /// Build a metasearch-first Friday deep-research plan
+    FridayResearchPlan { query: String },
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -184,6 +192,30 @@ impl Args {
             "--profile" => Command::Profile,
             "--projects" => Command::Projects,
             "--scorecard" => Command::Scorecard,
+            "--friday" | "--friday-plan" | "--friday-capabilities" => Command::FridayPlan,
+            "--friday-json" | "--friday-plan-json" | "--friday-capabilities-json" => {
+                Command::FridayPlanJson
+            }
+            "--friday-search" | "--friday-search-plan" => {
+                if args.len() <= 2 {
+                    eprintln!("Error: query required");
+                    eprintln!("Usage: flow --friday-search <query>");
+                    std::process::exit(1);
+                }
+                Command::FridaySearchPlan {
+                    query: args[2..].join(" "),
+                }
+            }
+            "--friday-research" | "--friday-research-plan" => {
+                if args.len() <= 2 {
+                    eprintln!("Error: query required");
+                    eprintln!("Usage: flow --friday-research <query>");
+                    std::process::exit(1);
+                }
+                Command::FridayResearchPlan {
+                    query: args[2..].join(" "),
+                }
+            }
             "--accessibility-diagnostics" | "--accessibility" => {
                 let live = !args.iter().any(|value| value == "--dry-run");
                 let os = args

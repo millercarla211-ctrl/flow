@@ -11,6 +11,7 @@ use flow::experience::{
     SnippetEntry, StylePreset, ToneStyle, TypingAssistRequest, WritingDomain,
 };
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
+use flow::friday::{FridayCompetitor, default_friday_product_plan};
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
 use flow::provider_catalog::{CatalogSource, ProviderCatalogBridge};
@@ -320,6 +321,40 @@ fn competitive_scorecard_has_expected_baseline() {
     assert_eq!(scorecard.wispr_replacement_score_out_of_100, 52);
     assert_eq!(scorecard.grammarly_replacement_score_out_of_100, 40);
     assert_eq!(scorecard.flow_native_advantage_score_out_of_100, 57);
+}
+
+#[test]
+fn friday_plan_covers_the_target_ai_assistants() {
+    let plan = default_friday_product_plan();
+    let competitors = plan
+        .capabilities
+        .iter()
+        .map(|capability| capability.competitor)
+        .collect::<std::collections::HashSet<_>>();
+
+    assert!(competitors.contains(&FridayCompetitor::ChatGpt));
+    assert!(competitors.contains(&FridayCompetitor::Gemini));
+    assert!(competitors.contains(&FridayCompetitor::Perplexity));
+    assert!(competitors.contains(&FridayCompetitor::Grok));
+    assert!(competitors.contains(&FridayCompetitor::Claude));
+    assert!(plan.search_policy.forbids_perplexity_computer);
+    assert!(plan.score_out_of_100 < 60);
+}
+
+#[test]
+fn friday_runtime_search_plans_use_metasearch() {
+    let runtime = flow::DxFlowRuntime::detect();
+    let answer_plan = runtime.friday_answer_search_plan("best current local stt");
+    let research_plan = runtime.friday_research_search_plan("compare ChatGPT Claude Gemini");
+
+    assert!(answer_plan.use_adjacent_metasearch);
+    assert!(research_plan.use_adjacent_metasearch);
+    assert!(
+        answer_plan
+            .notes
+            .iter()
+            .any(|note| note.contains("Perplexity Computer"))
+    );
 }
 
 #[test]
