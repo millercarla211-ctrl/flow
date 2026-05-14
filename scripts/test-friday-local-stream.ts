@@ -44,9 +44,11 @@ import {
 } from "../src/features/friday/utils/workspaceCloudSync";
 import {
   buildFridayWorkspaceBackup,
+  FRIDAY_RESTORE_CHECKPOINT_KEY,
   formatFridayWorkspaceBackupSummary,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
+  restoreFridayWorkspaceBackupToStorage,
   serializeFridayWorkspaceBackup,
 } from "../src/features/friday/utils/workspaceBackup";
 import { getFridayAuthConfigStatus } from "../src/server/auth/db";
@@ -831,6 +833,41 @@ if (!parsedBackup.ok || getFridayWorkspaceBackupEntries(parsedBackup.backup).len
 
 if (!parsedBackup.ok || !formatFridayWorkspaceBackupSummary(parsedBackup.backup).includes("Projects: 1")) {
   throw new Error("Friday workspace backup summary did not report project counts.");
+}
+
+if (parsedBackup.ok) {
+  const emittedRestoreKeys: Array<string | undefined> = [];
+  const restoreStorage = createTestStorage({
+    [STORAGE_KEYS.projects]: JSON.stringify([
+      {
+        id: "project_before_restore",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        name: "Before restore",
+        instructions: "Keep a safety checkpoint.",
+        modelKey: "qwen35-4b-revised-q4km",
+      },
+    ]),
+  });
+  const restored = restoreFridayWorkspaceBackupToStorage({
+    backup: parsedBackup.backup,
+    checkpointAt: "2026-05-14T01:00:00.000Z",
+    emitChange: (key) => emittedRestoreKeys.push(key),
+    storage: restoreStorage,
+  });
+  const checkpointRaw = restoreStorage.getItem(FRIDAY_RESTORE_CHECKPOINT_KEY);
+  const checkpoint = checkpointRaw ? parseFridayWorkspaceBackup(checkpointRaw) : null;
+
+  if (
+    restored.entries.length !== 2 ||
+    !restoreStorage.getItem(STORAGE_KEYS.projects)?.includes("Friday OS") ||
+    !checkpoint?.ok ||
+    !formatFridayWorkspaceBackupSummary(checkpoint.backup).includes("Projects: 1") ||
+    !emittedRestoreKeys.includes(STORAGE_KEYS.projects) ||
+    emittedRestoreKeys.at(-1) !== undefined
+  ) {
+    throw new Error("Friday workspace restore did not save a checkpoint and emit storage changes.");
+  }
 }
 
 const rejectedBackup = parseFridayWorkspaceBackup(

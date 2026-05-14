@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from "../components/local-workspaces/types";
 
 export const FRIDAY_WORKSPACE_BACKUP_VERSION = 1;
+export const FRIDAY_RESTORE_CHECKPOINT_KEY = "friday.restore-checkpoint.v1";
 
 export const FRIDAY_WORKSPACE_STORAGE_KEYS = [
   STORAGE_KEYS.askThreads,
@@ -15,6 +16,7 @@ export const FRIDAY_WORKSPACE_STORAGE_KEYS = [
 ] as const;
 
 type FridayWorkspaceStorageKey = (typeof FRIDAY_WORKSPACE_STORAGE_KEYS)[number];
+type FridayWorkspaceStorage = Pick<Storage, "getItem" | "setItem">;
 const FRIDAY_WORKSPACE_LIST_STORAGE_KEYS = FRIDAY_WORKSPACE_STORAGE_KEYS.filter(
   (key) => key !== STORAGE_KEYS.connectors,
 );
@@ -48,6 +50,11 @@ export type FridayWorkspaceBackup = {
 export type FridayWorkspaceBackupParseResult =
   | { ok: true; backup: FridayWorkspaceBackup }
   | { ok: false; message: string };
+
+export type FridayWorkspaceRestoreResult = {
+  checkpoint: FridayWorkspaceBackup;
+  entries: ReturnType<typeof getFridayWorkspaceBackupEntries>;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -311,4 +318,28 @@ export function formatFridayWorkspaceBackupSummary(backup: FridayWorkspaceBackup
   return summary
     .map((entry) => `${entry.label}: ${entry.count}`)
     .join(", ");
+}
+
+export function restoreFridayWorkspaceBackupToStorage({
+  backup,
+  checkpointAt = new Date().toISOString(),
+  emitChange,
+  storage,
+}: {
+  backup: FridayWorkspaceBackup;
+  checkpointAt?: string;
+  emitChange?: (key?: FridayWorkspaceStorageKey) => void;
+  storage: FridayWorkspaceStorage;
+}): FridayWorkspaceRestoreResult {
+  const checkpoint = buildFridayWorkspaceBackup((key) => storage.getItem(key), checkpointAt);
+  storage.setItem(FRIDAY_RESTORE_CHECKPOINT_KEY, serializeFridayWorkspaceBackup(checkpoint));
+
+  const entries = getFridayWorkspaceBackupEntries(backup);
+  for (const entry of entries) {
+    storage.setItem(entry.key, JSON.stringify(entry.value));
+    emitChange?.(entry.key);
+  }
+  emitChange?.();
+
+  return { checkpoint, entries };
 }

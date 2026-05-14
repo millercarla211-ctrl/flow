@@ -15,6 +15,7 @@ import {
   formatFridayWorkspaceBackupSummary,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
+  restoreFridayWorkspaceBackupToStorage,
   serializeFridayWorkspaceBackup,
 } from "../../utils/workspaceBackup";
 import { DEFAULT_CONNECTORS, STORAGE_KEYS, type ConnectorSettings } from "./types";
@@ -92,16 +93,15 @@ export function ConnectorsWorkspace() {
       return;
     }
 
-    const entries = getFridayWorkspaceBackupEntries(parsed.backup);
-    for (const entry of entries) {
-      window.localStorage.setItem(entry.key, JSON.stringify(entry.value));
-      emitFridayStorageChange(entry.key);
-    }
-    emitFridayStorageChange();
+    const { checkpoint, entries } = restoreFridayWorkspaceBackupToStorage({
+      backup: parsed.backup,
+      emitChange: emitFridayStorageChange,
+      storage: window.localStorage,
+    });
 
     setBackupMessage({
       tone: "success",
-      text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored: ${formatFridayWorkspaceBackupSummary(parsed.backup)}.`,
+      text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored: ${formatFridayWorkspaceBackupSummary(parsed.backup)}. Safety checkpoint saved: ${formatFridayWorkspaceBackupSummary(checkpoint)}.`,
     });
   };
 
@@ -128,17 +128,16 @@ export function ConnectorsWorkspace() {
       const result = await pullFridayWorkspaceSnapshot();
 
       if (result.ok && result.payload) {
-        const entries = getFridayWorkspaceBackupEntries(result.payload);
-        for (const entry of entries) {
-          window.localStorage.setItem(entry.key, JSON.stringify(entry.value));
-          emitFridayStorageChange(entry.key);
-        }
-        emitFridayStorageChange();
+        const { checkpoint, entries } = restoreFridayWorkspaceBackupToStorage({
+          backup: result.payload,
+          emitChange: emitFridayStorageChange,
+          storage: window.localStorage,
+        });
         setWorkspaceSyncMessage({
           tone: "success",
           text: `${entries.length} local section${
             entries.length === 1 ? "" : "s"
-          } restored from sync: ${formatFridayWorkspaceBackupSummary(result.payload)}.`,
+          } restored from sync: ${formatFridayWorkspaceBackupSummary(result.payload)}. Safety checkpoint saved: ${formatFridayWorkspaceBackupSummary(checkpoint)}.`,
         });
       } else {
         setWorkspaceSyncMessage({
