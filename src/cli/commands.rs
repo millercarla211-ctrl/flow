@@ -1518,6 +1518,11 @@ fn print_friday_dashboard_product_ui(input_dir: &str) -> Result<()> {
         binding.warning_count,
         binding.blocking_count
     );
+    println!(
+        "Release links: {}, screenshot prompts: {}",
+        binding.release_links.len(),
+        binding.screenshot_prompts.len()
+    );
     println!();
 
     println!("Data bindings:");
@@ -1536,6 +1541,15 @@ fn print_friday_dashboard_product_ui(input_dir: &str) -> Result<()> {
             card.status.label(),
             card.title,
             card.primary_metric
+        );
+    }
+
+    println!();
+    println!("Release links:");
+    for link in &binding.release_links {
+        println!(
+            "  - [{}] {} -> {}",
+            link.section, link.label, link.path
         );
     }
 

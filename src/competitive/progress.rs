@@ -77,9 +77,9 @@ pub fn active_completion_set() -> CompletionSet {
             "release-review-links",
             "Release review links",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "render release-review links for TODO, changelog, visual targets, and export artifacts",
+            CompletionItemStatus::Done,
+            "`flow --friday-dashboard-product-ui-json` exposes grouped release-review links with local open-button state for TODO, changelog, visual targets, and export artifacts",
+            "render these release-review link groups in the visible dashboard",
         ),
         item(
             "dashboard-ui-smoke-contract",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_friday_dashboard_product_ui_wiring_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Dashboard Product UI Wiring");
-        assert_eq!(set.current_score_out_of_100, 60);
+        assert_eq!(set.current_score_out_of_100, 80);
         assert!(
             set.items
                 .iter()

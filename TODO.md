@@ -196,7 +196,7 @@ This set is complete. The next loop should open `Friday Dashboard Product UI Wir
 
 ## Active Set: Friday Dashboard Product UI Wiring
 
-Status: 60/100
+Status: 80/100
 
 Goal: make the visible Friday desktop/web dashboard consume the live Rust dashboard panel contract, execute safe local actions, and show release readiness without dummy product copy.
 
@@ -205,8 +205,8 @@ Goal: make the visible Friday desktop/web dashboard consume the live Rust dashbo
 - [x] Bind the dashboard panel JSON to the visible Friday dashboard surface.
 - [x] Wire typed dashboard actions to safe UI buttons with disabled/loading/error states.
 - [x] Show export history deltas and screenshot prompts in the product UI.
+- [x] Render release-review handoff links for TODO, changelog, visual targets, and export artifacts.
 
 ### Remaining To Reach 100/100
 
-- [ ] Render release-review handoff links for TODO, changelog, visual targets, and export artifacts.
 - [ ] Add a small UI smoke contract proving the dashboard can load the exported panel.

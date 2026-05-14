@@ -65,6 +65,17 @@ pub struct FridayDashboardProductUiScreenshotPrompt {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardProductUiReleaseLink {
+    pub id: String,
+    pub label: String,
+    pub kind: String,
+    pub path: String,
+    pub section: String,
+    pub local_only: bool,
+    pub button_state: FridayDashboardProductUiButtonState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FridayDashboardProductUiBinding {
     pub product_name: String,
     pub route: String,
@@ -86,6 +97,7 @@ pub struct FridayDashboardProductUiBinding {
     pub action_bindings: Vec<FridayDashboardProductUiActionBinding>,
     pub history: FridayDashboardProductUiHistoryBinding,
     pub screenshot_prompts: Vec<FridayDashboardProductUiScreenshotPrompt>,
+    pub release_links: Vec<FridayDashboardProductUiReleaseLink>,
     pub next_actions: Vec<String>,
 }
 
@@ -149,6 +161,12 @@ pub fn friday_dashboard_product_ui_binding_from_export(
         .find(|card| card.id == "release-review")
         .map(|card| card.source_json.as_str())
         .unwrap_or("");
+    let release_links = panel
+        .release_review
+        .links
+        .iter()
+        .map(release_link_binding)
+        .collect::<Vec<_>>();
 
     Ok(FridayDashboardProductUiBinding {
         product_name: panel.product_name.clone(),
@@ -188,6 +206,7 @@ pub fn friday_dashboard_product_ui_binding_from_export(
                 capture_command: record.capture_command.clone(),
             })
             .collect(),
+        release_links,
         data_bindings: dashboard_data_bindings(
             &panel_json_command,
             &export_command,
@@ -202,6 +221,8 @@ pub fn friday_dashboard_product_ui_binding_from_export(
             "Connect enabled local-only actions to explicit UI buttons with loading and error states."
                 .to_string(),
             "Show dashboard history deltas and release-review links in the visible dashboard."
+                .to_string(),
+            "Render release-review links as local artifact buttons grouped by release notes, visual review, and export artifacts."
                 .to_string(),
         ],
     })
@@ -234,6 +255,36 @@ fn dashboard_history_binding(
         } else {
             "steady".to_string()
         },
+    }
+}
+
+fn release_link_binding(
+    link: &super::FridayDashboardReleaseReviewLink,
+) -> FridayDashboardProductUiReleaseLink {
+    let label = format!("Open {}", link.label);
+    FridayDashboardProductUiReleaseLink {
+        id: link.id.clone(),
+        label: link.label.clone(),
+        kind: link.kind.clone(),
+        path: link.path.clone(),
+        section: release_link_section(&link.id).to_string(),
+        local_only: true,
+        button_state: action_button_state(
+            FridayDashboardActionKind::Open,
+            &label,
+            !link.path.trim().is_empty(),
+            false,
+            false,
+        ),
+    }
+}
+
+fn release_link_section(id: &str) -> &'static str {
+    match id {
+        "todo" | "changelog" | "summary" => "release-notes",
+        "route-visuals" => "visual-review",
+        "manifest" | "completion" | "dashboard-history" => "export-artifacts",
+        _ => "other",
     }
 }
 

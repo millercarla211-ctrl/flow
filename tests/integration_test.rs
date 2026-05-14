@@ -941,8 +941,8 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
     let bundle = export_friday_dashboard_bundle(&root).unwrap();
 
     assert_eq!(bundle.completion.name, "Friday Dashboard Product UI Wiring");
-    assert_eq!(bundle.completion.current_score_out_of_100, 60);
-    assert_eq!(bundle.manifest.score_out_of_100, 60);
+    assert_eq!(bundle.completion.current_score_out_of_100, 80);
+    assert_eq!(bundle.manifest.score_out_of_100, 80);
     assert_eq!(bundle.export_history.record_count, 1);
     assert_eq!(bundle.release_review.loop_name, "Friday Dashboard Product UI Wiring");
     assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
@@ -984,7 +984,7 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
     assert_eq!(panel.loop_name, "Friday Dashboard Product UI Wiring");
-    assert_eq!(panel.score_out_of_100, 60);
+    assert_eq!(panel.score_out_of_100, 80);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
     assert_eq!(panel.cards.len(), 8);
     assert!(panel.cards.iter().any(|card| {
@@ -1098,7 +1098,7 @@ fn friday_dashboard_release_review_links_release_artifacts() {
 
     let review = friday_dashboard_release_review_from_export(&root).unwrap();
     assert_eq!(review.loop_name, "Friday Dashboard Product UI Wiring");
-    assert_eq!(review.score_out_of_100, 60);
+    assert_eq!(review.score_out_of_100, 80);
     assert!(review.total_count >= 6);
     assert!(review
         .checklist
@@ -1128,7 +1128,7 @@ fn friday_dashboard_product_ui_binding_maps_panel_json_to_route() {
     let binding = friday_dashboard_product_ui_binding_from_export(&root).unwrap();
     assert_eq!(binding.product_name, "Friday");
     assert_eq!(binding.route, "/dashboard");
-    assert_eq!(binding.score_out_of_100, 60);
+    assert_eq!(binding.score_out_of_100, 80);
     assert_eq!(binding.card_count, 8);
     assert_eq!(binding.bound_card_count, 8);
     assert!(binding.panel_json_command.contains("--friday-dashboard-panel-json"));
@@ -1148,6 +1148,23 @@ fn friday_dashboard_product_ui_binding_maps_panel_json_to_route() {
         .screenshot_prompts
         .iter()
         .any(|prompt| prompt.capture_command.contains("agent-browser screenshot")));
+    assert!(binding.release_links.iter().any(|link| {
+        link.id == "changelog"
+            && link.section == "release-notes"
+            && link.path == "CHANGELOG.md"
+            && !link.button_state.disabled
+            && link.button_state.aria_label.contains("Open dashboard action")
+    }));
+    assert!(binding.release_links.iter().any(|link| {
+        link.id == "route-visuals"
+            && link.section == "visual-review"
+            && link.path.ends_with("route-visuals.json")
+    }));
+    assert!(binding.release_links.iter().any(|link| {
+        link.id == "dashboard-history"
+            && link.section == "export-artifacts"
+            && link.path.ends_with("dashboard-history.json")
+    }));
     assert!(binding.action_bindings.iter().any(|action| {
         action.card_id == "operator-readiness"
             && action.kind == FridayDashboardActionKind::Recover

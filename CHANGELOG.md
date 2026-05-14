@@ -110,6 +110,8 @@
 - added safe dashboard button state metadata with local-only commands, loading labels, disabled reasons, confirmation flags, and error labels
 - advanced Friday Dashboard Product UI Wiring to 60/100
 - added product UI bindings for dashboard history trends, latest/previous scores, missing screenshot prompts, and capture commands
+- advanced Friday Dashboard Product UI Wiring to 80/100
+- added grouped release-review link bindings for TODO, changelog, visual targets, dashboard history, completion, summary, and manifest artifacts
 
 ## 2026-04-26
 
