@@ -24,7 +24,7 @@ use crate::experience::{
     FlowFileStateStore, FlowStateStore, NativeSelectionBridge, OperatingSystemFamily,
 };
 use crate::friday::{
-    FridayFeatureStatus, FridayResearchWorkflow, default_friday_product_plan,
+    FridayFeatureStatus, FridayResearchReport, FridayResearchWorkflow, default_friday_product_plan,
     friday_answer_search_plan, friday_research_search_plan,
 };
 use crate::models::{
@@ -241,6 +241,13 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&response)?);
         }
 
+        Command::FridayResearchReport { query } => {
+            let response = MetasearchServerConfig::default()
+                .search_blocking(&friday_research_search_plan(query))?;
+            let report = FridayResearchReport::from_metasearch_response(&response);
+            println!("{}", report.to_markdown());
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -390,6 +397,8 @@ fn print_interactive_help() {
     println!("                           Show the runnable Friday research workflow contract");
     println!("  --friday-metasearch <query>");
     println!("                           Execute answer search against local metasearch");
+    println!("  --friday-research-report <query>");
+    println!("                           Search locally and print a markdown research report");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");

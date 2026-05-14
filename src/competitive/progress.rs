@@ -70,8 +70,8 @@ pub fn active_completion_set() -> CompletionSet {
             "Ask and Research streaming runtime",
             20,
             CompletionItemStatus::InProgress,
-            "Friday now has a metasearch-backed research workflow contract plus a local metasearch API client path; streaming answer/report execution is next",
-            "wire the workflow to runtime progress events, source groups, citation persistence, and report export",
+            "Friday now has a metasearch-backed research workflow, local metasearch API client, source groups, citation ledgers, and markdown report export; streaming execution is next",
+            "wire the workflow to runtime progress events, persisted citations, and local-first answer synthesis",
         ),
         item(
             "projects-memory-connectors",

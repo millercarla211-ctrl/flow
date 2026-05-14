@@ -75,10 +75,11 @@ Goal: make Friday a local-first AI workspace that can compete with the useful su
 - [x] Add metasearch-first answer search and deep research planning that explicitly forbids Perplexity Computer as a dependency.
 - [x] Add a Friday Research workflow contract with metasearch targets, stage states, and export formats.
 - [x] Add a local metasearch API client path so Friday can execute cited search through the adjacent Rust server when it is running.
+- [x] Add source-group, citation-ledger, and markdown-report records for metasearch research output.
 
 ### Remaining To Reach 100/100
 
-- [ ] Finish Ask and Research runtime execution with streaming local-first model output, source groups, citation records, and exportable reports.
+- [ ] Finish Ask and Research runtime execution with streaming local-first model output, persisted citations, and live progress events.
 - [ ] Add durable Projects, Memory, and Connectors stores with permission-scoped local data boundaries.
 - [ ] Build Canvas, Artifacts, and Code workspaces with editable outputs, previews, diffs, and checkpoints.
 - [ ] Connect Voice, Multimodal, and Automations surfaces to STT/TTS/OCR/VLM planning, scheduler, and audit records.

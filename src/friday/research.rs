@@ -1,7 +1,11 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use super::{friday_answer_search_plan, friday_research_search_plan};
-use crate::search::{MetasearchServerConfig, SearchRequestPlan};
+use crate::search::{
+    MetasearchApiResponse, MetasearchApiResult, MetasearchServerConfig, SearchRequestPlan,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -73,6 +77,37 @@ pub struct FridayResearchWorkflow {
     pub forbids_perplexity_computer: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FridayCitationRecord {
+    pub id: String,
+    pub title: String,
+    pub url: String,
+    pub snippet: String,
+    pub engine: String,
+    pub category: String,
+    pub score: f64,
+    pub published_date: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FridaySourceGroup {
+    pub key: String,
+    pub label: String,
+    pub citations: Vec<FridayCitationRecord>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FridayResearchReport {
+    pub query: String,
+    pub summary: String,
+    pub citations: Vec<FridayCitationRecord>,
+    pub source_groups: Vec<FridaySourceGroup>,
+    pub engines_used: Vec<String>,
+    pub engines_failed: Vec<String>,
+    pub search_time_ms: u64,
+    pub cached: bool,
+}
+
 impl FridayResearchWorkflow {
     pub fn for_query(query: impl Into<String>) -> Self {
         let query = query.into();
@@ -106,6 +141,83 @@ impl FridayResearchWorkflow {
 
     pub fn to_pretty_json(&self) -> serde_json::Result<String> {
         serde_json::to_string_pretty(self)
+    }
+}
+
+impl FridayResearchReport {
+    pub fn from_metasearch_response(response: &MetasearchApiResponse) -> Self {
+        let citations = response
+            .results
+            .iter()
+            .enumerate()
+            .map(|(index, result)| citation_from_result(index + 1, result))
+            .collect::<Vec<_>>();
+        let source_groups = group_citations_by_category(&citations);
+
+        Self {
+            query: response.query.clone(),
+            summary: format!(
+                "Metasearch returned {} cited source candidates across {} engine(s).",
+                citations.len(),
+                response.engines_used.len()
+            ),
+            citations,
+            source_groups,
+            engines_used: response.engines_used.clone(),
+            engines_failed: response.engines_failed.clone(),
+            search_time_ms: response.search_time_ms,
+            cached: response.cached,
+        }
+    }
+
+    pub fn to_markdown(&self) -> String {
+        let mut lines = vec![
+            format!("# Friday Research: {}", self.query),
+            String::new(),
+            self.summary.clone(),
+            String::new(),
+            format!(
+                "- Engines used: {}",
+                if self.engines_used.is_empty() {
+                    "none".to_string()
+                } else {
+                    self.engines_used.join(", ")
+                }
+            ),
+            format!("- Search time: {} ms", self.search_time_ms),
+            format!("- Cached: {}", if self.cached { "yes" } else { "no" }),
+        ];
+
+        if !self.engines_failed.is_empty() {
+            lines.push(format!(
+                "- Engines failed: {}",
+                self.engines_failed.join(", ")
+            ));
+        }
+
+        lines.push(String::new());
+        lines.push("## Source Groups".to_string());
+        for group in &self.source_groups {
+            lines.push(String::new());
+            lines.push(format!("### {}", group.label));
+            for citation in &group.citations {
+                lines.push(format!(
+                    "- [{}] [{}]({}) — {}",
+                    citation.id, citation.title, citation.url, citation.snippet
+                ));
+            }
+        }
+
+        lines.push(String::new());
+        lines.push("## Citation Ledger".to_string());
+        for citation in &self.citations {
+            lines.push(format!(
+                "- [{}] engine=`{}` category=`{}` score=`{:.3}` url={}",
+                citation.id, citation.engine, citation.category, citation.score, citation.url
+            ));
+        }
+
+        lines.join("\n")
     }
 }
 
@@ -199,6 +311,67 @@ fn stage(
     }
 }
 
+fn citation_from_result(index: usize, result: &MetasearchApiResult) -> FridayCitationRecord {
+    FridayCitationRecord {
+        id: format!("S{index}"),
+        title: result.title.clone(),
+        url: result.url.clone(),
+        snippet: compact_snippet(&result.content),
+        engine: result.engine.clone(),
+        category: if result.category.trim().is_empty() {
+            "general".to_string()
+        } else {
+            result.category.clone()
+        },
+        score: result.score,
+        published_date: result.published_date.clone(),
+    }
+}
+
+fn group_citations_by_category(citations: &[FridayCitationRecord]) -> Vec<FridaySourceGroup> {
+    let mut grouped: BTreeMap<String, Vec<FridayCitationRecord>> = BTreeMap::new();
+    for citation in citations {
+        grouped
+            .entry(citation.category.clone())
+            .or_default()
+            .push(citation.clone());
+    }
+
+    grouped
+        .into_iter()
+        .map(|(key, citations)| FridaySourceGroup {
+            label: humanize_source_group(&key),
+            key,
+            citations,
+        })
+        .collect()
+}
+
+fn humanize_source_group(category: &str) -> String {
+    category
+        .split(['-', '_'])
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn compact_snippet(content: &str) -> String {
+    let snippet = content.split_whitespace().collect::<Vec<_>>().join(" ");
+    if snippet.chars().count() <= 220 {
+        return snippet;
+    }
+
+    let truncated = snippet.chars().take(217).collect::<String>();
+    format!("{truncated}...")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -233,5 +406,55 @@ mod tests {
                 .iter()
                 .any(|stage| stage.kind == FridayResearchStageKind::CitationExtraction)
         );
+    }
+
+    #[test]
+    fn research_report_groups_sources_and_exports_markdown() {
+        let response = MetasearchApiResponse {
+            query: "local ai search".to_string(),
+            results: vec![
+                MetasearchApiResult {
+                    title: "General source".to_string(),
+                    url: "https://example.com/general".to_string(),
+                    content: "General web evidence.".to_string(),
+                    engine: "duckduckgo".to_string(),
+                    engine_rank: 1,
+                    score: 0.9,
+                    thumbnail: None,
+                    published_date: None,
+                    category: "general".to_string(),
+                    metadata: serde_json::Value::Null,
+                },
+                MetasearchApiResult {
+                    title: "Science source".to_string(),
+                    url: "https://example.com/science".to_string(),
+                    content: "Academic evidence.".to_string(),
+                    engine: "openalex".to_string(),
+                    engine_rank: 1,
+                    score: 0.8,
+                    thumbnail: None,
+                    published_date: None,
+                    category: "science".to_string(),
+                    metadata: serde_json::Value::Null,
+                },
+            ],
+            number_of_results: 2,
+            engines_used: vec!["duckduckgo".to_string(), "openalex".to_string()],
+            engines_failed: Vec::new(),
+            search_time_ms: 31,
+            cached: false,
+            category: None,
+            categories: vec!["general".to_string(), "science".to_string()],
+            page: 1,
+            language: Some("en".to_string()),
+        };
+
+        let report = FridayResearchReport::from_metasearch_response(&response);
+        let markdown = report.to_markdown();
+
+        assert_eq!(report.citations.len(), 2);
+        assert_eq!(report.source_groups.len(), 2);
+        assert!(markdown.contains("[S1]"));
+        assert!(markdown.contains("## Citation Ledger"));
     }
 }

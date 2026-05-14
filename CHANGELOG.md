@@ -32,6 +32,7 @@
 - opened Friday Competitive AI Workspace at 39/100
 - added a Friday Research workflow contract with metasearch execution targets, stage states, and export formats
 - added a local metasearch API client path plus `flow --friday-metasearch` / `flow --friday-metasearch-json`
+- added Friday source-group, citation-ledger, and markdown-report records plus `flow --friday-research-report`
 - added `flow --friday-research-workflow` and `flow --friday-research-workflow-json`
 - advanced Friday Competitive AI Workspace to 47/100
 
