@@ -315,6 +315,10 @@ export function readFridayRestoreCheckpoint(
   return parseFridayWorkspaceBackup(raw);
 }
 
+export function clearFridayRestoreCheckpoint(storage: Pick<Storage, "removeItem">) {
+  storage.removeItem(FRIDAY_RESTORE_CHECKPOINT_KEY);
+}
+
 export function getFridayWorkspaceBackupEntries(backup: FridayWorkspaceBackup) {
   return FRIDAY_WORKSPACE_STORAGE_KEYS.flatMap((key) =>
     Object.prototype.hasOwnProperty.call(backup.keys, key)

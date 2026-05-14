@@ -44,6 +44,7 @@ import {
 } from "../src/features/friday/utils/workspaceCloudSync";
 import {
   buildFridayWorkspaceBackup,
+  clearFridayRestoreCheckpoint,
   createFridayWorkspaceBackupFilename,
   FRIDAY_RESTORE_CHECKPOINT_KEY,
   formatFridayWorkspaceBackupSummary,
@@ -889,6 +890,12 @@ if (parsedBackup.ok) {
     emittedRestoreKeys.at(-1) !== undefined
   ) {
     throw new Error("Friday workspace restore did not save a checkpoint and emit storage changes.");
+  }
+
+  clearFridayRestoreCheckpoint(restoreStorage);
+  const clearedCheckpoint = readFridayRestoreCheckpoint(restoreStorage);
+  if (clearedCheckpoint.ok || restoreStorage.getItem(FRIDAY_RESTORE_CHECKPOINT_KEY) !== null) {
+    throw new Error("Friday workspace restore checkpoint was not cleared.");
   }
 }
 

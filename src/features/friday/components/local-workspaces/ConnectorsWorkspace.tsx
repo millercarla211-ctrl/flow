@@ -1,4 +1,4 @@
-import { Activity, Database, Download, Link2, RefreshCw, RotateCcw, Upload } from "lucide-react";
+import { Activity, Database, Download, Link2, RefreshCw, RotateCcw, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import {
 } from "../../utils/workspaceCloudSync";
 import {
   buildFridayWorkspaceBackup,
+  clearFridayRestoreCheckpoint,
   createFridayWorkspaceBackupFilename,
   formatFridayWorkspaceBackupSummary,
   formatFridayWorkspaceBackupStatus,
@@ -78,6 +79,7 @@ export function ConnectorsWorkspace() {
     process.env.NEXT_PUBLIC_FRIDAY_ENABLE_GROQ_AI === "true";
   const providerCheckDisabled = !settings.aiGateway || !cloudEnvEnabled || isCheckingProvider;
   const hasRestoreCheckpoint = restoreCheckpoint.tone === "ready";
+  const canClearRestoreCheckpoint = restoreCheckpoint.tone !== "idle";
 
   const refreshRestoreCheckpoint = useCallback(() => {
     const parsed = readFridayRestoreCheckpoint(window.localStorage);
@@ -189,6 +191,16 @@ export function ConnectorsWorkspace() {
       text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored from checkpoint: ${formatFridayWorkspaceBackupSummary(parsed.backup)}. New safety checkpoint saved: ${formatFridayWorkspaceBackupSummary(checkpoint)}.`,
     });
     refreshRestoreCheckpoint();
+  };
+
+  const clearRestoreCheckpoint = () => {
+    clearFridayRestoreCheckpoint(window.localStorage);
+    emitFridayStorageChange();
+    refreshRestoreCheckpoint();
+    setBackupMessage({
+      tone: "success",
+      text: "Restore checkpoint cleared from this browser profile.",
+    });
   };
 
   const pushWorkspaceSnapshot = async () => {
@@ -509,6 +521,18 @@ export function ConnectorsWorkspace() {
             >
               <Download size={14} />
               Export checkpoint
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-label="Clear the saved Friday checkpoint"
+              title={canClearRestoreCheckpoint ? "Clear the saved Friday checkpoint" : "No restore checkpoint saved yet"}
+              disabled={!canClearRestoreCheckpoint}
+              onClick={clearRestoreCheckpoint}
+            >
+              <Trash2 size={14} />
+              Clear checkpoint
             </Button>
             <input
               ref={backupInputRef}
