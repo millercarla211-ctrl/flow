@@ -25,8 +25,11 @@ type WorkspaceSyncOptions = {
 };
 
 export function formatFridayWorkspaceSyncTimestamp(value: string) {
-  const syncedAt = new Date(value);
-  if (Number.isNaN(syncedAt.getTime())) return value;
+  const timestamp = value.trim();
+  if (!timestamp) return "Unknown date";
+
+  const syncedAt = new Date(timestamp);
+  if (Number.isNaN(syncedAt.getTime())) return timestamp;
 
   return syncedAt
     .toISOString()
@@ -40,13 +43,19 @@ export function formatFridayWorkspaceRemoteSnapshotStatus(updatedAt?: string) {
   return `Remote snapshot saved ${formatFridayWorkspaceSyncTimestamp(updatedAt)}.`;
 }
 
+function formatFridayWorkspaceSyncSectionCount(count: number) {
+  if (count === 0) return "No local sections";
+  if (count === 1) return "1 local section";
+
+  return `${count} local sections`;
+}
+
 export function formatFridayWorkspaceUploadStatus(
   result: Extract<FridayWorkspaceCloudSyncResult, { ok: true }>,
 ) {
-  const sectionLabel = result.keyCount === 1 ? "section" : "sections";
   const savedAt = formatFridayWorkspaceRemoteSnapshotStatus(result.updatedAt);
 
-  return `${result.keyCount} local ${sectionLabel} uploaded.${savedAt ? ` ${savedAt}` : ""}`;
+  return `${formatFridayWorkspaceSyncSectionCount(result.keyCount)} uploaded.${savedAt ? ` ${savedAt}` : ""}`;
 }
 
 function getBrowserLocalStorage() {

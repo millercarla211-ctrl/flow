@@ -1153,6 +1153,19 @@ if (pushedWorkspace.ok) {
   }
 }
 
+if (
+  formatFridayWorkspaceSyncTimestamp("   ") !== "Unknown date" ||
+  formatFridayWorkspaceRemoteSnapshotStatus("   ") !== "Remote snapshot saved Unknown date." ||
+  formatFridayWorkspaceUploadStatus({
+    ok: true,
+    keyCount: 0,
+    message: "uploaded",
+    updatedAt: "   ",
+  }) !== "No local sections uploaded. Remote snapshot saved Unknown date."
+) {
+  throw new Error("Friday workspace sync status did not handle empty timestamps cleanly.");
+}
+
 const failedWorkspacePush = await pushFridayWorkspaceSnapshot({
   fetcher: async () => {
     throw new Error("offline");
