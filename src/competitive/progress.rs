@@ -61,9 +61,9 @@ pub fn active_completion_set() -> CompletionSet {
             "ocr-execution-smoke",
             "OCR execution smoke path",
             20,
-            CompletionItemStatus::Planned,
-            "GLM-OCR artifacts are discoverable on G: drive, but the loop still needs a small screenshot OCR smoke command and artifact output path",
-            "add a bounded OCR fixture/screenshot smoke path that writes an artifact record",
+            CompletionItemStatus::Done,
+            "`flow --friday-ocr-smoke <dir> [image] [--execute]` writes a bounded OCR smoke markdown file, artifact JSON, checkpoint JSON, and report JSON without loading the model unless explicitly requested",
+            "connect OCR smoke reports to visible Multimodal route diagnostics and richer artifact metadata",
         ),
         item(
             "vlm-screenshot-path",

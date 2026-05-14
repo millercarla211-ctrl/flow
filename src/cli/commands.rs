@@ -28,7 +28,7 @@ use crate::friday::{
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
-    friday_research_search_plan,
+    friday_research_search_plan, run_friday_ocr_smoke,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -419,6 +419,32 @@ pub async fn execute(command: Command) -> Result<()> {
             );
         }
 
+        Command::FridayOcrSmoke {
+            output_dir,
+            image,
+            execute_model,
+        } => {
+            let report = run_friday_ocr_smoke(
+                resolve_repo_relative_path(&output_dir),
+                image.as_deref(),
+                execute_model,
+            )?;
+            print_friday_ocr_smoke(&report);
+        }
+
+        Command::FridayOcrSmokeJson {
+            output_dir,
+            image,
+            execute_model,
+        } => {
+            let report = run_friday_ocr_smoke(
+                resolve_repo_relative_path(&output_dir),
+                image.as_deref(),
+                execute_model,
+            )?;
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -594,6 +620,10 @@ fn print_interactive_help() {
     println!("  --friday-browser-gate   Show browser verification and deploy gate");
     println!("  --friday-browser-gate-json");
     println!("                           Print browser gate status as JSON");
+    println!("  --friday-ocr-smoke <dir> [image] [--execute]");
+    println!("                           Write a bounded OCR smoke artifact bundle");
+    println!("  --friday-ocr-smoke-json <dir> [image] [--execute]");
+    println!("                           Print OCR smoke artifact bundle status as JSON");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");
@@ -639,6 +669,7 @@ fn print_interactive_help() {
     println!("  cargo run --bin flow -- --audit-log tmp/flow-state.txt");
     println!("  cargo run --bin flow -- --completion");
     println!("  cargo run --bin flow -- --completion-json");
+    println!("  cargo run --bin flow -- --friday-ocr-smoke tmp/friday-ocr-smoke");
     println!("  cargo run --bin flow -- --models chat");
     println!("  cargo run --release --bin flow -- --install-model qwen3-0.6b");
     println!("  cargo run --release --bin flow -- --install-model qwen35-4b-revised-q4km");
@@ -986,6 +1017,34 @@ fn print_friday_browser_gate() {
         println!("Notes:");
         for note in &report.deploy_gate.notes {
             println!("  - {}", note);
+        }
+    }
+}
+
+fn print_friday_ocr_smoke(report: &crate::friday::FridayOcrSmokeReport) {
+    println!("Friday OCR Smoke");
+    println!("================");
+    println!("Status: {}", report.status.label());
+    println!("Mode: {}", if report.model_execution { "model" } else { "fixture" });
+    println!("Source: {}", report.image_source);
+    println!("Output dir: {}", report.output_dir);
+    println!("Markdown: {}", report.output_markdown);
+    println!("Artifact: {}", report.artifact_json);
+    println!("Checkpoint: {}", report.checkpoint_json);
+    println!("Report: {}", report.report_json);
+    println!(
+        "Artifact record: {} -> {}",
+        report.artifact.id, report.artifact.current_checkpoint_id
+    );
+    if !report.extracted_text_preview.is_empty() {
+        println!("Preview: {}", report.extracted_text_preview);
+    }
+    if report.findings.is_empty() {
+        println!("Findings: none");
+    } else {
+        println!("Findings:");
+        for finding in &report.findings {
+            println!("  - {}", finding);
         }
     }
 }

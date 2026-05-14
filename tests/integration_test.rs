@@ -18,7 +18,7 @@ use flow::friday::{
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
     FridayWorkspaceStore, default_friday_browser_verification_report,
     default_friday_local_execution_checks, default_friday_product_plan,
-    default_friday_ui_integration_plan,
+    default_friday_ui_integration_plan, run_friday_ocr_smoke,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -552,6 +552,25 @@ fn friday_local_execution_checks_cover_low_resource_runtime_paths() {
     assert!(report.checks.iter().all(|check| check.local_only));
     assert!(report.checks.iter().all(|check| !check.loads_model));
     assert!(report.checks.iter().all(|check| !check.touches_network));
+}
+
+#[test]
+fn friday_ocr_smoke_writes_artifact_record() {
+    let root = temp_root("friday-ocr-smoke");
+    let report = run_friday_ocr_smoke(&root, None, false).unwrap();
+
+    assert_eq!(report.status, flow::FridayOcrSmokeStatus::Passed);
+    assert!(!report.model_execution);
+    assert!(PathBuf::from(&report.output_markdown).exists());
+    assert!(PathBuf::from(&report.artifact_json).exists());
+    assert!(PathBuf::from(&report.checkpoint_json).exists());
+    assert!(PathBuf::from(&report.report_json).exists());
+    assert_eq!(report.artifact.kind, flow::FridayArtifactKind::Markdown);
+    assert_eq!(report.artifact.current_checkpoint_id, report.checkpoint.id);
+    assert_eq!(report.checkpoint.artifact_id, report.artifact.id);
+    assert_eq!(report.artifact.preview_runner, FridayPreviewRunner::Markdown);
+
+    let _ = fs::remove_dir_all(&root);
 }
 
 #[test]

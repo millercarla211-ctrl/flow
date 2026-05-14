@@ -86,11 +86,12 @@ pub use friday::{
     FridayCitationRecord, FridayCodeTaskRecord, FridayCodeTaskStatus, FridayCompetitor,
     FridayConnectorAuthState, FridayConnectorKind, FridayConnectorRecord, FridayFeatureStatus,
     FridayGenerationSummary, FridayLocalCheckKind, FridayLocalCheckStatus,
-    FridayDeployGate, FridayBrowserVerificationReport, FridayBrowserVerificationTarget,
+    FridayBrowserVerificationReport, FridayBrowserVerificationTarget, FridayDeployGate,
     FridayLocalExecutionCheck, FridayLocalExecutionReport, FridayMemoryRecord, FridayMemoryState,
     FridayMultimodalRuntimeRecord, FridayMultimodalSurface, FridayPermissionFinding,
-    FridayPermissionScope, FridayPreviewRunner, FridayProductPlan, FridayProjectFile,
-    FridayProjectRecord, FridayResearchEventKind, FridayResearchExportManifest,
+    FridayOcrSmokeReport, FridayOcrSmokeStatus, FridayPermissionScope, FridayPreviewRunner,
+    FridayProductPlan, FridayProjectFile, FridayProjectRecord, FridayResearchEventKind,
+    FridayResearchExportManifest,
     FridayResearchReport, FridayResearchRunEvent, FridayResearchStage, FridayResearchStageKind,
     FridayResearchStageStatus, FridayResearchWorkflow, FridayRuntimeFinding,
     FridayRuntimeRecordStatus, FridayRuntimeSurfaceManifest, FridayRuntimeSurfaceSnapshot,
@@ -103,7 +104,7 @@ pub use friday::{
     FridayVerificationStatus, MetasearchExecutionTarget,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
-    friday_research_search_plan,
+    friday_research_search_plan, run_friday_ocr_smoke,
 };
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
 pub use models::{KokoroTTS, LocalLlm, LocalSttEngine, MoonshineSTT};

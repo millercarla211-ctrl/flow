@@ -1,5 +1,6 @@
 pub mod artifacts;
 pub mod checks;
+pub mod multimodal;
 pub mod research;
 pub mod runtime;
 pub mod ui;
@@ -8,6 +9,7 @@ pub mod workspace;
 
 pub use artifacts::*;
 pub use checks::*;
+pub use multimodal::*;
 pub use research::*;
 pub use runtime::*;
 pub use ui::*;

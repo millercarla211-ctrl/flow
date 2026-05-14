@@ -56,6 +56,8 @@
 - added `flow --friday-browser-gate` / `--friday-browser-gate-json` for browser-extension verification and major-feature deploy gating
 - completed Friday Product UI Integration at 100/100
 - opened Multimodal Local Core at 20/100
+- added `flow --friday-ocr-smoke` / `--friday-ocr-smoke-json` for bounded OCR fixture or explicit model smoke runs that write markdown, artifact, checkpoint, and report records
+- advanced Multimodal Local Core to 40/100
 
 ## 2026-04-26
 

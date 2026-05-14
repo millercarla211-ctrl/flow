@@ -82,6 +82,18 @@ pub enum Command {
     FridayBrowserGate,
     /// Print Friday browser verification and deploy gate status as JSON
     FridayBrowserGateJson,
+    /// Run a bounded Friday OCR smoke path and write artifact records
+    FridayOcrSmoke {
+        output_dir: String,
+        image: Option<String>,
+        execute_model: bool,
+    },
+    /// Run a bounded Friday OCR smoke path and print JSON
+    FridayOcrSmokeJson {
+        output_dir: String,
+        image: Option<String>,
+        execute_model: bool,
+    },
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -368,6 +380,22 @@ impl Args {
             "--friday-browser-gate-json" | "--friday-verification-gate-json" => {
                 Command::FridayBrowserGateJson
             }
+            "--friday-ocr-smoke" => {
+                let (output_dir, image, execute_model) = parse_friday_ocr_smoke_args(&args);
+                Command::FridayOcrSmoke {
+                    output_dir,
+                    image,
+                    execute_model,
+                }
+            }
+            "--friday-ocr-smoke-json" => {
+                let (output_dir, image, execute_model) = parse_friday_ocr_smoke_args(&args);
+                Command::FridayOcrSmokeJson {
+                    output_dir,
+                    image,
+                    execute_model,
+                }
+            }
             "--accessibility-diagnostics" | "--accessibility" => {
                 let live = !args.iter().any(|value| value == "--dry-run");
                 let os = args
@@ -565,4 +593,19 @@ impl Args {
 
         Self { command }
     }
+}
+
+fn parse_friday_ocr_smoke_args(args: &[String]) -> (String, Option<String>, bool) {
+    let output_dir = args.get(2).cloned().unwrap_or_else(|| {
+        eprintln!("Error: output directory required");
+        eprintln!("Usage: flow --friday-ocr-smoke <output-dir> [image-path] [--execute]");
+        std::process::exit(1);
+    });
+    let execute_model = args.iter().skip(3).any(|value| value == "--execute");
+    let image = args
+        .iter()
+        .skip(3)
+        .find(|value| !value.starts_with("--"))
+        .cloned();
+    (output_dir, image, execute_model)
 }
