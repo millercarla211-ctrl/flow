@@ -77,9 +77,9 @@ pub fn active_completion_set() -> CompletionSet {
             "artifact-store-metadata",
             "Persist multimodal metadata in artifact store",
             20,
-            CompletionItemStatus::Planned,
-            "OCR and VLM commands write metadata sidecars, but the durable Friday artifact store does not yet index those sidecars for UI browsing",
-            "persist multimodal artifact metadata in the Friday artifact store",
+            CompletionItemStatus::Done,
+            "`flow --friday-artifacts-index-multimodal <store-dir> <bundle-dir>` imports OCR/VLM artifact, checkpoint, and metadata sidecars into the durable Friday artifact store",
+            "render imported multimodal metadata in the desktop/Next.js artifact browser",
         ),
         item(
             "multimodal-visual-check",

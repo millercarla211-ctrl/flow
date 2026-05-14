@@ -70,6 +70,8 @@
 - advanced Multimodal Product Execution to 40/100
 - added `flow --friday-media-affordances` / `--friday-media-affordances-json` for explicit local-only image/video model keys, repos, install inspection commands, run planning commands, and resident-load policy
 - advanced Multimodal Product Execution to 60/100
+- added `flow --friday-artifacts-index-multimodal` / `--friday-artifacts-index-multimodal-json` to import OCR/VLM artifact, checkpoint, and metadata sidecars into the durable Friday artifact store
+- advanced Multimodal Product Execution to 80/100
 
 ## 2026-04-26
 

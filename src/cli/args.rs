@@ -66,6 +66,16 @@ pub enum Command {
     FridayArtifactsInit { output_dir: String },
     /// Print durable Friday artifact/canvas/code state as JSON
     FridayArtifactsJson { input_dir: Option<String> },
+    /// Import a multimodal artifact bundle into the durable Friday artifact store
+    FridayArtifactsIndexMultimodal {
+        store_dir: String,
+        bundle_dir: String,
+    },
+    /// Import a multimodal artifact bundle and print JSON
+    FridayArtifactsIndexMultimodalJson {
+        store_dir: String,
+        bundle_dir: String,
+    },
     /// Seed durable Friday voice/multimodal/automation runtime records
     FridayRuntimeInit { output_dir: String },
     /// Print durable Friday voice/multimodal/automation runtime state as JSON
@@ -401,6 +411,26 @@ impl Args {
             "--friday-artifacts-json" | "--friday-canvas-json" => Command::FridayArtifactsJson {
                 input_dir: args.get(2).cloned(),
             },
+            "--friday-artifacts-index-multimodal" => {
+                let (store_dir, bundle_dir) = parse_two_path_args(
+                    &args,
+                    "flow --friday-artifacts-index-multimodal <store-dir> <bundle-dir>",
+                );
+                Command::FridayArtifactsIndexMultimodal {
+                    store_dir,
+                    bundle_dir,
+                }
+            }
+            "--friday-artifacts-index-multimodal-json" => {
+                let (store_dir, bundle_dir) = parse_two_path_args(
+                    &args,
+                    "flow --friday-artifacts-index-multimodal-json <store-dir> <bundle-dir>",
+                );
+                Command::FridayArtifactsIndexMultimodalJson {
+                    store_dir,
+                    bundle_dir,
+                }
+            }
             "--friday-runtime-init" | "--friday-voice-runtime-init" => {
                 let output_dir = args.get(2).cloned().unwrap_or_else(|| {
                     eprintln!("Error: output directory required");
@@ -749,4 +779,13 @@ fn parse_friday_screenshot_vlm_args(args: &[String]) -> (String, String, Option<
         None
     };
     (output_dir, screenshot, prompt)
+}
+
+fn parse_two_path_args(args: &[String], usage: &str) -> (String, String) {
+    if args.len() <= 3 {
+        eprintln!("Error: two paths required");
+        eprintln!("Usage: {usage}");
+        std::process::exit(1);
+    }
+    (args[2].clone(), args[3].clone())
 }

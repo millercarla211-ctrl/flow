@@ -6,6 +6,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
+use super::FridayMultimodalArtifactMetadata;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FridayArtifactKind {
@@ -108,6 +110,24 @@ pub struct FridayArtifactStore {
     pub checkpoints: Vec<FridayArtifactCheckpoint>,
     pub diffs: Vec<FridayArtifactDiff>,
     pub code_tasks: Vec<FridayCodeTaskRecord>,
+    pub multimodal_metadata: Vec<FridayMultimodalArtifactMetadata>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayMultimodalArtifactImport {
+    pub bundle_dir: String,
+    pub imported_artifact_ids: Vec<String>,
+    pub imported_checkpoint_ids: Vec<String>,
+    pub imported_metadata_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayMultimodalArtifactImportReport {
+    pub store_dir: String,
+    pub multimodal_metadata_json: String,
+    pub manifest_json: String,
+    pub import: FridayMultimodalArtifactImport,
+    pub findings: Vec<FridayArtifactFinding>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -118,10 +138,12 @@ pub struct FridayArtifactManifest {
     pub checkpoints_json: String,
     pub diffs_json: String,
     pub code_tasks_json: String,
+    pub multimodal_metadata_json: String,
     pub artifact_count: usize,
     pub checkpoint_count: usize,
     pub diff_count: usize,
     pub code_task_count: usize,
+    pub multimodal_metadata_count: usize,
     pub findings: Vec<FridayArtifactFinding>,
 }
 
@@ -132,6 +154,7 @@ pub struct FridayArtifactSnapshot {
     pub checkpoints_json: PathBuf,
     pub diffs_json: PathBuf,
     pub code_tasks_json: PathBuf,
+    pub multimodal_metadata_json: PathBuf,
     pub manifest_json: PathBuf,
     pub manifest: FridayArtifactManifest,
 }
@@ -213,6 +236,7 @@ impl FridayArtifactStore {
                         .to_string(),
                 created_at_unix_ms: now,
             }],
+            multimodal_metadata: Vec::new(),
         }
     }
 
@@ -247,6 +271,113 @@ impl FridayArtifactStore {
             .iter()
             .filter_map(|artifact_id| self.artifact(artifact_id))
             .collect()
+    }
+
+    pub fn read_or_seed_from_dir(root: impl AsRef<Path>) -> Result<Self> {
+        let root = root.as_ref();
+        if root.join("artifacts.json").exists() {
+            Self::read_from_dir(root)
+        } else {
+            Ok(Self::seed_for_local_workspace())
+        }
+    }
+
+    pub fn multimodal_metadata_for_artifact(
+        &self,
+        artifact_id: &str,
+    ) -> Vec<&FridayMultimodalArtifactMetadata> {
+        self.multimodal_metadata
+            .iter()
+            .filter(|metadata| metadata.artifact_id == artifact_id)
+            .collect()
+    }
+
+    pub fn index_multimodal_metadata(
+        &mut self,
+        metadata: FridayMultimodalArtifactMetadata,
+    ) -> bool {
+        if let Some(existing) = self
+            .multimodal_metadata
+            .iter_mut()
+            .find(|existing| {
+                existing.artifact_id == metadata.artifact_id
+                    && existing.request_kind == metadata.request_kind
+                    && existing.source_uri == metadata.source_uri
+            })
+        {
+            *existing = metadata;
+            false
+        } else {
+            self.multimodal_metadata.push(metadata);
+            true
+        }
+    }
+
+    pub fn import_multimodal_bundle(
+        &mut self,
+        bundle_dir: impl AsRef<Path>,
+    ) -> Result<FridayMultimodalArtifactImport> {
+        let bundle_dir = bundle_dir.as_ref();
+        let candidates = [
+            (
+                "ocr-smoke-artifact.json",
+                "ocr-smoke-checkpoint.json",
+                "ocr-smoke-metadata.json",
+            ),
+            (
+                "vlm-screenshot-artifact.json",
+                "vlm-screenshot-checkpoint.json",
+                "vlm-screenshot-metadata.json",
+            ),
+        ];
+
+        let mut imported_artifact_ids = Vec::new();
+        let mut imported_checkpoint_ids = Vec::new();
+        let mut imported_metadata_count = 0;
+
+        for (artifact_file, checkpoint_file, metadata_file) in candidates {
+            let artifact_path = bundle_dir.join(artifact_file);
+            let checkpoint_path = bundle_dir.join(checkpoint_file);
+            let metadata_path = bundle_dir.join(metadata_file);
+            if !artifact_path.exists() && !checkpoint_path.exists() && !metadata_path.exists() {
+                continue;
+            }
+
+            let artifact: FridayArtifactRecord = read_json(&artifact_path)?;
+            let checkpoint: FridayArtifactCheckpoint = read_json(&checkpoint_path)?;
+            let metadata: FridayMultimodalArtifactMetadata = read_json(&metadata_path)?;
+            let artifact_id = artifact.id.clone();
+            let checkpoint_id = checkpoint.id.clone();
+
+            upsert_by_id(&mut self.artifacts, artifact_id.clone(), artifact, |item| {
+                &item.id
+            });
+            upsert_by_id(
+                &mut self.checkpoints,
+                checkpoint_id.clone(),
+                checkpoint,
+                |item| &item.id,
+            );
+            self.index_multimodal_metadata(metadata);
+
+            imported_artifact_ids.push(artifact_id);
+            imported_checkpoint_ids.push(checkpoint_id);
+            imported_metadata_count += 1;
+        }
+
+        if imported_artifact_ids.is_empty() && imported_checkpoint_ids.is_empty() {
+            anyhow::bail!(
+                "No supported multimodal artifact bundle files found in {}",
+                bundle_dir.display()
+            );
+        }
+
+        Ok(FridayMultimodalArtifactImport {
+            bundle_dir: bundle_dir.to_string_lossy().into_owned(),
+            imported_artifact_ids,
+            imported_checkpoint_ids,
+            imported_metadata_count,
+        })
     }
 
     pub fn findings(&self) -> Vec<FridayArtifactFinding> {
@@ -323,6 +454,18 @@ impl FridayArtifactStore {
             }
         }
 
+        for metadata in &self.multimodal_metadata {
+            if !artifact_ids.contains(metadata.artifact_id.as_str()) {
+                findings.push(finding(
+                    &metadata.artifact_id,
+                    format!(
+                        "Multimodal metadata references missing artifact `{}`.",
+                        metadata.artifact_id
+                    ),
+                ));
+            }
+        }
+
         findings
     }
 
@@ -335,12 +478,14 @@ impl FridayArtifactStore {
         let checkpoints_json = root.join("checkpoints.json");
         let diffs_json = root.join("diffs.json");
         let code_tasks_json = root.join("code-tasks.json");
+        let multimodal_metadata_json = root.join("multimodal-metadata.json");
         let manifest_json = root.join("manifest.json");
 
         write_json(&artifacts_json, &self.artifacts)?;
         write_json(&checkpoints_json, &self.checkpoints)?;
         write_json(&diffs_json, &self.diffs)?;
         write_json(&code_tasks_json, &self.code_tasks)?;
+        write_json(&multimodal_metadata_json, &self.multimodal_metadata)?;
 
         let manifest = FridayArtifactManifest {
             version: self.version,
@@ -349,10 +494,12 @@ impl FridayArtifactStore {
             checkpoints_json: checkpoints_json.to_string_lossy().into_owned(),
             diffs_json: diffs_json.to_string_lossy().into_owned(),
             code_tasks_json: code_tasks_json.to_string_lossy().into_owned(),
+            multimodal_metadata_json: multimodal_metadata_json.to_string_lossy().into_owned(),
             artifact_count: self.artifacts.len(),
             checkpoint_count: self.checkpoints.len(),
             diff_count: self.diffs.len(),
             code_task_count: self.code_tasks.len(),
+            multimodal_metadata_count: self.multimodal_metadata.len(),
             findings: self.findings(),
         };
         write_json(&manifest_json, &manifest)?;
@@ -363,6 +510,7 @@ impl FridayArtifactStore {
             checkpoints_json,
             diffs_json,
             code_tasks_json,
+            multimodal_metadata_json,
             manifest_json,
             manifest,
         })
@@ -376,7 +524,20 @@ impl FridayArtifactStore {
             checkpoints: read_json(&root.join("checkpoints.json"))?,
             diffs: read_json(&root.join("diffs.json"))?,
             code_tasks: read_json(&root.join("code-tasks.json"))?,
+            multimodal_metadata: read_json_if_exists(&root.join("multimodal-metadata.json"))?
+                .unwrap_or_default(),
         })
+    }
+}
+
+fn upsert_by_id<T, F>(items: &mut Vec<T>, id: String, value: T, id_of: F)
+where
+    F: Fn(&T) -> &String,
+{
+    if let Some(existing) = items.iter_mut().find(|item| id_of(item) == &id) {
+        *existing = value;
+    } else {
+        items.push(value);
     }
 }
 
@@ -410,6 +571,17 @@ where
     serde_json::from_str(&json).with_context(|| format!("failed to parse {}", path.display()))
 }
 
+fn read_json_if_exists<T>(path: &Path) -> Result<Option<T>>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    if path.exists() {
+        read_json(path).map(Some)
+    } else {
+        Ok(None)
+    }
+}
+
 fn unix_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -428,6 +600,7 @@ mod tests {
         assert_eq!(store.checkpoints.len(), 2);
         assert_eq!(store.diffs.len(), 1);
         assert_eq!(store.code_tasks.len(), 1);
+        assert!(store.multimodal_metadata.is_empty());
         assert!(store.findings().is_empty());
 
         let ui = store.artifact("ui-prototype").unwrap();
@@ -452,11 +625,40 @@ mod tests {
         assert!(snapshot.checkpoints_json.exists());
         assert!(snapshot.diffs_json.exists());
         assert!(snapshot.code_tasks_json.exists());
+        assert!(snapshot.multimodal_metadata_json.exists());
         assert!(snapshot.manifest_json.exists());
 
         let restored = FridayArtifactStore::read_from_dir(&root).unwrap();
         assert_eq!(restored, store);
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn artifact_store_indexes_multimodal_metadata() {
+        let mut store = FridayArtifactStore::seed_for_local_workspace();
+        let metadata = FridayMultimodalArtifactMetadata {
+            artifact_id: "research-answer-draft".to_string(),
+            request_kind: super::super::FridayMultimodalRequestKind::Ocr,
+            source_uri: "fixture://ocr".to_string(),
+            source_mime: Some("image/png".to_string()),
+            model_key: "glm-ocr-q4km".to_string(),
+            prompt: None,
+            output_format: "markdown".to_string(),
+            local_only: true,
+            model_execution: false,
+            duration_ms: 1,
+            confidence_percent: None,
+            created_at_unix_ms: unix_ms(),
+        };
+
+        assert!(store.index_multimodal_metadata(metadata.clone()));
+        assert!(!store.index_multimodal_metadata(metadata));
+        assert_eq!(
+            store.multimodal_metadata_for_artifact("research-answer-draft")
+                .len(),
+            1
+        );
+        assert!(store.findings().is_empty());
     }
 }

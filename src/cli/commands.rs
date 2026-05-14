@@ -361,6 +361,22 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", store.to_pretty_json()?);
         }
 
+        Command::FridayArtifactsIndexMultimodal {
+            store_dir,
+            bundle_dir,
+        } => {
+            let report = index_friday_multimodal_artifact_bundle(&store_dir, &bundle_dir)?;
+            print_friday_multimodal_artifact_import(&report);
+        }
+
+        Command::FridayArtifactsIndexMultimodalJson {
+            store_dir,
+            bundle_dir,
+        } => {
+            let report = index_friday_multimodal_artifact_bundle(&store_dir, &bundle_dir)?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
+
         Command::FridayRuntimeInit { output_dir } => {
             let store = FridayRuntimeSurfaceStore::seed_local_first();
             let snapshot = store.write_to_dir(resolve_repo_relative_path(&output_dir))?;
@@ -696,6 +712,10 @@ fn print_interactive_help() {
     println!("                           Seed Canvas, Artifacts, and Code checkpoint state");
     println!("  --friday-artifacts-json [dir]");
     println!("                           Print seeded or persisted artifact state");
+    println!("  --friday-artifacts-index-multimodal <store-dir> <bundle-dir>");
+    println!("                           Import OCR/VLM artifact metadata into the artifact store");
+    println!("  --friday-artifacts-index-multimodal-json <store-dir> <bundle-dir>");
+    println!("                           Print multimodal artifact import status as JSON");
     println!("  --friday-runtime-init <dir>");
     println!("                           Seed Voice, Multimodal, and Automation runtime state");
     println!("  --friday-runtime-json [dir]");
@@ -1306,6 +1326,53 @@ fn print_friday_media_affordances(affordances: &[crate::friday::FridayMediaAffor
             println!("  note: {}", note);
         }
     }
+}
+
+fn print_friday_multimodal_artifact_import(
+    report: &crate::friday::FridayMultimodalArtifactImportReport,
+) {
+    println!("Friday Multimodal Artifact Import");
+    println!("=================================");
+    println!("Store: {}", report.store_dir);
+    println!("Bundle: {}", report.import.bundle_dir);
+    println!("Artifacts: {}", report.import.imported_artifact_ids.join(", "));
+    println!(
+        "Checkpoints: {}",
+        report.import.imported_checkpoint_ids.join(", ")
+    );
+    println!("Metadata records: {}", report.import.imported_metadata_count);
+    println!("Metadata JSON: {}", report.multimodal_metadata_json);
+    println!("Manifest: {}", report.manifest_json);
+    if report.findings.is_empty() {
+        println!("Findings: none");
+    } else {
+        println!("Findings:");
+        for finding in &report.findings {
+            println!("  - {}", finding.message);
+        }
+    }
+}
+
+fn index_friday_multimodal_artifact_bundle(
+    store_dir: &str,
+    bundle_dir: &str,
+) -> Result<crate::friday::FridayMultimodalArtifactImportReport> {
+    let store_dir = resolve_repo_relative_path(store_dir);
+    let bundle_dir = resolve_repo_relative_path(bundle_dir);
+    let mut store = FridayArtifactStore::read_or_seed_from_dir(&store_dir)?;
+    let import = store.import_multimodal_bundle(&bundle_dir)?;
+    let snapshot = store.write_to_dir(&store_dir)?;
+
+    Ok(crate::friday::FridayMultimodalArtifactImportReport {
+        store_dir: snapshot.root_dir.to_string_lossy().into_owned(),
+        multimodal_metadata_json: snapshot
+            .multimodal_metadata_json
+            .to_string_lossy()
+            .into_owned(),
+        manifest_json: snapshot.manifest_json.to_string_lossy().into_owned(),
+        import,
+        findings: snapshot.manifest.findings,
+    })
 }
 
 fn print_search_request_plan(title: &str, plan: &crate::search::SearchRequestPlan) -> Result<()> {

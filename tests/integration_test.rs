@@ -442,6 +442,7 @@ fn friday_artifact_store_persists_canvas_code_and_artifact_records() {
     assert!(snapshot.checkpoints_json.exists());
     assert!(snapshot.diffs_json.exists());
     assert!(snapshot.code_tasks_json.exists());
+    assert!(snapshot.multimodal_metadata_json.exists());
     assert_eq!(snapshot.manifest.artifact_count, 2);
     assert_eq!(snapshot.manifest.code_task_count, 1);
     assert!(snapshot.manifest.findings.is_empty());
@@ -454,6 +455,33 @@ fn friday_artifact_store_persists_canvas_code_and_artifact_records() {
     assert_eq!(
         restored.task_artifacts("artifact-canvas-checkpoint").len(),
         2
+    );
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn friday_artifact_store_indexes_multimodal_bundle_metadata() {
+    let root = temp_root("friday-multimodal-index");
+    let bundle_dir = root.join("bundle");
+    let store_dir = root.join("store");
+    let smoke = run_friday_ocr_smoke(&bundle_dir, None, false).unwrap();
+    let mut store = FridayArtifactStore::read_or_seed_from_dir(&store_dir).unwrap();
+    let import = store.import_multimodal_bundle(&bundle_dir).unwrap();
+    let snapshot = store.write_to_dir(&store_dir).unwrap();
+
+    assert_eq!(import.imported_metadata_count, 1);
+    assert!(import.imported_artifact_ids.contains(&smoke.artifact.id));
+    assert!(snapshot.multimodal_metadata_json.exists());
+    assert_eq!(snapshot.manifest.multimodal_metadata_count, 1);
+    assert!(snapshot.manifest.findings.is_empty());
+
+    let restored = FridayArtifactStore::read_from_dir(&store_dir).unwrap();
+    assert_eq!(
+        restored
+            .multimodal_metadata_for_artifact(&smoke.artifact.id)
+            .len(),
+        1
     );
 
     let _ = fs::remove_dir_all(&root);
