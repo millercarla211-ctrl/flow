@@ -1177,6 +1177,20 @@ if (failedWorkspacePush.ok || failedWorkspacePush.message !== "offline") {
   throw new Error("Friday workspace push did not return a controlled network failure.");
 }
 
+const blankFailedWorkspacePush = await pushFridayWorkspaceSnapshot({
+  fetcher: async () => {
+    throw new Error("   ");
+  },
+  storage: cloudSyncStorage,
+});
+
+if (
+  blankFailedWorkspacePush.ok ||
+  blankFailedWorkspacePush.message !== "Friday workspace sync upload failed."
+) {
+  throw new Error("Friday workspace push did not use its fallback for blank network failures.");
+}
+
 const pulledWorkspace = await pullFridayWorkspaceSnapshot({
   fetcher: async (_input, init) => {
     if (init?.method !== "GET") {
@@ -1213,6 +1227,19 @@ const failedWorkspacePull = await pullFridayWorkspaceSnapshot({
 
 if (failedWorkspacePull.ok || failedWorkspacePull.message !== "offline") {
   throw new Error("Friday workspace pull did not return a controlled network failure.");
+}
+
+const blankFailedWorkspacePull = await pullFridayWorkspaceSnapshot({
+  fetcher: async () => {
+    throw new Error("");
+  },
+});
+
+if (
+  blankFailedWorkspacePull.ok ||
+  blankFailedWorkspacePull.message !== "Friday workspace sync download failed."
+) {
+  throw new Error("Friday workspace pull did not use its fallback for blank network failures.");
 }
 
 const automationBase = new Date("2026-05-14T00:00:00.000Z");

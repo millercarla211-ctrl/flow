@@ -63,11 +63,12 @@ function getBrowserLocalStorage() {
 }
 
 function createSyncFailure(error: unknown, fallback: string): FridayWorkspaceCloudSyncResult {
+  const errorMessage = error instanceof Error ? error.message.trim() : "";
   const message =
     error instanceof DOMException && error.name === "AbortError"
       ? "Friday workspace sync timed out."
       : error instanceof Error
-        ? error.message
+        ? errorMessage || fallback
         : fallback;
 
   return {
