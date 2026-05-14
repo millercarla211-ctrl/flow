@@ -136,11 +136,12 @@ export async function checkFridayProviderHealth({
     };
   } catch (error) {
     const latencyMs = Math.round(nowMs() - startedAt);
+    const errorMessage = error instanceof Error ? error.message.trim() : "";
     const message =
       error instanceof DOMException && error.name === "AbortError"
         ? "Provider check timed out."
         : error instanceof Error
-          ? error.message
+          ? errorMessage || "Provider check failed."
           : "Provider check failed.";
 
     return {

@@ -562,6 +562,20 @@ if (failedProviderHealth.status !== "error" || failedProviderHealth.message !== 
   throw new Error("Friday provider health did not return a controlled fetch failure.");
 }
 
+const blankFailedProviderHealth = await checkFridayProviderHealth({
+  fetcher: async () => {
+    throw new Error("   ");
+  },
+  modelKey: "groq-llama-3-1-8b-instant",
+});
+
+if (
+  blankFailedProviderHealth.status !== "error" ||
+  blankFailedProviderHealth.message !== "Provider check failed."
+) {
+  throw new Error("Friday provider health did not use its fallback for blank fetch failures.");
+}
+
 const readySyncHealth = await checkFridaySyncHealth({
   fetcher: async (_input, init) => {
     if (init?.method !== "GET") {
