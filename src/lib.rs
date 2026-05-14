@@ -34,12 +34,14 @@ pub use audio::{AudioLoader, MelSpectrogramConfig, compute_mel_spectrogram};
 pub use browser::{
     BrowserCapabilityProfile, BrowserChatMessage, BrowserDeviceTarget, BrowserExecutionBackend,
     BrowserExecutionPlan, BrowserExecutionRequest, BrowserExtensionInstallProbe,
-    BrowserExtensionMessage, BrowserExtensionSmokeReport, BrowserExtensionSmokeStatus,
-    BrowserExtensionSmokeTarget, BrowserHostFlavor, BrowserInferenceInvocation,
-    BrowserInferenceRequest, BrowserPackFile, BrowserPackManifest, BrowserPackResolution,
-    BrowserPackSupport, BrowserStorageBackend, BrowserTask, BrowserTokenStreamPlan,
-    BrowserUiSurface, BrowserWorkerKind, FlowBrowserEngine, browser_extension_smoke_report,
-    browser_extension_smoke_report_for_root, default_browser_pack_catalog,
+    BrowserExtensionLaunchReport, BrowserExtensionLaunchTarget, BrowserExtensionMessage,
+    BrowserExtensionSmokeReport, BrowserExtensionSmokeStatus, BrowserExtensionSmokeTarget,
+    BrowserHostFlavor, BrowserInferenceInvocation, BrowserInferenceRequest, BrowserPackFile,
+    BrowserPackManifest, BrowserPackResolution, BrowserPackSupport, BrowserStorageBackend,
+    BrowserTask, BrowserTokenStreamPlan, BrowserUiSurface, BrowserWorkerKind, FlowBrowserEngine,
+    browser_extension_launch_smoke_report, browser_extension_launch_smoke_report_for_root,
+    browser_extension_smoke_report, browser_extension_smoke_report_for_root,
+    default_browser_pack_catalog,
 };
 pub use cli::{Args, Command, execute};
 pub use codex::{

@@ -6,7 +6,7 @@ use flow::FlowLocalRuntime;
 use flow::audio::{AudioLoader, MelSpectrogramConfig, compute_mel_spectrogram};
 use flow::browser::{
     BrowserExtensionInstallProbe, BrowserExtensionSmokeStatus,
-    browser_extension_smoke_report_for_root,
+    browser_extension_launch_smoke_report_for_root, browser_extension_smoke_report_for_root,
 };
 use flow::competitive::default_competitive_scorecard;
 use flow::embed::{FlowEmbeddingRegistry, HostSurface, IntegrationMode};
@@ -827,6 +827,46 @@ fn browser_extension_smoke_report_scores_packaged_targets() {
         .targets
         .iter()
         .all(|target| target.status == BrowserExtensionSmokeStatus::Passed));
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn browser_extension_launch_smoke_plans_temporary_profiles() {
+    let root = temp_root("browser-extension-launch-smoke");
+    for target in ["chromium", "firefox", "safari"] {
+        write_extension_smoke_fixture(&root, target);
+    }
+    let probes = ["chrome", "edge", "firefox", "safari"]
+        .into_iter()
+        .map(|target_id| BrowserExtensionInstallProbe {
+            target_id: target_id.to_string(),
+            platform_supported: true,
+            detected_executable: Some(format!("{target_id}-fixture")),
+        })
+        .collect::<Vec<_>>();
+
+    let report = browser_extension_launch_smoke_report_for_root(&root, &probes, false, 100);
+
+    assert_eq!(report.targets.len(), 4);
+    assert!(report.local_only);
+    assert!(!report.touches_network);
+    assert!(report
+        .targets
+        .iter()
+        .filter(|target| target.extension_target == "chromium")
+        .all(|target| target
+            .command_preview
+            .contains("--user-data-dir")));
+    assert!(report
+        .targets
+        .iter()
+        .filter(|target| target.extension_target == "chromium")
+        .all(|target| target.profile_dir.is_some()));
+    assert!(report
+        .targets
+        .iter()
+        .any(|target| target.status == BrowserExtensionSmokeStatus::Warning));
 
     let _ = fs::remove_dir_all(&root);
 }

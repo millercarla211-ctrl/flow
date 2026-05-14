@@ -96,6 +96,10 @@ pub enum Command {
     BrowserExtensionSmoke,
     /// Print packaged browser extension smoke readiness as JSON
     BrowserExtensionSmokeJson,
+    /// Show bounded installed-browser extension launch smoke readiness
+    BrowserExtensionLaunchSmoke { execute: bool },
+    /// Print bounded installed-browser extension launch smoke readiness as JSON
+    BrowserExtensionLaunchSmokeJson { execute: bool },
     /// Run a bounded Friday OCR smoke path and write artifact records
     FridayOcrSmoke {
         output_dir: String,
@@ -465,6 +469,17 @@ impl Args {
             }
             "--browser-extension-smoke-json" | "--friday-browser-extension-smoke-json" => {
                 Command::BrowserExtensionSmokeJson
+            }
+            "--browser-extension-launch-smoke" | "--friday-browser-extension-launch-smoke" => {
+                Command::BrowserExtensionLaunchSmoke {
+                    execute: args.iter().any(|value| value == "--execute"),
+                }
+            }
+            "--browser-extension-launch-smoke-json"
+            | "--friday-browser-extension-launch-smoke-json" => {
+                Command::BrowserExtensionLaunchSmokeJson {
+                    execute: args.iter().any(|value| value == "--execute"),
+                }
             }
             "--friday-ocr-smoke" => {
                 let (output_dir, image, execute_model) = parse_friday_ocr_smoke_args(&args);

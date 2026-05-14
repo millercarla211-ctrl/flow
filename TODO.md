@@ -142,14 +142,14 @@ This set is complete. The next loop should open `Browser And Extension Core` and
 
 ## Next Active Set: Browser And Extension Core
 
-Status: 20/100
+Status: 40/100
 
 Goal: harden Friday's browser extension release path with packaged smoke checks, installed-browser launch validation, offline browser-pack reuse, recovery handling, and optional Chromium acceleration without weakening local-first defaults.
 
 ### Remaining To Reach 100/100
 
 - [x] Add a packaged extension smoke matrix for Chromium, Edge, Firefox, and Safari targets with installed-browser detection.
-- [ ] Smoke test packaged extensions with isolated temporary-profile launches in installed Chrome, Edge, Firefox, and Safari targets.
+- [x] Smoke test packaged extensions with isolated temporary-profile launches in installed Chrome, Edge, Firefox, and Safari targets.
 - [ ] Verify offline browser-pack reuse after first download.
 - [ ] Verify partial-download resume, hash rejection, and quota recovery.
 - [ ] Add optional Chromium WebLLM acceleration after Qwen browser packs are validated.

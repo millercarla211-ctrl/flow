@@ -13,7 +13,8 @@ use serde_json::Value;
 use crate::audio::{NoiseGateVAD, WakeWordDetector};
 use crate::browser::{
     BrowserExtensionSmokeStatus, BrowserHostFlavor, BrowserTask, FlowBrowserEngine,
-    browser_extension_smoke_report, default_browser_pack_catalog,
+    browser_extension_launch_smoke_report, browser_extension_smoke_report,
+    default_browser_pack_catalog,
 };
 use crate::cli::Command;
 use crate::competitive::active_completion_set;
@@ -446,6 +447,17 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", browser_extension_smoke_report().to_pretty_json()?);
         }
 
+        Command::BrowserExtensionLaunchSmoke { execute } => {
+            print_browser_extension_launch_smoke(execute);
+        }
+
+        Command::BrowserExtensionLaunchSmokeJson { execute } => {
+            println!(
+                "{}",
+                browser_extension_launch_smoke_report(execute, 8_000).to_pretty_json()?
+            );
+        }
+
         Command::FridayOcrSmoke {
             output_dir,
             image,
@@ -749,6 +761,10 @@ fn print_interactive_help() {
     println!("                           Show packaged extension and installed-browser smoke readiness");
     println!("  --browser-extension-smoke-json");
     println!("                           Print browser extension smoke readiness as JSON");
+    println!("  --browser-extension-launch-smoke [--execute]");
+    println!("                           Show bounded temporary-profile launch smoke readiness");
+    println!("  --browser-extension-launch-smoke-json [--execute]");
+    println!("                           Print browser extension launch smoke readiness as JSON");
     println!("  --friday-ocr-smoke <dir> [image] [--execute]");
     println!("                           Write a bounded OCR smoke artifact bundle");
     println!("  --friday-ocr-smoke-json <dir> [image] [--execute]");
@@ -1205,6 +1221,57 @@ fn print_browser_extension_smoke() {
         println!("  package: {}", target.package_zip);
         println!("  browser: {}", target.detected_executable.as_deref().unwrap_or("<not detected>"));
         println!("  launch: {}", target.launch_command_hint);
+        for item in &target.evidence {
+            println!("  evidence: {}", item);
+        }
+        if target.status != BrowserExtensionSmokeStatus::Passed {
+            println!("  next: {}", target.next_action);
+        }
+    }
+}
+
+fn print_browser_extension_launch_smoke(execute: bool) {
+    let report = browser_extension_launch_smoke_report(execute, 8_000);
+
+    println!("Browser Extension Launch Smoke");
+    println!("==============================");
+    println!("{}", report.summary);
+    println!("Score: {} / 100", report.score_out_of_100);
+    println!("Execute: {}", yes_no(report.execute));
+    println!("Timeout: {}ms", report.timeout_ms);
+    println!("Local only: {}", yes_no(report.local_only));
+    println!("Touches network: {}", yes_no(report.touches_network));
+    println!(
+        "Targets: {} passed, {} warning, {} blocking",
+        report.passed_count(),
+        report.warning_count(),
+        report.blocking_count()
+    );
+    println!();
+
+    for target in &report.targets {
+        println!(
+            "- [{}] {} ({})",
+            target.status.label(),
+            target.browser_name,
+            target.extension_target
+        );
+        println!("  executable: {}", target.executable.as_deref().unwrap_or("<not detected>"));
+        println!("  profile: {}", target.profile_dir.as_deref().unwrap_or("<none>"));
+        println!("  command: {}", target.command_preview);
+        println!(
+            "  executed={}, timed_out={}, exit_code={:?}, duration={}ms",
+            yes_no(target.executed),
+            yes_no(target.timed_out),
+            target.exit_code,
+            target.duration_ms
+        );
+        if !target.stdout_preview.trim().is_empty() {
+            println!("  stdout: {}", target.stdout_preview.trim());
+        }
+        if !target.stderr_preview.trim().is_empty() {
+            println!("  stderr: {}", target.stderr_preview.trim());
+        }
         for item in &target.evidence {
             println!("  evidence: {}", item);
         }

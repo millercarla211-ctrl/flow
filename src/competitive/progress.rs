@@ -61,9 +61,9 @@ pub fn active_completion_set() -> CompletionSet {
             "live-browser-launch-smoke",
             "Live browser launch smoke",
             20,
-            CompletionItemStatus::Planned,
-            "Packaged artifacts are ready, but Chrome/Edge/Firefox/Safari launch automation still needs an installed-browser runner",
-            "run isolated temporary-profile launches against installed browser executables",
+            CompletionItemStatus::Done,
+            "`flow --browser-extension-launch-smoke --execute` runs bounded temporary-profile launch smoke for installed Chromium-family targets and reports unsupported/missing browsers explicitly",
+            "connect the launch report to release handoff exports and add Firefox-specific live smoke support when Firefox is installed",
         ),
         item(
             "offline-browser-pack-reuse",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_browser_extension_core_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Browser And Extension Core");
-        assert_eq!(set.current_score_out_of_100, 20);
+        assert_eq!(set.current_score_out_of_100, 40);
         assert!(
             set.items
                 .iter()
