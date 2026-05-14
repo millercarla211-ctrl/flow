@@ -11,6 +11,7 @@ import {
 import { checkFridayProviderHealth, type ProviderHealthResult } from "../../utils/providerHealth";
 import { checkFridaySyncHealth, type FridaySyncHealthResult } from "../../utils/syncHealth";
 import {
+  formatFridayWorkspaceRemoteSnapshotStatus,
   formatFridayWorkspaceUploadStatus,
   pullFridayWorkspaceSnapshot,
   pushFridayWorkspaceSnapshot,
@@ -250,14 +251,16 @@ export function ConnectorsWorkspace() {
           emitChange: emitFridayStorageChange,
           storage: window.localStorage,
         });
+        const restoreStatus = formatFridayWorkspaceRestoreStatus({
+          action: "restored from sync",
+          backup: result.payload,
+          checkpoint,
+          entries,
+        });
+        const remoteStatus = formatFridayWorkspaceRemoteSnapshotStatus(result.updatedAt);
         setWorkspaceSyncMessage({
           tone: "success",
-          text: formatFridayWorkspaceRestoreStatus({
-            action: "restored from sync",
-            backup: result.payload,
-            checkpoint,
-            entries,
-          }),
+          text: remoteStatus ? `${restoreStatus} ${remoteStatus}` : restoreStatus,
         });
       } else {
         setWorkspaceSyncMessage({

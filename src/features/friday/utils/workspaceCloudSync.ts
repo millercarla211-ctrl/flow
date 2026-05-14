@@ -34,15 +34,19 @@ export function formatFridayWorkspaceSyncTimestamp(value: string) {
     .replace("T", " ");
 }
 
+export function formatFridayWorkspaceRemoteSnapshotStatus(updatedAt?: string) {
+  if (!updatedAt) return "";
+
+  return `Remote snapshot saved ${formatFridayWorkspaceSyncTimestamp(updatedAt)}.`;
+}
+
 export function formatFridayWorkspaceUploadStatus(
   result: Extract<FridayWorkspaceCloudSyncResult, { ok: true }>,
 ) {
   const sectionLabel = result.keyCount === 1 ? "section" : "sections";
-  const savedAt = result.updatedAt
-    ? ` Cloud snapshot saved ${formatFridayWorkspaceSyncTimestamp(result.updatedAt)}.`
-    : "";
+  const savedAt = formatFridayWorkspaceRemoteSnapshotStatus(result.updatedAt);
 
-  return `${result.keyCount} local ${sectionLabel} uploaded.${savedAt}`;
+  return `${result.keyCount} local ${sectionLabel} uploaded.${savedAt ? ` ${savedAt}` : ""}`;
 }
 
 function getBrowserLocalStorage() {

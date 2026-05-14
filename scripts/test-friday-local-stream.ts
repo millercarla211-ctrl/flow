@@ -39,6 +39,7 @@ import {
 } from "../src/features/friday/utils/webInspection";
 import { parseDuckDuckGoLiteResults, searchWebSources } from "../src/features/friday/utils/webSearch";
 import {
+  formatFridayWorkspaceRemoteSnapshotStatus,
   formatFridayWorkspaceSyncTimestamp,
   formatFridayWorkspaceUploadStatus,
   pullFridayWorkspaceSnapshot,
@@ -1114,7 +1115,7 @@ if (pushedWorkspace.ok) {
   if (
     formatFridayWorkspaceSyncTimestamp(pushedWorkspace.updatedAt ?? "") !== pushedAt ||
     formatFridayWorkspaceUploadStatus(pushedWorkspace) !==
-      `1 local section uploaded. Cloud snapshot saved ${pushedAt}.`
+      `1 local section uploaded. Remote snapshot saved ${pushedAt}.`
   ) {
     throw new Error("Friday workspace push did not report the cloud snapshot timestamp.");
   }
@@ -1149,6 +1150,14 @@ const pulledWorkspace = await pullFridayWorkspaceSnapshot({
 
 if (!pulledWorkspace.ok || pulledWorkspace.keyCount !== 2 || !pulledWorkspace.payload) {
   throw new Error("Friday workspace pull did not return a valid synced backup.");
+}
+
+if (
+  pulledWorkspace.ok &&
+  formatFridayWorkspaceRemoteSnapshotStatus(pulledWorkspace.updatedAt) !==
+    `Remote snapshot saved ${formatFridayWorkspaceSyncTimestamp(timestamp)}.`
+) {
+  throw new Error("Friday workspace pull did not preserve the remote snapshot timestamp.");
 }
 
 const failedWorkspacePull = await pullFridayWorkspaceSnapshot({
