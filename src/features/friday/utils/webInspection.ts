@@ -14,6 +14,23 @@ export type WebInspectionResult =
 
 const PRIVATE_HOSTS = new Set(["localhost", "0.0.0.0", "127.0.0.1", "::1"]);
 
+type WebInspectionOptions = {
+  fetcher?: typeof fetch;
+  route?: string;
+  timeoutMs?: number;
+};
+
+function createWebInspectionFailure(error: unknown, url?: string): WebInspectionResult {
+  const message =
+    error instanceof DOMException && error.name === "AbortError"
+      ? "Web inspection timed out."
+      : error instanceof Error
+        ? error.message
+        : "Web inspection failed.";
+
+  return { ok: false, message, url };
+}
+
 export function normalizeWebInspectionUrl(input: string): WebInspectionResult {
   try {
     const url = new URL(input.trim());
@@ -65,16 +82,33 @@ export function decodeHtmlEntities(value: string) {
     .replace(/&#39;/g, "'");
 }
 
-export async function inspectWebSource(url: string): Promise<WebInspectionResult> {
+export async function inspectWebSource(
+  url: string,
+  {
+    fetcher = fetch,
+    route = "/api/friday/web/inspect",
+    timeoutMs = 15_000,
+  }: WebInspectionOptions = {},
+): Promise<WebInspectionResult> {
   const normalized = normalizeWebInspectionUrl(url);
   if (!normalized.ok) return normalized;
 
-  const response = await fetch("/api/friday/web/inspect", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ url: normalized.url }),
-  });
-  const payload = (await response.json().catch(() => null)) as WebInspectionResult | null;
-  if (!payload) return { ok: false, message: "Web inspection returned an unreadable response." };
-  return payload;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetcher(route, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({ url: normalized.url }),
+    });
+    const payload = (await response.json().catch(() => null)) as WebInspectionResult | null;
+    if (!payload) return { ok: false, message: "Web inspection returned an unreadable response." };
+    return payload;
+  } catch (error) {
+    return createWebInspectionFailure(error, normalized.url);
+  } finally {
+    clearTimeout(timeout);
+  }
 }

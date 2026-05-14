@@ -20,6 +20,23 @@ export type WebSearchResult =
       query?: string;
     };
 
+type WebSearchOptions = {
+  fetcher?: typeof fetch;
+  route?: string;
+  timeoutMs?: number;
+};
+
+function createWebSearchFailure(error: unknown, query: string): WebSearchResult {
+  const message =
+    error instanceof DOMException && error.name === "AbortError"
+      ? "Web search timed out."
+      : error instanceof Error
+        ? error.message
+        : "Web search failed.";
+
+  return { ok: false, message, query };
+}
+
 function stripTags(value: string) {
   return decodeHtmlEntities(value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
 }
@@ -69,18 +86,35 @@ export function parseDuckDuckGoLiteResults(html: string): WebSearchResultItem[] 
   return results;
 }
 
-export async function searchWebSources(query: string): Promise<WebSearchResult> {
+export async function searchWebSources(
+  query: string,
+  {
+    fetcher = fetch,
+    route = "/api/friday/web/search",
+    timeoutMs = 15_000,
+  }: WebSearchOptions = {},
+): Promise<WebSearchResult> {
   const cleanQuery = query.trim();
   if (cleanQuery.length < 3) {
     return { ok: false, message: "Search needs at least three characters." };
   }
 
-  const response = await fetch("/api/friday/web/search", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ query: cleanQuery }),
-  });
-  const payload = (await response.json().catch(() => null)) as WebSearchResult | null;
-  if (!payload) return { ok: false, message: "Web search returned an unreadable response." };
-  return payload;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetcher(route, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({ query: cleanQuery }),
+    });
+    const payload = (await response.json().catch(() => null)) as WebSearchResult | null;
+    if (!payload) return { ok: false, message: "Web search returned an unreadable response." };
+    return payload;
+  } catch (error) {
+    return createWebSearchFailure(error, cleanQuery);
+  } finally {
+    clearTimeout(timeout);
+  }
 }

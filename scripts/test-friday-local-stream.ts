@@ -24,9 +24,10 @@ import { checkFridaySyncHealth } from "../src/features/friday/utils/syncHealth";
 import {
   extractHtmlTitle,
   extractReadableHtmlText,
+  inspectWebSource,
   normalizeWebInspectionUrl,
 } from "../src/features/friday/utils/webInspection";
-import { parseDuckDuckGoLiteResults } from "../src/features/friday/utils/webSearch";
+import { parseDuckDuckGoLiteResults, searchWebSources } from "../src/features/friday/utils/webSearch";
 import {
   pullFridayWorkspaceSnapshot,
   pushFridayWorkspaceSnapshot,
@@ -430,6 +431,36 @@ if (!extractReadableHtmlText(sampleHtml).includes("Useful cited source text.")) 
   throw new Error("Friday web inspection did not extract readable source text.");
 }
 
+const inspectedSource = await inspectWebSource("https://example.com/friday", {
+  fetcher: async (_input, init) => {
+    if (init?.method !== "POST") {
+      throw new Error("Friday web inspection used the wrong HTTP method.");
+    }
+
+    return Response.json({
+      ok: true,
+      excerpt: "Useful inspected text.",
+      fetchedAt: timestamp,
+      title: "Example Friday",
+      url: "https://example.com/friday",
+    });
+  },
+});
+
+if (!inspectedSource.ok || inspectedSource.title !== "Example Friday") {
+  throw new Error("Friday web inspection did not handle a valid route response.");
+}
+
+const failedInspection = await inspectWebSource("https://example.com/friday", {
+  fetcher: async () => {
+    throw new Error("inspection offline");
+  },
+});
+
+if (failedInspection.ok || failedInspection.message !== "inspection offline") {
+  throw new Error("Friday web inspection did not return a controlled fetch failure.");
+}
+
 const sampleSearchResults = parseDuckDuckGoLiteResults(`
   <html>
     <body>
@@ -444,6 +475,35 @@ if (
   !sampleSearchResults[0]?.snippet.includes("Useful result & snippet")
 ) {
   throw new Error("Friday web search parser did not extract candidate source results.");
+}
+
+const searchedSources = await searchWebSources("friday local research", {
+  fetcher: async (_input, init) => {
+    if (init?.method !== "POST") {
+      throw new Error("Friday web search used the wrong HTTP method.");
+    }
+
+    return Response.json({
+      ok: true,
+      query: "friday local research",
+      results: sampleSearchResults,
+      searchedAt: timestamp,
+    });
+  },
+});
+
+if (!searchedSources.ok || searchedSources.results[0]?.title !== "Friday research result") {
+  throw new Error("Friday web search did not handle a valid route response.");
+}
+
+const failedSearch = await searchWebSources("friday local research", {
+  fetcher: async () => {
+    throw new Error("search offline");
+  },
+});
+
+if (failedSearch.ok || failedSearch.message !== "search offline") {
+  throw new Error("Friday web search did not return a controlled fetch failure.");
 }
 
 const backup = buildFridayWorkspaceBackup(
