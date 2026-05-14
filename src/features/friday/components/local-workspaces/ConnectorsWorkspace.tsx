@@ -12,6 +12,7 @@ import {
 } from "../../utils/workspaceCloudSync";
 import {
   buildFridayWorkspaceBackup,
+  formatFridayWorkspaceBackupSummary,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
   serializeFridayWorkspaceBackup,
@@ -78,7 +79,7 @@ export function ConnectorsWorkspace() {
     const count = getFridayWorkspaceBackupEntries(backup).length;
     setBackupMessage({
       tone: "success",
-      text: `${count} local section${count === 1 ? "" : "s"} exported.`,
+      text: `${count} local section${count === 1 ? "" : "s"} exported: ${formatFridayWorkspaceBackupSummary(backup)}.`,
     });
   };
 
@@ -100,7 +101,7 @@ export function ConnectorsWorkspace() {
 
     setBackupMessage({
       tone: "success",
-      text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored.`,
+      text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored: ${formatFridayWorkspaceBackupSummary(parsed.backup)}.`,
     });
   };
 
@@ -137,7 +138,7 @@ export function ConnectorsWorkspace() {
           tone: "success",
           text: `${entries.length} local section${
             entries.length === 1 ? "" : "s"
-          } restored from sync.`,
+          } restored from sync: ${formatFridayWorkspaceBackupSummary(result.payload)}.`,
         });
       } else {
         setWorkspaceSyncMessage({

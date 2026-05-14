@@ -26,6 +26,17 @@ const CONTEXT_KINDS = ["note", "file", "instruction"] as const;
 const MEMORY_SCOPES = ["Global", "Project", "Voice"] as const;
 const RESEARCH_STATUSES = ["Planned", "Drafted"] as const;
 const RESEARCH_CITATION_KINDS = ["note", "file", "instruction", "memory", "web"] as const;
+const FRIDAY_WORKSPACE_SECTION_LABELS: Record<FridayWorkspaceStorageKey, string> = {
+  [STORAGE_KEYS.askThreads]: "Ask threads",
+  [STORAGE_KEYS.research]: "Research briefs",
+  [STORAGE_KEYS.agents]: "Agent tasks",
+  [STORAGE_KEYS.artifacts]: "Artifacts",
+  [STORAGE_KEYS.projects]: "Projects",
+  [STORAGE_KEYS.projectContext]: "Project context",
+  [STORAGE_KEYS.memory]: "Memories",
+  [STORAGE_KEYS.automations]: "Automations",
+  [STORAGE_KEYS.connectors]: "Connector settings",
+};
 
 export type FridayWorkspaceBackup = {
   app: "Friday";
@@ -277,4 +288,27 @@ export function getFridayWorkspaceBackupEntries(backup: FridayWorkspaceBackup) {
       ? [{ key, value: backup.keys[key] }]
       : [],
   );
+}
+
+function getBackupSectionItemCount(value: unknown) {
+  if (Array.isArray(value)) return value.length;
+  if (isRecord(value)) return Object.keys(value).length;
+  return 1;
+}
+
+export function summarizeFridayWorkspaceBackup(backup: FridayWorkspaceBackup) {
+  return getFridayWorkspaceBackupEntries(backup).map((entry) => ({
+    ...entry,
+    count: getBackupSectionItemCount(entry.value),
+    label: FRIDAY_WORKSPACE_SECTION_LABELS[entry.key],
+  }));
+}
+
+export function formatFridayWorkspaceBackupSummary(backup: FridayWorkspaceBackup) {
+  const summary = summarizeFridayWorkspaceBackup(backup);
+  if (summary.length === 0) return "No Friday workspace sections.";
+
+  return summary
+    .map((entry) => `${entry.label}: ${entry.count}`)
+    .join(", ");
 }

@@ -44,6 +44,7 @@ import {
 } from "../src/features/friday/utils/workspaceCloudSync";
 import {
   buildFridayWorkspaceBackup,
+  formatFridayWorkspaceBackupSummary,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
   serializeFridayWorkspaceBackup,
@@ -826,6 +827,10 @@ const parsedBackup = parseFridayWorkspaceBackup(serializeFridayWorkspaceBackup(b
 
 if (!parsedBackup.ok || getFridayWorkspaceBackupEntries(parsedBackup.backup).length !== 2) {
   throw new Error("Friday workspace backup did not round-trip known local keys.");
+}
+
+if (!parsedBackup.ok || !formatFridayWorkspaceBackupSummary(parsedBackup.backup).includes("Projects: 1")) {
+  throw new Error("Friday workspace backup summary did not report project counts.");
 }
 
 const rejectedBackup = parseFridayWorkspaceBackup(
