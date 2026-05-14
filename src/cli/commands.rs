@@ -26,8 +26,8 @@ use crate::experience::{
 use crate::friday::{
     FridayArtifactStore, FridayFeatureStatus, FridayResearchReport, FridayResearchWorkflow,
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
-    default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
-    friday_research_search_plan,
+    default_friday_local_execution_checks, default_friday_product_plan,
+    default_friday_ui_integration_plan, friday_answer_search_plan, friday_research_search_plan,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -399,6 +399,14 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", default_friday_ui_integration_plan().to_pretty_json()?);
         }
 
+        Command::FridayLocalChecks => {
+            print_friday_local_execution_checks();
+        }
+
+        Command::FridayLocalChecksJson => {
+            println!("{}", default_friday_local_execution_checks().to_pretty_json()?);
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -568,6 +576,9 @@ fn print_interactive_help() {
     println!("                           Print seeded or persisted runtime state");
     println!("  --friday-ui             Show Friday product UI integration contracts");
     println!("  --friday-ui-json        Print Friday UI integration contracts as JSON");
+    println!("  --friday-local-checks   Run low-resource local execution checks");
+    println!("  --friday-local-checks-json");
+    println!("                           Print local execution checks as JSON");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");
@@ -859,6 +870,43 @@ fn print_friday_ui_plan() {
     println!("Next actions:");
     for action in &plan.next_actions {
         println!("  - {}", action);
+    }
+}
+
+fn print_friday_local_execution_checks() {
+    let report = default_friday_local_execution_checks();
+
+    println!("Friday Local Execution Checks");
+    println!("=============================");
+    println!("{}", report.summary);
+    println!(
+        "Passed: {}, warnings: {}, blocking: {}",
+        report.passed_count(),
+        report.warning_count(),
+        report.blocking_count()
+    );
+    println!();
+
+    for check in &report.checks {
+        println!(
+            "- [{}] {} / {}",
+            check.status.label(),
+            check.area.label(),
+            check.title
+        );
+        println!("  command: {}", check.command);
+        println!(
+            "  local_only={}, loads_model={}, network={}",
+            yes_no(check.local_only),
+            yes_no(check.loads_model),
+            yes_no(check.touches_network)
+        );
+        for item in &check.evidence {
+            println!("  evidence: {}", item);
+        }
+        if check.status != crate::friday::FridayLocalCheckStatus::Passed {
+            println!("  next: {}", check.next_action);
+        }
     }
 }
 

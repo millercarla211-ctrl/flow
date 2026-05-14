@@ -69,9 +69,9 @@ pub fn active_completion_set() -> CompletionSet {
             "local-execution-checks",
             "End-to-end local execution checks",
             20,
-            CompletionItemStatus::Planned,
-            "STT/TTS/OCR/metasearch/artifact preview contracts exist, but the product loop needs targeted local execution checks",
-            "add low-resource checks that exercise each local runtime without full rebuilds",
+            CompletionItemStatus::Done,
+            "Friday now exposes low-resource local execution checks for STT, TTS, OCR, metasearch request paths, artifact previews, and runtime records without loading heavy models",
+            "connect the check report to the visible desktop diagnostics panel",
         ),
         item(
             "route-states",

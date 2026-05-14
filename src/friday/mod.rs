@@ -1,10 +1,12 @@
 pub mod artifacts;
+pub mod checks;
 pub mod research;
 pub mod runtime;
 pub mod ui;
 pub mod workspace;
 
 pub use artifacts::*;
+pub use checks::*;
 pub use research::*;
 pub use runtime::*;
 pub use ui::*;

@@ -15,7 +15,8 @@ use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
     FridayMultimodalSurface, FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow,
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
-    default_friday_product_plan, default_friday_ui_integration_plan,
+    default_friday_local_execution_checks, default_friday_product_plan,
+    default_friday_ui_integration_plan,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -529,6 +530,26 @@ fn friday_ui_plan_wires_remaining_store_backed_routes() {
         assert!(!route.data_bindings.is_empty());
         assert!(route.data_bindings.iter().all(|binding| binding.local_only));
     }
+}
+
+#[test]
+fn friday_local_execution_checks_cover_low_resource_runtime_paths() {
+    let report = default_friday_local_execution_checks();
+    let ids = report
+        .checks
+        .iter()
+        .map(|check| check.id.as_str())
+        .collect::<std::collections::HashSet<_>>();
+
+    assert!(ids.contains("stt-parakeet-artifacts"));
+    assert!(ids.contains("tts-kokoro-artifacts"));
+    assert!(ids.contains("ocr-glm-artifacts"));
+    assert!(ids.contains("metasearch-request-path"));
+    assert!(ids.contains("artifact-preview-records"));
+    assert!(ids.contains("runtime-surface-records"));
+    assert!(report.checks.iter().all(|check| check.local_only));
+    assert!(report.checks.iter().all(|check| !check.loads_model));
+    assert!(report.checks.iter().all(|check| !check.touches_network));
 }
 
 #[test]

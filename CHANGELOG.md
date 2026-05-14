@@ -49,6 +49,8 @@
 - advanced Friday Product UI Integration to 20/100
 - added store-backed Friday page contracts for Projects, Memory, Connectors, Agents, Canvas, Artifacts, Code, Voice, Multimodal, and Automations
 - advanced Friday Product UI Integration to 45/100
+- added `flow --friday-local-checks` / `--friday-local-checks-json` for low-resource STT, TTS, OCR, metasearch, artifact preview, and runtime readiness checks
+- advanced Friday Product UI Integration to 65/100
 
 ## 2026-04-26
 

@@ -1,11 +1,13 @@
 //! GLM-OCR integration for document OCR using vision models
 
 use anyhow::{Context, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const MODEL_PATH: &str = r"F:\flow\models\ocr\GLM-OCR.Q4_K_M.gguf";
-const MMPROJ_PATH: &str = r"F:\flow\models\ocr\GLM-OCR.mmproj-Q8_0.gguf";
+const MODEL_FILE: &str = "GLM-OCR.Q4_K_M.gguf";
+const MMPROJ_FILE: &str = "GLM-OCR.mmproj-Q8_0.gguf";
+const MODEL_PATH: &str = "models/ocr/GLM-OCR.Q4_K_M.gguf";
+const MMPROJ_PATH: &str = "models/ocr/GLM-OCR.mmproj-Q8_0.gguf";
 
 pub struct GlmOcr {
     model_path: String,
@@ -13,25 +15,47 @@ pub struct GlmOcr {
 }
 
 impl GlmOcr {
+    pub fn required_model_paths() -> [&'static str; 2] {
+        [MODEL_PATH, MMPROJ_PATH]
+    }
+
+    pub fn resolved_model_paths() -> [PathBuf; 2] {
+        [resolve_model_path(MODEL_FILE), resolve_model_path(MMPROJ_FILE)]
+    }
+
+    pub fn is_available() -> bool {
+        Self::resolved_model_paths().iter().all(|path| path.exists())
+    }
+
     pub fn new() -> Result<Self> {
+        let [model_path, mmproj_path] = Self::resolved_model_paths();
+
         // Verify model files exist
-        if !Path::new(MODEL_PATH).exists() {
+        if !model_path.exists() {
             anyhow::bail!(
-                "GLM-OCR model not found at: {}\nRun: python scripts/download_glm_ocr_simple.py",
-                MODEL_PATH
+                "GLM-OCR model not found. Checked: {}",
+                candidate_paths(MODEL_FILE)
+                    .iter()
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             );
         }
 
-        if !Path::new(MMPROJ_PATH).exists() {
+        if !mmproj_path.exists() {
             anyhow::bail!(
-                "GLM-OCR mmproj not found at: {}\nRun: python scripts/download_glm_ocr_simple.py",
-                MMPROJ_PATH
+                "GLM-OCR mmproj not found. Checked: {}",
+                candidate_paths(MMPROJ_FILE)
+                    .iter()
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             );
         }
 
         Ok(Self {
-            model_path: MODEL_PATH.to_string(),
-            mmproj_path: MMPROJ_PATH.to_string(),
+            model_path: model_path.to_string_lossy().into_owned(),
+            mmproj_path: mmproj_path.to_string_lossy().into_owned(),
         })
     }
 
@@ -178,4 +202,41 @@ impl Default for GlmOcr {
     fn default() -> Self {
         Self::new().expect("Failed to initialize GLM-OCR")
     }
+}
+
+fn resolve_model_path(file_name: &str) -> PathBuf {
+    candidate_paths(file_name)
+        .into_iter()
+        .find(|path| path.exists())
+        .unwrap_or_else(|| PathBuf::from("models").join("ocr").join(file_name))
+}
+
+fn candidate_paths(file_name: &str) -> Vec<PathBuf> {
+    let mut paths = vec![
+        PathBuf::from("models").join("ocr").join(file_name),
+        PathBuf::from("models")
+            .join("ocr")
+            .join("glm-ocr-gguf")
+            .join(file_name),
+    ];
+
+    if let Ok(root) = std::env::var("FLOW_MODEL_ROOT") {
+        paths.push(PathBuf::from(&root).join("ocr").join(file_name));
+        paths.push(
+            PathBuf::from(root)
+                .join("ocr")
+                .join("glm-ocr-gguf")
+                .join(file_name),
+        );
+    }
+
+    #[cfg(windows)]
+    paths.push(
+        PathBuf::from(r"G:\Flow\data\models")
+            .join("ocr")
+            .join("glm-ocr-gguf")
+            .join(file_name),
+    );
+
+    paths
 }

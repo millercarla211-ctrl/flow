@@ -74,6 +74,10 @@ pub enum Command {
     FridayUiPlan,
     /// Print Friday product UI integration route contracts as JSON
     FridayUiPlanJson,
+    /// Run low-resource Friday local execution readiness checks
+    FridayLocalChecks,
+    /// Print low-resource Friday local execution readiness checks as JSON
+    FridayLocalChecksJson,
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -352,6 +356,10 @@ impl Args {
             },
             "--friday-ui" | "--friday-ui-plan" => Command::FridayUiPlan,
             "--friday-ui-json" | "--friday-ui-plan-json" => Command::FridayUiPlanJson,
+            "--friday-local-checks" | "--friday-execution-checks" => Command::FridayLocalChecks,
+            "--friday-local-checks-json" | "--friday-execution-checks-json" => {
+                Command::FridayLocalChecksJson
+            }
             "--accessibility-diagnostics" | "--accessibility" => {
                 let live = !args.iter().any(|value| value == "--dry-run");
                 let os = args
