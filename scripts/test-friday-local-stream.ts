@@ -24,6 +24,10 @@ import {
 } from "../src/features/friday/utils/webInspection";
 import { parseDuckDuckGoLiteResults } from "../src/features/friday/utils/webSearch";
 import {
+  pullFridayWorkspaceSnapshot,
+  pushFridayWorkspaceSnapshot,
+} from "../src/features/friday/utils/workspaceCloudSync";
+import {
   buildFridayWorkspaceBackup,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
@@ -63,6 +67,31 @@ if (!streamed.includes("Project: Friday OS")) {
 }
 
 const timestamp = new Date().toISOString();
+function createTestStorage(seed: Record<string, string>): Storage {
+  const store = new Map(Object.entries(seed));
+
+  return {
+    get length() {
+      return store.size;
+    },
+    clear() {
+      store.clear();
+    },
+    getItem(key: string) {
+      return store.get(key) ?? null;
+    },
+    key(index: number) {
+      return Array.from(store.keys())[index] ?? null;
+    },
+    removeItem(key: string) {
+      store.delete(key);
+    },
+    setItem(key: string, value: string) {
+      store.set(key, value);
+    },
+  };
+}
+
 const researchDraft = createLocalResearchDraft({
   topic: "workspace records",
   project: {
@@ -416,6 +445,66 @@ restoreEnv("TURSO_DATABASE_URL", savedAuthEnv.tursoDatabaseUrl);
 
 if (localOnlySyncSession.ok || localOnlySyncSession.response.status !== 503) {
   throw new Error("Friday workspace sync did not stay controlled in local-only mode.");
+}
+
+const cloudSyncStorage = createTestStorage({
+  "friday.projects.v1": JSON.stringify([{ id: "project_test", name: "Friday OS" }]),
+});
+
+const pushedWorkspace = await pushFridayWorkspaceSnapshot({
+  fetcher: async (_input, init) => {
+    if (init?.method !== "PUT") {
+      throw new Error("Friday workspace push used the wrong HTTP method.");
+    }
+
+    return Response.json({ ok: true, keyCount: 1, updatedAt: timestamp });
+  },
+  storage: cloudSyncStorage,
+});
+
+if (!pushedWorkspace.ok || pushedWorkspace.keyCount !== 1) {
+  throw new Error("Friday workspace push did not report a successful upload.");
+}
+
+const failedWorkspacePush = await pushFridayWorkspaceSnapshot({
+  fetcher: async () => {
+    throw new Error("offline");
+  },
+  storage: cloudSyncStorage,
+});
+
+if (failedWorkspacePush.ok || failedWorkspacePush.message !== "offline") {
+  throw new Error("Friday workspace push did not return a controlled network failure.");
+}
+
+const pulledWorkspace = await pullFridayWorkspaceSnapshot({
+  fetcher: async (_input, init) => {
+    if (init?.method !== "GET") {
+      throw new Error("Friday workspace pull used the wrong HTTP method.");
+    }
+
+    return Response.json({
+      ok: true,
+      snapshot: {
+        payload: backup,
+        updatedAt: timestamp,
+      },
+    });
+  },
+});
+
+if (!pulledWorkspace.ok || pulledWorkspace.keyCount !== 2 || !pulledWorkspace.payload) {
+  throw new Error("Friday workspace pull did not return a valid synced backup.");
+}
+
+const failedWorkspacePull = await pullFridayWorkspaceSnapshot({
+  fetcher: async () => {
+    throw new Error("offline");
+  },
+});
+
+if (failedWorkspacePull.ok || failedWorkspacePull.message !== "offline") {
+  throw new Error("Friday workspace pull did not return a controlled network failure.");
 }
 
 const automationBase = new Date("2026-05-14T00:00:00.000Z");

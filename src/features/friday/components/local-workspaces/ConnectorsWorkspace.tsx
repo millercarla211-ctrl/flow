@@ -107,40 +107,47 @@ export function ConnectorsWorkspace() {
   const pushWorkspaceSnapshot = async () => {
     if (isSyncingWorkspace) return;
     setIsSyncingWorkspace(true);
-    const result = await pushFridayWorkspaceSnapshot();
-    setWorkspaceSyncMessage({
-      tone: result.ok ? "success" : "error",
-      text: result.ok
-        ? `${result.keyCount} local section${result.keyCount === 1 ? "" : "s"} uploaded.`
-        : result.message,
-    });
-    setIsSyncingWorkspace(false);
+    try {
+      const result = await pushFridayWorkspaceSnapshot();
+      setWorkspaceSyncMessage({
+        tone: result.ok ? "success" : "error",
+        text: result.ok
+          ? `${result.keyCount} local section${result.keyCount === 1 ? "" : "s"} uploaded.`
+          : result.message,
+      });
+    } finally {
+      setIsSyncingWorkspace(false);
+    }
   };
 
   const pullWorkspaceSnapshot = async () => {
     if (isSyncingWorkspace) return;
     setIsSyncingWorkspace(true);
-    const result = await pullFridayWorkspaceSnapshot();
+    try {
+      const result = await pullFridayWorkspaceSnapshot();
 
-    if (result.ok && result.payload) {
-      const entries = getFridayWorkspaceBackupEntries(result.payload);
-      for (const entry of entries) {
-        window.localStorage.setItem(entry.key, JSON.stringify(entry.value));
-        emitFridayStorageChange(entry.key);
+      if (result.ok && result.payload) {
+        const entries = getFridayWorkspaceBackupEntries(result.payload);
+        for (const entry of entries) {
+          window.localStorage.setItem(entry.key, JSON.stringify(entry.value));
+          emitFridayStorageChange(entry.key);
+        }
+        emitFridayStorageChange();
+        setWorkspaceSyncMessage({
+          tone: "success",
+          text: `${entries.length} local section${
+            entries.length === 1 ? "" : "s"
+          } restored from sync.`,
+        });
+      } else {
+        setWorkspaceSyncMessage({
+          tone: "error",
+          text: result.message,
+        });
       }
-      emitFridayStorageChange();
-      setWorkspaceSyncMessage({
-        tone: "success",
-        text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored from sync.`,
-      });
-    } else {
-      setWorkspaceSyncMessage({
-        tone: "error",
-        text: result.message,
-      });
+    } finally {
+      setIsSyncingWorkspace(false);
     }
-
-    setIsSyncingWorkspace(false);
   };
 
   return (

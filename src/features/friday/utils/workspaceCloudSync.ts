@@ -18,84 +18,126 @@ export type FridayWorkspaceCloudSyncResult =
       message: string;
     };
 
-export async function pushFridayWorkspaceSnapshot({
-  route = "/api/friday/sync/workspace",
-  storage = window.localStorage,
-}: {
+type WorkspaceSyncOptions = {
+  fetcher?: typeof fetch;
   route?: string;
-  storage?: Storage;
-} = {}): Promise<FridayWorkspaceCloudSyncResult> {
-  const backup = buildFridayWorkspaceBackup((key) => storage.getItem(key));
-  const response = await fetch(route, {
-    body: JSON.stringify(backup),
-    headers: { "content-type": "application/json" },
-    method: "PUT",
-  });
-  const body = (await response.json().catch(() => null)) as {
-    keyCount?: number;
-    message?: string;
-    ok?: boolean;
-    updatedAt?: string;
-  } | null;
+  timeoutMs?: number;
+};
 
-  if (!response.ok || !body?.ok) {
-    return {
-      ok: false,
-      message: body?.message || `Workspace sync returned ${response.status}.`,
-    };
-  }
+function createSyncFailure(error: unknown, fallback: string): FridayWorkspaceCloudSyncResult {
+  const message =
+    error instanceof DOMException && error.name === "AbortError"
+      ? "Friday workspace sync timed out."
+      : error instanceof Error
+        ? error.message
+        : fallback;
 
   return {
-    ok: true,
-    keyCount: body.keyCount ?? getFridayWorkspaceBackupEntries(backup).length,
-    message: "Friday workspace snapshot uploaded.",
-    updatedAt: body.updatedAt,
+    ok: false,
+    message,
   };
+}
+
+export async function pushFridayWorkspaceSnapshot({
+  fetcher = fetch,
+  route = "/api/friday/sync/workspace",
+  storage = window.localStorage,
+  timeoutMs = 15_000,
+}: {
+  storage?: Storage;
+} & WorkspaceSyncOptions = {}): Promise<FridayWorkspaceCloudSyncResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const backup = buildFridayWorkspaceBackup((key) => storage.getItem(key));
+    const response = await fetcher(route, {
+      body: JSON.stringify(backup),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+      signal: controller.signal,
+    });
+    const body = (await response.json().catch(() => null)) as {
+      keyCount?: number;
+      message?: string;
+      ok?: boolean;
+      updatedAt?: string;
+    } | null;
+
+    if (!response.ok || !body?.ok) {
+      return {
+        ok: false,
+        message: body?.message || `Workspace sync returned ${response.status}.`,
+      };
+    }
+
+    return {
+      ok: true,
+      keyCount: body.keyCount ?? getFridayWorkspaceBackupEntries(backup).length,
+      message: "Friday workspace snapshot uploaded.",
+      updatedAt: body.updatedAt,
+    };
+  } catch (error) {
+    return createSyncFailure(error, "Friday workspace sync upload failed.");
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function pullFridayWorkspaceSnapshot({
+  fetcher = fetch,
   route = "/api/friday/sync/workspace",
-}: {
-  route?: string;
-} = {}): Promise<FridayWorkspaceCloudSyncResult> {
-  const response = await fetch(route);
-  const body = (await response.json().catch(() => null)) as {
-    message?: string;
-    ok?: boolean;
-    snapshot?: {
-      payload?: unknown;
-      updatedAt?: string;
+  timeoutMs = 15_000,
+}: WorkspaceSyncOptions = {}): Promise<FridayWorkspaceCloudSyncResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetcher(route, {
+      method: "GET",
+      signal: controller.signal,
+    });
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+      ok?: boolean;
+      snapshot?: {
+        payload?: unknown;
+        updatedAt?: string;
+      } | null;
     } | null;
-  } | null;
 
-  if (!response.ok || !body?.ok) {
+    if (!response.ok || !body?.ok) {
+      return {
+        ok: false,
+        message: body?.message || `Workspace sync returned ${response.status}.`,
+      };
+    }
+
+    if (!body.snapshot?.payload) {
+      return {
+        ok: false,
+        message: "No Friday workspace snapshot is stored for this account yet.",
+      };
+    }
+
+    const parsed = parseFridayWorkspaceBackup(JSON.stringify(body.snapshot.payload));
+    if (!parsed.ok) {
+      return {
+        ok: false,
+        message: parsed.message,
+      };
+    }
+
     return {
-      ok: false,
-      message: body?.message || `Workspace sync returned ${response.status}.`,
+      ok: true,
+      keyCount: getFridayWorkspaceBackupEntries(parsed.backup).length,
+      message: "Friday workspace snapshot downloaded.",
+      payload: parsed.backup,
+      updatedAt: body.snapshot.updatedAt,
     };
+  } catch (error) {
+    return createSyncFailure(error, "Friday workspace sync download failed.");
+  } finally {
+    clearTimeout(timeout);
   }
-
-  if (!body.snapshot?.payload) {
-    return {
-      ok: false,
-      message: "No Friday workspace snapshot is stored for this account yet.",
-    };
-  }
-
-  const parsed = parseFridayWorkspaceBackup(JSON.stringify(body.snapshot.payload));
-  if (!parsed.ok) {
-    return {
-      ok: false,
-      message: parsed.message,
-    };
-  }
-
-  return {
-    ok: true,
-    keyCount: getFridayWorkspaceBackupEntries(parsed.backup).length,
-    message: "Friday workspace snapshot downloaded.",
-    payload: parsed.backup,
-    updatedAt: body.snapshot.updatedAt,
-  };
 }
-
