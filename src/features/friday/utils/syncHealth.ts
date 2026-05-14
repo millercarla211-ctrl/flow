@@ -18,6 +18,12 @@ type RawFridaySyncHealth = Omit<FridaySyncHealthResult, "route" | "status"> & {
   status?: string;
 };
 
+type FridaySyncHealthOptions = {
+  fetcher?: typeof fetch;
+  route?: string;
+  timeoutMs?: number;
+};
+
 function nowMs() {
   return typeof performance === "undefined" ? Date.now() : performance.now();
 }
@@ -28,18 +34,16 @@ function normalizeStatus(status: string | undefined): FridaySyncHealthStatus {
 }
 
 export async function checkFridaySyncHealth({
+  fetcher = fetch,
   route = "/api/friday/sync/status",
   timeoutMs = 10_000,
-}: {
-  route?: string;
-  timeoutMs?: number;
-} = {}): Promise<FridaySyncHealthResult> {
+}: FridaySyncHealthOptions = {}): Promise<FridaySyncHealthResult> {
   const startedAt = nowMs();
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(route, {
+    const response = await fetcher(route, {
       method: "GET",
       signal: controller.signal,
     });
@@ -94,7 +98,6 @@ export async function checkFridaySyncHealth({
       status: "error",
     };
   } finally {
-    window.clearTimeout(timeout);
+    clearTimeout(timeout);
   }
 }
-

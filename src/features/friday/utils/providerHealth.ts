@@ -13,6 +13,7 @@ export type ProviderHealthResult = {
 };
 
 type ProviderHealthOptions = {
+  fetcher?: typeof fetch;
   modelKey?: string;
   route?: string;
   timeoutMs?: number;
@@ -55,16 +56,17 @@ export function parseFridayStreamPayload(streamText: string) {
 }
 
 export async function checkFridayProviderHealth({
+  fetcher = fetch,
   modelKey = DEFAULT_FRIDAY_MODEL_KEY || FRIDAY_GROQ_MODELS[0]?.key,
   route = "/api/friday/chat",
   timeoutMs = 20_000,
 }: ProviderHealthOptions = {}): Promise<ProviderHealthResult> {
   const startedAt = nowMs();
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(route, {
+    const response = await fetcher(route, {
       method: "POST",
       headers: { "content-type": "application/json" },
       signal: controller.signal,
@@ -150,6 +152,6 @@ export async function checkFridayProviderHealth({
       status: "error",
     };
   } finally {
-    window.clearTimeout(timeout);
+    clearTimeout(timeout);
   }
 }

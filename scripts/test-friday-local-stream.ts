@@ -15,8 +15,12 @@ import {
 } from "../src/features/friday/utils/localAutomation";
 import { rankAskContext } from "../src/features/friday/utils/localRetrieval";
 import { createLocalResearchDraft } from "../src/features/friday/utils/localResearch";
-import { parseFridayStreamPayload } from "../src/features/friday/utils/providerHealth";
+import {
+  checkFridayProviderHealth,
+  parseFridayStreamPayload,
+} from "../src/features/friday/utils/providerHealth";
 import { buildProviderResearchPrompt } from "../src/features/friday/utils/providerResearch";
+import { checkFridaySyncHealth } from "../src/features/friday/utils/syncHealth";
 import {
   extractHtmlTitle,
   extractReadableHtmlText,
@@ -312,6 +316,74 @@ const providerHealthError = parseFridayStreamPayload(
 
 if (providerHealthError.errorText !== "Provider unavailable") {
   throw new Error("Friday provider health parser did not expose streamed errors.");
+}
+
+const readyProviderHealth = await checkFridayProviderHealth({
+  fetcher: async (_input, init) => {
+    if (init?.method !== "POST") {
+      throw new Error("Friday provider health used the wrong HTTP method.");
+    }
+
+    return new Response(
+      [
+        'data: {"type":"text-start","id":"txt-0"}',
+        'data: {"type":"text-delta","id":"txt-0","delta":"Friday provider ready."}',
+        "data: [DONE]",
+      ].join("\n\n"),
+      { status: 200 },
+    );
+  },
+  modelKey: "groq-llama-3-1-8b-instant",
+});
+
+if (readyProviderHealth.status !== "ready" || readyProviderHealth.preview !== "Friday provider ready.") {
+  throw new Error("Friday provider health did not handle a valid streamed response.");
+}
+
+const failedProviderHealth = await checkFridayProviderHealth({
+  fetcher: async () => {
+    throw new Error("provider offline");
+  },
+  modelKey: "groq-llama-3-1-8b-instant",
+});
+
+if (failedProviderHealth.status !== "error" || failedProviderHealth.message !== "provider offline") {
+  throw new Error("Friday provider health did not return a controlled fetch failure.");
+}
+
+const readySyncHealth = await checkFridaySyncHealth({
+  fetcher: async (_input, init) => {
+    if (init?.method !== "GET") {
+      throw new Error("Friday sync health used the wrong HTTP method.");
+    }
+
+    return Response.json({
+      checkedAt: timestamp,
+      latencyMs: 2,
+      message: "Friday account database is reachable.",
+      ready: true,
+      requirements: {
+        authUrlConfigured: true,
+        databaseConfigured: true,
+        tokenConfigured: true,
+      },
+      status: "ready",
+    });
+  },
+});
+
+if (!readySyncHealth.ready || readySyncHealth.status !== "ready") {
+  throw new Error("Friday sync health did not handle a valid ready response.");
+}
+
+const failedSyncHealth = await checkFridaySyncHealth({
+  fetcher: async () => {
+    throw new Error("sync offline");
+  },
+});
+
+if (failedSyncHealth.status !== "error" || failedSyncHealth.message !== "sync offline") {
+  throw new Error("Friday sync health did not return a controlled fetch failure.");
 }
 
 const providerResearchPrompt = buildProviderResearchPrompt({
