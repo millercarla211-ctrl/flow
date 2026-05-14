@@ -3,6 +3,8 @@ import { FlowBrowserEngine } from "../runtime/flow-engine";
 import type {
   BrowserPackManifest,
   BrowserPackStatus,
+  FlowDashboardProductUiBinding,
+  FlowDashboardProductUiCardBinding,
   FlowExecutionPlan,
   FlowInferenceRequest,
   FlowRuntimeReadiness,
@@ -19,6 +21,7 @@ type UiState = {
   draft: FlowWorkbenchDraft;
   readiness: FlowRuntimeReadiness;
   quickContext: QuickContextPayload | null;
+  dashboardBinding: FlowDashboardProductUiBinding;
   activeSection: FlowWorkspaceSection;
   status: string;
   output: string;
@@ -62,6 +65,7 @@ const TASK_OPTIONS: Array<{ task: FlowTask; label: string; detail: string }> = [
 
 const SECTION_LABELS: Record<FlowWorkspaceSection, string> = {
   overview: "Overview",
+  dashboard: "Dashboard",
   workspace: "Workbench",
   packs: "Model Packs",
   settings: "Settings",
@@ -77,28 +81,28 @@ const SURFACE_COPY: Record<
     eyebrow: "Fast local actions",
     intro:
       "Handle rewrites, page summaries, and draft replies directly inside the browser with local models.",
-    sections: ["overview", "workspace", "packs"],
+    sections: ["overview", "dashboard", "workspace", "packs"],
   },
   sidepanel: {
     title: "Flow Side Panel",
     eyebrow: "Persistent browser workspace",
     intro:
       "Keep the full local workbench open while researching, drafting, and applying edits back to production apps.",
-    sections: ["overview", "workspace", "packs", "settings", "delivery"],
+    sections: ["overview", "dashboard", "workspace", "packs", "settings", "delivery"],
   },
   sidebar: {
     title: "Flow Sidebar",
     eyebrow: "Firefox local workspace",
     intro:
       "Use the same local-first Flow runtime in Firefox with pack management, workbench tools, and delivery checks.",
-    sections: ["overview", "workspace", "packs", "settings", "delivery"],
+    sections: ["overview", "dashboard", "workspace", "packs", "settings", "delivery"],
   },
   options: {
     title: "Flow Setup Console",
     eyebrow: "Client handoff controls",
     intro:
       "Configure local-only behavior, verify model packs, and review the project state before handing the build to the client.",
-    sections: ["overview", "packs", "settings", "delivery"],
+    sections: ["overview", "dashboard", "packs", "settings", "delivery"],
   },
 };
 
@@ -801,6 +805,72 @@ function renderPacks(state: UiState, engine: FlowBrowserEngine) {
   `;
 }
 
+function renderDashboardCard(card: FlowDashboardProductUiCardBinding) {
+  return `
+    <article class="feature-card dashboard-card ${card.status}">
+      <div class="card-topline">
+        <span class="eyebrow">${escapeHtml(card.cardId)}</span>
+        <span class="badge ${badgeTone(card.status)}">${escapeHtml(card.status)}</span>
+      </div>
+      <h3>${escapeHtml(card.title)}</h3>
+      <p>${escapeHtml(card.primaryMetric)}</p>
+      <div class="meta-list">
+        <span><strong>Score</strong> ${card.scoreOutOf100}/100</span>
+        <span><strong>Actions</strong> ${card.actionCount}</span>
+        <span><strong>Source</strong> ${escapeHtml(card.sourceJson)}</span>
+      </div>
+    </article>
+  `;
+}
+
+function renderDashboard(state: UiState) {
+  const binding = state.dashboardBinding;
+
+  return `
+    <section class="section-stack">
+      <div class="section-header">
+        <div>
+          <h2>${escapeHtml(binding.title)}</h2>
+          <p>${escapeHtml(binding.summary)}</p>
+        </div>
+        <span class="badge ${badgeTone(binding.status)}">${binding.scoreOutOf100} / 100</span>
+      </div>
+
+      <article class="hero-card dashboard-hero">
+        <div class="card-topline">
+          <span class="eyebrow">${escapeHtml(binding.productName)} route contract</span>
+          <span class="badge ${badgeTone(binding.status)}">${escapeHtml(binding.status)}</span>
+        </div>
+        <h3>${escapeHtml(binding.route)} is reading typed dashboard data</h3>
+        <p>
+          ${binding.boundCardCount}/${binding.cardCount} cards are bound from the dashboard
+          product UI contract, with ${binding.actionCount} local action handoff(s) ready for the
+          next wiring pass.
+        </p>
+        <div class="hero-facts">
+          <span class="pill">${escapeHtml(binding.sourceFile)}</span>
+          <span class="pill">${escapeHtml(binding.panelJsonCommand)}</span>
+          <span class="pill">${escapeHtml(binding.exportCommand)}</span>
+        </div>
+      </article>
+
+      <div class="card-grid dashboard-grid">
+        ${binding.cards.map(renderDashboardCard).join("")}
+      </div>
+
+      <article class="feature-card">
+        <div class="card-topline">
+          <span class="eyebrow">Next wiring targets</span>
+          <span class="badge ${badgeTone("pending")}">local only</span>
+        </div>
+        <div class="note-list">
+          ${binding.nextActions.map((action) => `<span>${escapeHtml(action)}</span>`).join("")}
+        </div>
+      </article>
+    </section>
+  `;
+}
+
 function renderShell(surface: FlowSurface, state: UiState, engine: FlowBrowserEngine) {
   const copy = SURFACE_COPY[surface];
   const sections = copy.sections;
@@ -810,6 +880,9 @@ function renderShell(surface: FlowSurface, state: UiState, engine: FlowBrowserEn
 
   let body = "";
   switch (activeSection) {
+    case "dashboard":
+      body = renderDashboard(state);
+      break;
     case "workspace":
       body = renderWorkspace(state, engine);
       break;
@@ -890,6 +963,7 @@ export async function mountFlowApp(surfaceInput: string) {
     },
     readiness,
     quickContext: null,
+    dashboardBinding: engine.dashboardBinding(),
     activeSection: defaultSection(surface),
     status: "Ready. Flow will stay local-first unless you deliberately wire remote providers later.",
     output: "",

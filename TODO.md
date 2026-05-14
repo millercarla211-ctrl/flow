@@ -194,7 +194,7 @@ Goal: make Friday's dashboard and DX surfaces consume live readiness exports, di
 
 This set is complete. The next loop should open `Friday Dashboard Product UI Wiring` and consume these typed cards, actions, history records, and release-review handoffs from the visible Friday dashboard without scraping CLI text.
 
-## Active Set: Friday Dashboard Product UI Wiring
+## Completed Set: Friday Dashboard Product UI Wiring
 
 Status: 100/100
 
@@ -212,15 +212,18 @@ Goal: make the visible Friday desktop/web dashboard consume the live Rust dashbo
 
 This set is complete. The next loop should open `Friday Dashboard Visible UI Execution` and render the typed dashboard binding inside the visible web extension/desktop UI without dummy product copy.
 
-## Next Set: Friday Dashboard Visible UI Execution
+## Active Set: Friday Dashboard Visible UI Execution
 
-Status: 0/100
+Status: 20/100
 
 Goal: wire the visible Friday dashboard to render the typed dashboard binding and execute local-only actions from the UI layer.
 
+### Done
+
+- [x] Render dashboard cards from the product UI binding in `extensions/flow-webext/src/ui/app.ts`.
+
 ### Remaining To Reach 100/100
 
-- [ ] Render dashboard cards from the product UI binding in `extensions/flow-webext/src/ui/app.ts`.
 - [ ] Add visible disabled/loading/success/error button states for dashboard actions.
 - [ ] Render export history, release-review links, and screenshot prompts in the visible dashboard.
 - [ ] Add a small TypeScript smoke/typecheck path for dashboard section rendering.

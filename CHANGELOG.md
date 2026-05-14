@@ -115,6 +115,8 @@
 - advanced Friday Dashboard Product UI Wiring to 100/100
 - added `flow --friday-dashboard-product-ui-smoke` / `--friday-dashboard-product-ui-smoke-json` to verify the visible dashboard route source, panel JSON binding, cards, local actions, history/release links, and screenshot prompts
 - completed Friday Dashboard Product UI Wiring at 100/100 and listed Friday Dashboard Visible UI Execution as the next set
+- opened Friday Dashboard Visible UI Execution at 20/100
+- added a typed browser-extension dashboard section that renders Friday dashboard cards from `FlowDashboardProductUiBinding`
 
 ## 2026-04-26
 

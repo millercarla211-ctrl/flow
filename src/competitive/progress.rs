@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "dashboard-panel-json-binding",
-            "Dashboard panel JSON binding",
+            "dashboard-visible-card-rendering",
+            "Visible dashboard card rendering",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-dashboard-product-ui-json` maps the exported dashboard panel into a visible /dashboard route binding with data sources, cards, and local actions",
-            "wire the typed dashboard binding into the visible web/desktop dashboard component",
+            "`extensions/flow-webext/src/ui/app.ts` renders typed dashboard cards from `FlowDashboardProductUiBinding` through `FlowBrowserEngine.dashboardBinding()`",
+            "wire visible action buttons to the local command handoff metadata",
         ),
         item(
-            "dashboard-action-buttons",
-            "Dashboard action buttons",
+            "dashboard-visible-action-buttons",
+            "Visible dashboard action buttons",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-dashboard-product-ui-json` exposes safe button state labels, disabled reasons, confirmation flags, and local-only action metadata",
-            "render these button states in the visible dashboard controls",
+            CompletionItemStatus::Planned,
+            "not started",
+            "render disabled/loading/success/error button states for local-only dashboard actions",
         ),
         item(
-            "dashboard-history-deltas",
-            "Dashboard history deltas",
+            "dashboard-history-release-rail",
+            "Dashboard history and release rail",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-dashboard-product-ui-json` exposes history trend labels plus missing screenshot prompts and capture commands for product UI rendering",
-            "render these deltas and screenshot prompts in the visible dashboard",
+            CompletionItemStatus::Planned,
+            "not started",
+            "render export history deltas, release-review links, and screenshot prompts in the dashboard",
         ),
         item(
-            "release-review-links",
-            "Release review links",
+            "dashboard-typescript-smoke",
+            "Dashboard TypeScript smoke path",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-dashboard-product-ui-json` exposes grouped release-review links with local open-button state for TODO, changelog, visual targets, and export artifacts",
-            "render these release-review link groups in the visible dashboard",
+            CompletionItemStatus::Planned,
+            "not started",
+            "add a small TypeScript smoke/typecheck path for dashboard section rendering",
         ),
         item(
-            "dashboard-ui-smoke-contract",
-            "Dashboard UI smoke contract",
+            "dashboard-local-only-no-dummy-copy",
+            "Local-only dashboard copy cleanup",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-dashboard-product-ui-smoke` proves the visible dashboard route can load source, panel JSON, cards, actions, history/release links, and screenshot prompts",
-            "open the next 100-point set by rendering the typed binding inside the visible dashboard UI",
+            CompletionItemStatus::Planned,
+            "not started",
+            "keep local-only fallback behavior and remove dummy product copy from this dashboard surface",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Dashboard Product UI Wiring".to_string(),
+        name: "Friday Dashboard Visible UI Execution".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Consume typed Friday dashboard panel data from the visible product UI, keep all actions local-first and explicit, and avoid dummy dashboard copy.".to_string(),
+        loop_rule: "Render the typed Friday dashboard contract inside the visible browser/desktop UI, keep actions local-only, and remove dashboard dummy copy as the UI becomes real.".to_string(),
         items,
     }
 }
@@ -139,12 +139,12 @@ mod tests {
     #[test]
     fn active_set_tracks_friday_dashboard_product_ui_wiring_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Dashboard Product UI Wiring");
-        assert_eq!(set.current_score_out_of_100, 100);
+        assert_eq!(set.name, "Friday Dashboard Visible UI Execution");
+        assert_eq!(set.current_score_out_of_100, 20);
         assert!(
             set.items
                 .iter()
-                .all(|item| item.status == CompletionItemStatus::Done)
+                .any(|item| item.status == CompletionItemStatus::Planned)
         );
     }
 

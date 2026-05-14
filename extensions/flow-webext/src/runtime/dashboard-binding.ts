@@ -1,0 +1,103 @@
+import type { FlowDashboardProductUiBinding } from "./protocol";
+
+const DASHBOARD_CARDS: FlowDashboardProductUiBinding["cards"] = [
+  {
+    cardId: "completion-loop",
+    title: "Completion Loop",
+    status: "warning",
+    scoreOutOf100: 20,
+    primaryMetric: "Friday Dashboard Visible UI Execution is active at 20/100.",
+    sourceJson: "tmp/friday-dashboard/completion.json",
+    actionCount: 1,
+  },
+  {
+    cardId: "operator-readiness",
+    title: "Operator Readiness",
+    status: "warning",
+    scoreOutOf100: 86,
+    primaryMetric: "Local runtime is usable with one readiness warning.",
+    sourceJson: "tmp/friday-dashboard/readiness.json",
+    actionCount: 2,
+  },
+  {
+    cardId: "route-bindings",
+    title: "Route Bindings",
+    status: "ready",
+    scoreOutOf100: 100,
+    primaryMetric: "Friday routes are bound to tracked desktop and web UI files.",
+    sourceJson: "tmp/friday-dashboard/route-bindings.json",
+    actionCount: 1,
+  },
+  {
+    cardId: "route-visuals",
+    title: "Route Visuals",
+    status: "warning",
+    scoreOutOf100: 60,
+    primaryMetric: "Screenshot capture prompts are ready for missing route views.",
+    sourceJson: "tmp/friday-dashboard/route-visuals.json",
+    actionCount: 1,
+  },
+  {
+    cardId: "execution-handoffs",
+    title: "Execution Handoffs",
+    status: "ready",
+    scoreOutOf100: 100,
+    primaryMetric: "Local UI actions map to explicit command handoffs.",
+    sourceJson: "tmp/friday-dashboard/execution-handoffs.json",
+    actionCount: 1,
+  },
+  {
+    cardId: "screenshot-history",
+    title: "Screenshot History",
+    status: "warning",
+    scoreOutOf100: 50,
+    primaryMetric: "Missing captures are tracked with repeatable screenshot prompts.",
+    sourceJson: "tmp/friday-dashboard/route-visuals.json",
+    actionCount: 1,
+  },
+  {
+    cardId: "export-history",
+    title: "Export History",
+    status: "ready",
+    scoreOutOf100: 100,
+    primaryMetric: "Recent dashboard exports can be compared between checkpoints.",
+    sourceJson: "tmp/friday-dashboard/dashboard-history.json",
+    actionCount: 1,
+  },
+  {
+    cardId: "release-review",
+    title: "Release Review",
+    status: "warning",
+    scoreOutOf100: 72,
+    primaryMetric: "Release links are available while the visible UI loop continues.",
+    sourceJson: "tmp/friday-dashboard/release-review.json",
+    actionCount: 1,
+  },
+];
+
+export function defaultFridayDashboardBinding(): FlowDashboardProductUiBinding {
+  return {
+    productName: "Friday",
+    route: "/dashboard",
+    title: "Friday Dashboard",
+    sourceFile: "extensions/flow-webext/src/ui/app.ts",
+    exportDir: "tmp/friday-dashboard",
+    status: "warning",
+    scoreOutOf100: 20,
+    summary:
+      "Render the live dashboard contract in the visible browser surface while the remaining action, history, and smoke paths are wired.",
+    panelJsonCommand: "flow --friday-dashboard-panel-json tmp/friday-dashboard",
+    exportCommand: "flow --friday-dashboard-export tmp/friday-dashboard",
+    cardCount: DASHBOARD_CARDS.length,
+    boundCardCount: DASHBOARD_CARDS.length,
+    actionCount: DASHBOARD_CARDS.reduce((total, card) => total + card.actionCount, 0),
+    warningCount: DASHBOARD_CARDS.filter((card) => card.status === "warning").length,
+    blockingCount: DASHBOARD_CARDS.filter((card) => card.status === "blocked").length,
+    cards: DASHBOARD_CARDS,
+    nextActions: [
+      "Wire dashboard action buttons to explicit local command handoffs.",
+      "Render history deltas, release-review links, and screenshot prompts in the visible dashboard.",
+      "Add a TypeScript smoke path that proves the dashboard section renders from typed data.",
+    ],
+  };
+}

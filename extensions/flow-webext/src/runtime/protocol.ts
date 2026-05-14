@@ -15,6 +15,7 @@ export type FlowDeviceTarget = "webgpu" | "wasm";
 export type FlowStorageBackend = "opfs" | "indexeddb" | "extension-storage";
 export type FlowWorkspaceSection =
   | "overview"
+  | "dashboard"
   | "workspace"
   | "packs"
   | "settings"
@@ -127,4 +128,36 @@ export interface QuickContextPayload {
   pageText: string;
   title: string;
   url: string;
+}
+
+export type FlowDashboardPanelStatus = "ready" | "warning" | "blocked";
+
+export interface FlowDashboardProductUiCardBinding {
+  cardId: string;
+  title: string;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  primaryMetric: string;
+  sourceJson: string;
+  actionCount: number;
+}
+
+export interface FlowDashboardProductUiBinding {
+  productName: string;
+  route: string;
+  title: string;
+  sourceFile: string;
+  exportDir: string;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  summary: string;
+  panelJsonCommand: string;
+  exportCommand: string;
+  cardCount: number;
+  boundCardCount: number;
+  actionCount: number;
+  warningCount: number;
+  blockingCount: number;
+  cards: FlowDashboardProductUiCardBinding[];
+  nextActions: string[];
 }

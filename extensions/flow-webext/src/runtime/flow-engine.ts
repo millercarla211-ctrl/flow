@@ -2,10 +2,12 @@ import { FlowBrowserStorage } from "./browser-storage";
 import { installBrowserPackFetch } from "./browserpack-fetch";
 import { browserPackCatalog, getBrowserPackByModelKey } from "./catalog";
 import { detectCapabilities } from "./capabilities";
+import { defaultFridayDashboardBinding } from "./dashboard-binding";
 import { runMultimodal, runOcr, runTextGeneration } from "./transformers-runtime";
 import type {
   BrowserPackManifest,
   BrowserPackStatus,
+  FlowDashboardProductUiBinding,
   FlowExecutionPlan,
   FlowInferenceRequest,
   FlowModality,
@@ -38,6 +40,10 @@ export class FlowBrowserEngine {
 
   packCatalog() {
     return browserPackCatalog;
+  }
+
+  dashboardBinding(): FlowDashboardProductUiBinding {
+    return defaultFridayDashboardBinding();
   }
 
   defaultPrompt(task: FlowTask): string {

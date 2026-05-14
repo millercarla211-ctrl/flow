@@ -256,6 +256,27 @@ p {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.dashboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.dashboard-card.ready {
+  border-color: rgba(83, 214, 158, 0.28);
+}
+
+.dashboard-card.warning {
+  border-color: rgba(232, 190, 99, 0.26);
+}
+
+.dashboard-card.blocked {
+  border-color: rgba(255, 142, 128, 0.32);
+}
+
+.dashboard-hero .pill {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .context-grid {
   display: grid;
   gap: 12px;
