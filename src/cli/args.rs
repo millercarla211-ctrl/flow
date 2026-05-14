@@ -70,6 +70,10 @@ pub enum Command {
     FridayRuntimeInit { output_dir: String },
     /// Print durable Friday voice/multimodal/automation runtime state as JSON
     FridayRuntimeJson { input_dir: Option<String> },
+    /// Show Friday product UI integration route contracts
+    FridayUiPlan,
+    /// Print Friday product UI integration route contracts as JSON
+    FridayUiPlanJson,
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -346,6 +350,8 @@ impl Args {
             "--friday-runtime-json" | "--friday-voice-runtime-json" => Command::FridayRuntimeJson {
                 input_dir: args.get(2).cloned(),
             },
+            "--friday-ui" | "--friday-ui-plan" => Command::FridayUiPlan,
+            "--friday-ui-json" | "--friday-ui-plan-json" => Command::FridayUiPlanJson,
             "--accessibility-diagnostics" | "--accessibility" => {
                 let live = !args.iter().any(|value| value == "--dry-run");
                 let os = args

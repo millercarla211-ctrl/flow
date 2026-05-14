@@ -50,68 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "feature-map",
-            "Competitive Friday feature inventory",
-            19,
-            CompletionItemStatus::Done,
-            "Friday now has a Rust capability map covering ChatGPT, Gemini, Perplexity, Grok, and Claude feature targets with routes, statuses, and local-first boundaries",
-            "keep the matrix updated as features ship so progress stays honest",
-        ),
-        item(
-            "metasearch-search-policy",
-            "Metasearch-first cited search and research policy",
+            "ask-search-research-ui",
+            "Ask, Search, and Research UI wiring",
             20,
             CompletionItemStatus::Done,
-            "Friday search and deep-research plans explicitly route through the adjacent metasearch Rust crate and forbid Perplexity Computer as a dependency",
-            "wire the plan to the real metasearch execution API and citation store",
+            "Friday now has route-level UI contracts for Ask, Search, and Research with streaming flags, citations, source controls, saved reports, and local command/data bindings",
+            "connect these contracts to the desktop/Next.js panes and interaction handlers",
         ),
         item(
-            "research-source-runtime",
-            "Research source, citation, and export runtime",
-            12,
-            CompletionItemStatus::Done,
-            "Friday now has a metasearch-backed research workflow, local metasearch API client, source groups, citation ledgers, progress events, markdown reports, and persisted report bundles",
-            "connect this persisted contract to the Friday UI Research surface",
+            "store-backed-pages",
+            "Store-backed Friday pages",
+            25,
+            CompletionItemStatus::Planned,
+            "Projects, Memory, Connectors, Canvas, Artifacts, Code, Voice, Multimodal, and Automations stores exist but still need page-level UI bindings",
+            "wire every Friday page to the durable workspace, artifact, and runtime stores",
         ),
         item(
-            "ask-research-streaming",
-            "Ask and Research local-first streaming synthesis",
-            8,
-            CompletionItemStatus::Done,
-            "Friday can gather sources, build a citation-aware synthesis prompt, run the local quality-chat model, and expose answer deltas with citation references",
-            "connect the synthesis deltas to the Friday Ask and Research UI surfaces",
+            "local-execution-checks",
+            "End-to-end local execution checks",
+            20,
+            CompletionItemStatus::Planned,
+            "STT/TTS/OCR/metasearch/artifact preview contracts exist, but the product loop needs targeted local execution checks",
+            "add low-resource checks that exercise each local runtime without full rebuilds",
         ),
         item(
-            "projects-memory-connectors",
-            "Projects, memory, and connector workspace state",
-            13,
-            CompletionItemStatus::Done,
-            "Friday now has durable local project, memory, and connector store records with permission findings and separate JSON persistence for UI consumption",
-            "connect the workspace store to the Friday sidebar pages and auth/provider settings",
+            "route-states",
+            "Production route states",
+            20,
+            CompletionItemStatus::Planned,
+            "Core route state contracts started for Ask/Search/Research, but every Friday route needs polished empty/loading/error/permission states",
+            "finish route states and remove any dummy or dev-stack UI text from Friday surfaces",
         ),
         item(
-            "canvas-artifacts-code",
-            "Canvas, Artifacts, and coding-agent workspace",
-            14,
-            CompletionItemStatus::Done,
-            "Friday now has durable artifact, checkpoint, diff, preview-runner, and code-task records for Canvas, Artifacts, and Code workspace wiring",
-            "connect artifact records to editable UI panes, preview execution, and code review actions",
-        ),
-        item(
-            "voice-multimodal-automations",
-            "Voice, multimodal, and automation parity",
-            14,
-            CompletionItemStatus::Done,
-            "Friday now has local-first Voice, Multimodal, and Automation runtime records for STT, TTS, wake commands, OCR/VLM planning, schedules, approvals, and audit files",
-            "open the next loop for product UI integration, live execution hardening, and end-to-end browser checks",
+            "browser-verification-deploy-gate",
+            "Browser verification and deploy gate",
+            15,
+            CompletionItemStatus::Planned,
+            "The deploy rule exists in the TODO, but this loop still needs targeted browser verification and major-feature-only deploy discipline",
+            "verify the visible product routes and deploy only after a major user-visible feature ships",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Competitive AI Workspace".to_string(),
+        name: "Friday Product UI Integration".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "This 100-point Friday competitive workspace contract is complete. The next loop should connect these Rust surfaces to the production UI, live execution, and end-to-end verification.".to_string(),
+        loop_rule: "Turn Friday's completed Rust contracts into polished product UI, verified live workflows, and production-ready route states without weakening local-first defaults.".to_string(),
         items,
     }
 }
@@ -153,13 +137,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_completed_contract_loop() {
+    fn active_set_tracks_incomplete_ui_loop() {
         let set = active_completion_set();
-        assert_eq!(set.current_score_out_of_100, set.target_score_out_of_100);
+        assert!(set.current_score_out_of_100 < set.target_score_out_of_100);
         assert!(
             set.items
                 .iter()
-                .all(|item| item.status == CompletionItemStatus::Done)
+                .any(|item| item.status == CompletionItemStatus::Planned)
         );
     }
 

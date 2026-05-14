@@ -14,7 +14,8 @@ use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
     FridayMultimodalSurface, FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayWorkspaceStore, default_friday_product_plan,
+    FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
+    default_friday_product_plan, default_friday_ui_integration_plan,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -481,6 +482,31 @@ fn friday_runtime_store_persists_voice_multimodal_and_automations() {
         && item.approval_required));
 
     let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn friday_ui_plan_wires_ask_search_and_research_routes() {
+    let plan = default_friday_ui_integration_plan();
+    assert_eq!(plan.score_out_of_100, 20);
+    assert_eq!(plan.ready_route_count(), 3);
+
+    let ask = plan.route(flow::FridayWorkspaceArea::Ask).unwrap();
+    assert_eq!(ask.status, FridayUiIntegrationStatus::Wired);
+    assert!(ask.stream_enabled);
+    assert!(ask.citations_visible);
+
+    let search = plan.route(flow::FridayWorkspaceArea::Search).unwrap();
+    assert!(search.primary_command.contains("--friday-metasearch"));
+    assert!(!search.source_controls.is_empty());
+
+    let research = plan.route(flow::FridayWorkspaceArea::Research).unwrap();
+    assert!(research.report_persistence);
+    assert!(
+        research
+            .data_bindings
+            .iter()
+            .any(|binding| binding.command.contains("--friday-research-report-save"))
+    );
 }
 
 #[test]

@@ -92,10 +92,13 @@ pub use friday::{
     FridayResearchStage, FridayResearchStageKind, FridayResearchStageStatus,
     FridayResearchWorkflow, FridayRuntimeFinding, FridayRuntimeRecordStatus,
     FridayRuntimeSurfaceManifest, FridayRuntimeSurfaceSnapshot, FridayRuntimeSurfaceStore,
-    FridaySearchPolicy, FridaySourceGroup, FridaySynthesizedAnswer, FridayVoiceRuntimeRecord,
+    FridaySearchPolicy, FridaySourceGroup, FridaySynthesizedAnswer, FridayUiDataBinding,
+    FridayUiIntegrationPlan, FridayUiIntegrationStatus, FridayUiRouteContract,
+    FridayUiSourceControl, FridayUiState, FridayUiStateKind, FridayVoiceRuntimeRecord,
     FridayWorkspaceArea, FridayWorkspaceManifest, FridayWorkspaceSnapshot, FridayWorkspaceStore,
     FridayWorkspaceView, MetasearchExecutionMode, MetasearchExecutionTarget,
-    default_friday_product_plan, friday_answer_search_plan, friday_research_search_plan,
+    default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
+    friday_research_search_plan,
 };
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
 pub use models::{KokoroTTS, LocalLlm, LocalSttEngine, MoonshineSTT};

@@ -1,11 +1,13 @@
 pub mod artifacts;
 pub mod research;
 pub mod runtime;
+pub mod ui;
 pub mod workspace;
 
 pub use artifacts::*;
 pub use research::*;
 pub use runtime::*;
+pub use ui::*;
 pub use workspace::*;
 
 use serde::{Deserialize, Serialize};

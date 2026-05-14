@@ -88,13 +88,13 @@ This set is complete. The next loop should open `Friday Product UI Integration` 
 
 ## Next Active Set: Friday Product UI Integration
 
-Status: 0/100
+Status: 20/100
 
 Goal: turn the completed Friday runtime contracts into a polished product UI and verified live workflows without weakening the local-first, low-resource defaults.
 
 ### Remaining To Reach 100/100
 
-- [ ] Wire Ask/Search/Research to visible streaming UI, citations, saved reports, and source controls.
+- [x] Wire Ask/Search/Research to visible streaming UI, citations, saved reports, and source controls.
 - [ ] Wire Projects, Memory, Connectors, Canvas, Artifacts, Code, Voice, Multimodal, and Automations pages to the new stores.
 - [ ] Add end-to-end local execution checks for STT/TTS/OCR/metasearch/artifact preview flows.
 - [ ] Add production-ready empty/loading/error/permission states for every Friday route.

@@ -25,8 +25,9 @@ use crate::experience::{
 };
 use crate::friday::{
     FridayArtifactStore, FridayFeatureStatus, FridayResearchReport, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayWorkspaceStore, default_friday_product_plan,
-    friday_answer_search_plan, friday_research_search_plan,
+    FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
+    default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
+    friday_research_search_plan,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -390,6 +391,14 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", store.to_pretty_json()?);
         }
 
+        Command::FridayUiPlan => {
+            print_friday_ui_plan();
+        }
+
+        Command::FridayUiPlanJson => {
+            println!("{}", default_friday_ui_integration_plan().to_pretty_json()?);
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -557,6 +566,8 @@ fn print_interactive_help() {
     println!("                           Seed Voice, Multimodal, and Automation runtime state");
     println!("  --friday-runtime-json [dir]");
     println!("                           Print seeded or persisted runtime state");
+    println!("  --friday-ui             Show Friday product UI integration contracts");
+    println!("  --friday-ui-json        Print Friday UI integration contracts as JSON");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");
@@ -803,6 +814,52 @@ fn print_friday_plan() {
 fn print_friday_plan_json() -> Result<()> {
     println!("{}", default_friday_product_plan().to_pretty_json()?);
     Ok(())
+}
+
+fn print_friday_ui_plan() {
+    let plan = default_friday_ui_integration_plan();
+
+    println!("Friday Product UI Integration");
+    println!("=============================");
+    println!("Progress: {} / 100", plan.score_out_of_100);
+    println!("Wired routes: {}", plan.ready_route_count());
+    println!();
+
+    for route in &plan.routes {
+        println!(
+            "- {} ({}) [{}]",
+            route.title,
+            route.route,
+            route.status.label()
+        );
+        println!("  model: {}", route.model_role);
+        println!("  command: {}", route.primary_command);
+        println!(
+            "  stream={}, citations={}, save_report={}",
+            yes_no(route.stream_enabled),
+            yes_no(route.citations_visible),
+            yes_no(route.report_persistence)
+        );
+        println!(
+            "  sources: {}",
+            route
+                .source_controls
+                .iter()
+                .filter(|source| source.default_enabled)
+                .map(|source| source.key.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        if route.status != FridayUiIntegrationStatus::Wired {
+            println!("  next: connect route bindings");
+        }
+    }
+
+    println!();
+    println!("Next actions:");
+    for action in &plan.next_actions {
+        println!("  - {}", action);
+    }
 }
 
 fn print_search_request_plan(title: &str, plan: &crate::search::SearchRequestPlan) -> Result<()> {

@@ -45,6 +45,8 @@
 - advanced Friday Competitive AI Workspace to 86/100
 - added durable Friday Voice, Multimodal, and Automation runtime stores for STT/TTS/wake, OCR/VLM planning, scheduled jobs, approvals, and audit files
 - completed Friday Competitive AI Workspace at 100/100 and opened Friday Product UI Integration as the next loop
+- added Friday Ask/Search/Research UI integration route contracts with streaming flags, citations, source controls, saved report bindings, and CLI visibility
+- advanced Friday Product UI Integration to 20/100
 
 ## 2026-04-26
 
