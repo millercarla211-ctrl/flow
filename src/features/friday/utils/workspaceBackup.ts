@@ -413,14 +413,23 @@ export function formatFridayWorkspaceBackupStatus(
   backup: FridayWorkspaceBackup,
   label = "Backup",
 ) {
-  return `${label} saved ${formatFridayWorkspaceBackupTimestamp(backup)}: ${formatFridayWorkspaceBackupSummary(backup)}.`;
+  const summary = formatFridayWorkspaceBackupSummary(backup);
+  const sentenceEnd = /[.!?]$/.test(summary) ? "" : ".";
+
+  return `${label} saved ${formatFridayWorkspaceBackupTimestamp(backup)}: ${summary}${sentenceEnd}`;
+}
+
+function formatFridayWorkspaceSectionCount(count: number) {
+  if (count === 0) return "No local sections";
+  if (count === 1) return "1 local section";
+
+  return `${count} local sections`;
 }
 
 export function formatFridayWorkspaceExportStatus(backup: FridayWorkspaceBackup) {
   const sectionCount = getFridayWorkspaceBackupEntries(backup).length;
-  const sectionLabel = sectionCount === 1 ? "section" : "sections";
 
-  return `${sectionCount} local ${sectionLabel} exported. ${formatFridayWorkspaceBackupStatus(backup)}`;
+  return `${formatFridayWorkspaceSectionCount(sectionCount)} exported. ${formatFridayWorkspaceBackupStatus(backup)}`;
 }
 
 export function formatFridayWorkspaceRestoreStatus({
@@ -434,9 +443,7 @@ export function formatFridayWorkspaceRestoreStatus({
   checkpoint: FridayWorkspaceBackup;
   entries: FridayWorkspaceRestoreResult["entries"];
 }) {
-  const sectionLabel = entries.length === 1 ? "section" : "sections";
-
-  return `${entries.length} local ${sectionLabel} ${action}: ${formatFridayWorkspaceBackupSummary(
+  return `${formatFridayWorkspaceSectionCount(entries.length)} ${action}: ${formatFridayWorkspaceBackupSummary(
     backup,
   )}. ${formatFridayWorkspaceBackupStatus(checkpoint, "Safety checkpoint")}`;
 }

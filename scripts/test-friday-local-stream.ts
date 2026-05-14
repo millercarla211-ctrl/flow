@@ -863,6 +863,14 @@ if (
   throw new Error("Friday workspace export status did not include stable timestamp and counts.");
 }
 
+const emptyBackup = buildFridayWorkspaceBackup(() => null, "2026-05-14T00:00:00.000Z");
+if (
+  formatFridayWorkspaceExportStatus(emptyBackup) !==
+  "No local sections exported. Backup saved 2026-05-14 00:00:00 UTC: No Friday workspace sections."
+) {
+  throw new Error("Friday workspace export status did not explain empty backups clearly.");
+}
+
 if (
   !parsedBackup.ok ||
   createFridayWorkspaceBackupFilename(parsedBackup.backup, "friday-restore-checkpoint") !==
@@ -943,6 +951,12 @@ if (parsedBackup.ok) {
     !clearCheckpointMessage.includes("Checkpoint saved 2026-05-14 01:00:00 UTC") ||
     !restoreStatus.includes("2 local sections restored from test") ||
     !restoreStatus.includes("Safety checkpoint saved 2026-05-14 01:00:00 UTC") ||
+    !formatFridayWorkspaceRestoreStatus({
+      action: "restored from empty test",
+      backup: emptyBackup,
+      checkpoint: checkpoint.backup,
+      entries: [],
+    }).includes("No local sections restored from empty test") ||
     !emittedRestoreKeys.includes(STORAGE_KEYS.projects) ||
     emittedRestoreKeys.at(-1) !== undefined
   ) {
