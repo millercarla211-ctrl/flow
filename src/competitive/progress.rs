@@ -85,9 +85,9 @@ pub fn active_completion_set() -> CompletionSet {
             "projects-memory-connectors",
             "Projects, memory, and connector workspace state",
             13,
-            CompletionItemStatus::Planned,
-            "workspace profiles and provider catalog plans exist, but project-scoped files, memories, instructions, and connector auth are not durable yet",
-            "add local project store, memory review queue, connector registry, and permission-scoped tools",
+            CompletionItemStatus::Done,
+            "Friday now has durable local project, memory, and connector store records with permission findings and separate JSON persistence for UI consumption",
+            "connect the workspace store to the Friday sidebar pages and auth/provider settings",
         ),
         item(
             "canvas-artifacts-code",

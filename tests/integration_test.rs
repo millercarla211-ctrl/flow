@@ -11,7 +11,10 @@ use flow::experience::{
     SnippetEntry, StylePreset, ToneStyle, TypingAssistRequest, WritingDomain,
 };
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
-use flow::friday::{FridayCompetitor, FridayResearchWorkflow, default_friday_product_plan};
+use flow::friday::{
+    FridayCompetitor, FridayConnectorAuthState, FridayPermissionScope, FridayResearchWorkflow,
+    FridayWorkspaceStore, default_friday_product_plan,
+};
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
 use flow::provider_catalog::{CatalogSource, ProviderCatalogBridge};
@@ -390,6 +393,36 @@ fn friday_metasearch_client_builds_local_api_paths() {
     assert!(path.contains("q=local%20search%20citations"));
     assert!(categories.contains(&"general".to_string()));
     assert!(categories.contains(&"news".to_string()));
+}
+
+#[test]
+fn friday_workspace_store_persists_projects_memory_and_connectors() {
+    let root = temp_root("friday-workspace");
+    let store = FridayWorkspaceStore::seed_local_first();
+    let snapshot = store.write_to_dir(&root).unwrap();
+
+    assert!(snapshot.projects_json.exists());
+    assert!(snapshot.memories_json.exists());
+    assert!(snapshot.connectors_json.exists());
+    assert_eq!(snapshot.manifest.project_count, 1);
+    assert_eq!(snapshot.manifest.connector_count, 3);
+    assert!(snapshot.manifest.findings.is_empty());
+
+    let restored = FridayWorkspaceStore::read_from_dir(&root).unwrap();
+    let project = &restored.projects[0];
+    assert_eq!(project.id, "friday-local");
+    assert_eq!(restored.project_memory(&project.id).len(), 1);
+    assert_eq!(restored.connectors_for_project(&project.id).len(), 3);
+
+    let metasearch = restored.connector("metasearch").unwrap();
+    assert_eq!(metasearch.auth_state, FridayConnectorAuthState::LocalOnly);
+    assert!(
+        metasearch
+            .permission_scopes
+            .contains(&FridayPermissionScope::Metasearch)
+    );
+
+    let _ = fs::remove_dir_all(&root);
 }
 
 #[test]

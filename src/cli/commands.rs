@@ -24,8 +24,8 @@ use crate::experience::{
     FlowFileStateStore, FlowStateStore, NativeSelectionBridge, OperatingSystemFamily,
 };
 use crate::friday::{
-    FridayFeatureStatus, FridayResearchReport, FridayResearchWorkflow, default_friday_product_plan,
-    friday_answer_search_plan, friday_research_search_plan,
+    FridayFeatureStatus, FridayResearchReport, FridayResearchWorkflow, FridayWorkspaceStore,
+    default_friday_product_plan, friday_answer_search_plan, friday_research_search_plan,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -284,6 +284,41 @@ pub async fn execute(command: Command) -> Result<()> {
             }
         }
 
+        Command::FridayWorkspaceInit { output_dir } => {
+            let store = FridayWorkspaceStore::seed_local_first();
+            let snapshot = store.write_to_dir(resolve_repo_relative_path(&output_dir))?;
+            println!("Friday Workspace Store");
+            println!("======================");
+            println!("Root: {}", snapshot.root_dir.display());
+            println!("Projects: {}", snapshot.projects_json.display());
+            println!("Memories: {}", snapshot.memories_json.display());
+            println!("Connectors: {}", snapshot.connectors_json.display());
+            println!("Manifest: {}", snapshot.manifest_json.display());
+            println!(
+                "Counts: {} projects, {} memories, {} connectors",
+                snapshot.manifest.project_count,
+                snapshot.manifest.memory_count,
+                snapshot.manifest.connector_count
+            );
+            if snapshot.manifest.findings.is_empty() {
+                println!("Permission findings: none");
+            } else {
+                println!("Permission findings:");
+                for finding in &snapshot.manifest.findings {
+                    println!("  - {:?}: {}", finding.severity, finding.message);
+                }
+            }
+        }
+
+        Command::FridayWorkspaceJson { input_dir } => {
+            let store = if let Some(input_dir) = input_dir {
+                FridayWorkspaceStore::read_from_dir(resolve_repo_relative_path(&input_dir))?
+            } else {
+                FridayWorkspaceStore::seed_local_first()
+            };
+            println!("{}", store.to_pretty_json()?);
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -439,6 +474,10 @@ fn print_interactive_help() {
     println!("                           Persist report, citations, source groups, and events");
     println!("  --friday-research-synthesize <query>");
     println!("                           Search locally and synthesize a cited answer");
+    println!("  --friday-workspace-init <dir>");
+    println!("                           Seed durable Projects, Memory, and Connectors state");
+    println!("  --friday-workspace-json [dir]");
+    println!("                           Print seeded or persisted Friday workspace state");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");

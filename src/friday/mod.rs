@@ -1,6 +1,8 @@
 pub mod research;
+pub mod workspace;
 
 pub use research::*;
+pub use workspace::*;
 
 use serde::{Deserialize, Serialize};
 
@@ -213,7 +215,7 @@ pub fn default_friday_product_plan() -> FridayProductPlan {
         top_priorities: vec![
             "Wire Ask and Research to a streaming local-first model route with metasearch citations."
                 .to_string(),
-            "Add Projects, Memory, and Connectors as durable local data boundaries before cloud sync."
+            "Connect Projects, Memory, and Connectors stores to the Friday UI before cloud sync."
                 .to_string(),
             "Promote WhisperFlow Beater into Friday Voice without weakening the low-resource STT path."
                 .to_string(),
@@ -398,10 +400,10 @@ fn friday_capabilities() -> Vec<FridayCapability> {
             FridayWorkspaceArea::Connectors,
             "Google-style app connections and personal context with explicit opt-in",
             7,
-            FridayFeatureStatus::Planned,
+            FridayFeatureStatus::Partial,
             false,
             false,
-            "Provider and connector strategy exists; concrete Gmail/Calendar/Drive-style connectors are not wired.",
+            "Friday now has a durable local connector registry; concrete Gmail/Calendar/Drive-style auth and sync remain optional future work.",
             "Gemini app connections and Personal Intelligence.",
         ),
         capability(
@@ -420,10 +422,10 @@ fn friday_capabilities() -> Vec<FridayCapability> {
             FridayWorkspaceArea::Projects,
             "Gems/custom experts with files, detailed instructions, and project memory",
             6,
-            FridayFeatureStatus::Planned,
+            FridayFeatureStatus::Partial,
             true,
             false,
-            "Workspace profiles and project concepts exist; Friday needs durable project-scoped assistants.",
+            "Friday now has durable project-scoped records for instructions, files, memories, and connector boundaries; threaded UI wiring is next.",
             "Gemini Gems and ChatGPT Projects.",
         ),
         capability(
@@ -442,10 +444,10 @@ fn friday_capabilities() -> Vec<FridayCapability> {
             FridayWorkspaceArea::Projects,
             "Research spaces with files, pinned threads, custom instructions, and collaborator boundaries",
             7,
-            FridayFeatureStatus::Planned,
+            FridayFeatureStatus::Partial,
             true,
             true,
-            "Project registry is planned; shared spaces and permissions need storage and UI.",
+            "The local project registry now preserves files, memories, connectors, and permission boundaries; collaboration and pinned thread UI remain.",
             "Perplexity Spaces.",
         ),
         capability(
@@ -530,10 +532,10 @@ fn friday_capabilities() -> Vec<FridayCapability> {
             FridayWorkspaceArea::Memory,
             "Long-context project memory and editable context boundaries",
             6,
-            FridayFeatureStatus::Planned,
+            FridayFeatureStatus::Partial,
             true,
             false,
-            "RLM and serializer plans exist; user-visible memory editing and retention policy are not done.",
+            "Friday now has reviewed local memory records tied to projects; user-visible memory editing and retention controls are next.",
             "Claude Projects/context and long-context workflows.",
         ),
     ]

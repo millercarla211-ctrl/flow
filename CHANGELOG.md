@@ -39,6 +39,8 @@
 - advanced Friday Competitive AI Workspace to 47/100
 - advanced Friday Competitive AI Workspace to 51/100
 - advanced Friday Competitive AI Workspace to 59/100
+- added durable Friday Projects, Memory, and Connectors workspace stores with separate JSON persistence, permission findings, and CLI export commands
+- advanced Friday Competitive AI Workspace to 72/100
 
 ## 2026-04-26
 

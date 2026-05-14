@@ -79,14 +79,16 @@ pub use experience::{
 };
 pub use forge_bridge::{ForgeAssetKind, ForgeBridge, ForgeRemoteKind, ForgeSyncPlan};
 pub use friday::{
-    FridayAnswerDelta, FridayAnswerDeltaKind, FridayCapability, FridayCitationRecord,
-    FridayCompetitor, FridayFeatureStatus, FridayGenerationSummary, FridayProductPlan,
-    FridayResearchEventKind, FridayResearchExportManifest, FridayResearchReport,
-    FridayResearchRunEvent, FridayResearchStage, FridayResearchStageKind,
+    FridayAnswerDelta, FridayAnswerDeltaKind, FridayBoundarySeverity, FridayCapability,
+    FridayCitationRecord, FridayCompetitor, FridayConnectorAuthState, FridayConnectorKind,
+    FridayConnectorRecord, FridayFeatureStatus, FridayGenerationSummary, FridayMemoryRecord,
+    FridayMemoryState, FridayPermissionFinding, FridayPermissionScope, FridayProductPlan,
+    FridayProjectFile, FridayProjectRecord, FridayResearchEventKind, FridayResearchExportManifest,
+    FridayResearchReport, FridayResearchRunEvent, FridayResearchStage, FridayResearchStageKind,
     FridayResearchStageStatus, FridayResearchWorkflow, FridaySearchPolicy, FridaySourceGroup,
-    FridaySynthesizedAnswer, FridayWorkspaceArea, FridayWorkspaceView, MetasearchExecutionMode,
-    MetasearchExecutionTarget, default_friday_product_plan, friday_answer_search_plan,
-    friday_research_search_plan,
+    FridaySynthesizedAnswer, FridayWorkspaceArea, FridayWorkspaceManifest, FridayWorkspaceSnapshot,
+    FridayWorkspaceStore, FridayWorkspaceView, MetasearchExecutionMode, MetasearchExecutionTarget,
+    default_friday_product_plan, friday_answer_search_plan, friday_research_search_plan,
 };
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
 pub use models::{KokoroTTS, LocalLlm, LocalSttEngine, MoonshineSTT};

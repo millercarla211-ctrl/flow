@@ -58,6 +58,10 @@ pub enum Command {
     FridayResearchReportSave { output_dir: String, query: String },
     /// Execute Friday research and synthesize a cited local answer
     FridayResearchSynthesize { query: String },
+    /// Seed durable Friday Projects, Memory, and Connectors records
+    FridayWorkspaceInit { output_dir: String },
+    /// Print the durable Friday workspace state as JSON
+    FridayWorkspaceJson { input_dir: Option<String> },
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -301,6 +305,17 @@ impl Args {
                     query: args[2..].join(" "),
                 }
             }
+            "--friday-workspace-init" => {
+                let output_dir = args.get(2).cloned().unwrap_or_else(|| {
+                    eprintln!("Error: output directory required");
+                    eprintln!("Usage: flow --friday-workspace-init <output-dir>");
+                    std::process::exit(1);
+                });
+                Command::FridayWorkspaceInit { output_dir }
+            }
+            "--friday-workspace-json" => Command::FridayWorkspaceJson {
+                input_dir: args.get(2).cloned(),
+            },
             "--accessibility-diagnostics" | "--accessibility" => {
                 let live = !args.iter().any(|value| value == "--dry-run");
                 let os = args
