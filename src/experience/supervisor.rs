@@ -1,5 +1,6 @@
 use super::{
     health::FlowHealthReport,
+    hostdictation::{FlowHostDictationExecution, FlowHostDictationRequest},
     hostkit::FlowDefaultHostKit,
     recovery::{FlowRecoveryPlan, RecoveryEvent},
     runtime_policy::DeviceBenchmarkSnapshot,
@@ -66,6 +67,17 @@ impl FlowRuntimeSupervisor {
         let report = host.refresh_runtime(context, benchmark);
         self.last_health = Some(host.health_report(context));
         report
+    }
+
+    pub fn dictate_to_focused_input(
+        &mut self,
+        host: &mut FlowDefaultHostKit,
+        context: &mut FlowSessionContext,
+        request: FlowHostDictationRequest,
+    ) -> FlowHostDictationExecution {
+        let execution = host.dictate_request_to_focused_input(context, request);
+        self.last_health = Some(host.health_report(context));
+        execution
     }
 
     pub fn evaluate_environment(

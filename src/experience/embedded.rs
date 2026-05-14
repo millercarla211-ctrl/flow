@@ -6,6 +6,7 @@ use super::{
     consent::FlowConsentPlan,
     engine::{FlowCommandExecution, FlowTextExecution, FlowTierRefreshReport},
     health::FlowHealthReport,
+    hostdictation::{FlowHostDictationExecution, FlowHostDictationRequest},
     hostkit::FlowDefaultHostKit,
     recovery::{FlowRecoveryPlan, RecoveryEvent},
     runtime_policy::DeviceBenchmarkSnapshot,
@@ -83,6 +84,24 @@ impl FlowEmbeddedHost {
     pub fn rewrite_selection(&mut self) -> Option<FlowSelectionExecution> {
         let context = self.context.as_mut()?;
         self.kit.rewrite_selection(context)
+    }
+
+    pub fn dictate_to_focused_input(
+        &mut self,
+        transcript: impl Into<String>,
+    ) -> Option<FlowHostDictationExecution> {
+        self.dictate_request_to_focused_input(FlowHostDictationRequest::new(transcript))
+    }
+
+    pub fn dictate_request_to_focused_input(
+        &mut self,
+        request: FlowHostDictationRequest,
+    ) -> Option<FlowHostDictationExecution> {
+        let context = self.context.as_mut()?;
+        Some(
+            self.supervisor
+                .dictate_to_focused_input(&mut self.kit, context, request),
+        )
     }
 
     pub fn advance(

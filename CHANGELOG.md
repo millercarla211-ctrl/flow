@@ -17,6 +17,9 @@
 - advanced Host Autonomy Core to 70/100
 - added compact persisted host audit records plus `flow --audit-log <state-file> [limit]` for operator review
 - advanced Host Autonomy Core to 80/100
+- added a checked host dictation path that coordinates lifecycle, overlay, microphone/capture readiness, accessibility, dictation cleanup, focused-input replacement, and audit logging
+- completed Host Autonomy Core at 100/100
+- opened Writing Quality Core as the next active 100-point product loop
 
 ## 2026-04-26
 

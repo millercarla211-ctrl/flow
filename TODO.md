@@ -23,9 +23,9 @@ Goal: make Flow's progress honest, visible, exportable, and hard to overstate wh
 
 This set is complete. The next loop should open `Host Autonomy Core` as the new active set and keep the same commit, typecheck, changelog, and TODO discipline.
 
-## Active Set: Host Autonomy Core
+## Completed Set: Host Autonomy Core
 
-Status: 80/100
+Status: 100/100
 
 Goal: make Flow safer and more reliable as a host-level assistant that can read selections, rewrite text, pause itself, diagnose accessibility, and leave an audit trail.
 
@@ -35,19 +35,31 @@ Goal: make Flow safer and more reliable as a host-level assistant that can read 
 - [x] Add operator-facing accessibility diagnostics for host automation readiness.
 - [x] Add reliable pause/resume/snooze controls for always-on runtime hosts.
 - [x] Persist and expose compact host audit logs for operator review.
+- [x] Harden Windows global dictation host behavior beyond CLI/demo paths.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Writing Quality Core` as the new active set and keep host autonomy stable while improving Flow's writing intelligence.
+
+## Active Set: Writing Quality Core
+
+Status: 0/100
+
+Goal: make Flow's writing assistance excellent enough to feel useful every day, with deeper explanations, citations, style policies, multilingual support, and host-friendly review surfaces.
+
+### Done
+
+No Writing Quality Core items are complete yet.
 
 ### Remaining To Reach 100/100
-
-- [ ] Harden Windows global dictation host behavior beyond CLI/demo paths.
-
-## Next Set Candidates
-
-### Writing Quality Core
 
 - [ ] Deepen grammar, clarity, and rewrite explanations beyond the current Harper-backed baseline.
 - [ ] Add citation, fact-checking, and academic assistance paths.
 - [ ] Add style-guide and brand-tone policy enforcement.
 - [ ] Add multilingual writing assistance.
+- [ ] Add host-facing writing review summaries with accept/reject handoff.
+
+## Next Set Candidates
 
 ### Multimodal Local Core
 

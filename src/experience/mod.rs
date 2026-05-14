@@ -19,6 +19,7 @@ pub mod executors;
 pub mod facade;
 pub mod health;
 pub mod host;
+pub mod hostdictation;
 pub mod hostkit;
 pub mod installer;
 pub mod lifecycle;
@@ -94,6 +95,10 @@ pub use executors::{NativeControlExecutor, PlatformInvocation};
 pub use facade::FlowProductSurface;
 pub use health::{FlowHealthIssue, FlowHealthReport, FlowHealthSeverity};
 pub use host::{FlowHostControlAdapter, HostAdapterDescriptor};
+pub use hostdictation::{
+    FlowHostDictationBlocker, FlowHostDictationExecution, FlowHostDictationReadiness,
+    FlowHostDictationRequest,
+};
 pub use hostkit::FlowDefaultHostKit;
 pub use installer::{
     FlowInstallState, FlowInstallerFacade, InstalledModuleRecord, ModuleInstallStatus,

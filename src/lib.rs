@@ -47,8 +47,9 @@ pub use codex::{
     CodexTaskResponse,
 };
 pub use competitive::{
-    CompletionItem, CompletionItemStatus, CompletionSet, CompetitiveFeature, CompetitiveScorecard,
-    CompetitiveSegment, FeatureStatus, active_completion_set, default_competitive_scorecard,
+    CompetitiveFeature, CompetitiveScorecard, CompetitiveSegment, CompletionItem,
+    CompletionItemStatus, CompletionSet, FeatureStatus, active_completion_set,
+    default_competitive_scorecard,
 };
 pub use config::{
     FlowBrowserProductionConfig, FlowCodexProductionConfig, FlowDeploymentEnvironment,
@@ -64,10 +65,11 @@ pub use embed::{
     SearchStrategy, SerializerStrategy,
 };
 pub use experience::{
-    AccessibilityBackend, AccessibilityDiagnosticSeverity, AccessibilityMode,
-    AppContext, AppUsageStat, DictationAssistRequest, DictationAssistResult, DictionaryEntry,
-    ExpandedSnippet, FlowAccessibilityDiagnostic, FlowAccessibilityRuntime, FlowDictationEngine,
-    FlowExperienceHub, FlowHostPauseController, FlowHostPauseSnapshot, FlowTypingAssistant,
+    AccessibilityBackend, AccessibilityDiagnosticSeverity, AccessibilityMode, AppContext,
+    AppUsageStat, DictationAssistRequest, DictationAssistResult, DictionaryEntry, ExpandedSnippet,
+    FlowAccessibilityDiagnostic, FlowAccessibilityRuntime, FlowDictationEngine, FlowExperienceHub,
+    FlowHostDictationBlocker, FlowHostDictationExecution, FlowHostDictationReadiness,
+    FlowHostDictationRequest, FlowHostPauseController, FlowHostPauseSnapshot, FlowTypingAssistant,
     FlowWorkspaceProfile, SnippetEntry, StylePreset, StyleRule, TextCommandRequest,
     TextCommandResult, ToneStyle, TypingAssistRequest, TypingAssistResult, UsageDashboardSnapshot,
     WritingDomain,

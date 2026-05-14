@@ -5,11 +5,17 @@ use super::{
     capture::{CpalCaptureWorker, FlowCaptureWorker},
     consent::{FlowConsentPlan, FlowConsentPlanner},
     contracts::{
-        FlowModuleInstaller, FlowStateStore, MemoryPermissionGate, RecordingModuleInstaller,
+        FlowAutomationBridge, FlowModuleInstaller, FlowStateStore, MemoryPermissionGate,
+        RecordingModuleInstaller,
     },
+    control::ControlCapability,
+    dictation::FlowDictationEngine,
     engine::{FlowCommandExecution, FlowTextExecution, FlowTierRefreshReport},
     executors::NativeControlExecutor,
     health::FlowHealthReport,
+    hostdictation::{
+        FlowHostDictationExecution, FlowHostDictationReadiness, FlowHostDictationRequest,
+    },
     microphone::{FlowMicrophoneService, ManagedMicrophoneService},
     persistence::FlowPersistentState,
     presenters::{ManagedAudioRuntime, NativeOverlayPresenter},
@@ -19,7 +25,7 @@ use super::{
     session::FlowSessionContext,
     snooze::{FlowHostPauseController, FlowHostPauseSnapshot},
     stores::FlowFileStateStore,
-    types::TypingAssistRequest,
+    types::{DictationAssistRequest, TypingAssistRequest},
     wake::{FlowWakeRuntime, ManagedWakeRuntime, WakeRuntimeState},
     wakedetect::{FlowWakeInferenceWorker, OpenWakeInferenceWorker},
 };
@@ -156,6 +162,137 @@ impl FlowDefaultHostKit {
                 .rewrite_selection(context, &mut self.permissions, &mut self.automation);
         self.sync(context);
         execution
+    }
+
+    pub fn dictate_to_focused_input(
+        &mut self,
+        context: &mut FlowSessionContext,
+        transcript: impl Into<String>,
+    ) -> FlowHostDictationExecution {
+        self.dictate_request_to_focused_input(context, FlowHostDictationRequest::new(transcript))
+    }
+
+    pub fn dictate_request_to_focused_input(
+        &mut self,
+        context: &mut FlowSessionContext,
+        request: FlowHostDictationRequest,
+    ) -> FlowHostDictationExecution {
+        let raw_transcript = request.transcript.clone();
+        let mut notes = Vec::new();
+        let host_was_paused = self.pause.is_active()
+            || matches!(
+                context.lifecycle.state,
+                super::lifecycle::FlowRuntimeState::Paused
+                    | super::lifecycle::FlowRuntimeState::Sleeping
+            );
+        let started_here = !host_was_paused
+            && !matches!(
+                context.lifecycle.state,
+                super::lifecycle::FlowRuntimeState::Dictating
+            );
+
+        if started_here {
+            let _ = self.advance(
+                context,
+                super::lifecycle::FlowRuntimeEvent::HoldToDictateStarted,
+            );
+        }
+
+        let health = self.health_report(context);
+        let readiness = FlowHostDictationReadiness::evaluate(
+            context,
+            &health,
+            &self.accessibility,
+            &self.microphone.snapshot(),
+            &self.capture.status(),
+            &self.pause.snapshot(),
+            &request.transcript,
+            request.replace_focused_input,
+        );
+
+        let mut cleaned_text = String::new();
+        let mut dictation = None;
+        let mut inserted = false;
+
+        if readiness.ready {
+            match FlowDictationEngine::new().process(DictationAssistRequest {
+                transcript: request.transcript.clone(),
+                app_context: request.app_context.clone(),
+                dictionary: self.bundle.engine.session.hub.dictionary_for_context(),
+                snippets: self.bundle.engine.session.hub.snippets_for_context(),
+                styles: self
+                    .bundle
+                    .engine
+                    .session
+                    .hub
+                    .styles_for_context(&request.app_context),
+                remove_fillers: true,
+                auto_punctuate: context.audio.dictation.punctuation,
+                format_lists: true,
+                tag_workspace_files: true,
+            }) {
+                Ok(result) => {
+                    cleaned_text = result.cleaned_text.clone();
+                    if request.replace_focused_input {
+                        inserted = if cleaned_text.trim().is_empty() {
+                            notes.push(
+                                "Dictation cleanup produced empty text; focused input was not changed."
+                                    .to_string(),
+                            );
+                            false
+                        } else {
+                            self.automation.replace_selection(&cleaned_text)
+                        };
+                        context.audit.record(
+                            ControlCapability::ReplaceSelection,
+                            format!("{:?}", context.control.surface),
+                            "Dictate cleaned speech into focused input.",
+                            inserted,
+                        );
+                    }
+                    dictation = Some(result);
+                }
+                Err(error) => {
+                    notes.push(format!("Dictation cleanup failed: {error}"));
+                    if request.replace_focused_input {
+                        context.audit.record(
+                            ControlCapability::ReplaceSelection,
+                            format!("{:?}", context.control.surface),
+                            "Dictation cleanup failed before focused-input replacement.",
+                            false,
+                        );
+                    }
+                }
+            }
+        } else if request.replace_focused_input {
+            context.audit.record(
+                ControlCapability::ReplaceSelection,
+                format!("{:?}", context.control.surface),
+                "Dictation host readiness blocked focused-input replacement.",
+                false,
+            );
+        }
+
+        if started_here {
+            let _ = self.advance(
+                context,
+                super::lifecycle::FlowRuntimeEvent::HoldToDictateReleased,
+            );
+        } else {
+            self.sync(context);
+        }
+
+        let mut execution_notes = readiness.notes.clone();
+        execution_notes.extend(notes);
+
+        FlowHostDictationExecution {
+            raw_transcript,
+            cleaned_text,
+            inserted,
+            readiness,
+            dictation,
+            notes: execution_notes,
+        }
     }
 
     pub fn refresh_runtime(
@@ -392,11 +529,39 @@ fn parse_capability(value: &str) -> Option<super::control::ControlCapability> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::experience::{FlowRuntimeState, MicrophoneMode, OperatingSystemFamily};
+    use crate::experience::{
+        AccessibilityBackend, AccessibilityMode, FlowAccessibilityRuntime,
+        FlowHostDictationBlocker, FlowRuntimeState, MicrophoneMode, OperatingSystemFamily,
+    };
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_state_path(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!(
+            "{name}_{}.txt",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ))
+    }
+
+    fn ready_windows_accessibility() -> FlowAccessibilityRuntime {
+        FlowAccessibilityRuntime {
+            os: OperatingSystemFamily::Windows,
+            backend: AccessibilityBackend::UiAutomation,
+            mode: AccessibilityMode::Full,
+            can_read_selection: true,
+            can_replace_selection: true,
+            can_send_shortcuts: true,
+            availability_checked: true,
+            available: true,
+            notes: Vec::new(),
+        }
+    }
 
     #[test]
     fn host_pause_and_resume_updates_runtime_services() {
-        let state_path = std::env::temp_dir().join("flow_host_pause_test_state.json");
+        let state_path = unique_state_path("flow_host_pause_test_state");
         let _ = std::fs::remove_file(&state_path);
         let snapshot =
             FlowHostSnapshot::new(OperatingSystemFamily::Windows, "test-host", 8.0, None, true);
@@ -406,7 +571,10 @@ mod tests {
 
         let pause = host.pause_host(&mut context, "operator break");
         assert!(pause.active);
-        assert!(matches!(context.lifecycle.state, FlowRuntimeState::Sleeping));
+        assert!(matches!(
+            context.lifecycle.state,
+            FlowRuntimeState::Sleeping
+        ));
         assert!(matches!(
             host.microphone.snapshot().mode,
             MicrophoneMode::Paused
@@ -415,12 +583,85 @@ mod tests {
 
         let resumed = host.resume_host(&mut context);
         assert!(!resumed.active);
-        assert!(matches!(context.lifecycle.state, FlowRuntimeState::Listening));
+        assert!(matches!(
+            context.lifecycle.state,
+            FlowRuntimeState::Listening
+        ));
         assert!(matches!(
             host.microphone.snapshot().mode,
             MicrophoneMode::Armed
         ));
         assert!(host.capture.status().running);
+
+        let _ = std::fs::remove_file(&state_path);
+    }
+
+    #[test]
+    fn host_dictation_replaces_focused_input_when_ready() {
+        let state_path = unique_state_path("flow_host_dictation_ready_state");
+        let _ = std::fs::remove_file(&state_path);
+        let snapshot =
+            FlowHostSnapshot::new(OperatingSystemFamily::Windows, "test-host", 8.0, None, true);
+        let hub = FlowExperienceHub::new("test");
+        let mut host = FlowDefaultHostKit::new(snapshot, hub, &state_path);
+        host.accessibility = ready_windows_accessibility();
+        host.automation =
+            NativeSelectionBridge::with_accessibility(host.accessibility.clone(), true);
+        let mut context = host.bootstrap();
+
+        let execution = host.dictate_to_focused_input(&mut context, "hello world");
+
+        assert!(execution.readiness.ready);
+        assert!(execution.inserted);
+        assert_eq!(execution.cleaned_text, "Hello world.");
+        assert!(matches!(
+            context.lifecycle.state,
+            FlowRuntimeState::Listening
+        ));
+        assert!(matches!(
+            host.microphone.snapshot().mode,
+            MicrophoneMode::Armed
+        ));
+        assert!(context.audit.entries().iter().any(|entry| {
+            entry.capability == ControlCapability::ReplaceSelection
+                && entry.description == "Dictate cleaned speech into focused input."
+                && entry.approved
+        }));
+
+        let _ = std::fs::remove_file(&state_path);
+    }
+
+    #[test]
+    fn host_dictation_blocks_while_paused() {
+        let state_path = unique_state_path("flow_host_dictation_paused_state");
+        let _ = std::fs::remove_file(&state_path);
+        let snapshot =
+            FlowHostSnapshot::new(OperatingSystemFamily::Windows, "test-host", 8.0, None, true);
+        let hub = FlowExperienceHub::new("test");
+        let mut host = FlowDefaultHostKit::new(snapshot, hub, &state_path);
+        host.accessibility = ready_windows_accessibility();
+        host.automation =
+            NativeSelectionBridge::with_accessibility(host.accessibility.clone(), true);
+        let mut context = host.bootstrap();
+
+        host.pause_host(&mut context, "operator break");
+        let execution = host.dictate_to_focused_input(&mut context, "hello world");
+
+        assert!(!execution.readiness.ready);
+        assert!(!execution.inserted);
+        assert!(execution.dictation.is_none());
+        assert!(
+            execution
+                .readiness
+                .blockers
+                .contains(&FlowHostDictationBlocker::HostPaused)
+        );
+        assert!(context.audit.entries().iter().any(|entry| {
+            entry.capability == ControlCapability::ReplaceSelection
+                && entry.description
+                    == "Dictation host readiness blocked focused-input replacement."
+                && !entry.approved
+        }));
 
         let _ = std::fs::remove_file(&state_path);
     }
