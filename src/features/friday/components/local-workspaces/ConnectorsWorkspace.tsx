@@ -1,4 +1,4 @@
-import { Activity, Database, Download, Link2, RefreshCw, Upload } from "lucide-react";
+import { Activity, Database, Download, Link2, RefreshCw, RotateCcw, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
   formatFridayWorkspaceBackupSummary,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
+  readFridayRestoreCheckpoint,
   restoreFridayWorkspaceBackupToStorage,
   serializeFridayWorkspaceBackup,
 } from "../../utils/workspaceBackup";
@@ -102,6 +103,25 @@ export function ConnectorsWorkspace() {
     setBackupMessage({
       tone: "success",
       text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored: ${formatFridayWorkspaceBackupSummary(parsed.backup)}. Safety checkpoint saved: ${formatFridayWorkspaceBackupSummary(checkpoint)}.`,
+    });
+  };
+
+  const restoreSafetyCheckpoint = () => {
+    const parsed = readFridayRestoreCheckpoint(window.localStorage);
+    if (!parsed.ok) {
+      setBackupMessage({ tone: "error", text: parsed.message });
+      return;
+    }
+
+    const { checkpoint, entries } = restoreFridayWorkspaceBackupToStorage({
+      backup: parsed.backup,
+      emitChange: emitFridayStorageChange,
+      storage: window.localStorage,
+    });
+
+    setBackupMessage({
+      tone: "success",
+      text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored from checkpoint: ${formatFridayWorkspaceBackupSummary(parsed.backup)}. New safety checkpoint saved: ${formatFridayWorkspaceBackupSummary(checkpoint)}.`,
     });
   };
 
@@ -390,6 +410,10 @@ export function ConnectorsWorkspace() {
             >
               <Upload size={14} />
               Import
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={restoreSafetyCheckpoint}>
+              <RotateCcw size={14} />
+              Restore checkpoint
             </Button>
             <input
               ref={backupInputRef}

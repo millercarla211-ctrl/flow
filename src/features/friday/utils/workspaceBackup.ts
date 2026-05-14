@@ -289,6 +289,17 @@ export function parseFridayWorkspaceBackup(raw: string): FridayWorkspaceBackupPa
   };
 }
 
+export function readFridayRestoreCheckpoint(
+  storage: Pick<Storage, "getItem">,
+): FridayWorkspaceBackupParseResult {
+  const raw = storage.getItem(FRIDAY_RESTORE_CHECKPOINT_KEY);
+  if (!raw) {
+    return { ok: false, message: "No Friday restore checkpoint is saved yet." };
+  }
+
+  return parseFridayWorkspaceBackup(raw);
+}
+
 export function getFridayWorkspaceBackupEntries(backup: FridayWorkspaceBackup) {
   return FRIDAY_WORKSPACE_STORAGE_KEYS.flatMap((key) =>
     Object.prototype.hasOwnProperty.call(backup.keys, key)

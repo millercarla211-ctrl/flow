@@ -48,6 +48,7 @@ import {
   formatFridayWorkspaceBackupSummary,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
+  readFridayRestoreCheckpoint,
   restoreFridayWorkspaceBackupToStorage,
   serializeFridayWorkspaceBackup,
 } from "../src/features/friday/utils/workspaceBackup";
@@ -857,17 +858,28 @@ if (parsedBackup.ok) {
   });
   const checkpointRaw = restoreStorage.getItem(FRIDAY_RESTORE_CHECKPOINT_KEY);
   const checkpoint = checkpointRaw ? parseFridayWorkspaceBackup(checkpointRaw) : null;
+  const readCheckpoint = readFridayRestoreCheckpoint(restoreStorage);
 
   if (
     restored.entries.length !== 2 ||
     !restoreStorage.getItem(STORAGE_KEYS.projects)?.includes("Friday OS") ||
     !checkpoint?.ok ||
+    !readCheckpoint.ok ||
     !formatFridayWorkspaceBackupSummary(checkpoint.backup).includes("Projects: 1") ||
+    !formatFridayWorkspaceBackupSummary(readCheckpoint.backup).includes("Projects: 1") ||
     !emittedRestoreKeys.includes(STORAGE_KEYS.projects) ||
     emittedRestoreKeys.at(-1) !== undefined
   ) {
     throw new Error("Friday workspace restore did not save a checkpoint and emit storage changes.");
   }
+}
+
+const missingRestoreCheckpoint = readFridayRestoreCheckpoint(createTestStorage({}));
+if (
+  missingRestoreCheckpoint.ok ||
+  !missingRestoreCheckpoint.message.includes("No Friday restore checkpoint")
+) {
+  throw new Error("Friday restore checkpoint reader did not report missing checkpoints.");
 }
 
 const rejectedBackup = parseFridayWorkspaceBackup(
