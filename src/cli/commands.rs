@@ -12,7 +12,8 @@ use serde_json::Value;
 
 use crate::audio::{NoiseGateVAD, WakeWordDetector};
 use crate::browser::{
-    BrowserHostFlavor, BrowserTask, FlowBrowserEngine, default_browser_pack_catalog,
+    BrowserExtensionSmokeStatus, BrowserHostFlavor, BrowserTask, FlowBrowserEngine,
+    browser_extension_smoke_report, default_browser_pack_catalog,
 };
 use crate::cli::Command;
 use crate::competitive::active_completion_set;
@@ -437,6 +438,14 @@ pub async fn execute(command: Command) -> Result<()> {
             );
         }
 
+        Command::BrowserExtensionSmoke => {
+            print_browser_extension_smoke();
+        }
+
+        Command::BrowserExtensionSmokeJson => {
+            println!("{}", browser_extension_smoke_report().to_pretty_json()?);
+        }
+
         Command::FridayOcrSmoke {
             output_dir,
             image,
@@ -736,6 +745,10 @@ fn print_interactive_help() {
     println!("  --friday-browser-gate   Show browser verification and deploy gate");
     println!("  --friday-browser-gate-json");
     println!("                           Print browser gate status as JSON");
+    println!("  --browser-extension-smoke");
+    println!("                           Show packaged extension and installed-browser smoke readiness");
+    println!("  --browser-extension-smoke-json");
+    println!("                           Print browser extension smoke readiness as JSON");
     println!("  --friday-ocr-smoke <dir> [image] [--execute]");
     println!("                           Write a bounded OCR smoke artifact bundle");
     println!("  --friday-ocr-smoke-json <dir> [image] [--execute]");
@@ -1160,6 +1173,43 @@ fn print_friday_browser_gate() {
         println!("Notes:");
         for note in &report.deploy_gate.notes {
             println!("  - {}", note);
+        }
+    }
+}
+
+fn print_browser_extension_smoke() {
+    let report = browser_extension_smoke_report();
+
+    println!("Browser Extension Smoke Readiness");
+    println!("=================================");
+    println!("{}", report.summary);
+    println!("Score: {} / 100", report.score_out_of_100);
+    println!("Local only: {}", yes_no(report.local_only));
+    println!("Touches network: {}", yes_no(report.touches_network));
+    println!(
+        "Targets: {} passed, {} warning, {} blocking",
+        report.passed_count(),
+        report.warning_count(),
+        report.blocking_count()
+    );
+    println!();
+
+    for target in &report.targets {
+        println!(
+            "- [{}] {} ({})",
+            target.status.label(),
+            target.browser_name,
+            target.extension_target
+        );
+        println!("  dist: {}", target.dist_dir);
+        println!("  package: {}", target.package_zip);
+        println!("  browser: {}", target.detected_executable.as_deref().unwrap_or("<not detected>"));
+        println!("  launch: {}", target.launch_command_hint);
+        for item in &target.evidence {
+            println!("  evidence: {}", item);
+        }
+        if target.status != BrowserExtensionSmokeStatus::Passed {
+            println!("  next: {}", target.next_action);
         }
     }
 }

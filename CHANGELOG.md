@@ -74,6 +74,8 @@
 - advanced Multimodal Product Execution to 80/100
 - added `flow --friday-multimodal-visual-check` / `--friday-multimodal-visual-check-json` to verify the Multimodal route contract, diagnostics, artifact metadata rail, media actions, production states, and responsive viewport targets without loading OCR/VLM models
 - completed Multimodal Product Execution at 100/100
+- opened Browser And Extension Core at 20/100
+- added `flow --browser-extension-smoke` / `--browser-extension-smoke-json` for local-only packaged extension smoke readiness across Chrome, Edge, Firefox, and Safari targets, including dist files, zip/checksum artifacts, browser executable detection, and launch hints
 
 ## 2026-04-26
 

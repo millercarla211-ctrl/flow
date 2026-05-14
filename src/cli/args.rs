@@ -92,6 +92,10 @@ pub enum Command {
     FridayBrowserGate,
     /// Print Friday browser verification and deploy gate status as JSON
     FridayBrowserGateJson,
+    /// Show packaged browser extension smoke readiness
+    BrowserExtensionSmoke,
+    /// Print packaged browser extension smoke readiness as JSON
+    BrowserExtensionSmokeJson,
     /// Run a bounded Friday OCR smoke path and write artifact records
     FridayOcrSmoke {
         output_dir: String,
@@ -455,6 +459,12 @@ impl Args {
             "--friday-browser-gate" | "--friday-verification-gate" => Command::FridayBrowserGate,
             "--friday-browser-gate-json" | "--friday-verification-gate-json" => {
                 Command::FridayBrowserGateJson
+            }
+            "--browser-extension-smoke" | "--friday-browser-extension-smoke" => {
+                Command::BrowserExtensionSmoke
+            }
+            "--browser-extension-smoke-json" | "--friday-browser-extension-smoke-json" => {
+                Command::BrowserExtensionSmokeJson
             }
             "--friday-ocr-smoke" => {
                 let (output_dir, image, execute_model) = parse_friday_ocr_smoke_args(&args);

@@ -4,6 +4,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use flow::FlowLocalRuntime;
 use flow::audio::{AudioLoader, MelSpectrogramConfig, compute_mel_spectrogram};
+use flow::browser::{
+    BrowserExtensionInstallProbe, BrowserExtensionSmokeStatus,
+    browser_extension_smoke_report_for_root,
+};
 use flow::competitive::default_competitive_scorecard;
 use flow::embed::{FlowEmbeddingRegistry, HostSurface, IntegrationMode};
 use flow::experience::{
@@ -798,6 +802,36 @@ fn friday_browser_gate_verifies_tracked_extension_surface() {
 }
 
 #[test]
+fn browser_extension_smoke_report_scores_packaged_targets() {
+    let root = temp_root("browser-extension-smoke");
+    for target in ["chromium", "firefox", "safari"] {
+        write_extension_smoke_fixture(&root, target);
+    }
+    let probes = ["chrome", "edge", "firefox", "safari"]
+        .into_iter()
+        .map(|target_id| BrowserExtensionInstallProbe {
+            target_id: target_id.to_string(),
+            platform_supported: true,
+            detected_executable: Some(format!("{target_id}-fixture")),
+        })
+        .collect::<Vec<_>>();
+
+    let report = browser_extension_smoke_report_for_root(&root, &probes);
+
+    assert_eq!(report.targets.len(), 4);
+    assert_eq!(report.score_out_of_100, 100);
+    assert_eq!(report.blocking_count(), 0);
+    assert!(report.local_only);
+    assert!(!report.touches_network);
+    assert!(report
+        .targets
+        .iter()
+        .all(|target| target.status == BrowserExtensionSmokeStatus::Passed));
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
 fn typing_assistant_handles_snippets_dictionary_and_styles() {
     let assistant = FlowTypingAssistant::new();
     let result = assistant
@@ -829,6 +863,46 @@ fn typing_assistant_handles_snippets_dictionary_and_styles() {
 
     assert!(result.final_text.contains("221B Baker Street"));
     assert!(result.final_text.contains("Supabase"));
+}
+
+fn write_extension_smoke_fixture(root: &std::path::Path, target: &str) {
+    let dist = root
+        .join("extensions")
+        .join("flow-webext")
+        .join("dist")
+        .join(target);
+    for relative in [
+        "manifest.json",
+        "popup.html",
+        "sidepanel.html",
+        "sidebar.html",
+        "options.html",
+        "flow.css",
+        "background/index.js",
+        "content/index.js",
+        "ui/popup.js",
+        "ui/options.js",
+    ] {
+        let path = dist.join(relative);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, "fixture").unwrap();
+    }
+    if target == "chromium" {
+        for relative in ["offscreen.html", "ui/offscreen.js"] {
+            let path = dist.join(relative);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, "fixture").unwrap();
+        }
+    }
+
+    let artifact = root
+        .join("extensions")
+        .join("flow-webext")
+        .join("artifacts")
+        .join(format!("flow-webext-{target}-v0.1.0.zip"));
+    fs::create_dir_all(artifact.parent().unwrap()).unwrap();
+    fs::write(&artifact, "zip-fixture").unwrap();
+    fs::write(artifact.with_extension("zip.sha256"), "sha256-fixture").unwrap();
 }
 
 #[test]

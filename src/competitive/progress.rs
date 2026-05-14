@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "multimodal-ui-diagnostics",
-            "Multimodal UI diagnostics",
+            "extension-smoke-matrix",
+            "Packaged extension smoke matrix",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-multimodal-diagnostics` connects OCR smoke reports, VLM contracts, routing policy, and metadata sidecars to the Multimodal UI contract",
-            "render diagnostics in the desktop/Next.js Multimodal page and show latest artifact bundle links",
+            "`flow --browser-extension-smoke` verifies Chromium, Edge, Firefox, and Safari package/dist readiness and detects installed browser targets without network access",
+            "wire the smoke report into live launch automation for installed browsers",
         ),
         item(
-            "screenshot-capture-contract",
-            "Screenshot capture command",
+            "live-browser-launch-smoke",
+            "Live browser launch smoke",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-screenshot-vlm <dir> <screenshot> [prompt]` validates a local screenshot file, records source metadata, and feeds the VLM contract without loading the model",
-            "connect this handoff to real desktop/browser capture controls",
+            CompletionItemStatus::Planned,
+            "Packaged artifacts are ready, but Chrome/Edge/Firefox/Safari launch automation still needs an installed-browser runner",
+            "run isolated temporary-profile launches against installed browser executables",
         ),
         item(
-            "image-video-affordances",
-            "Image and video install/run affordances",
+            "offline-browser-pack-reuse",
+            "Offline browser-pack reuse",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-media-affordances` exposes explicit local-only image/video model keys, repos, install inspection commands, run planning commands, and resident-load policy",
-            "convert the affordances into UI install/run controls after metadata persistence is indexed",
+            CompletionItemStatus::Planned,
+            "Browser pack manifests exist, but offline reuse after first cache still needs a focused verification path",
+            "simulate a cached pack and prove local inference planning stays offline",
         ),
         item(
-            "artifact-store-metadata",
-            "Persist multimodal metadata in artifact store",
+            "browser-pack-recovery",
+            "Browser-pack recovery",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-artifacts-index-multimodal <store-dir> <bundle-dir>` imports OCR/VLM artifact, checkpoint, and metadata sidecars into the durable Friday artifact store",
-            "render imported multimodal metadata in the desktop/Next.js artifact browser",
+            CompletionItemStatus::Planned,
+            "The extension storage layer verifies hashes, but partial-download resume, hash rejection, and quota recovery need operator tests",
+            "add corruption and partial-cache test fixtures for browser pack storage",
         ),
         item(
-            "multimodal-visual-check",
-            "Multimodal route visual checks",
+            "chromium-webllm-acceleration",
+            "Chromium WebLLM acceleration",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-multimodal-visual-check` verifies the Multimodal route contract, diagnostics, artifact metadata rail, image/video actions, production states, and responsive viewport targets",
-            "open the next 100-point set and connect visual gates to live desktop/browser screenshots",
+            CompletionItemStatus::Planned,
+            "Transformers.js browser packs are the validated baseline; optional WebLLM acceleration remains gated until Qwen packs are stable",
+            "add a Chromium-only WebLLM plan after offline pack reuse is verified",
         ),
     ];
 
     CompletionSet {
-        name: "Multimodal Product Execution".to_string(),
+        name: "Browser And Extension Core".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Connect Friday's multimodal contracts to UI capture, install/run affordances, persisted artifacts, and visual checks without changing the low-resource idle defaults.".to_string(),
+        loop_rule: "Harden Friday's browser extension release path with packaged smoke checks, installed-browser launch validation, offline browser-pack reuse, recovery handling, and optional Chromium acceleration without weakening local-first defaults.".to_string(),
         items,
     }
 }
@@ -137,14 +137,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_completed_multimodal_product_loop() {
+    fn active_set_tracks_browser_extension_core_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Multimodal Product Execution");
-        assert_eq!(set.current_score_out_of_100, set.target_score_out_of_100);
+        assert_eq!(set.name, "Browser And Extension Core");
+        assert_eq!(set.current_score_out_of_100, 20);
         assert!(
             set.items
                 .iter()
-                .all(|item| item.status == CompletionItemStatus::Done)
+                .any(|item| item.status == CompletionItemStatus::Planned)
         );
     }
 
