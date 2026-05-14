@@ -24,6 +24,7 @@ import {
   readFridayRestoreCheckpoint,
   restoreFridayWorkspaceBackupToStorage,
   serializeFridayWorkspaceBackup,
+  type FridayWorkspaceBackup,
 } from "../../utils/workspaceBackup";
 import { DEFAULT_CONNECTORS, STORAGE_KEYS, type ConnectorSettings } from "./types";
 
@@ -34,7 +35,7 @@ const CONNECTOR_OPTIONS: Array<[keyof ConnectorSettings, string, string]> = [
   ["mcpConnectors", "MCP connectors", "Future app connectors stay off until configured."],
 ];
 
-function downloadWorkspaceBackup(backup: ReturnType<typeof buildFridayWorkspaceBackup>, prefix?: string) {
+function downloadWorkspaceBackup(backup: FridayWorkspaceBackup, prefix?: string) {
   const payload = serializeFridayWorkspaceBackup(backup);
   const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
   const anchor = document.createElement("a");
@@ -76,6 +77,7 @@ export function ConnectorsWorkspace() {
     process.env.NEXT_PUBLIC_FRIDAY_ENABLE_CLOUD_AI === "true" ||
     process.env.NEXT_PUBLIC_FRIDAY_ENABLE_GROQ_AI === "true";
   const providerCheckDisabled = !settings.aiGateway || !cloudEnvEnabled || isCheckingProvider;
+  const hasRestoreCheckpoint = restoreCheckpoint.tone === "ready";
 
   const refreshRestoreCheckpoint = useCallback(() => {
     const parsed = readFridayRestoreCheckpoint(window.localStorage);
@@ -462,7 +464,14 @@ export function ConnectorsWorkspace() {
                   ? "Needs check"
                   : "Local"}
             </Badge>
-            <Button type="button" size="sm" variant="outline" onClick={exportWorkspaceBackup}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-label="Export Friday workspace backup"
+              title="Export Friday workspace backup"
+              onClick={exportWorkspaceBackup}
+            >
               <Download size={14} />
               Export
             </Button>
@@ -470,6 +479,8 @@ export function ConnectorsWorkspace() {
               type="button"
               size="sm"
               variant="outline"
+              aria-label="Import Friday workspace backup"
+              title="Import Friday workspace backup"
               onClick={() => backupInputRef.current?.click()}
             >
               <Upload size={14} />
@@ -479,7 +490,9 @@ export function ConnectorsWorkspace() {
               type="button"
               size="sm"
               variant="outline"
-              disabled={restoreCheckpoint.tone !== "ready"}
+              aria-label="Restore the saved Friday checkpoint"
+              title={hasRestoreCheckpoint ? "Restore the saved Friday checkpoint" : "No restore checkpoint saved yet"}
+              disabled={!hasRestoreCheckpoint}
               onClick={restoreSafetyCheckpoint}
             >
               <RotateCcw size={14} />
@@ -489,7 +502,9 @@ export function ConnectorsWorkspace() {
               type="button"
               size="sm"
               variant="outline"
-              disabled={restoreCheckpoint.tone !== "ready"}
+              aria-label="Export the saved Friday checkpoint"
+              title={hasRestoreCheckpoint ? "Export the saved Friday checkpoint" : "No restore checkpoint saved yet"}
+              disabled={!hasRestoreCheckpoint}
               onClick={exportRestoreCheckpoint}
             >
               <Download size={14} />
@@ -507,11 +522,16 @@ export function ConnectorsWorkspace() {
             />
           </div>
         </div>
-        <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs leading-5 text-[var(--muted-foreground)]">
+        <div
+          aria-live="polite"
+          className="mt-3 rounded-md border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs leading-5 text-[var(--muted-foreground)]"
+          role="status"
+        >
           {backupMessage?.text ??
             "Backups stay on your machine. Import only restores known Friday workspace keys."}
         </div>
         <div
+          aria-live="polite"
           className={
             "mt-2 rounded-md border p-3 text-xs leading-5 " +
             (restoreCheckpoint.tone === "ready"
@@ -520,6 +540,7 @@ export function ConnectorsWorkspace() {
                 ? "border-red-500/30 bg-red-500/5 text-red-200"
                 : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)]")
           }
+          role={restoreCheckpoint.tone === "error" ? "alert" : "status"}
         >
           {restoreCheckpoint.text}
         </div>
