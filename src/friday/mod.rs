@@ -1,3 +1,7 @@
+pub mod research;
+
+pub use research::*;
+
 use serde::{Deserialize, Serialize};
 
 use crate::search::{MetasearchBridge, SearchRequestPlan};
@@ -361,10 +365,10 @@ fn friday_capabilities() -> Vec<FridayCapability> {
             FridayWorkspaceArea::Research,
             "Deep research with editable plans, cited reports, and exportable sources",
             9,
-            FridayFeatureStatus::Planned,
+            FridayFeatureStatus::Partial,
             true,
             true,
-            "Metasearch and RLM plans exist; report runner and citation persistence are the next build target.",
+            "Metasearch workflow stages and export contracts exist; report runner and citation persistence are the next build target.",
             "ChatGPT deep research and Perplexity research patterns.",
         ),
         capability(

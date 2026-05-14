@@ -11,7 +11,7 @@ use flow::experience::{
     SnippetEntry, StylePreset, ToneStyle, TypingAssistRequest, WritingDomain,
 };
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
-use flow::friday::{FridayCompetitor, default_friday_product_plan};
+use flow::friday::{FridayCompetitor, FridayResearchWorkflow, default_friday_product_plan};
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
 use flow::provider_catalog::{CatalogSource, ProviderCatalogBridge};
@@ -21,6 +21,7 @@ use flow::runtime::{
     DeviceTier, GraphicsDevice, Modality, RuntimeBroker, RuntimeKind, RuntimeLaunch,
     benchmark_record,
 };
+use flow::search::{MetasearchServerConfig, metasearch_categories};
 use flow::storage::{FlowPackStore, PromptCacheEntry, PromptCacheIndex};
 use flow::workspace::dx_project_statuses;
 use flow::writing::HarperGrammarChecker;
@@ -355,6 +356,40 @@ fn friday_runtime_search_plans_use_metasearch() {
             .iter()
             .any(|note| note.contains("Perplexity Computer"))
     );
+}
+
+#[test]
+fn friday_research_workflow_is_metasearch_backed_and_exportable() {
+    let workflow = FridayResearchWorkflow::for_query("compare current AI search features");
+
+    assert!(workflow.local_first);
+    assert!(workflow.forbids_perplexity_computer);
+    assert!(workflow.ready_stage_count() >= 2);
+    assert!(workflow.answer_plan.use_adjacent_metasearch);
+    assert!(workflow.deep_research_plan.use_adjacent_metasearch);
+    assert!(
+        workflow
+            .local_metasearch_api_path
+            .contains("/api/v1/search")
+    );
+    assert!(
+        workflow
+            .export_formats
+            .contains(&"markdown-report".to_string())
+    );
+}
+
+#[test]
+fn friday_metasearch_client_builds_local_api_paths() {
+    let runtime = flow::DxFlowRuntime::detect();
+    let answer_plan = runtime.friday_answer_search_plan("local search citations");
+    let path = MetasearchServerConfig::default().api_path_for_plan(&answer_plan);
+    let categories = metasearch_categories(&answer_plan.verticals);
+
+    assert!(path.starts_with("/api/v1/search?format=json"));
+    assert!(path.contains("q=local%20search%20citations"));
+    assert!(categories.contains(&"general".to_string()));
+    assert!(categories.contains(&"news".to_string()));
 }
 
 #[test]

@@ -44,6 +44,14 @@ pub enum Command {
     FridaySearchPlan { query: String },
     /// Build a metasearch-first Friday deep-research plan
     FridayResearchPlan { query: String },
+    /// Build a runnable Friday research workflow contract
+    FridayResearchWorkflow { query: String },
+    /// Print a runnable Friday research workflow contract as JSON
+    FridayResearchWorkflowJson { query: String },
+    /// Execute Friday answer search against the local metasearch server
+    FridayMetasearch { query: String },
+    /// Execute Friday answer search against the local metasearch server and print JSON
+    FridayMetasearchJson { query: String },
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -213,6 +221,46 @@ impl Args {
                     std::process::exit(1);
                 }
                 Command::FridayResearchPlan {
+                    query: args[2..].join(" "),
+                }
+            }
+            "--friday-research-workflow" => {
+                if args.len() <= 2 {
+                    eprintln!("Error: query required");
+                    eprintln!("Usage: flow --friday-research-workflow <query>");
+                    std::process::exit(1);
+                }
+                Command::FridayResearchWorkflow {
+                    query: args[2..].join(" "),
+                }
+            }
+            "--friday-research-workflow-json" => {
+                if args.len() <= 2 {
+                    eprintln!("Error: query required");
+                    eprintln!("Usage: flow --friday-research-workflow-json <query>");
+                    std::process::exit(1);
+                }
+                Command::FridayResearchWorkflowJson {
+                    query: args[2..].join(" "),
+                }
+            }
+            "--friday-metasearch" | "--friday-search-local" => {
+                if args.len() <= 2 {
+                    eprintln!("Error: query required");
+                    eprintln!("Usage: flow --friday-metasearch <query>");
+                    std::process::exit(1);
+                }
+                Command::FridayMetasearch {
+                    query: args[2..].join(" "),
+                }
+            }
+            "--friday-metasearch-json" | "--friday-search-local-json" => {
+                if args.len() <= 2 {
+                    eprintln!("Error: query required");
+                    eprintln!("Usage: flow --friday-metasearch-json <query>");
+                    std::process::exit(1);
+                }
+                Command::FridayMetasearchJson {
                     query: args[2..].join(" "),
                 }
             }

@@ -30,6 +30,10 @@
 - added metasearch-first Friday answer-search and deep-research plans that explicitly forbid Perplexity Computer as a dependency
 - added `flow --friday`, `flow --friday-json`, `flow --friday-search`, and `flow --friday-research`
 - opened Friday Competitive AI Workspace at 39/100
+- added a Friday Research workflow contract with metasearch execution targets, stage states, and export formats
+- added a local metasearch API client path plus `flow --friday-metasearch` / `flow --friday-metasearch-json`
+- added `flow --friday-research-workflow` and `flow --friday-research-workflow-json`
+- advanced Friday Competitive AI Workspace to 47/100
 
 ## 2026-04-26
 

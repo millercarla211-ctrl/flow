@@ -24,8 +24,8 @@ use crate::experience::{
     FlowFileStateStore, FlowStateStore, NativeSelectionBridge, OperatingSystemFamily,
 };
 use crate::friday::{
-    FridayFeatureStatus, default_friday_product_plan, friday_answer_search_plan,
-    friday_research_search_plan,
+    FridayFeatureStatus, FridayResearchWorkflow, default_friday_product_plan,
+    friday_answer_search_plan, friday_research_search_plan,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -34,6 +34,7 @@ use crate::models::{
 use crate::runtime::{
     BrokerRequest, ExecutionPlan, Modality, RuntimeBroker, wake_command_definitions,
 };
+use crate::search::{MetasearchApiResponse, MetasearchServerConfig};
 use crate::workspace::dx_project_statuses;
 use crate::writing::HarperGrammarChecker;
 
@@ -217,6 +218,29 @@ pub async fn execute(command: Command) -> Result<()> {
             )?;
         }
 
+        Command::FridayResearchWorkflow { query } => {
+            print_friday_research_workflow(&FridayResearchWorkflow::for_query(query));
+        }
+
+        Command::FridayResearchWorkflowJson { query } => {
+            println!(
+                "{}",
+                FridayResearchWorkflow::for_query(query).to_pretty_json()?
+            );
+        }
+
+        Command::FridayMetasearch { query } => {
+            let response = MetasearchServerConfig::default()
+                .search_blocking(&friday_answer_search_plan(query))?;
+            print_friday_metasearch_response(&response);
+        }
+
+        Command::FridayMetasearchJson { query } => {
+            let response = MetasearchServerConfig::default()
+                .search_blocking(&friday_answer_search_plan(query))?;
+            println!("{}", serde_json::to_string_pretty(&response)?);
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -362,6 +386,10 @@ fn print_interactive_help() {
     println!("  --friday-search <query>  Plan a metasearch-first cited answer search");
     println!("  --friday-research <query>");
     println!("                           Plan a metasearch-first deep research run");
+    println!("  --friday-research-workflow <query>");
+    println!("                           Show the runnable Friday research workflow contract");
+    println!("  --friday-metasearch <query>");
+    println!("                           Execute answer search against local metasearch");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");
@@ -633,6 +661,68 @@ fn print_search_request_plan(title: &str, plan: &crate::search::SearchRequestPla
         println!("  - {}", note);
     }
     Ok(())
+}
+
+fn print_friday_research_workflow(workflow: &FridayResearchWorkflow) {
+    println!("Friday Research Workflow");
+    println!("========================");
+    println!("Query: {}", workflow.query);
+    println!("Local-first: {}", yes_no(workflow.local_first));
+    println!("API path: {}", workflow.local_metasearch_api_path);
+    println!(
+        "Perplexity Computer dependency: {}",
+        if workflow.forbids_perplexity_computer {
+            "forbidden"
+        } else {
+            "allowed"
+        }
+    );
+    println!("Ready stages: {}", workflow.ready_stage_count());
+    println!();
+
+    println!("Metasearch targets:");
+    for target in &workflow.metasearch_targets {
+        println!("  - {:?}: {}", target.mode, target.endpoint_or_command);
+        println!("    default: {}", yes_no(target.available_by_default));
+        for note in &target.notes {
+            println!("    note: {}", note);
+        }
+    }
+    println!();
+
+    println!("Stages:");
+    for stage in &workflow.stages {
+        println!("  - {:?} [{}]", stage.kind, stage.status.label());
+        println!("    {}", stage.output_contract);
+    }
+    println!();
+
+    println!("Export formats: {}", workflow.export_formats.join(", "));
+}
+
+fn print_friday_metasearch_response(response: &MetasearchApiResponse) {
+    println!("Friday Metasearch Results");
+    println!("=========================");
+    println!("Query: {}", response.query);
+    println!("Results: {}", response.number_of_results);
+    println!("Engines: {}", response.engines_used.join(", "));
+    if !response.engines_failed.is_empty() {
+        println!("Failed engines: {}", response.engines_failed.join(", "));
+    }
+    println!("Time: {} ms", response.search_time_ms);
+    println!("Cached: {}", yes_no(response.cached));
+    println!();
+
+    for (index, result) in response.results.iter().take(10).enumerate() {
+        println!("{}. {}", index + 1, result.title);
+        println!("   {}", result.url);
+        if !result.content.trim().is_empty() {
+            println!("   {}", result.content.trim());
+        }
+        if !result.engine.trim().is_empty() {
+            println!("   source: {}", result.engine);
+        }
+    }
 }
 
 fn print_accessibility_diagnostics(os: Option<&str>, live: bool) -> Result<()> {

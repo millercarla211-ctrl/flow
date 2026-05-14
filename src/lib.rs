@@ -79,8 +79,10 @@ pub use experience::{
 };
 pub use forge_bridge::{ForgeAssetKind, ForgeBridge, ForgeRemoteKind, ForgeSyncPlan};
 pub use friday::{
-    FridayCapability, FridayCompetitor, FridayFeatureStatus, FridayProductPlan, FridaySearchPolicy,
-    FridayWorkspaceArea, FridayWorkspaceView, default_friday_product_plan,
+    FridayCapability, FridayCompetitor, FridayFeatureStatus, FridayProductPlan,
+    FridayResearchStage, FridayResearchStageKind, FridayResearchStageStatus,
+    FridayResearchWorkflow, FridaySearchPolicy, FridayWorkspaceArea, FridayWorkspaceView,
+    MetasearchExecutionMode, MetasearchExecutionTarget, default_friday_product_plan,
     friday_answer_search_plan, friday_research_search_plan,
 };
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
@@ -97,7 +99,10 @@ pub use runtime::{
     FlowLocalRuntimeSummary, LocalModelSelection, LocalSpeechAudio, LocalSpeechCleanup,
     LocalSpeechRoundtrip, Modality, RuntimeBroker,
 };
-pub use search::{MetasearchBridge, SearchIntent, SearchRequestPlan, SearchVertical};
+pub use search::{
+    MetasearchApiResponse, MetasearchApiResult, MetasearchBridge, MetasearchServerConfig,
+    SearchIntent, SearchRequestPlan, SearchVertical, metasearch_categories,
+};
 pub use storage::{FlowPackManifest, FlowPackStore, PromptCacheIndex};
 pub use utils::{check_memory_requirements, detect_device_profile, get_memory_info};
 pub use workspace::{DxProjectStatus, dx_project_statuses};

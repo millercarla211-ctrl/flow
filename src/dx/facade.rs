@@ -22,8 +22,8 @@ use crate::experience::{
 };
 use crate::forge_bridge::{ForgeBridge, ForgeSyncPlan};
 use crate::friday::{
-    FridayProductPlan, default_friday_product_plan, friday_answer_search_plan,
-    friday_research_search_plan,
+    FridayProductPlan, FridayResearchWorkflow, default_friday_product_plan,
+    friday_answer_search_plan, friday_research_search_plan,
 };
 use crate::long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
 use crate::prompt::{DxSerializer, SerializedPromptEnvelope};
@@ -31,7 +31,9 @@ use crate::provider_catalog::{ProviderCatalogBridge, ProviderCatalogPlan};
 use crate::remote::{RemoteModelEndpoint, RemoteProviderRouter, SeamlessRoutePlan};
 use crate::runtime::{BrokerRequest, ExecutionPlan, Modality, RuntimeBroker};
 use crate::runtime::{FlowLocalRuntime, FlowLocalRuntimeSummary};
-use crate::search::{MetasearchBridge, SearchRequestPlan};
+use crate::search::{
+    MetasearchApiResponse, MetasearchBridge, MetasearchServerConfig, SearchRequestPlan,
+};
 use crate::workspace::{DxProjectStatus, dx_project_statuses};
 use crate::zed::{ZedFlowAdapter, ZedLocalModelStatus};
 use crate::zeroclaw::{ZeroClawFlowAdapter, ZeroClawLocalModelStatus};
@@ -247,6 +249,23 @@ impl DxFlowRuntime {
 
     pub fn friday_research_search_plan(&self, query: impl Into<String>) -> SearchRequestPlan {
         friday_research_search_plan(query)
+    }
+
+    pub fn friday_research_workflow(&self, query: impl Into<String>) -> FridayResearchWorkflow {
+        FridayResearchWorkflow::for_query(query)
+    }
+
+    pub fn friday_metasearch_api_path(&self, query: impl Into<String>) -> String {
+        let plan = friday_answer_search_plan(query);
+        MetasearchServerConfig::default().api_path_for_plan(&plan)
+    }
+
+    pub fn friday_metasearch_search(
+        &self,
+        query: impl Into<String>,
+    ) -> Result<MetasearchApiResponse> {
+        let plan = friday_answer_search_plan(query);
+        MetasearchServerConfig::default().search_blocking(&plan)
     }
 
     pub fn model_search_plan(&self, query: impl Into<String>) -> SearchRequestPlan {

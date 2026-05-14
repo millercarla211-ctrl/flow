@@ -64,7 +64,7 @@ This set remains important, but the active product direction has moved to Friday
 
 ## Active Set: Friday Competitive AI Workspace
 
-Status: 39/100
+Status: 47/100
 
 Goal: make Friday a local-first AI workspace that can compete with the useful surfaces of ChatGPT, Gemini, Perplexity, Grok, and Claude without depending on Perplexity Computer. Search and research must use the adjacent Rust metasearch crate.
 
@@ -73,10 +73,12 @@ Goal: make Friday a local-first AI workspace that can compete with the useful su
 - [x] Add a Friday capability map covering ChatGPT, Gemini, Perplexity, Grok, and Claude feature targets.
 - [x] Add Friday workspace route definitions for Ask, Search, Research, Agents, Canvas, Projects, Memory, Connectors, Voice, Artifacts, Automations, Code, and Multimodal.
 - [x] Add metasearch-first answer search and deep research planning that explicitly forbids Perplexity Computer as a dependency.
+- [x] Add a Friday Research workflow contract with metasearch targets, stage states, and export formats.
+- [x] Add a local metasearch API client path so Friday can execute cited search through the adjacent Rust server when it is running.
 
 ### Remaining To Reach 100/100
 
-- [ ] Wire Ask and Research to streaming local-first runtime output with source groups, citation records, and exportable reports.
+- [ ] Finish Ask and Research runtime execution with streaming local-first model output, source groups, citation records, and exportable reports.
 - [ ] Add durable Projects, Memory, and Connectors stores with permission-scoped local data boundaries.
 - [ ] Build Canvas, Artifacts, and Code workspaces with editable outputs, previews, diffs, and checkpoints.
 - [ ] Connect Voice, Multimodal, and Automations surfaces to STT/TTS/OCR/VLM planning, scheduler, and audit records.

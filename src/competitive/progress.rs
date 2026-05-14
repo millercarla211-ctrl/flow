@@ -69,9 +69,9 @@ pub fn active_completion_set() -> CompletionSet {
             "ask-research-runtime",
             "Ask and Research streaming runtime",
             20,
-            CompletionItemStatus::Planned,
-            "local model roles, metasearch planning, and RLM/serializer bridges exist, but Friday does not yet stream cited answers and reports end-to-end",
-            "add Ask and Research execution surfaces with progress events, source groups, citations, and report export",
+            CompletionItemStatus::InProgress,
+            "Friday now has a metasearch-backed research workflow contract plus a local metasearch API client path; streaming answer/report execution is next",
+            "wire the workflow to runtime progress events, source groups, citation persistence, and report export",
         ),
         item(
             "projects-memory-connectors",
