@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -73,6 +74,63 @@ pub struct FridayDashboardProductUiReleaseLink {
     pub section: String,
     pub local_only: bool,
     pub button_state: FridayDashboardProductUiButtonState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayDashboardProductUiSmokeStatus {
+    Passed,
+    Warning,
+    Failed,
+}
+
+impl FridayDashboardProductUiSmokeStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Passed => "passed",
+            Self::Warning => "warning",
+            Self::Failed => "failed",
+        }
+    }
+
+    fn score(self) -> f32 {
+        match self {
+            Self::Passed => 1.0,
+            Self::Warning => 0.5,
+            Self::Failed => 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardProductUiSmokeCheck {
+    pub id: String,
+    pub title: String,
+    pub status: FridayDashboardProductUiSmokeStatus,
+    pub evidence: Vec<String>,
+    pub next_action: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardProductUiSmokeReport {
+    pub generated_at_unix_ms: u128,
+    pub product_name: String,
+    pub route: String,
+    pub source_file: String,
+    pub summary: String,
+    pub status: FridayDashboardProductUiSmokeStatus,
+    pub score_out_of_100: u8,
+    pub check_count: usize,
+    pub passed_count: usize,
+    pub warning_count: usize,
+    pub blocking_count: usize,
+    pub checks: Vec<FridayDashboardProductUiSmokeCheck>,
+}
+
+impl FridayDashboardProductUiSmokeReport {
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -228,6 +286,135 @@ pub fn friday_dashboard_product_ui_binding_from_export(
     })
 }
 
+pub fn friday_dashboard_product_ui_smoke_from_export(
+    export_dir: impl AsRef<Path>,
+) -> Result<FridayDashboardProductUiSmokeReport> {
+    let binding = friday_dashboard_product_ui_binding_from_export(export_dir)?;
+    let checks = vec![
+        smoke_check(
+            "dashboard-source-file",
+            "Dashboard source file",
+            if Path::new(&binding.source_file).exists() {
+                FridayDashboardProductUiSmokeStatus::Passed
+            } else {
+                FridayDashboardProductUiSmokeStatus::Failed
+            },
+            vec![format!("source_file={}", binding.source_file)],
+            "Create or restore the visible dashboard source file before wiring runtime data.",
+        ),
+        smoke_check(
+            "panel-json-binding",
+            "Panel JSON binding",
+            if binding
+                .data_bindings
+                .iter()
+                .any(|data_binding| data_binding.id == "dashboard-panel-json")
+            {
+                FridayDashboardProductUiSmokeStatus::Passed
+            } else {
+                FridayDashboardProductUiSmokeStatus::Failed
+            },
+            vec![format!("panel_json_command={}", binding.panel_json_command)],
+            "Expose the dashboard panel JSON command to the product dashboard loader.",
+        ),
+        smoke_check(
+            "dashboard-cards",
+            "Dashboard cards",
+            if binding.card_count > 0 && binding.bound_card_count == binding.card_count {
+                FridayDashboardProductUiSmokeStatus::Passed
+            } else {
+                FridayDashboardProductUiSmokeStatus::Failed
+            },
+            vec![format!(
+                "bound_cards={}/{}",
+                binding.bound_card_count, binding.card_count
+            )],
+            "Render cards from the binding instead of hard-coded dashboard copy.",
+        ),
+        smoke_check(
+            "safe-actions",
+            "Safe local actions",
+            if binding.action_count > 0
+                && binding
+                    .action_bindings
+                    .iter()
+                    .all(|action| action.local_only && !action.button_state.error_label.is_empty())
+            {
+                FridayDashboardProductUiSmokeStatus::Passed
+            } else {
+                FridayDashboardProductUiSmokeStatus::Failed
+            },
+            vec![format!("action_count={}", binding.action_count)],
+            "Connect action buttons only through explicit local action metadata.",
+        ),
+        smoke_check(
+            "history-and-release-links",
+            "History and release links",
+            if binding.history.record_count > 0 && !binding.release_links.is_empty() {
+                FridayDashboardProductUiSmokeStatus::Passed
+            } else {
+                FridayDashboardProductUiSmokeStatus::Warning
+            },
+            vec![
+                format!("history_records={}", binding.history.record_count),
+                format!("release_links={}", binding.release_links.len()),
+            ],
+            "Render history deltas and release artifact links from the binding.",
+        ),
+        smoke_check(
+            "screenshot-prompts",
+            "Screenshot prompts",
+            if binding.screenshot_prompts.is_empty() {
+                FridayDashboardProductUiSmokeStatus::Warning
+            } else {
+                FridayDashboardProductUiSmokeStatus::Passed
+            },
+            vec![format!(
+                "screenshot_prompts={}",
+                binding.screenshot_prompts.len()
+            )],
+            "Show screenshot prompts until the visual capture artifacts are complete.",
+        ),
+    ];
+    let passed_count = checks
+        .iter()
+        .filter(|check| check.status == FridayDashboardProductUiSmokeStatus::Passed)
+        .count();
+    let warning_count = checks
+        .iter()
+        .filter(|check| check.status == FridayDashboardProductUiSmokeStatus::Warning)
+        .count();
+    let blocking_count = checks
+        .iter()
+        .filter(|check| check.status == FridayDashboardProductUiSmokeStatus::Failed)
+        .count();
+    let status = if blocking_count > 0 {
+        FridayDashboardProductUiSmokeStatus::Failed
+    } else if warning_count > 0 {
+        FridayDashboardProductUiSmokeStatus::Warning
+    } else {
+        FridayDashboardProductUiSmokeStatus::Passed
+    };
+
+    Ok(FridayDashboardProductUiSmokeReport {
+        generated_at_unix_ms: unix_ms(),
+        product_name: binding.product_name,
+        route: binding.route,
+        source_file: binding.source_file,
+        summary: format!(
+            "{passed_count}/{} product dashboard UI smoke checks passed; {warning_count} warning(s), {blocking_count} blocking issue(s).",
+            checks.len()
+        ),
+        status,
+        score_out_of_100: score_smoke_checks(&checks),
+        check_count: checks.len(),
+        passed_count,
+        warning_count,
+        blocking_count,
+        checks,
+    })
+}
+
 fn dashboard_history_binding(
     history: &super::FridayDashboardExportHistory,
 ) -> FridayDashboardProductUiHistoryBinding {
@@ -286,6 +473,43 @@ fn release_link_section(id: &str) -> &'static str {
         "manifest" | "completion" | "dashboard-history" => "export-artifacts",
         _ => "other",
     }
+}
+
+fn smoke_check(
+    id: &str,
+    title: &str,
+    status: FridayDashboardProductUiSmokeStatus,
+    evidence: Vec<String>,
+    next_action: &str,
+) -> FridayDashboardProductUiSmokeCheck {
+    FridayDashboardProductUiSmokeCheck {
+        id: id.to_string(),
+        title: title.to_string(),
+        status,
+        evidence,
+        next_action: next_action.to_string(),
+    }
+}
+
+fn score_smoke_checks(checks: &[FridayDashboardProductUiSmokeCheck]) -> u8 {
+    if checks.is_empty() {
+        return 0;
+    }
+
+    let earned = checks
+        .iter()
+        .map(|check| check.status.score())
+        .sum::<f32>();
+    ((earned / checks.len() as f32) * 100.0)
+        .round()
+        .clamp(0.0, 100.0) as u8
+}
+
+fn unix_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0)
 }
 
 fn action_button_state(

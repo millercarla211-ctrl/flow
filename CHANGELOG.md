@@ -112,6 +112,9 @@
 - added product UI bindings for dashboard history trends, latest/previous scores, missing screenshot prompts, and capture commands
 - advanced Friday Dashboard Product UI Wiring to 80/100
 - added grouped release-review link bindings for TODO, changelog, visual targets, dashboard history, completion, summary, and manifest artifacts
+- advanced Friday Dashboard Product UI Wiring to 100/100
+- added `flow --friday-dashboard-product-ui-smoke` / `--friday-dashboard-product-ui-smoke-json` to verify the visible dashboard route source, panel JSON binding, cards, local actions, history/release links, and screenshot prompts
+- completed Friday Dashboard Product UI Wiring at 100/100 and listed Friday Dashboard Visible UI Execution as the next set
 
 ## 2026-04-26
 

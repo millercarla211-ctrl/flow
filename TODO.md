@@ -196,7 +196,7 @@ This set is complete. The next loop should open `Friday Dashboard Product UI Wir
 
 ## Active Set: Friday Dashboard Product UI Wiring
 
-Status: 80/100
+Status: 100/100
 
 Goal: make the visible Friday desktop/web dashboard consume the live Rust dashboard panel contract, execute safe local actions, and show release readiness without dummy product copy.
 
@@ -206,7 +206,22 @@ Goal: make the visible Friday desktop/web dashboard consume the live Rust dashbo
 - [x] Wire typed dashboard actions to safe UI buttons with disabled/loading/error states.
 - [x] Show export history deltas and screenshot prompts in the product UI.
 - [x] Render release-review handoff links for TODO, changelog, visual targets, and export artifacts.
+- [x] Add a small UI smoke contract proving the dashboard can load the exported panel.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Dashboard Visible UI Execution` and render the typed dashboard binding inside the visible web extension/desktop UI without dummy product copy.
+
+## Next Set: Friday Dashboard Visible UI Execution
+
+Status: 0/100
+
+Goal: wire the visible Friday dashboard to render the typed dashboard binding and execute local-only actions from the UI layer.
 
 ### Remaining To Reach 100/100
 
-- [ ] Add a small UI smoke contract proving the dashboard can load the exported panel.
+- [ ] Render dashboard cards from the product UI binding in `extensions/flow-webext/src/ui/app.ts`.
+- [ ] Add visible disabled/loading/success/error button states for dashboard actions.
+- [ ] Render export history, release-review links, and screenshot prompts in the visible dashboard.
+- [ ] Add a small TypeScript smoke/typecheck path for dashboard section rendering.
+- [ ] Keep local-only fallback behavior and remove any dummy product copy from this dashboard surface.

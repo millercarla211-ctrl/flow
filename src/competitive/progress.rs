@@ -85,9 +85,9 @@ pub fn active_completion_set() -> CompletionSet {
             "dashboard-ui-smoke-contract",
             "Dashboard UI smoke contract",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "add a small UI smoke contract proving the dashboard can load the exported panel",
+            CompletionItemStatus::Done,
+            "`flow --friday-dashboard-product-ui-smoke` proves the visible dashboard route can load source, panel JSON, cards, actions, history/release links, and screenshot prompts",
+            "open the next 100-point set by rendering the typed binding inside the visible dashboard UI",
         ),
     ];
 
@@ -140,11 +140,11 @@ mod tests {
     fn active_set_tracks_friday_dashboard_product_ui_wiring_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Dashboard Product UI Wiring");
-        assert_eq!(set.current_score_out_of_100, 80);
+        assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items
                 .iter()
-                .any(|item| item.status == CompletionItemStatus::Planned)
+                .all(|item| item.status == CompletionItemStatus::Done)
         );
     }
 

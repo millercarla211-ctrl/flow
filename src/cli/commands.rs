@@ -33,8 +33,9 @@ use crate::friday::{
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
     export_friday_dashboard_bundle, friday_dashboard_panel_from_export,
     friday_dashboard_product_ui_binding_from_export, friday_execution_handoff_report,
-    friday_live_ui_route_binding_report, friday_media_affordances, friday_multimodal_route,
-    friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
+    friday_dashboard_product_ui_smoke_from_export, friday_live_ui_route_binding_report,
+    friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
+    friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_research_search_plan, friday_route_visual_report,
     run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
@@ -486,6 +487,17 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", binding.to_pretty_json()?);
         }
 
+        Command::FridayDashboardProductUiSmoke { input_dir } => {
+            print_friday_dashboard_product_ui_smoke(&input_dir)?;
+        }
+
+        Command::FridayDashboardProductUiSmokeJson { input_dir } => {
+            let report = friday_dashboard_product_ui_smoke_from_export(
+                resolve_repo_relative_path(&input_dir),
+            )?;
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayLocalChecks => {
             print_friday_local_execution_checks();
         }
@@ -871,6 +883,10 @@ fn print_interactive_help() {
     println!("                           Show product UI binding data for the dashboard");
     println!("  --friday-dashboard-product-ui-json [dir]");
     println!("                           Print product UI binding data as JSON");
+    println!("  --friday-dashboard-product-ui-smoke [dir]");
+    println!("                           Smoke-check the visible dashboard binding");
+    println!("  --friday-dashboard-product-ui-smoke-json [dir]");
+    println!("                           Print dashboard binding smoke check as JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
@@ -1551,6 +1567,41 @@ fn print_friday_dashboard_product_ui(input_dir: &str) -> Result<()> {
             "  - [{}] {} -> {}",
             link.section, link.label, link.path
         );
+    }
+
+    Ok(())
+}
+
+fn print_friday_dashboard_product_ui_smoke(input_dir: &str) -> Result<()> {
+    let report =
+        friday_dashboard_product_ui_smoke_from_export(resolve_repo_relative_path(input_dir))?;
+
+    println!("Friday Dashboard Product UI Smoke");
+    println!("=================================");
+    println!("{}", report.summary);
+    println!(
+        "Route: {} -> {} ({})",
+        report.route,
+        report.source_file,
+        report.status.label()
+    );
+    println!("Score: {} / 100", report.score_out_of_100);
+    println!(
+        "Checks: {} passed, {} warning, {} blocking / {} total",
+        report.passed_count, report.warning_count, report.blocking_count, report.check_count
+    );
+    println!();
+
+    for check in &report.checks {
+        println!(
+            "  - [{}] {}: {}",
+            check.status.label(),
+            check.title,
+            check.evidence.join(", ")
+        );
+        if check.status != crate::friday::FridayDashboardProductUiSmokeStatus::Passed {
+            println!("    next: {}", check.next_action);
+        }
     }
 
     Ok(())
