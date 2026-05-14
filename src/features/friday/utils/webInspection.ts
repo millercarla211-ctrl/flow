@@ -79,6 +79,24 @@ export function normalizeWebInspectionUrl(input: string): WebInspectionResult {
   }
 }
 
+export function resolveWebInspectionRedirect(currentUrl: string, location: string | null) {
+  if (!location) {
+    return { ok: false as const, message: "Source redirected without a location header." };
+  }
+
+  try {
+    const normalized = normalizeWebInspectionUrl(new URL(location, currentUrl).toString());
+    if (!normalized.ok) return normalized;
+
+    return {
+      ok: true as const,
+      url: normalized.url,
+    };
+  } catch {
+    return { ok: false as const, message: "Source redirected to an invalid URL." };
+  }
+}
+
 export function extractHtmlTitle(html: string) {
   const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() ?? "";
   return decodeHtmlEntities(title.replace(/\s+/g, " ")).slice(0, 140);

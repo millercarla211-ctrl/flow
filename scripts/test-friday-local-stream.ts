@@ -30,6 +30,7 @@ import {
   inspectWebSource,
   isPrivateWebInspectionHostname,
   normalizeWebInspectionUrl,
+  resolveWebInspectionRedirect,
 } from "../src/features/friday/utils/webInspection";
 import { parseDuckDuckGoLiteResults, searchWebSources } from "../src/features/friday/utils/webSearch";
 import {
@@ -503,6 +504,24 @@ const blockedPrivateSearchResults = parseDuckDuckGoLiteResults(`
 
 if (blockedPrivateSearchResults.length !== 0) {
   throw new Error("Friday web search accepted private network source results.");
+}
+
+const publicRedirect = resolveWebInspectionRedirect("https://example.com/docs/", "../friday");
+if (!publicRedirect.ok || publicRedirect.url !== "https://example.com/friday") {
+  throw new Error("Friday web inspection did not resolve a safe relative redirect.");
+}
+
+const privateRedirect = resolveWebInspectionRedirect(
+  "https://example.com/docs/",
+  "http://192.168.1.10/admin",
+);
+if (privateRedirect.ok) {
+  throw new Error("Friday web inspection accepted a redirect to a private network URL.");
+}
+
+const missingRedirect = resolveWebInspectionRedirect("https://example.com/docs/", null);
+if (missingRedirect.ok) {
+  throw new Error("Friday web inspection accepted a redirect without a location header.");
 }
 
 const normalizedWebUrl = normalizeWebInspectionUrl("https://example.com/path");

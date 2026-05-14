@@ -5,13 +5,20 @@ import {
   extractHtmlTitle,
   extractReadableHtmlText,
   normalizeWebInspectionUrl,
+  resolveWebInspectionRedirect,
 } from "@/features/friday/utils/webInspection";
 
 export const runtime = "nodejs";
 export const maxDuration = 20;
 
 const MAX_BYTES = 1_000_000;
+const MAX_REDIRECTS = 5;
 const PRIVATE_HOST_SUFFIXES = [".localhost", ".local", ".internal", ".lan"];
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const WEB_INSPECTION_HEADERS = {
+  accept: "text/html, text/plain;q=0.9, application/xhtml+xml;q=0.8",
+  "user-agent": "FridayResearchBot/0.1 (+https://flow-roan-theta.vercel.app)",
+};
 
 function isPrivateIp(address: string) {
   if (address.startsWith("10.")) return true;
@@ -67,6 +74,35 @@ async function readLimitedText(response: Response) {
   );
 }
 
+async function fetchPublicInspectionSource(initialUrl: string, signal: AbortSignal) {
+  let currentUrl = initialUrl;
+
+  for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
+    const response = await fetch(currentUrl, {
+      headers: WEB_INSPECTION_HEADERS,
+      redirect: "manual",
+      signal,
+    });
+
+    if (!REDIRECT_STATUSES.has(response.status)) return response;
+
+    const redirected = resolveWebInspectionRedirect(currentUrl, response.headers.get("location"));
+    if (!redirected.ok) {
+      throw new Error(redirected.message);
+    }
+
+    const redirectedUrl = new URL(redirected.url);
+    const hostError = await assertPublicHostname(redirectedUrl.hostname);
+    if (hostError) {
+      throw new Error(hostError);
+    }
+
+    currentUrl = redirected.url;
+  }
+
+  throw new Error("Too many redirects while inspecting this source.");
+}
+
 export async function POST(request: Request) {
   const payload = (await request.json().catch(() => null)) as { url?: string } | null;
   const normalized = normalizeWebInspectionUrl(payload?.url ?? "");
@@ -85,14 +121,7 @@ export async function POST(request: Request) {
   const timeout = setTimeout(() => controller.abort(), 10_000);
 
   try {
-    const response = await fetch(normalized.url, {
-      headers: {
-        accept: "text/html, text/plain;q=0.9, application/xhtml+xml;q=0.8",
-        "user-agent": "FridayResearchBot/0.1 (+https://flow-roan-theta.vercel.app)",
-      },
-      redirect: "follow",
-      signal: controller.signal,
-    });
+    const response = await fetchPublicInspectionSource(normalized.url, controller.signal);
 
     if (!response.ok) {
       return Response.json(
