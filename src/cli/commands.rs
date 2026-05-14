@@ -248,6 +248,20 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_markdown());
         }
 
+        Command::FridayResearchReportSave { output_dir, query } => {
+            let response = MetasearchServerConfig::default()
+                .search_blocking(&friday_research_search_plan(query))?;
+            let report = FridayResearchReport::from_metasearch_response(&response);
+            let manifest = report.write_bundle(resolve_repo_relative_path(&output_dir))?;
+            println!("Friday Research Bundle");
+            println!("======================");
+            println!("Report: {}", manifest.report_markdown.display());
+            println!("Citations: {}", manifest.citations_json.display());
+            println!("Source groups: {}", manifest.source_groups_json.display());
+            println!("Events: {}", manifest.events_json.display());
+            println!("Manifest: {}", manifest.manifest_json.display());
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -399,6 +413,8 @@ fn print_interactive_help() {
     println!("                           Execute answer search against local metasearch");
     println!("  --friday-research-report <query>");
     println!("                           Search locally and print a markdown research report");
+    println!("  --friday-research-report-save <dir> <query>");
+    println!("                           Persist report, citations, source groups, and events");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");

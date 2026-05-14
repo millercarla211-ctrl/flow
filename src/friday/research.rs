@@ -1,5 +1,8 @@
 use std::collections::BTreeMap;
+use std::fs;
+use std::path::{Path, PathBuf};
 
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use super::{friday_answer_search_plan, friday_research_search_plan};
@@ -108,6 +111,40 @@ pub struct FridayResearchReport {
     pub cached: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayResearchEventKind {
+    WorkflowReady,
+    MetasearchResponseReceived,
+    SourceGroupsPrepared,
+    CitationLedgerPrepared,
+    ReportExported,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayResearchRunEvent {
+    pub sequence: u16,
+    pub kind: FridayResearchEventKind,
+    pub stage: FridayResearchStageKind,
+    pub progress_percent: u8,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayResearchExportManifest {
+    pub query: String,
+    pub root_dir: PathBuf,
+    pub report_markdown: PathBuf,
+    pub citations_json: PathBuf,
+    pub source_groups_json: PathBuf,
+    pub events_json: PathBuf,
+    pub manifest_json: PathBuf,
+    pub citation_count: usize,
+    pub source_group_count: usize,
+    pub search_time_ms: u64,
+    pub cached: bool,
+}
+
 impl FridayResearchWorkflow {
     pub fn for_query(query: impl Into<String>) -> Self {
         let query = query.into();
@@ -202,7 +239,7 @@ impl FridayResearchReport {
             lines.push(format!("### {}", group.label));
             for citation in &group.citations {
                 lines.push(format!(
-                    "- [{}] [{}]({}) — {}",
+                    "- [{}] [{}]({}) - {}",
                     citation.id, citation.title, citation.url, citation.snippet
                 ));
             }
@@ -218,6 +255,105 @@ impl FridayResearchReport {
         }
 
         lines.join("\n")
+    }
+
+    pub fn progress_events(&self) -> Vec<FridayResearchRunEvent> {
+        vec![
+            research_event(
+                1,
+                FridayResearchEventKind::WorkflowReady,
+                FridayResearchStageKind::Clarify,
+                10,
+                "Research workflow prepared with local-first metasearch boundaries.",
+            ),
+            research_event(
+                2,
+                FridayResearchEventKind::MetasearchResponseReceived,
+                FridayResearchStageKind::MetasearchDiscovery,
+                40,
+                &format!(
+                    "Received {} source candidate(s) from {} engine(s).",
+                    self.citations.len(),
+                    self.engines_used.len()
+                ),
+            ),
+            research_event(
+                3,
+                FridayResearchEventKind::SourceGroupsPrepared,
+                FridayResearchStageKind::SourceScoring,
+                60,
+                &format!("Prepared {} source group(s).", self.source_groups.len()),
+            ),
+            research_event(
+                4,
+                FridayResearchEventKind::CitationLedgerPrepared,
+                FridayResearchStageKind::CitationExtraction,
+                80,
+                &format!("Prepared {} citation record(s).", self.citations.len()),
+            ),
+            research_event(
+                5,
+                FridayResearchEventKind::ReportExported,
+                FridayResearchStageKind::Export,
+                100,
+                "Markdown report, citation ledger, source groups, and event log are ready.",
+            ),
+        ]
+    }
+
+    pub fn write_bundle(
+        &self,
+        output_dir: impl AsRef<Path>,
+    ) -> Result<FridayResearchExportManifest> {
+        let root_dir = output_dir.as_ref().to_path_buf();
+        fs::create_dir_all(&root_dir)
+            .with_context(|| format!("Could not create {}", root_dir.display()))?;
+
+        let report_markdown = root_dir.join("report.md");
+        let citations_json = root_dir.join("citations.json");
+        let source_groups_json = root_dir.join("source-groups.json");
+        let events_json = root_dir.join("events.json");
+        let manifest_json = root_dir.join("manifest.json");
+
+        fs::write(&report_markdown, self.to_markdown())
+            .with_context(|| format!("Could not write {}", report_markdown.display()))?;
+        fs::write(
+            &citations_json,
+            serde_json::to_string_pretty(&self.citations)?,
+        )
+        .with_context(|| format!("Could not write {}", citations_json.display()))?;
+        fs::write(
+            &source_groups_json,
+            serde_json::to_string_pretty(&self.source_groups)?,
+        )
+        .with_context(|| format!("Could not write {}", source_groups_json.display()))?;
+        fs::write(
+            &events_json,
+            serde_json::to_string_pretty(&self.progress_events())?,
+        )
+        .with_context(|| format!("Could not write {}", events_json.display()))?;
+
+        let manifest = FridayResearchExportManifest {
+            query: self.query.clone(),
+            root_dir,
+            report_markdown,
+            citations_json,
+            source_groups_json,
+            events_json,
+            manifest_json,
+            citation_count: self.citations.len(),
+            source_group_count: self.source_groups.len(),
+            search_time_ms: self.search_time_ms,
+            cached: self.cached,
+        };
+
+        fs::write(
+            &manifest.manifest_json,
+            serde_json::to_string_pretty(&manifest)?,
+        )
+        .with_context(|| format!("Could not write {}", manifest.manifest_json.display()))?;
+
+        Ok(manifest)
     }
 }
 
@@ -308,6 +444,22 @@ fn stage(
         status,
         label: label.to_string(),
         output_contract: output_contract.to_string(),
+    }
+}
+
+fn research_event(
+    sequence: u16,
+    kind: FridayResearchEventKind,
+    stage: FridayResearchStageKind,
+    progress_percent: u8,
+    message: &str,
+) -> FridayResearchRunEvent {
+    FridayResearchRunEvent {
+        sequence,
+        kind,
+        stage,
+        progress_percent,
+        message: message.to_string(),
     }
 }
 
@@ -456,5 +608,48 @@ mod tests {
         assert_eq!(report.source_groups.len(), 2);
         assert!(markdown.contains("[S1]"));
         assert!(markdown.contains("## Citation Ledger"));
+    }
+
+    #[test]
+    fn research_report_persists_bundle_files() {
+        let response = MetasearchApiResponse {
+            query: "bundle test".to_string(),
+            results: vec![MetasearchApiResult {
+                title: "Bundle source".to_string(),
+                url: "https://example.com/bundle".to_string(),
+                content: "Bundle evidence.".to_string(),
+                engine: "duckduckgo".to_string(),
+                engine_rank: 1,
+                score: 0.7,
+                thumbnail: None,
+                published_date: None,
+                category: "general".to_string(),
+                metadata: serde_json::Value::Null,
+            }],
+            number_of_results: 1,
+            engines_used: vec!["duckduckgo".to_string()],
+            engines_failed: Vec::new(),
+            search_time_ms: 12,
+            cached: false,
+            category: None,
+            categories: vec!["general".to_string()],
+            page: 1,
+            language: Some("en".to_string()),
+        };
+        let report = FridayResearchReport::from_metasearch_response(&response);
+        let root =
+            std::env::temp_dir().join(format!("friday-research-bundle-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+
+        let manifest = report.write_bundle(&root).unwrap();
+
+        assert!(manifest.report_markdown.exists());
+        assert!(manifest.citations_json.exists());
+        assert!(manifest.source_groups_json.exists());
+        assert!(manifest.events_json.exists());
+        assert!(manifest.manifest_json.exists());
+        assert_eq!(manifest.citation_count, 1);
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

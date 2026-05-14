@@ -54,6 +54,8 @@ pub enum Command {
     FridayMetasearchJson { query: String },
     /// Execute Friday answer search and export a markdown research report
     FridayResearchReport { query: String },
+    /// Execute Friday research and persist report, citations, source groups, and events
+    FridayResearchReportSave { output_dir: String, query: String },
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -274,6 +276,17 @@ impl Args {
                 }
                 Command::FridayResearchReport {
                     query: args[2..].join(" "),
+                }
+            }
+            "--friday-research-report-save" | "--friday-report-save" => {
+                if args.len() <= 3 {
+                    eprintln!("Error: output directory and query required");
+                    eprintln!("Usage: flow --friday-research-report-save <output-dir> <query>");
+                    std::process::exit(1);
+                }
+                Command::FridayResearchReportSave {
+                    output_dir: args[2].clone(),
+                    query: args[3..].join(" "),
                 }
             }
             "--accessibility-diagnostics" | "--accessibility" => {
