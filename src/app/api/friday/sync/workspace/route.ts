@@ -1,5 +1,6 @@
 import {
   getFridayWorkspaceSnapshot,
+  parseStoredFridayWorkspaceSnapshot,
   requireFridayWorkspaceSyncSession,
   saveFridayWorkspaceSnapshot,
   validateFridayWorkspaceSyncPayload,
@@ -17,10 +18,18 @@ export async function GET(request: Request) {
     return Response.json({ ok: true, snapshot: null });
   }
 
+  const parsedSnapshot = parseStoredFridayWorkspaceSnapshot(snapshot.payload);
+  if (!parsedSnapshot.ok) {
+    return Response.json(
+      { ok: false, message: parsedSnapshot.message },
+      { status: 409 },
+    );
+  }
+
   return Response.json({
     ok: true,
     snapshot: {
-      payload: JSON.parse(snapshot.payload) as unknown,
+      payload: parsedSnapshot.payload,
       updatedAt: snapshot.updatedAt.toISOString(),
       version: snapshot.version,
     },
@@ -46,4 +55,3 @@ export async function PUT(request: Request) {
     updatedAt,
   });
 }
-
