@@ -24,6 +24,10 @@ type WorkspaceSyncOptions = {
   timeoutMs?: number;
 };
 
+function getBrowserLocalStorage() {
+  return typeof window === "undefined" ? null : window.localStorage;
+}
+
 function createSyncFailure(error: unknown, fallback: string): FridayWorkspaceCloudSyncResult {
   const message =
     error instanceof DOMException && error.name === "AbortError"
@@ -41,16 +45,25 @@ function createSyncFailure(error: unknown, fallback: string): FridayWorkspaceClo
 export async function pushFridayWorkspaceSnapshot({
   fetcher = fetch,
   route = "/api/friday/sync/workspace",
-  storage = window.localStorage,
+  storage,
   timeoutMs = 15_000,
 }: {
-  storage?: Storage;
+  storage?: Storage | null;
 } & WorkspaceSyncOptions = {}): Promise<FridayWorkspaceCloudSyncResult> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let timeout: ReturnType<typeof setTimeout> | null = null;
 
   try {
-    const backup = buildFridayWorkspaceBackup((key) => storage.getItem(key));
+    const resolvedStorage = storage === undefined ? getBrowserLocalStorage() : storage;
+    if (!resolvedStorage) {
+      return {
+        ok: false,
+        message: "Local workspace storage is unavailable in this environment.",
+      };
+    }
+
+    const controller = new AbortController();
+    timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const backup = buildFridayWorkspaceBackup((key) => resolvedStorage.getItem(key));
     const response = await fetcher(route, {
       body: JSON.stringify(backup),
       headers: { "content-type": "application/json" },
@@ -80,7 +93,7 @@ export async function pushFridayWorkspaceSnapshot({
   } catch (error) {
     return createSyncFailure(error, "Friday workspace sync upload failed.");
   } finally {
-    clearTimeout(timeout);
+    if (timeout) clearTimeout(timeout);
   }
 }
 

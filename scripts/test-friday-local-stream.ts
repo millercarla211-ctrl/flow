@@ -451,6 +451,14 @@ const cloudSyncStorage = createTestStorage({
   "friday.projects.v1": JSON.stringify([{ id: "project_test", name: "Friday OS" }]),
 });
 
+const unavailableStoragePush = await pushFridayWorkspaceSnapshot({
+  storage: null,
+});
+
+if (unavailableStoragePush.ok || !unavailableStoragePush.message.includes("storage is unavailable")) {
+  throw new Error("Friday workspace push assumed browser storage outside the app shell.");
+}
+
 const pushedWorkspace = await pushFridayWorkspaceSnapshot({
   fetcher: async (_input, init) => {
     if (init?.method !== "PUT") {
