@@ -5,7 +5,7 @@ use crate::writing::HarperGrammarChecker;
 use super::types::{
     AppContext, DictionaryEntry, ExpandedSnippet, SnippetEntry, StylePreset, StyleRule,
     TextCommandRequest, TextCommandResult, ToneStyle, TypingAssistRequest, TypingAssistResult,
-    WritingDomain,
+    WritingChangeExplanation, WritingChangeKind, WritingDomain,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,34 +23,83 @@ impl FlowTypingAssistant {
     pub fn process(&self, request: TypingAssistRequest) -> Result<TypingAssistResult> {
         let original_text = request.text.clone();
         let mut notes = Vec::new();
+        let mut explanations = Vec::new();
 
         let mut working = normalize_whitespace(&request.text);
+        push_explanation(
+            &mut explanations,
+            WritingChangeKind::Formatting,
+            &request.text,
+            &working,
+            "Collapsed extra whitespace before rewriting.",
+        );
 
         let expanded_snippets = if request.expand_snippets {
+            let before = working.clone();
             let (expanded, expansions) = expand_snippets(&working, &request.snippets);
             working = expanded;
             if !expansions.is_empty() {
                 notes.push("Expanded personal or shared snippets.".to_string());
+                push_explanation(
+                    &mut explanations,
+                    WritingChangeKind::Snippet,
+                    &before,
+                    &working,
+                    "Expanded matching personal or shared snippets.",
+                );
             }
             expansions
         } else {
             Vec::new()
         };
 
+        let before_dictionary = working.clone();
         let (normalized, terms) = normalize_dictionary_terms(&working, &request.dictionary);
         working = normalized;
         let normalized_terms = terms;
         if !normalized_terms.is_empty() {
             notes.push("Normalized dictionary and team terminology.".to_string());
+            push_explanation(
+                &mut explanations,
+                WritingChangeKind::Terminology,
+                &before_dictionary,
+                &working,
+                "Normalized dictionary and team terminology.",
+            );
         }
 
         if request.auto_correct && request.app_context.domain != WritingDomain::Code {
+            let before = working.clone();
             working = self.grammar.correct(&working)?;
             notes.push("Applied local grammar correction.".to_string());
+            push_explanation(
+                &mut explanations,
+                WritingChangeKind::Grammar,
+                &before,
+                &working,
+                "Applied local grammar correction.",
+            );
         }
 
+        let before_styles = working.clone();
         working = apply_styles(working, &request.app_context, &request.styles, &mut notes);
+        push_explanation(
+            &mut explanations,
+            WritingChangeKind::Style,
+            &before_styles,
+            &working,
+            "Applied matching style presets for the current writing domain.",
+        );
+
+        let before_domain = working.clone();
         working = apply_domain_touches(working, &request.app_context, &mut notes);
+        push_explanation(
+            &mut explanations,
+            WritingChangeKind::Domain,
+            &before_domain,
+            &working,
+            "Applied domain-specific writing rules.",
+        );
 
         let issues = if request.app_context.domain == WritingDomain::Code {
             Vec::new()
@@ -64,6 +113,7 @@ impl FlowTypingAssistant {
             issues,
             expanded_snippets,
             normalized_terms,
+            explanations,
             notes,
         })
     }
@@ -73,21 +123,41 @@ impl FlowTypingAssistant {
         let original_text = request.selected_text.clone();
         let mut notes = Vec::new();
 
-        let transformed_text = if command.contains("professional") {
+        let (transformed_text, explanation_kind, rationale) = if command.contains("professional") {
             notes.push("Applied professional rewrite heuristics.".to_string());
-            professionalize(&request.selected_text)
+            (
+                professionalize(&request.selected_text),
+                WritingChangeKind::Tone,
+                "Adjusted the selection toward a more professional tone.",
+            )
         } else if command.contains("casual") || command.contains("friendlier") {
             notes.push("Applied casual rewrite heuristics.".to_string());
-            make_casual(&request.selected_text)
+            (
+                make_casual(&request.selected_text),
+                WritingChangeKind::Tone,
+                "Adjusted the selection toward a more casual tone.",
+            )
         } else if command.contains("concise") || command.contains("shorter") {
             notes.push("Applied concise rewrite heuristics.".to_string());
-            make_concise(&request.selected_text)
+            (
+                make_concise(&request.selected_text),
+                WritingChangeKind::Concision,
+                "Removed filler words and tightened the sentence.",
+            )
         } else if command.contains("bullet") || command.contains("list") {
             notes.push("Converted text into a bullet-style layout.".to_string());
-            bullets_from_sentences(&request.selected_text)
+            (
+                bullets_from_sentences(&request.selected_text),
+                WritingChangeKind::Formatting,
+                "Converted sentence-style text into a scannable list.",
+            )
         } else if command.contains("grammar") || command.contains("fix") {
             notes.push("Applied grammar correction.".to_string());
-            self.grammar.correct(&request.selected_text)?
+            (
+                self.grammar.correct(&request.selected_text)?,
+                WritingChangeKind::Grammar,
+                "Applied local grammar correction to the selection.",
+            )
         } else {
             let fallback = apply_styles(
                 request.selected_text.clone(),
@@ -96,13 +166,26 @@ impl FlowTypingAssistant {
                 &mut notes,
             );
             notes.push("Used style presets as the fallback command handler.".to_string());
-            fallback
+            (
+                fallback,
+                WritingChangeKind::Style,
+                "Applied matching style presets as the command fallback.",
+            )
         };
+        let mut explanations = Vec::new();
+        push_explanation(
+            &mut explanations,
+            explanation_kind,
+            &request.selected_text,
+            &transformed_text,
+            rationale,
+        );
 
         Ok(TextCommandResult {
             original_text,
             transformed_text,
             applied_command: request.command,
+            explanations,
             notes,
         })
     }
@@ -188,6 +271,25 @@ fn replace_case_insensitive(target: &mut String, needle: &str, replacement: &str
     rebuilt.push_str(&target[index..]);
     *target = rebuilt;
     changed
+}
+
+fn push_explanation(
+    explanations: &mut Vec<WritingChangeExplanation>,
+    kind: WritingChangeKind,
+    before: &str,
+    after: &str,
+    rationale: &str,
+) {
+    if before == after {
+        return;
+    }
+
+    explanations.push(WritingChangeExplanation {
+        kind,
+        before: before.to_string(),
+        after: after.to_string(),
+        rationale: rationale.to_string(),
+    });
 }
 
 fn apply_styles(
@@ -410,5 +512,40 @@ mod tests {
 
         assert!(result.final_text.contains("221B Baker Street"));
         assert!(result.final_text.contains("Supabase"));
+        assert!(
+            result
+                .explanations
+                .iter()
+                .any(|explanation| explanation.kind == WritingChangeKind::Snippet)
+        );
+        assert!(
+            result
+                .explanations
+                .iter()
+                .any(|explanation| explanation.kind == WritingChangeKind::Terminology)
+        );
+    }
+
+    #[test]
+    fn text_commands_return_structured_explanations() {
+        let assistant = FlowTypingAssistant::new();
+        let result = assistant
+            .execute_command(TextCommandRequest {
+                selected_text: "This is actually very long".to_string(),
+                command: "make concise".to_string(),
+                app_context: context(WritingDomain::General),
+                styles: Vec::new(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            result
+                .explanations
+                .first()
+                .map(|explanation| explanation.kind),
+            Some(WritingChangeKind::Concision)
+        );
+        assert_eq!(result.explanations[0].before, "This is actually very long");
+        assert!(result.transformed_text.contains("This is long"));
     }
 }

@@ -181,6 +181,49 @@ pub struct ExpandedSnippet {
 #[derive(
     Debug,
     Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    SerdeSerialize,
+    SerdeDeserialize,
+    Archive,
+    RkyvSerialize,
+    RkyvDeserialize,
+)]
+pub enum WritingChangeKind {
+    Grammar,
+    Clarity,
+    Tone,
+    Concision,
+    Style,
+    Terminology,
+    Snippet,
+    Domain,
+    Formatting,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    SerdeSerialize,
+    SerdeDeserialize,
+    Archive,
+    RkyvSerialize,
+    RkyvDeserialize,
+)]
+pub struct WritingChangeExplanation {
+    pub kind: WritingChangeKind,
+    pub before: String,
+    pub after: String,
+    pub rationale: String,
+}
+
+#[derive(
+    Debug,
+    Clone,
     PartialEq,
     Eq,
     SerdeSerialize,
@@ -216,6 +259,8 @@ pub struct TypingAssistResult {
     pub issues: Vec<GrammarIssue>,
     pub expanded_snippets: Vec<ExpandedSnippet>,
     pub normalized_terms: Vec<String>,
+    #[serde(default)]
+    pub explanations: Vec<WritingChangeExplanation>,
     pub notes: Vec<String>,
 }
 
@@ -295,6 +340,8 @@ pub struct TextCommandResult {
     pub original_text: String,
     pub transformed_text: String,
     pub applied_command: String,
+    #[serde(default)]
+    pub explanations: Vec<WritingChangeExplanation>,
     pub notes: Vec<String>,
 }
 

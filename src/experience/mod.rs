@@ -138,7 +138,7 @@ pub use types::{
     AppContext, AppUsageStat, DictationAssistRequest, DictationAssistResult, DictionaryEntry,
     ExpandedSnippet, FlowWorkspaceProfile, SnippetEntry, StylePreset, StyleRule,
     TextCommandRequest, TextCommandResult, ToneStyle, TypingAssistRequest, TypingAssistResult,
-    UsageDashboardSnapshot, WritingDomain,
+    UsageDashboardSnapshot, WritingChangeExplanation, WritingChangeKind, WritingDomain,
 };
 pub use typing::FlowTypingAssistant;
 pub use wake::{FlowWakeRuntime, ManagedWakeRuntime, WakeRuntimeState};

@@ -127,6 +127,7 @@ impl FlowSessionRuntime {
                 issues: Vec::new(),
                 expanded_snippets: Vec::new(),
                 normalized_terms: Vec::new(),
+                explanations: Vec::new(),
                 notes: vec![format!("Typing assistance failed: {error}")],
             });
         let proofing = context.proofing.inspect(&typing.final_text);
@@ -163,6 +164,7 @@ impl FlowSessionRuntime {
                 original_text: String::new(),
                 transformed_text: String::new(),
                 applied_command: "grammar".to_string(),
+                explanations: Vec::new(),
                 notes: vec![format!("Command rewrite failed: {error}")],
             });
 

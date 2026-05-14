@@ -53,9 +53,9 @@ pub fn active_completion_set() -> CompletionSet {
             "rewrite-explanations",
             "Deeper grammar, clarity, and rewrite explanations",
             30,
-            CompletionItemStatus::Planned,
-            "Harper-backed grammar and baseline rewrite paths exist, but explanations are still shallow",
-            "add explanation-aware rewrite plans that separate grammar, clarity, tone, and structure changes",
+            CompletionItemStatus::Done,
+            "Typing and text-command results now expose structured change explanations with grammar, tone, concision, terminology, snippet, domain, style, and formatting categories",
+            "keep explanation contracts stable while adding citation, fact-check, and academic execution paths",
         ),
         item(
             "citation-factcheck",

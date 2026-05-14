@@ -72,7 +72,7 @@ pub use experience::{
     FlowHostDictationRequest, FlowHostPauseController, FlowHostPauseSnapshot, FlowTypingAssistant,
     FlowWorkspaceProfile, SnippetEntry, StylePreset, StyleRule, TextCommandRequest,
     TextCommandResult, ToneStyle, TypingAssistRequest, TypingAssistResult, UsageDashboardSnapshot,
-    WritingDomain,
+    WritingChangeExplanation, WritingChangeKind, WritingDomain,
 };
 pub use forge_bridge::{ForgeAssetKind, ForgeBridge, ForgeRemoteKind, ForgeSyncPlan};
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
