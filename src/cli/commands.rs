@@ -19,7 +19,10 @@ use crate::competitive::default_competitive_scorecard;
 use crate::config::FlowIntegrationTarget;
 use crate::embed::{FlowEmbeddingRegistry, HostSurface};
 use crate::experience::{FlowAutomationBridge, NativeSelectionBridge, OperatingSystemFamily};
-use crate::models::{GlmOcr, KokoroTTS, LocalLlm, LocalSttEngine};
+use crate::models::{
+    FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
+    GenerationMetrics, GlmOcr, KokoroTTS, LocalLlm, LocalSttEngine,
+};
 use crate::runtime::{
     BrokerRequest, ExecutionPlan, Modality, RuntimeBroker, wake_command_definitions,
 };
@@ -152,6 +155,10 @@ pub async fn execute(command: Command) -> Result<()> {
 
         Command::ToolAgent { tools, request } => {
             run_tool_agent(tools.as_deref(), &request).await?;
+        }
+
+        Command::VerifyLocalModels => {
+            verify_local_models().await?;
         }
 
         Command::Ocr { image, prompt } => {
@@ -309,6 +316,7 @@ fn print_interactive_help() {
     println!("  --ui-model-candidates    Show ranked local UI model options");
     println!("  --tool-model-candidates  Show ranked local tool-calling model options");
     println!("  --model-roles            Show Flow's local model routing policy");
+    println!("  --verify-local-models    Run a bounded local model verification pass");
     println!("  --uigen <out.html> <prompt>");
     println!("                           Generate a single-file UI with the default UI model");
     println!("  --uigen-model <key> <out.html> <prompt>");
@@ -354,6 +362,7 @@ fn print_interactive_help() {
     println!("  cargo run --release --bin flow -- --ui-model-candidates");
     println!("  cargo run --release --bin flow -- --tool-model-candidates");
     println!("  cargo run --release --bin flow -- --model-roles");
+    println!("  cargo run --release --bin flow -- --verify-local-models");
     println!("  cargo run --release --bin flow -- --models ui");
     println!("  cargo run --release --bin flow -- --models vlm");
     println!(
@@ -766,6 +775,349 @@ fn read_tool_agent_tools(path: &str) -> Result<String> {
     serde_json::to_string(&value).context("Failed to compact tool schema JSON")
 }
 
+#[derive(Debug)]
+struct LocalModelProbeResult {
+    role: &'static str,
+    model_key: &'static str,
+    best_for: &'static str,
+    path: String,
+    local_state: &'static str,
+    status: String,
+    load_time_ms: Option<u128>,
+    metrics: Option<GenerationMetrics>,
+    signal: String,
+    output: String,
+}
+
+async fn verify_local_models() -> Result<()> {
+    println!("Flow Local Model Verification");
+    println!("=============================");
+    println!("CPU-first role check for this Windows machine. Keep prompts short and bounded.");
+    println!();
+
+    let mut results = Vec::new();
+
+    let result = verify_helper_model().await;
+    print_local_model_probe(&result);
+    flush_stdout();
+    results.push(result);
+
+    let result = verify_tool_agent_model().await;
+    print_local_model_probe(&result);
+    flush_stdout();
+    results.push(result);
+
+    let result = verify_coding_model().await;
+    print_local_model_probe(&result);
+    flush_stdout();
+    results.push(result);
+
+    let result = verify_quality_chat_model().await;
+    print_local_model_probe(&result);
+    flush_stdout();
+    results.push(result);
+
+    print_slow_backup_state();
+    print_local_model_ranking(&results);
+
+    Ok(())
+}
+
+async fn verify_helper_model() -> LocalModelProbeResult {
+    let llm = LocalLlm::for_helper();
+    let prompt = "Rewrite this as one clean professional sentence: um i need like the final file now and make it professional";
+    let best_for = "fast prompt enhancer, text cleanup, tiny rewrites, labels, conversion";
+
+    verify_model_probe(
+        "helper",
+        FLOW_HELPER_MODEL_KEY,
+        best_for,
+        llm,
+        "sentence cleanup",
+        |output| {
+            if output.len() <= 160 && !output.to_ascii_lowercase().contains("um") {
+                "concise-cleanup=pass".to_string()
+            } else {
+                "concise-cleanup=weak".to_string()
+            }
+        },
+        |llm| Box::pin(async move { llm.generate_helper_with_metrics(prompt).await }),
+    )
+    .await
+}
+
+async fn verify_tool_agent_model() -> LocalModelProbeResult {
+    let llm = LocalLlm::for_tool_agent();
+    let tools_json = r#"[{"name":"get_weather","description":"Get weather for a location and date.","parameters":{"type":"object","properties":{"location":{"type":"string"},"date":{"type":"string"}},"required":["location","date"]}}]"#;
+    let request = "weather in Dhaka tomorrow";
+    let best_for = "strict JSON tool routing and function-call decisions";
+
+    verify_model_probe(
+        "tool-agent",
+        FLOW_TOOL_MODEL_KEY,
+        best_for,
+        llm,
+        "tool JSON",
+        |output| {
+            let json_state = if output.trim_start().starts_with('[') {
+                match serde_json::from_str::<Value>(output) {
+                    Ok(_) => "valid",
+                    Err(_) => "invalid",
+                }
+            } else {
+                "not-json"
+            };
+            format!("json={json_state}")
+        },
+        |llm| {
+            Box::pin(async move {
+                llm.generate_tool_call_with_metrics(tools_json, request)
+                    .await
+            })
+        },
+    )
+    .await
+}
+
+async fn verify_coding_model() -> LocalModelProbeResult {
+    let llm = LocalLlm::for_coding();
+    let prompt = "Return only TypeScript code for a small cx(...classes) helper that joins truthy class names.";
+    let best_for = "coding, shadcn/ui edits, React, TypeScript, Tailwind, Rust";
+
+    verify_model_probe(
+        "coding",
+        FLOW_CODING_MODEL_KEY,
+        best_for,
+        llm,
+        "TypeScript utility",
+        |output| {
+            let has_signature = output.contains("cx") && output.contains("classes");
+            let has_truthy_filter = output.contains("filter(Boolean)") || output.contains("filter");
+            format!(
+                "ts-helper={}",
+                if has_signature && has_truthy_filter {
+                    "pass"
+                } else {
+                    "check"
+                }
+            )
+        },
+        |llm| Box::pin(async move { llm.generate_coding_with_metrics(prompt).await }),
+    )
+    .await
+}
+
+async fn verify_quality_chat_model() -> LocalModelProbeResult {
+    let llm = LocalLlm::for_quality_chat();
+    let prompt =
+        "In two concise sentences, explain when Flow should use local AI versus remote AI.";
+    let best_for = "commercial-safe daily chat, synthesis, short reasoning, normal useful answers";
+
+    verify_model_probe(
+        "quality-chat",
+        FLOW_QUALITY_CHAT_MODEL_KEY,
+        best_for,
+        llm,
+        "daily answer",
+        |output| {
+            let clean = !output.to_ascii_lowercase().contains("<think>");
+            let concise = output.split_whitespace().count() <= 90;
+            format!(
+                "clean-concise={}",
+                if clean && concise { "pass" } else { "check" }
+            )
+        },
+        |llm| Box::pin(async move { llm.generate_quality_chat_with_metrics(prompt).await }),
+    )
+    .await
+}
+
+async fn verify_model_probe<F, G>(
+    role: &'static str,
+    model_key: &'static str,
+    best_for: &'static str,
+    llm: LocalLlm,
+    task_label: &'static str,
+    signal_fn: F,
+    generate_fn: G,
+) -> LocalModelProbeResult
+where
+    F: Fn(&str) -> String,
+    G: for<'a> FnOnce(
+        &'a LocalLlm,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<(String, GenerationMetrics)>> + 'a>,
+    >,
+{
+    let path = llm.model_path().to_string();
+    if !Path::new(&path).exists() {
+        return LocalModelProbeResult {
+            role,
+            model_key,
+            best_for,
+            path,
+            local_state: "missing",
+            status: "skipped".to_string(),
+            load_time_ms: None,
+            metrics: None,
+            signal: "missing-local-file".to_string(),
+            output: format!(
+                "Install with: cargo run --release --bin flow -- --install-model {model_key}"
+            ),
+        };
+    }
+
+    let load_start = Instant::now();
+    if let Err(error) = llm.initialize().await {
+        return LocalModelProbeResult {
+            role,
+            model_key,
+            best_for,
+            path,
+            local_state: "present",
+            status: "load-failed".to_string(),
+            load_time_ms: Some(load_start.elapsed().as_millis()),
+            metrics: None,
+            signal: task_label.to_string(),
+            output: error.to_string(),
+        };
+    }
+    let load_time_ms = load_start.elapsed().as_millis();
+
+    match generate_fn(&llm).await {
+        Ok((output, metrics)) => {
+            let trimmed_output = output.trim();
+            let empty_output = trimmed_output.is_empty();
+            let signal = if empty_output {
+                "empty-output=fail".to_string()
+            } else {
+                signal_fn(trimmed_output)
+            };
+            LocalModelProbeResult {
+                role,
+                model_key,
+                best_for,
+                path,
+                local_state: "present",
+                status: if empty_output { "empty-output" } else { "ok" }.to_string(),
+                load_time_ms: Some(load_time_ms),
+                metrics: Some(metrics),
+                signal,
+                output,
+            }
+        }
+        Err(error) => LocalModelProbeResult {
+            role,
+            model_key,
+            best_for,
+            path,
+            local_state: "present",
+            status: "generation-failed".to_string(),
+            load_time_ms: Some(load_time_ms),
+            metrics: None,
+            signal: task_label.to_string(),
+            output: error.to_string(),
+        },
+    }
+}
+
+fn print_local_model_probe(result: &LocalModelProbeResult) {
+    println!("{} - {}", result.role, result.model_key);
+    println!("  best_for={}", result.best_for);
+    println!("  path={}", result.path);
+    println!("  local={}", result.local_state);
+    println!("  status={}", result.status);
+
+    if let Some(load_time_ms) = result.load_time_ms {
+        println!("  load={:.2}s", load_time_ms as f64 / 1000.0);
+    }
+
+    if let Some(metrics) = &result.metrics {
+        println!(
+            "  tokens: prompt={} generated={} total={:.2}s gen={:.2}s speed={:.2} tok/s",
+            metrics.prompt_tokens,
+            metrics.generated_tokens,
+            metrics.total_time_ms as f64 / 1000.0,
+            metrics.generation_time_ms as f64 / 1000.0,
+            metrics.tokens_per_second
+        );
+    }
+
+    println!("  signal={}", result.signal);
+    println!("  sample={}", one_line_sample(&result.output, 260));
+    println!();
+}
+
+fn print_slow_backup_state() {
+    let state = if Path::new(QWEN35_9B_MODEL_PATH).exists() {
+        "present"
+    } else {
+        "missing"
+    };
+
+    println!("slow-backup - {QWEN35_9B_MODEL_KEY}");
+    println!("  best_for=last-resort coding quality when latency is acceptable");
+    println!("  path={QWEN35_9B_MODEL_PATH}");
+    println!("  local={state}");
+    println!("  status=not-run-by-default");
+    println!(
+        "  reason=9B Q4_K_M is useful as backup, but too slow for every local verification pass on this OS."
+    );
+    println!();
+}
+
+fn print_local_model_ranking(results: &[LocalModelProbeResult]) {
+    println!("Recommended Local Routing");
+    println!("-------------------------");
+    let helper_ok = results
+        .iter()
+        .any(|result| result.role == "helper" && result.status == "ok");
+    if helper_ok {
+        println!("1. fastest helper: {FLOW_HELPER_MODEL_KEY}");
+    } else {
+        println!(
+            "1. helper: {FLOW_QUALITY_CHAT_MODEL_KEY} until {FLOW_HELPER_MODEL_KEY} passes visible-output verification"
+        );
+    }
+    println!("2. tool calling: {FLOW_TOOL_MODEL_KEY}");
+    println!("3. coding/shadcn/Tailwind edits: {FLOW_CODING_MODEL_KEY}");
+    println!("4. daily smart chat: {FLOW_QUALITY_CHAT_MODEL_KEY}");
+    println!("5. slow backup: {QWEN35_9B_MODEL_KEY}");
+    println!();
+
+    let fastest = results
+        .iter()
+        .filter_map(|result| {
+            if result.status != "ok" {
+                return None;
+            }
+            result
+                .metrics
+                .as_ref()
+                .map(|metrics| (result.model_key, metrics.tokens_per_second, result.role))
+        })
+        .max_by(|left, right| left.1.total_cmp(&right.1));
+
+    if let Some((model_key, speed, role)) = fastest {
+        println!("Fastest successful measured role: {role} / {model_key} ({speed:.2} tok/s)");
+    }
+}
+
+fn one_line_sample(text: &str, max_chars: usize) -> String {
+    let compact = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.chars().count() <= max_chars {
+        return compact;
+    }
+
+    let mut sample = compact.chars().take(max_chars).collect::<String>();
+    sample.push_str("...");
+    sample
+}
+
+fn flush_stdout() {
+    let _ = std::io::stdout().flush();
+}
+
 fn print_model_roles() {
     println!("Flow Local Model Roles");
     println!("======================");
@@ -783,9 +1135,11 @@ fn print_model_roles() {
     }
 
     println!("Commands:");
+    println!("  cargo run --release --bin flow -- --verify-local-models");
     println!("  cargo run --release --bin flow -- --chat qwen3-0.6b");
     println!("  cargo run --release --bin flow -- --tool-agent \"choose a tool for this request\"");
     println!("  cargo run --release --bin flow -- --chat qwen35-4b-revised-q4km");
+    println!("  cargo run --release --bin flow -- --chat ministral3-3b-instruct-q4km");
     println!("  cargo run --release --bin flow -- --chat qwen35-9b-q4km");
 }
 

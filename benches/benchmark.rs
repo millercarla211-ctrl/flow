@@ -1,6 +1,7 @@
 // Performance benchmarks for Flow
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
 
 fn benchmark_mel_spectrogram(c: &mut Criterion) {
     // TODO: Add mel spectrogram benchmark

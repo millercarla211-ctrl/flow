@@ -445,7 +445,10 @@ mod tests {
         let runtime = FlowLocalRuntime::for_device_profile(low_end_profile()).unwrap();
         assert_eq!(runtime.default_text_model_key(), Some("qwen3-0.6b"));
         assert_eq!(runtime.coding_model_key(), "qwen35-4b-revised-q4km");
-        assert_eq!(runtime.quality_chat_model_key(), "qwen35-4b-revised-q4km");
+        assert_eq!(
+            runtime.quality_chat_model_key(),
+            "ministral3-3b-instruct-q4km"
+        );
         assert_eq!(runtime.tool_agent_model_key(), "xlam2-3b-fc-r-q4km");
         assert_eq!(runtime.helper_model_key(), "qwen3-0.6b");
         assert_eq!(

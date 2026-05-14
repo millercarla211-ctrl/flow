@@ -36,9 +36,10 @@ Flow is being designed to beat the combination of Wispr Flow and Grammarly while
 
 Flow uses a local role policy on this Windows machine:
 
-- `qwen3-0.6b` is the instant helper. Use it for prompt cleanup, text cleanup, tiny rewrites, text conversion, labels, and low-latency support tasks.
+- `qwen3-0.6b` is the verified instant helper for prompt cleanup, text cleanup, tiny rewrites, text conversion, labels, and low-latency support tasks.
 - `xlam2-3b-fc-r-q4km` is the dedicated local tool-agent research model. Use it for strict JSON tool-routing/function-call decisions; because it is CC-BY-NC-4.0, keep commercial defaults on Apache/MIT candidates such as Ministral or Granite.
-- `qwen35-4b-revised-q4km` is the daily smart model. Use it for DX UI registry work, shadcn-style component edits, React/TypeScript/Tailwind prompts, Rust edits, normal useful answers, and general coding help.
+- `qwen35-4b-revised-q4km` is the daily coding/UI-edit model. Use it for DX UI registry work, shadcn-style component edits, React/TypeScript/Tailwind prompts, Rust edits, and general coding help.
+- `ministral3-3b-instruct-q4km` is the commercial-safe daily smart chat model. Use it for normal useful answers, synthesis, short reasoning, and low-latency local assistant responses.
 - `qwen35-9b-q4km` is the slow backup when the 4B model fails and latency is acceptable.
 - `gemma4-e4b-frontend-text-q4km` is no longer a daily quality-chat role on this OS. Keep Gemma for UI-generation, vision, and benchmark experiments only.
 
@@ -47,13 +48,16 @@ Fast local model role commands:
 ```powershell
 cargo run --release --bin flow -- --model-roles
 cargo run --release --bin flow -- --tool-model-candidates
+cargo run --release --bin flow -- --verify-local-models
 cargo run --release --bin flow -- --install-model qwen35-4b-revised-q4km
+cargo run --release --bin flow -- --install-model ministral3-3b-instruct-q4km
 cargo run --release --bin flow -- --install-model xlam2-3b-fc-r-q4km
 cargo run --release --bin flow -- --install-model qwen3-0.6b
 cargo run --release --bin flow -- --install-model qwen35-9b-q4km
 cargo run --release --bin flow -- --models chat
 cargo run --release --bin flow -- --plan chat qwen35-4b-revised-q4km
 cargo run --release --bin flow -- --chat qwen35-4b-revised-q4km
+cargo run --release --bin flow -- --chat ministral3-3b-instruct-q4km
 cargo run --release --bin flow -- --tool-agent "choose a tool for this request"
 cargo run --release --bin flow -- --tool-agent-tools examples/tool-agent/weather-tools.json "weather in Dhaka tomorrow"
 cargo run --release --bin flow -- --chat qwen3-0.6b

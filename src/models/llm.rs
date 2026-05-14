@@ -21,7 +21,7 @@ use crate::runtime::{
 const FALLBACK_MODEL_PATH: &str = "models/llm/Qwen3-0.6B-Q4_K_M.gguf";
 const FALLBACK_MODEL_KEY: &str = "qwen3-0.6b";
 pub const FLOW_CODING_MODEL_KEY: &str = "qwen35-4b-revised-q4km";
-pub const FLOW_QUALITY_CHAT_MODEL_KEY: &str = "qwen35-4b-revised-q4km";
+pub const FLOW_QUALITY_CHAT_MODEL_KEY: &str = "ministral3-3b-instruct-q4km";
 pub const FLOW_TOOL_MODEL_KEY: &str = "xlam2-3b-fc-r-q4km";
 pub const FLOW_HELPER_MODEL_KEY: &str = "qwen3-0.6b";
 
@@ -86,9 +86,9 @@ For code requests, prefer complete usable snippets and avoid markdown fences unl
 ";
 
 const QUALITY_CHAT_SYSTEM_PROMPT: &str = "\
-You are Flow's daily smart model for thoughtful everyday answers, coding help, UI edits, synthesis, and calm explanations.
+You are Flow's daily smart model for thoughtful everyday answers, synthesis, short reasoning, and calm explanations.
 Answer directly and helpfully. Do not reveal hidden reasoning or chain-of-thought.
-Use this mode for normal assistant work. Do not use it for strict JSON tool routing; Flow has a dedicated tool router for that.
+Use this mode for commercial-safe daily assistant work. Do not use it for strict JSON tool routing; Flow has a dedicated tool router for that.
 ";
 
 const TOOL_AGENT_SYSTEM_PROMPT: &str = "\
@@ -162,6 +162,7 @@ enum LocalLlmPromptFormat {
     ChatMl,
     Gemma,
     Llama3,
+    MistralV7Tekken,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -223,11 +224,11 @@ impl LocalLlmConfig {
     pub fn quality_chat() -> Self {
         Self {
             system_prompt: QUALITY_CHAT_SYSTEM_PROMPT.to_string(),
-            context_tokens: llm_context_tokens_from_env().unwrap_or(16_384),
-            max_new_tokens: llm_max_tokens_from_env().unwrap_or(2_048),
-            temperature: 0.55,
+            context_tokens: llm_context_tokens_from_env().unwrap_or(8_192),
+            max_new_tokens: llm_max_tokens_from_env().unwrap_or(1_536),
+            temperature: 0.15,
             top_p: 0.9,
-            repeat_penalty: 1.08,
+            repeat_penalty: 1.05,
             ..Self::general()
         }
     }
@@ -327,8 +328,8 @@ pub const FLOW_MODEL_ROLES: &[FlowModelRole] = &[
     FlowModelRole {
         role: "quality-chat",
         model_key: FLOW_QUALITY_CHAT_MODEL_KEY,
-        model_path: "models/llm/Qwen3.5-4B-q4_k_m.gguf",
-        purpose: "daily smart assistant brain for normal chat, coding help, UI edits, and synthesis",
+        model_path: "models/llm/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf",
+        purpose: "commercial-safe daily smart assistant brain for normal chat, synthesis, and low-latency reasoning",
     },
     FlowModelRole {
         role: "tool-agent",
@@ -371,8 +372,9 @@ impl LocalLlm {
 
     pub fn for_quality_chat() -> Self {
         Self::with_config(
-            Self::model_path_for_key(FLOW_QUALITY_CHAT_MODEL_KEY)
-                .unwrap_or_else(|| "models/llm/Qwen3.5-4B-q4_k_m.gguf".to_string()),
+            Self::model_path_for_key(FLOW_QUALITY_CHAT_MODEL_KEY).unwrap_or_else(|| {
+                "models/llm/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf".to_string()
+            }),
             LocalLlmConfig::quality_chat(),
         )
     }
@@ -945,6 +947,9 @@ impl LocalLlm {
             LocalLlmPromptFormat::ChatMl => Self::build_chatml_prompt(history, system_prompt),
             LocalLlmPromptFormat::Gemma => Self::build_gemma_prompt(history, system_prompt),
             LocalLlmPromptFormat::Llama3 => Self::build_llama3_prompt(history, system_prompt),
+            LocalLlmPromptFormat::MistralV7Tekken => {
+                Self::build_mistral_v7_tekken_prompt(history, system_prompt)
+            }
         }
     }
 
@@ -1015,6 +1020,29 @@ impl LocalLlm {
         prompt
     }
 
+    fn build_mistral_v7_tekken_prompt(history: &[Message], system_prompt: &str) -> String {
+        let mut prompt = String::with_capacity(4096);
+        if !system_prompt.trim().is_empty() {
+            prompt.push_str("[SYSTEM_PROMPT]");
+            prompt.push_str(system_prompt.trim());
+            prompt.push_str("[/SYSTEM_PROMPT]");
+        }
+
+        for msg in history {
+            if msg.role == "assistant" {
+                prompt.push_str(&msg.content);
+                prompt.push_str("</s>");
+                continue;
+            }
+
+            prompt.push_str("[INST]");
+            prompt.push_str(msg.content.trim());
+            prompt.push_str("[/INST]");
+        }
+
+        prompt
+    }
+
     fn tool_agent_system_prompt(available_tools_json: &str) -> String {
         let tools = available_tools_json.trim();
         let tools = if tools.is_empty() { "[]" } else { tools };
@@ -1037,6 +1065,8 @@ impl LocalLlm {
             LocalLlmPromptFormat::Gemma
         } else if path.contains("xlam") || path.contains("llama") {
             LocalLlmPromptFormat::Llama3
+        } else if path.contains("ministral") || path.contains("mistral") {
+            LocalLlmPromptFormat::MistralV7Tekken
         } else {
             LocalLlmPromptFormat::ChatMl
         }
@@ -1044,7 +1074,12 @@ impl LocalLlm {
 
     fn uses_qwen_no_think_guard(&self) -> bool {
         let path = self.model_path.to_ascii_lowercase();
-        path.contains("qwen3.5-4b") || path.contains("qwen35-4b")
+        path.contains("qwen3-0.6b") || path.contains("qwen3.5-4b") || path.contains("qwen35-4b")
+    }
+
+    fn uses_mistral_daily_driver_settings(&self) -> bool {
+        let path = self.model_path.to_ascii_lowercase();
+        path.contains("ministral") || path.contains("mistral")
     }
 
     fn prepare_user_prompt(&self, prompt: &str, retry: bool) -> String {
@@ -1075,6 +1110,12 @@ impl LocalLlm {
             config.repeat_penalty = 1.08;
         }
 
+        if self.uses_mistral_daily_driver_settings() {
+            config.temperature = config.temperature.min(0.15);
+            config.top_p = config.top_p.min(0.9);
+            config.repeat_penalty = 1.05;
+        }
+
         config
     }
 
@@ -1083,6 +1124,7 @@ impl LocalLlm {
             LocalLlmPromptFormat::ChatMl => &["<|im_end|>", "<|endoftext|>"],
             LocalLlmPromptFormat::Gemma => &["<end_of_turn>"],
             LocalLlmPromptFormat::Llama3 => &["<|eot_id|>", "<|end_of_text|>"],
+            LocalLlmPromptFormat::MistralV7Tekken => &["</s>", "[INST]", "[/INST]"],
         }
     }
 
@@ -1222,6 +1264,15 @@ mod tests {
     }
 
     #[test]
+    fn qwen3_06b_helper_prompts_are_forced_into_no_think_mode() {
+        let llm = LocalLlm::with_model_path("models/llm/Qwen3-0.6B-Q4_K_M.gguf".to_string());
+        let prompt = llm.prepare_user_prompt("Clean this text.", false);
+
+        assert!(prompt.starts_with("/no_think\n"));
+        assert!(prompt.contains("Do not output <think> tags"));
+    }
+
+    #[test]
     fn gemma_models_use_gemma_turn_format() {
         let llm = LocalLlm::with_model_path("models/llm/gemma-4-E4B-it.Q4_K_M.gguf".to_string());
         let prompt = llm.build_single_turn_prompt("Hello", "System rules");
@@ -1244,6 +1295,19 @@ mod tests {
         );
         assert!(prompt.ends_with("<|start_header_id|>assistant<|end_header_id|>\n\n"));
         assert!(!prompt.contains("<|im_start|>"));
+    }
+
+    #[test]
+    fn ministral_models_use_mistral_v7_tekken_format() {
+        let llm = LocalLlm::with_model_path(
+            "models/llm/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf".to_string(),
+        );
+        let prompt = llm.build_single_turn_prompt("Hello", "System rules");
+
+        assert!(prompt.starts_with("[SYSTEM_PROMPT]System rules[/SYSTEM_PROMPT]"));
+        assert!(prompt.contains("[INST]Hello[/INST]"));
+        assert!(!prompt.contains("<|im_start|>"));
+        assert!(!prompt.contains("<start_of_turn>"));
     }
 
     #[test]

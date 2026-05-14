@@ -46,6 +46,8 @@ pub enum Command {
     ToolModelCandidates,
     /// Show the Flow local model role policy
     ModelRoles,
+    /// Run a local role-by-role model verification pass
+    VerifyLocalModels,
     /// Generate a single-file UI artifact with the default local UI model
     Uigen {
         model: Option<String>,
@@ -189,6 +191,7 @@ impl Args {
             "--ui-model-candidates" => Command::UiModelCandidates,
             "--tool-model-candidates" | "--agent-model-candidates" => Command::ToolModelCandidates,
             "--model-roles" | "--local-model-roles" => Command::ModelRoles,
+            "--verify-local-models" | "--local-model-benchmark" => Command::VerifyLocalModels,
             "--uigen" => {
                 let output = args.get(2).cloned().unwrap_or_else(|| {
                     eprintln!("Error: output path required");

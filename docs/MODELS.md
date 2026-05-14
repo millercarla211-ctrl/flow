@@ -44,11 +44,23 @@ Use `docs/WAKEWORD_TRAINING.md` for the Colab/Linux/WSL training handoff.
 
 - **Fast helper / prompt cleanup / tiny conversions**: `qwen3-0.6b`
 - **Tool-agent / strict function calls**: `xlam2-3b-fc-r-q4km`
-- **Daily smart chat + coding + UI edits**: `qwen35-4b-revised-q4km`
+- **Daily coding + UI edits**: `qwen35-4b-revised-q4km`
+- **Commercial-safe daily smart chat**: `ministral3-3b-instruct-q4km`
 - **Slow backup when 4B fails and latency is acceptable**: `qwen35-9b-q4km`
 
 Use `cargo run --release --bin flow -- --model-roles` to print the active local role map and file readiness.
 Use `cargo run --release --bin flow -- --tool-model-candidates` before downloading more agent models.
+Use `cargo run --release --bin flow -- --verify-local-models` to run the bounded role-by-role local verification pass.
+
+Latest bounded release verification on this Windows CPU-first machine:
+
+| Role | Model | Status | Speed | Verdict |
+| --- | --- | --- | --- | --- |
+| Helper | `qwen3-0.6b` | ok | 17.08 tok/s | fastest verified text helper |
+| Tool agent | `xlam2-3b-fc-r-q4km` | ok, valid JSON | 12.20 tok/s | best installed strict tool router |
+| Coding/UI edits | `qwen35-4b-revised-q4km` | ok | 5.44 tok/s | best installed daily coding model |
+| Daily smart chat | `ministral3-3b-instruct-q4km` | ok | 5.94 tok/s | best installed commercial-safe chat model |
+| Slow backup | `qwen35-9b-q4km` | present, skipped | not measured | backup only when latency is acceptable |
 
 ### Qwen3.5 4B Revised Q4_K_M
 - **Model**: Qwen3.5 4B Revised (Q4_K_M GGUF)
@@ -59,8 +71,20 @@ Use `cargo run --release --bin flow -- --tool-model-candidates` before downloadi
 - **Runtime**: Rust `llama-cpp-2`, CPU-first by default
 - **Install**: `cargo run --release --bin flow -- --install-model qwen35-4b-revised-q4km`
 - **Smoke Test**: `cargo run --release --bin flow -- --chat qwen35-4b-revised-q4km`
-- **Use Case**: Daily local assistant brain for coding, UI edits, shadcn/Tailwind/Next.js work, normal useful answers, and smart chat
+- **Use Case**: Daily local coding/UI-edit brain for shadcn/Tailwind/Next.js work, Rust edits, and general code help
 - **Runtime Policy**: Flow injects `/no_think`, strips hidden-thinking artifacts, and retries once when the cleaned answer is empty
+
+### Ministral 3 3B Instruct Q4_K_M
+- **Model**: Ministral 3 3B Instruct 2512 (Q4_K_M GGUF)
+- **Catalog Key**: `ministral3-3b-instruct-q4km`
+- **Source**: `unsloth/Ministral-3-3B-Instruct-2512-GGUF`
+- **Original**: `mistralai/Ministral-3-3B-Instruct-2512`
+- **Location**: `models/llm/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf`
+- **Runtime**: Rust `llama-cpp-2`, CPU-first by default
+- **Install**: `cargo run --release --bin flow -- --install-model ministral3-3b-instruct-q4km`
+- **Smoke Test**: `cargo run --release --bin flow -- --chat ministral3-3b-instruct-q4km`
+- **Use Case**: Commercial-safe daily smart chat, short reasoning, synthesis, and low-latency assistant responses
+- **Runtime Policy**: Flow uses a Mistral v7/Tekken prompt format and caps daily-driver temperature to `0.15`
 
 ### Qwen3.5 9B Q4_K_M
 - **Model**: Qwen3.5 9B (Q4_K_M GGUF)
@@ -86,7 +110,7 @@ Use `cargo run --release --bin flow -- --tool-model-candidates` before downloadi
 - **License Note**: CC-BY-NC-4.0; keep commercial defaults on Apache/MIT candidates such as Ministral 3 3B or Granite 4.0 H Micro
 
 ### Tool-Calling Runner-Ups
-- `ministral3-3b-instruct-q4km`: best commercial-safe small general agent/chat replacement candidate; Apache-2.0.
+- `ministral3-3b-instruct-q4km`: best commercial-safe small general agent/chat model; Apache-2.0.
 - `granite4-h-micro-q4km`: best tiny commercial-safe structured-output/router candidate; Apache-2.0.
 - `phi4-mini-instruct-q4km`: strong small reasoning backup with documented function-calling format; MIT.
 - `smollm3-3b-q4km`: fast general small fallback; Apache-2.0.
@@ -99,7 +123,8 @@ Use `cargo run --release --bin flow -- --tool-model-candidates` before downloadi
 - **Runtime**: Rust `llama-cpp-2`, CPU-first by default
 - **Install**: `cargo run --release --bin flow -- --install-model qwen3-0.6b`
 - **Smoke Test**: `cargo run --release --bin flow -- --chat qwen3-0.6b`
-- **Use Case**: Fastest helper for Flow prompt enhancement, text cleanup, short conversions, labels, and tiny rewrites
+- **Use Case**: Fastest verified helper for Flow prompt enhancement, text cleanup, short conversions, labels, and tiny rewrites
+- **Current Verification Note**: Flow applies `/no_think` to Qwen 0.6B helper prompts; the latest bounded local verification produced visible cleanup output successfully.
 
 ### Gemma 4 E4B Frontend
 - **Model**: Gemma-4-E4B-Frontend (Q4_K_M GGUF + BF16 mmproj)
