@@ -23,6 +23,14 @@ function nowMs() {
   return typeof performance === "undefined" ? Date.now() : performance.now();
 }
 
+type ProviderResearchOptions = {
+  brief: ResearchBrief;
+  fetcher?: typeof fetch;
+  modelKey?: string;
+  route?: string;
+  timeoutMs?: number;
+};
+
 export function buildProviderResearchPrompt(brief: ResearchBrief) {
   const citations =
     brief.citations
@@ -53,21 +61,17 @@ export function buildProviderResearchPrompt(brief: ResearchBrief) {
 
 export async function synthesizeResearchWithProvider({
   brief,
+  fetcher = fetch,
   modelKey = DEFAULT_FRIDAY_MODEL_KEY,
   route = "/api/friday/chat",
   timeoutMs = 45_000,
-}: {
-  brief: ResearchBrief;
-  modelKey?: string;
-  route?: string;
-  timeoutMs?: number;
-}): Promise<ProviderResearchResult> {
+}: ProviderResearchOptions): Promise<ProviderResearchResult> {
   const startedAt = nowMs();
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(route, {
+    const response = await fetcher(route, {
       method: "POST",
       headers: { "content-type": "application/json" },
       signal: controller.signal,
@@ -146,6 +150,6 @@ export async function synthesizeResearchWithProvider({
       modelKey,
     };
   } finally {
-    window.clearTimeout(timeout);
+    clearTimeout(timeout);
   }
 }

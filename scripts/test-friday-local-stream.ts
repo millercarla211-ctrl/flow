@@ -19,7 +19,10 @@ import {
   checkFridayProviderHealth,
   parseFridayStreamPayload,
 } from "../src/features/friday/utils/providerHealth";
-import { buildProviderResearchPrompt } from "../src/features/friday/utils/providerResearch";
+import {
+  buildProviderResearchPrompt,
+  synthesizeResearchWithProvider,
+} from "../src/features/friday/utils/providerResearch";
 import { checkFridaySyncHealth } from "../src/features/friday/utils/syncHealth";
 import {
   extractHtmlTitle,
@@ -409,6 +412,65 @@ if (
   !providerResearchPrompt.includes("[1] local-note.md")
 ) {
   throw new Error("Friday provider research prompt did not preserve citation boundaries.");
+}
+
+const providerResearchBrief = {
+  id: "research_provider_test",
+  createdAt: timestamp,
+  updatedAt: timestamp,
+  topic: "provider synthesis",
+  sources: ["Local files"],
+  plan: ["Read approved notes.", "Write a sourced brief."],
+  citations: [
+    {
+      id: "source_provider_test",
+      label: "provider-note.md",
+      kind: "note",
+      excerpt: "Provider synthesis must stay inside approved evidence.",
+    },
+  ],
+};
+
+const readyProviderResearch = await synthesizeResearchWithProvider({
+  brief: providerResearchBrief,
+  fetcher: async (_input, init) => {
+    if (init?.method !== "POST") {
+      throw new Error("Friday provider research used the wrong HTTP method.");
+    }
+
+    return new Response(
+      [
+        'data: {"type":"text-start","id":"txt-0"}',
+        'data: {"type":"text-delta","id":"txt-0","delta":"## Answer\\nProvider synthesis ready."}',
+        "data: [DONE]",
+      ].join("\n\n"),
+      { status: 200 },
+    );
+  },
+});
+
+if (!readyProviderResearch.ok || !readyProviderResearch.report.includes("Provider synthesis ready.")) {
+  throw new Error("Friday provider research did not collect streamed synthesis text.");
+}
+
+const emptyProviderResearch = await synthesizeResearchWithProvider({
+  brief: providerResearchBrief,
+  fetcher: async () => new Response("data: [DONE]\n\n", { status: 200 }),
+});
+
+if (emptyProviderResearch.ok || emptyProviderResearch.message !== "Provider synthesis returned no text.") {
+  throw new Error("Friday provider research did not reject empty provider output.");
+}
+
+const failedProviderResearch = await synthesizeResearchWithProvider({
+  brief: providerResearchBrief,
+  fetcher: async () => {
+    throw new Error("research offline");
+  },
+});
+
+if (failedProviderResearch.ok || failedProviderResearch.message !== "research offline") {
+  throw new Error("Friday provider research did not return a controlled fetch failure.");
 }
 
 const blockedLocalUrl = normalizeWebInspectionUrl("http://localhost:8735");
