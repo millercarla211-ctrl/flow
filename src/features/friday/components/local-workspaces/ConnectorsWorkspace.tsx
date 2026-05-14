@@ -17,6 +17,7 @@ import {
 import {
   buildFridayWorkspaceBackup,
   formatFridayWorkspaceBackupSummary,
+  formatFridayWorkspaceBackupStatus,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
   readFridayRestoreCheckpoint,
@@ -71,7 +72,7 @@ export function ConnectorsWorkspace() {
     if (parsed.ok) {
       setRestoreCheckpoint({
         tone: "ready",
-        text: `Available checkpoint: ${formatFridayWorkspaceBackupSummary(parsed.backup)}.`,
+        text: formatFridayWorkspaceBackupStatus(parsed.backup, "Available checkpoint"),
       });
       return;
     }

@@ -46,6 +46,7 @@ import {
   buildFridayWorkspaceBackup,
   FRIDAY_RESTORE_CHECKPOINT_KEY,
   formatFridayWorkspaceBackupSummary,
+  formatFridayWorkspaceBackupStatus,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
   readFridayRestoreCheckpoint,
@@ -834,6 +835,14 @@ if (!parsedBackup.ok || getFridayWorkspaceBackupEntries(parsedBackup.backup).len
 
 if (!parsedBackup.ok || !formatFridayWorkspaceBackupSummary(parsedBackup.backup).includes("Projects: 1")) {
   throw new Error("Friday workspace backup summary did not report project counts.");
+}
+
+if (
+  !parsedBackup.ok ||
+  formatFridayWorkspaceBackupStatus(parsedBackup.backup, "Backup") !==
+    "Backup saved 2026-05-14 00:00:00 UTC: Projects: 1, Connector settings: 3."
+) {
+  throw new Error("Friday workspace backup status did not include stable timestamp and counts.");
 }
 
 if (parsedBackup.ok) {

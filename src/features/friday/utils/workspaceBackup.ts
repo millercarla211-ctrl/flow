@@ -331,6 +331,23 @@ export function formatFridayWorkspaceBackupSummary(backup: FridayWorkspaceBackup
     .join(", ");
 }
 
+export function formatFridayWorkspaceBackupTimestamp(backup: FridayWorkspaceBackup) {
+  const exportedAt = new Date(backup.exportedAt);
+  if (Number.isNaN(exportedAt.getTime())) return backup.exportedAt;
+
+  return exportedAt
+    .toISOString()
+    .replace(/\.\d{3}Z$/, " UTC")
+    .replace("T", " ");
+}
+
+export function formatFridayWorkspaceBackupStatus(
+  backup: FridayWorkspaceBackup,
+  label = "Backup",
+) {
+  return `${label} saved ${formatFridayWorkspaceBackupTimestamp(backup)}: ${formatFridayWorkspaceBackupSummary(backup)}.`;
+}
+
 export function restoreFridayWorkspaceBackupToStorage({
   backup,
   checkpointAt = new Date().toISOString(),
