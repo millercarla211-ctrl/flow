@@ -78,6 +78,8 @@
 - added `flow --browser-extension-smoke` / `--browser-extension-smoke-json` for local-only packaged extension smoke readiness across Chrome, Edge, Firefox, and Safari targets, including dist files, zip/checksum artifacts, browser executable detection, and launch hints
 - added `flow --browser-extension-launch-smoke` / `--browser-extension-launch-smoke-json` with optional `--execute` for bounded temporary-profile launch smoke on installed Chromium-family browser targets
 - advanced Browser And Extension Core to 40/100
+- added `flow --browser-pack-reuse-smoke` / `--browser-pack-reuse-smoke-json` to simulate cached browser packs and verify offline local-only routing through browserpack-local URLs with remote fallback disabled
+- advanced Browser And Extension Core to 60/100
 
 ## 2026-04-26
 

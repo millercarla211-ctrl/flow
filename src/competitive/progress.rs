@@ -69,9 +69,9 @@ pub fn active_completion_set() -> CompletionSet {
             "offline-browser-pack-reuse",
             "Offline browser-pack reuse",
             20,
-            CompletionItemStatus::Planned,
-            "Browser pack manifests exist, but offline reuse after first cache still needs a focused verification path",
-            "simulate a cached pack and prove local inference planning stays offline",
+            CompletionItemStatus::Done,
+            "`flow --browser-pack-reuse-smoke` simulates cached browser packs and verifies local-only execution planning with `remote_allowed=false` and local browserpack URLs",
+            "connect this offline reuse contract to extension storage recovery fixtures",
         ),
         item(
             "browser-pack-recovery",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_browser_extension_core_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Browser And Extension Core");
-        assert_eq!(set.current_score_out_of_100, 40);
+        assert_eq!(set.current_score_out_of_100, 60);
         assert!(
             set.items
                 .iter()

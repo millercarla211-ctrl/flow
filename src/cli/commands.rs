@@ -14,7 +14,7 @@ use crate::audio::{NoiseGateVAD, WakeWordDetector};
 use crate::browser::{
     BrowserExtensionSmokeStatus, BrowserHostFlavor, BrowserTask, FlowBrowserEngine,
     browser_extension_launch_smoke_report, browser_extension_smoke_report,
-    default_browser_pack_catalog,
+    browser_pack_reuse_smoke_report, default_browser_pack_catalog,
 };
 use crate::cli::Command;
 use crate::competitive::active_completion_set;
@@ -458,6 +458,14 @@ pub async fn execute(command: Command) -> Result<()> {
             );
         }
 
+        Command::BrowserPackReuseSmoke => {
+            print_browser_pack_reuse_smoke();
+        }
+
+        Command::BrowserPackReuseSmokeJson => {
+            println!("{}", browser_pack_reuse_smoke_report().to_pretty_json()?);
+        }
+
         Command::FridayOcrSmoke {
             output_dir,
             image,
@@ -765,6 +773,10 @@ fn print_interactive_help() {
     println!("                           Show bounded temporary-profile launch smoke readiness");
     println!("  --browser-extension-launch-smoke-json [--execute]");
     println!("                           Print browser extension launch smoke readiness as JSON");
+    println!("  --browser-pack-reuse-smoke");
+    println!("                           Show offline browser-pack reuse smoke readiness");
+    println!("  --browser-pack-reuse-smoke-json");
+    println!("                           Print offline browser-pack reuse smoke readiness as JSON");
     println!("  --friday-ocr-smoke <dir> [image] [--execute]");
     println!("                           Write a bounded OCR smoke artifact bundle");
     println!("  --friday-ocr-smoke-json <dir> [image] [--execute]");
@@ -1276,6 +1288,52 @@ fn print_browser_extension_launch_smoke(execute: bool) {
             println!("  evidence: {}", item);
         }
         if target.status != BrowserExtensionSmokeStatus::Passed {
+            println!("  next: {}", target.next_action);
+        }
+    }
+}
+
+fn print_browser_pack_reuse_smoke() {
+    let report = browser_pack_reuse_smoke_report();
+
+    println!("Browser Pack Offline Reuse Smoke");
+    println!("================================");
+    println!("{}", report.summary);
+    println!("Score: {} / 100", report.score_out_of_100);
+    println!("Local only: {}", yes_no(report.local_only));
+    println!("Touches network: {}", yes_no(report.touches_network));
+    println!(
+        "Targets: {} passed, {} warning, {} blocking",
+        report.passed_count(),
+        report.warning_count(),
+        report.blocking_count()
+    );
+    println!();
+
+    for target in &report.targets {
+        println!(
+            "- [{}] {} ({})",
+            target.status.label(),
+            target.display_name,
+            target.pack_key
+        );
+        println!("  model: {}", target.model_key);
+        println!("  task: {}", target.task.label());
+        println!("  cache: {}", target.cache_namespace);
+        println!(
+            "  selected_pack={:?}, local_only={}, remote_allowed={}",
+            target.selected_pack_key,
+            yes_no(target.local_only),
+            yes_no(target.remote_allowed)
+        );
+        println!(
+            "  cached files: {}/{} via {:?}",
+            target.files_cached, target.files_total, target.storage_backend
+        );
+        for item in &target.evidence {
+            println!("  evidence: {}", item);
+        }
+        if target.status != crate::browser::BrowserPackReuseStatus::Passed {
             println!("  next: {}", target.next_action);
         }
     }

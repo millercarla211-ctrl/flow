@@ -100,6 +100,10 @@ pub enum Command {
     BrowserExtensionLaunchSmoke { execute: bool },
     /// Print bounded installed-browser extension launch smoke readiness as JSON
     BrowserExtensionLaunchSmokeJson { execute: bool },
+    /// Show offline browser-pack reuse smoke readiness
+    BrowserPackReuseSmoke,
+    /// Print offline browser-pack reuse smoke readiness as JSON
+    BrowserPackReuseSmokeJson,
     /// Run a bounded Friday OCR smoke path and write artifact records
     FridayOcrSmoke {
         output_dir: String,
@@ -480,6 +484,12 @@ impl Args {
                 Command::BrowserExtensionLaunchSmokeJson {
                     execute: args.iter().any(|value| value == "--execute"),
                 }
+            }
+            "--browser-pack-reuse-smoke" | "--friday-browser-pack-reuse-smoke" => {
+                Command::BrowserPackReuseSmoke
+            }
+            "--browser-pack-reuse-smoke-json" | "--friday-browser-pack-reuse-smoke-json" => {
+                Command::BrowserPackReuseSmokeJson
             }
             "--friday-ocr-smoke" => {
                 let (output_dir, image, execute_model) = parse_friday_ocr_smoke_args(&args);

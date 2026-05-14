@@ -5,8 +5,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use flow::FlowLocalRuntime;
 use flow::audio::{AudioLoader, MelSpectrogramConfig, compute_mel_spectrogram};
 use flow::browser::{
-    BrowserExtensionInstallProbe, BrowserExtensionSmokeStatus,
+    BrowserExtensionInstallProbe, BrowserExtensionSmokeStatus, BrowserPackReuseStatus,
     browser_extension_launch_smoke_report_for_root, browser_extension_smoke_report_for_root,
+    browser_pack_reuse_smoke_report,
 };
 use flow::competitive::default_competitive_scorecard;
 use flow::embed::{FlowEmbeddingRegistry, HostSurface, IntegrationMode};
@@ -869,6 +870,27 @@ fn browser_extension_launch_smoke_plans_temporary_profiles() {
         .any(|target| target.status == BrowserExtensionSmokeStatus::Warning));
 
     let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn browser_pack_reuse_smoke_proves_offline_cached_routing() {
+    let report = browser_pack_reuse_smoke_report();
+
+    assert_eq!(report.score_out_of_100, 100);
+    assert_eq!(report.blocking_count(), 0);
+    assert!(report.local_only);
+    assert!(!report.touches_network);
+    assert!(report.targets.len() >= 3);
+    assert!(report.targets.iter().all(|target| {
+        target.status == BrowserPackReuseStatus::Passed
+            && target.local_only
+            && !target.remote_allowed
+            && target.files_cached == target.files_total
+            && target
+                .files
+                .iter()
+                .all(|file| file.local_url.starts_with("https://flow.browserpack.local/"))
+    }));
 }
 
 #[test]
