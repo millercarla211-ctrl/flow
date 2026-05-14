@@ -159,6 +159,85 @@ const DASHBOARD_CARDS: FlowDashboardProductUiBinding["cards"] = [
   },
 ];
 
+const RELEASE_LINKS: FlowDashboardProductUiBinding["releaseLinks"] = [
+  {
+    id: "todo",
+    label: "TODO",
+    kind: "markdown",
+    path: "TODO.md",
+    section: "release-notes",
+    localOnly: true,
+    buttonState: action("release-link-todo", "Open TODO", "open", "TODO.md").buttonState,
+  },
+  {
+    id: "changelog",
+    label: "Changelog",
+    kind: "markdown",
+    path: "CHANGELOG.md",
+    section: "release-notes",
+    localOnly: true,
+    buttonState: action("release-link-changelog", "Open changelog", "open", "CHANGELOG.md")
+      .buttonState,
+  },
+  {
+    id: "route-visuals",
+    label: "Route visuals",
+    kind: "json",
+    path: "tmp/friday-dashboard/route-visuals.json",
+    section: "visual-review",
+    localOnly: true,
+    buttonState: action("release-link-route-visuals", "Open visuals", "open", "tmp/friday-dashboard/route-visuals.json")
+      .buttonState,
+  },
+  {
+    id: "dashboard-history",
+    label: "Dashboard history",
+    kind: "json",
+    path: "tmp/friday-dashboard/dashboard-history.json",
+    section: "export-artifacts",
+    localOnly: true,
+    buttonState: action("release-link-dashboard-history", "Open history", "open", "tmp/friday-dashboard/dashboard-history.json")
+      .buttonState,
+  },
+  {
+    id: "manifest",
+    label: "Manifest",
+    kind: "json",
+    path: "tmp/friday-dashboard/manifest.json",
+    section: "export-artifacts",
+    localOnly: true,
+    buttonState: action("release-link-manifest", "Open manifest", "open", "tmp/friday-dashboard/manifest.json")
+      .buttonState,
+  },
+];
+
+const SCREENSHOT_PROMPTS: FlowDashboardProductUiBinding["screenshotPrompts"] = [
+  {
+    route: "/ask",
+    title: "Ask desktop",
+    viewportId: "desktop",
+    status: "missing",
+    prompt: "Capture the Friday Ask route in the desktop viewport.",
+    captureCommand: "agent-browser screenshot --route /ask --viewport desktop",
+  },
+  {
+    route: "/research",
+    title: "Research desktop",
+    viewportId: "desktop",
+    status: "missing",
+    prompt: "Capture the Friday Research route in the desktop viewport.",
+    captureCommand: "agent-browser screenshot --route /research --viewport desktop",
+  },
+  {
+    route: "/voice",
+    title: "Voice mobile",
+    viewportId: "mobile",
+    status: "missing",
+    prompt: "Capture the Friday Voice route in the mobile viewport.",
+    captureCommand: "agent-browser screenshot --route /voice --viewport mobile",
+  },
+];
+
 export function defaultFridayDashboardBinding(): FlowDashboardProductUiBinding {
   return {
     productName: "Friday",
@@ -167,9 +246,9 @@ export function defaultFridayDashboardBinding(): FlowDashboardProductUiBinding {
     sourceFile: "extensions/flow-webext/src/ui/app.ts",
     exportDir: "tmp/friday-dashboard",
     status: "warning",
-    scoreOutOf100: 40,
+    scoreOutOf100: 60,
     summary:
-      "Render the live dashboard contract and local action button states in the visible browser surface while history, release links, and smoke paths are wired.",
+      "Render the live dashboard contract, action states, history deltas, release links, and screenshot prompts in the visible browser surface.",
     panelJsonCommand: "flow --friday-dashboard-panel-json tmp/friday-dashboard",
     exportCommand: "flow --friday-dashboard-export tmp/friday-dashboard",
     cardCount: DASHBOARD_CARDS.length,
@@ -178,10 +257,19 @@ export function defaultFridayDashboardBinding(): FlowDashboardProductUiBinding {
     warningCount: DASHBOARD_CARDS.filter((card) => card.status === "warning").length,
     blockingCount: DASHBOARD_CARDS.filter((card) => card.status === "blocked").length,
     cards: DASHBOARD_CARDS,
+    history: {
+      recordCount: 8,
+      scoreDeltaFromPrevious: 20,
+      readinessDeltaFromPrevious: 0,
+      latestScoreOutOf100: 60,
+      previousScoreOutOf100: 40,
+      trendLabel: "improving",
+    },
+    releaseLinks: RELEASE_LINKS,
+    screenshotPrompts: SCREENSHOT_PROMPTS,
     nextActions: [
-      "Wire dashboard action buttons to explicit local command handoffs.",
-      "Render history deltas, release-review links, and screenshot prompts in the visible dashboard.",
       "Add a TypeScript smoke path that proves the dashboard section renders from typed data.",
+      "Keep local-only fallback behavior and remove dummy product copy from this dashboard surface.",
     ],
   };
 }

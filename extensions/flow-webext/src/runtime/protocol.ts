@@ -166,6 +166,36 @@ export interface FlowDashboardProductUiCardBinding {
   actions: FlowDashboardProductUiActionBinding[];
 }
 
+export interface FlowDashboardProductUiHistoryBinding {
+  recordCount: number;
+  scoreDeltaFromPrevious: number;
+  readinessDeltaFromPrevious: number;
+  latestScoreOutOf100: number | null;
+  previousScoreOutOf100: number | null;
+  trendLabel: string;
+}
+
+export type FlowDashboardScreenshotStatus = "captured" | "missing" | "metadata-missing";
+
+export interface FlowDashboardProductUiScreenshotPrompt {
+  route: string;
+  title: string;
+  viewportId: string;
+  status: FlowDashboardScreenshotStatus;
+  prompt: string;
+  captureCommand: string;
+}
+
+export interface FlowDashboardProductUiReleaseLink {
+  id: string;
+  label: string;
+  kind: string;
+  path: string;
+  section: string;
+  localOnly: boolean;
+  buttonState: FlowDashboardProductUiButtonState;
+}
+
 export interface FlowDashboardProductUiBinding {
   productName: string;
   route: string;
@@ -183,5 +213,8 @@ export interface FlowDashboardProductUiBinding {
   warningCount: number;
   blockingCount: number;
   cards: FlowDashboardProductUiCardBinding[];
+  history: FlowDashboardProductUiHistoryBinding;
+  releaseLinks: FlowDashboardProductUiReleaseLink[];
+  screenshotPrompts: FlowDashboardProductUiScreenshotPrompt[];
   nextActions: string[];
 }

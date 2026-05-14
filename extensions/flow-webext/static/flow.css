@@ -300,6 +300,58 @@ p {
   color: #ffc5bb;
 }
 
+.dashboard-rail {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr 1.1fr 1.1fr;
+}
+
+.dashboard-history-metrics {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 14px 0;
+}
+
+.dashboard-history-metrics span,
+.dashboard-link,
+.dashboard-prompt {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dashboard-history-metrics span {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+}
+
+.dashboard-history-metrics strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.dashboard-history-metrics small,
+.dashboard-link small,
+.dashboard-prompt small {
+  color: var(--muted);
+}
+
+.dashboard-link-list,
+.dashboard-prompt-list {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-link,
+.dashboard-prompt {
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+  text-align: left;
+}
+
 .context-grid {
   display: grid;
   gap: 12px;
@@ -525,6 +577,7 @@ pre {
 
 @media (max-width: 860px) {
   .workspace-grid,
+  .dashboard-rail,
   .context-grid,
   .grid.two {
     grid-template-columns: 1fr;

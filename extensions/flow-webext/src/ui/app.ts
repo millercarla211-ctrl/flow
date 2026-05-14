@@ -863,6 +863,90 @@ function renderDashboardCard(
   `;
 }
 
+function signedDelta(value: number) {
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function renderDashboardRail(state: UiState) {
+  const binding = state.dashboardBinding;
+  const history = binding.history;
+
+  return `
+    <div class="dashboard-rail">
+      <article class="feature-card dashboard-history-card">
+        <div class="card-topline">
+          <span class="eyebrow">Export history</span>
+          <span class="badge ${badgeTone(history.trendLabel === "regressed" ? "blocked" : "ready")}">
+            ${escapeHtml(history.trendLabel)}
+          </span>
+        </div>
+        <div class="dashboard-history-metrics">
+          <span><strong>${history.recordCount}</strong><small>records</small></span>
+          <span><strong>${signedDelta(history.scoreDeltaFromPrevious)}</strong><small>score</small></span>
+          <span><strong>${signedDelta(history.readinessDeltaFromPrevious)}</strong><small>readiness</small></span>
+        </div>
+        <p>
+          Latest ${history.latestScoreOutOf100 ?? "n/a"} / 100,
+          previous ${history.previousScoreOutOf100 ?? "n/a"} / 100.
+        </p>
+      </article>
+
+      <article class="feature-card dashboard-links-card">
+        <div class="card-topline">
+          <span class="eyebrow">Release links</span>
+          <span class="badge ${badgeTone("ready")}">${binding.releaseLinks.length} files</span>
+        </div>
+        <div class="dashboard-link-list">
+          ${binding.releaseLinks
+            .map(
+              (link) => `
+                <button
+                  type="button"
+                  class="secondary dashboard-link"
+                  data-action="dashboard-release-link"
+                  data-release-link-id="${escapeHtml(link.id)}"
+                  title="${escapeHtml(link.path)}"
+                  aria-label="${escapeHtml(link.buttonState.ariaLabel)}"
+                >
+                  <span>${escapeHtml(link.label)}</span>
+                  <small>${escapeHtml(link.section)}</small>
+                </button>
+              `,
+            )
+            .join("")}
+        </div>
+      </article>
+
+      <article class="feature-card dashboard-prompts-card">
+        <div class="card-topline">
+          <span class="eyebrow">Screenshot prompts</span>
+          <span class="badge ${badgeTone(binding.screenshotPrompts.length ? "pending" : "ready")}">
+            ${binding.screenshotPrompts.length}
+          </span>
+        </div>
+        <div class="dashboard-prompt-list">
+          ${binding.screenshotPrompts
+            .map(
+              (prompt) => `
+                <button
+                  type="button"
+                  class="secondary dashboard-prompt"
+                  data-action="dashboard-screenshot-prompt"
+                  data-prompt-route="${escapeHtml(prompt.route)}"
+                  title="${escapeHtml(prompt.captureCommand)}"
+                >
+                  <span>${escapeHtml(prompt.title)}</span>
+                  <small>${escapeHtml(prompt.route)} · ${escapeHtml(prompt.viewportId)}</small>
+                </button>
+              `,
+            )
+            .join("")}
+        </div>
+      </article>
+    </div>
+  `;
+}
+
 function renderDashboard(state: UiState) {
   const binding = state.dashboardBinding;
 
@@ -899,6 +983,8 @@ function renderDashboard(state: UiState) {
           .map((card) => renderDashboardCard(card, state.dashboardActionStates))
           .join("")}
       </div>
+
+      ${renderDashboardRail(state)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1226,6 +1312,26 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  function showDashboardReleaseLink(linkId: string) {
+    const link = state.dashboardBinding.releaseLinks.find((item) => item.id === linkId);
+    if (!link) {
+      return;
+    }
+
+    state.status = `Local artifact ready: ${link.path}`;
+    render();
+  }
+
+  function showDashboardScreenshotPrompt(route: string) {
+    const prompt = state.dashboardBinding.screenshotPrompts.find((item) => item.route === route);
+    if (!prompt) {
+      return;
+    }
+
+    state.status = `Capture prompt: ${prompt.captureCommand}`;
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelectorAll<HTMLButtonElement>("[data-action='dashboard-action']")
@@ -1234,6 +1340,28 @@ export async function mountFlowApp(surfaceInput: string) {
           const actionId = button.dataset.actionId;
           if (actionId) {
             void runDashboardAction(actionId);
+          }
+        });
+      });
+
+    mountRoot
+      .querySelectorAll<HTMLButtonElement>("[data-action='dashboard-release-link']")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          const linkId = button.dataset.releaseLinkId;
+          if (linkId) {
+            showDashboardReleaseLink(linkId);
+          }
+        });
+      });
+
+    mountRoot
+      .querySelectorAll<HTMLButtonElement>("[data-action='dashboard-screenshot-prompt']")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          const route = button.dataset.promptRoute;
+          if (route) {
+            showDashboardScreenshotPrompt(route);
           }
         });
       });

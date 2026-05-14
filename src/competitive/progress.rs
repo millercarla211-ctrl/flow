@@ -69,9 +69,9 @@ pub fn active_completion_set() -> CompletionSet {
             "dashboard-history-release-rail",
             "Dashboard history and release rail",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "render export history deltas, release-review links, and screenshot prompts in the dashboard",
+            CompletionItemStatus::Done,
+            "`extensions/flow-webext/src/ui/app.ts` renders export history deltas, release-review artifact links, and screenshot prompt controls from the dashboard binding",
+            "add a small TypeScript smoke/typecheck path for dashboard section rendering",
         ),
         item(
             "dashboard-typescript-smoke",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_friday_dashboard_product_ui_wiring_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Dashboard Visible UI Execution");
-        assert_eq!(set.current_score_out_of_100, 40);
+        assert_eq!(set.current_score_out_of_100, 60);
         assert!(
             set.items
                 .iter()

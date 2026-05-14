@@ -119,6 +119,8 @@
 - added a typed browser-extension dashboard section that renders Friday dashboard cards from `FlowDashboardProductUiBinding`
 - advanced Friday Dashboard Visible UI Execution to 40/100
 - added visible dashboard action buttons with typed local commands plus idle, loading, success, error, disabled, and aria states
+- advanced Friday Dashboard Visible UI Execution to 60/100
+- added visible dashboard rails for export history deltas, release-review artifact links, and screenshot capture prompts
 
 ## 2026-04-26
 
