@@ -46,8 +46,7 @@
     ".next/types/**/*.ts",
     "src",
     "api",
-    "drizzle.config.ts",
-    ".next/dev/types/**/*.ts"
+    "drizzle.config.ts"
   ],
   "exclude": [
     "node_modules"
