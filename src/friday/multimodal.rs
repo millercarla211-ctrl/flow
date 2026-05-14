@@ -262,6 +262,24 @@ pub struct FridayVlmContractReport {
     pub findings: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayScreenshotSourceRecord {
+    pub path: String,
+    pub bytes: u64,
+    pub mime: String,
+    pub accepted: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayScreenshotVlmHandoffReport {
+    pub generated_at_unix_ms: u128,
+    pub output_dir: String,
+    pub source_json: String,
+    pub source: FridayScreenshotSourceRecord,
+    pub vlm_report: FridayVlmContractReport,
+    pub findings: Vec<String>,
+}
+
 impl FridayOcrSmokeReport {
     pub fn to_pretty_json(&self) -> serde_json::Result<String> {
         serde_json::to_string_pretty(self)
@@ -269,6 +287,12 @@ impl FridayOcrSmokeReport {
 }
 
 impl FridayVlmContractReport {
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
+impl FridayScreenshotVlmHandoffReport {
     pub fn to_pretty_json(&self) -> serde_json::Result<String> {
         serde_json::to_string_pretty(self)
     }
@@ -857,6 +881,65 @@ pub fn run_friday_vlm_contract(
     Ok(report)
 }
 
+pub fn run_friday_screenshot_vlm_handoff(
+    output_dir: impl AsRef<Path>,
+    screenshot_path: impl AsRef<Path>,
+    prompt: Option<&str>,
+) -> Result<FridayScreenshotVlmHandoffReport> {
+    let output_dir = output_dir.as_ref();
+    fs::create_dir_all(output_dir).with_context(|| {
+        format!(
+            "failed to create screenshot VLM handoff dir {}",
+            output_dir.display()
+        )
+    })?;
+
+    let screenshot_path = screenshot_path.as_ref();
+    let metadata = fs::metadata(screenshot_path)
+        .with_context(|| format!("failed to read screenshot {}", screenshot_path.display()))?;
+    if !metadata.is_file() {
+        anyhow::bail!("screenshot path is not a file: {}", screenshot_path.display());
+    }
+
+    let mime = screenshot_mime(screenshot_path)
+        .with_context(|| format!("unsupported screenshot type {}", screenshot_path.display()))?;
+    let screenshot = screenshot_path.to_string_lossy().into_owned();
+    let vlm_report = run_friday_vlm_contract(output_dir, Some(&screenshot), prompt)?;
+    let source_json = output_dir.join("vlm-screenshot-source.json");
+    let source = FridayScreenshotSourceRecord {
+        path: screenshot,
+        bytes: metadata.len(),
+        mime,
+        accepted: true,
+    };
+    write_json(&source_json, &source)?;
+
+    Ok(FridayScreenshotVlmHandoffReport {
+        generated_at_unix_ms: unix_ms(),
+        output_dir: output_dir.to_string_lossy().into_owned(),
+        source_json: source_json.to_string_lossy().into_owned(),
+        source,
+        findings: vlm_report.findings.clone(),
+        vlm_report,
+    })
+}
+
+fn screenshot_mime(path: &Path) -> Result<String> {
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .context("screenshot file needs an extension")?;
+    let mime = match extension.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "webp" => "image/webp",
+        "bmp" => "image/bmp",
+        _ => anyhow::bail!("unsupported screenshot extension: {extension}"),
+    };
+    Ok(mime.to_string())
+}
+
 fn vlm_model_files() -> Vec<FridayMultimodalModelFile> {
     [
         (VLM_MODEL_PATH, "vision-language model"),
@@ -997,5 +1080,33 @@ mod tests {
             .items
             .iter()
             .any(|item| item.artifact_output.contains("metadata")));
+    }
+
+    #[test]
+    fn screenshot_vlm_handoff_validates_local_image_path() {
+        let root = std::env::temp_dir().join(format!(
+            "friday-screenshot-vlm-{}-{}",
+            std::process::id(),
+            unix_ms()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let screenshot = root.join("screen.png");
+        fs::write(&screenshot, b"not-a-real-png-but-valid-handoff-fixture").unwrap();
+        let out = root.join("out");
+
+        let report = run_friday_screenshot_vlm_handoff(
+            &out,
+            &screenshot,
+            Some("describe visible text"),
+        )
+        .unwrap();
+        assert_eq!(report.source.mime, "image/png");
+        assert!(report.source.accepted);
+        assert!(PathBuf::from(&report.source_json).exists());
+        assert_eq!(report.vlm_report.screenshot_source, screenshot.to_string_lossy());
+        assert!(PathBuf::from(&report.vlm_report.report_json).exists());
+
+        let _ = fs::remove_dir_all(&root);
     }
 }

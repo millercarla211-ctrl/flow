@@ -29,7 +29,7 @@ use crate::friday::{
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_research_search_plan,
-    run_friday_ocr_smoke, run_friday_vlm_contract,
+    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -498,6 +498,32 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", friday_multimodal_ui_diagnostics().to_pretty_json()?);
         }
 
+        Command::FridayScreenshotVlm {
+            output_dir,
+            screenshot,
+            prompt,
+        } => {
+            let report = run_friday_screenshot_vlm_handoff(
+                resolve_repo_relative_path(&output_dir),
+                resolve_repo_relative_path(&screenshot),
+                prompt.as_deref(),
+            )?;
+            print_friday_screenshot_vlm_handoff(&report);
+        }
+
+        Command::FridayScreenshotVlmJson {
+            output_dir,
+            screenshot,
+            prompt,
+        } => {
+            let report = run_friday_screenshot_vlm_handoff(
+                resolve_repo_relative_path(&output_dir),
+                resolve_repo_relative_path(&screenshot),
+                prompt.as_deref(),
+            )?;
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -689,6 +715,10 @@ fn print_interactive_help() {
     println!("                           Show Multimodal UI and OCR diagnostics");
     println!("  --friday-multimodal-diagnostics-json");
     println!("                           Print Multimodal UI diagnostics as JSON");
+    println!("  --friday-screenshot-vlm <dir> <screenshot> [prompt]");
+    println!("                           Validate a local screenshot and write VLM handoff files");
+    println!("  --friday-screenshot-vlm-json <dir> <screenshot> [prompt]");
+    println!("                           Print screenshot VLM handoff status as JSON");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");
@@ -1217,6 +1247,29 @@ fn print_friday_multimodal_diagnostics(
         println!();
         println!("Findings:");
         for finding in &diagnostics.findings {
+            println!("  - {}", finding);
+        }
+    }
+}
+
+fn print_friday_screenshot_vlm_handoff(
+    report: &crate::friday::FridayScreenshotVlmHandoffReport,
+) {
+    println!("Friday Screenshot VLM Handoff");
+    println!("=============================");
+    println!("Source: {}", report.source.path);
+    println!("Mime: {}", report.source.mime);
+    println!("Bytes: {}", report.source.bytes);
+    println!("Accepted: {}", yes_no(report.source.accepted));
+    println!("Source JSON: {}", report.source_json);
+    println!("VLM report: {}", report.vlm_report.report_json);
+    println!("VLM metadata: {}", report.vlm_report.metadata_json);
+    println!("Artifact: {}", report.vlm_report.artifact_json);
+    if report.findings.is_empty() {
+        println!("Findings: none");
+    } else {
+        println!("Findings:");
+        for finding in &report.findings {
             println!("  - {}", finding);
         }
     }

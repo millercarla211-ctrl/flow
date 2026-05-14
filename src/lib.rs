@@ -93,7 +93,7 @@ pub use friday::{
     FridayMultimodalRequestKind, FridayMultimodalRouteDecision, FridayMultimodalRouteStatus,
     FridayMultimodalRuntimeRecord, FridayMultimodalSurface, FridayMultimodalUiDiagnostics,
     FridayOcrSmokeReport, FridayOcrSmokeStatus, FridayPermissionFinding, FridayPermissionScope,
-    FridayPreviewRunner,
+    FridayPreviewRunner, FridayScreenshotSourceRecord, FridayScreenshotVlmHandoffReport,
     FridayProductPlan, FridayProjectFile, FridayProjectRecord, FridayResearchEventKind,
     FridayResearchExportManifest,
     FridayResearchReport, FridayResearchRunEvent, FridayResearchStage, FridayResearchStageKind,
@@ -110,7 +110,7 @@ pub use friday::{
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_research_search_plan,
-    run_friday_ocr_smoke, run_friday_vlm_contract,
+    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
 pub use models::{KokoroTTS, LocalLlm, LocalSttEngine, MoonshineSTT};

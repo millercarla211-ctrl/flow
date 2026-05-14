@@ -120,6 +120,18 @@ pub enum Command {
     FridayMultimodalDiagnostics,
     /// Print Friday's Multimodal UI diagnostics as JSON
     FridayMultimodalDiagnosticsJson,
+    /// Validate a local screenshot and create a VLM handoff bundle
+    FridayScreenshotVlm {
+        output_dir: String,
+        screenshot: String,
+        prompt: Option<String>,
+    },
+    /// Validate a local screenshot and create a VLM handoff bundle as JSON
+    FridayScreenshotVlmJson {
+        output_dir: String,
+        screenshot: String,
+        prompt: Option<String>,
+    },
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -458,6 +470,22 @@ impl Args {
             "--friday-multimodal-diagnostics-json" | "--friday-ocr-diagnostics-json" => {
                 Command::FridayMultimodalDiagnosticsJson
             }
+            "--friday-screenshot-vlm" | "--friday-vlm-screenshot" => {
+                let (output_dir, screenshot, prompt) = parse_friday_screenshot_vlm_args(&args);
+                Command::FridayScreenshotVlm {
+                    output_dir,
+                    screenshot,
+                    prompt,
+                }
+            }
+            "--friday-screenshot-vlm-json" | "--friday-vlm-screenshot-json" => {
+                let (output_dir, screenshot, prompt) = parse_friday_screenshot_vlm_args(&args);
+                Command::FridayScreenshotVlmJson {
+                    output_dir,
+                    screenshot,
+                    prompt,
+                }
+            }
             "--accessibility-diagnostics" | "--accessibility" => {
                 let live = !args.iter().any(|value| value == "--dry-run");
                 let os = args
@@ -695,4 +723,20 @@ fn parse_friday_multimodal_route_args(args: &[String]) -> (String, bool) {
     });
     let remote_allowed = args.iter().any(|value| value == "--remote");
     (request_kind, remote_allowed)
+}
+
+fn parse_friday_screenshot_vlm_args(args: &[String]) -> (String, String, Option<String>) {
+    if args.len() <= 3 {
+        eprintln!("Error: output directory and screenshot path required");
+        eprintln!("Usage: flow --friday-screenshot-vlm <output-dir> <screenshot-path> [prompt]");
+        std::process::exit(1);
+    }
+    let output_dir = args[2].clone();
+    let screenshot = args[3].clone();
+    let prompt = if args.len() > 4 {
+        Some(args[4..].join(" "))
+    } else {
+        None
+    };
+    (output_dir, screenshot, prompt)
 }

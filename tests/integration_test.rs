@@ -19,7 +19,8 @@ use flow::friday::{
     FridayVerificationStatus, FridayWorkspaceStore, default_friday_browser_verification_report,
     default_friday_local_execution_checks, default_friday_product_plan,
     default_friday_ui_integration_plan, friday_multimodal_route,
-    friday_multimodal_ui_diagnostics, run_friday_ocr_smoke, run_friday_vlm_contract,
+    friday_multimodal_ui_diagnostics, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
+    run_friday_vlm_contract,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -644,6 +645,27 @@ fn friday_multimodal_diagnostics_connect_ocr_and_vlm_outputs() {
         .items
         .iter()
         .any(|item| item.artifact_output.contains("metadata")));
+}
+
+#[test]
+fn friday_screenshot_vlm_handoff_accepts_local_image_file() {
+    let root = temp_root("friday-screenshot-vlm");
+    let screenshot = root.join("screen.png");
+    fs::write(&screenshot, b"fixture").unwrap();
+    let out = root.join("out");
+
+    let report = run_friday_screenshot_vlm_handoff(&out, &screenshot, None).unwrap();
+
+    assert_eq!(report.source.mime, "image/png");
+    assert!(report.source.accepted);
+    assert!(PathBuf::from(&report.source_json).exists());
+    assert!(PathBuf::from(&report.vlm_report.report_json).exists());
+    assert_eq!(
+        report.vlm_report.metadata.request_kind,
+        FridayMultimodalRequestKind::Vlm
+    );
+
+    let _ = fs::remove_dir_all(&root);
 }
 
 #[test]

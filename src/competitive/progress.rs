@@ -61,9 +61,9 @@ pub fn active_completion_set() -> CompletionSet {
             "screenshot-capture-contract",
             "Screenshot capture command",
             20,
-            CompletionItemStatus::Planned,
-            "The VLM contract can consume a screenshot path, but Friday still needs a local screenshot capture command that feeds that path without involving cloud services",
-            "add a screenshot capture command that feeds the VLM contract from a real local image path",
+            CompletionItemStatus::Done,
+            "`flow --friday-screenshot-vlm <dir> <screenshot> [prompt]` validates a local screenshot file, records source metadata, and feeds the VLM contract without loading the model",
+            "connect this handoff to real desktop/browser capture controls",
         ),
         item(
             "image-video-affordances",

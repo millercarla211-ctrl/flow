@@ -66,6 +66,8 @@
 - completed Multimodal Local Core at 100/100 and listed Multimodal Product Execution as the next candidate loop
 - opened Multimodal Product Execution at 20/100
 - added `flow --friday-multimodal-diagnostics` / `--friday-multimodal-diagnostics-json` to connect OCR smoke reports, VLM contracts, routing policy, and metadata sidecars to the Multimodal UI contract
+- added `flow --friday-screenshot-vlm` / `--friday-screenshot-vlm-json` to validate local screenshot files, write source metadata, and feed the VLM contract without loading the model
+- advanced Multimodal Product Execution to 40/100
 
 ## 2026-04-26
 
