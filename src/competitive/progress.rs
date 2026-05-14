@@ -101,9 +101,9 @@ pub fn active_completion_set() -> CompletionSet {
             "voice-multimodal-automations",
             "Voice, multimodal, and automation parity",
             14,
-            CompletionItemStatus::Planned,
-            "WhisperFlow-beater STT/TTS/wake foundations and OCR planning exist, but duplex voice, multimodal execution, and scheduled Friday jobs need product wiring",
-            "connect Voice, Multimodal, and Automations pages to local runtime, OCR/VLM plans, scheduler, and audit records",
+            CompletionItemStatus::Done,
+            "Friday now has local-first Voice, Multimodal, and Automation runtime records for STT, TTS, wake commands, OCR/VLM planning, schedules, approvals, and audit files",
+            "open the next loop for product UI integration, live execution hardening, and end-to-end browser checks",
         ),
     ];
 
@@ -111,7 +111,7 @@ pub fn active_completion_set() -> CompletionSet {
         name: "Friday Competitive AI Workspace".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Beat the major AI assistant surfaces by shipping Friday features in local-first slices: Ask, Search, Research, Agents, Canvas, Projects, Memory, Connectors, Voice, Artifacts, Automations, Code, and Multimodal.".to_string(),
+        loop_rule: "This 100-point Friday competitive workspace contract is complete. The next loop should connect these Rust surfaces to the production UI, live execution, and end-to-end verification.".to_string(),
         items,
     }
 }
@@ -153,13 +153,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_is_not_prematurely_complete() {
+    fn active_set_tracks_completed_contract_loop() {
         let set = active_completion_set();
-        assert!(set.current_score_out_of_100 < set.target_score_out_of_100);
+        assert_eq!(set.current_score_out_of_100, set.target_score_out_of_100);
         assert!(
             set.items
                 .iter()
-                .any(|item| item.status == CompletionItemStatus::Planned)
+                .all(|item| item.status == CompletionItemStatus::Done)
         );
     }
 

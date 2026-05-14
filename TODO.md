@@ -62,9 +62,9 @@ Goal: make Flow's writing assistance excellent enough to feel useful every day, 
 
 This set remains important, but the active product direction has moved to Friday's competitive AI workspace. Resume this set after the Friday assistant shell has real Ask, Search, Research, Projects, Memory, Connectors, Voice, Artifacts, Automations, Code, and Multimodal surfaces.
 
-## Active Set: Friday Competitive AI Workspace
+## Completed Set: Friday Competitive AI Workspace
 
-Status: 86/100
+Status: 100/100
 
 Goal: make Friday a local-first AI workspace that can compete with the useful surfaces of ChatGPT, Gemini, Perplexity, Grok, and Claude without depending on Perplexity Computer. Search and research must use the adjacent Rust metasearch crate.
 
@@ -80,10 +80,25 @@ Goal: make Friday a local-first AI workspace that can compete with the useful su
 - [x] Add local-first research synthesis prompts, answer deltas, citation references, and a local model synthesis CLI.
 - [x] Add durable Projects, Memory, and Connectors stores with permission-scoped local data boundaries.
 - [x] Build Canvas, Artifacts, and Code workspaces with editable outputs, previews, diffs, and checkpoints.
+- [x] Connect Voice, Multimodal, and Automations surfaces to STT/TTS/OCR/VLM planning, scheduler, and audit records.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Product UI Integration` and connect these Rust contracts to the desktop/Next.js UI, live execution flows, visual verification, and production-ready interaction states.
+
+## Next Active Set: Friday Product UI Integration
+
+Status: 0/100
+
+Goal: turn the completed Friday runtime contracts into a polished product UI and verified live workflows without weakening the local-first, low-resource defaults.
 
 ### Remaining To Reach 100/100
 
-- [ ] Connect Voice, Multimodal, and Automations surfaces to STT/TTS/OCR/VLM planning, scheduler, and audit records.
+- [ ] Wire Ask/Search/Research to visible streaming UI, citations, saved reports, and source controls.
+- [ ] Wire Projects, Memory, Connectors, Canvas, Artifacts, Code, Voice, Multimodal, and Automations pages to the new stores.
+- [ ] Add end-to-end local execution checks for STT/TTS/OCR/metasearch/artifact preview flows.
+- [ ] Add production-ready empty/loading/error/permission states for every Friday route.
+- [ ] Run targeted browser verification and only deploy after a major user-visible feature ships.
 
 ## Next Set Candidates
 

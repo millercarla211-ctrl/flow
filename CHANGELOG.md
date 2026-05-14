@@ -43,6 +43,8 @@
 - advanced Friday Competitive AI Workspace to 72/100
 - added durable Friday Canvas, Artifacts, and Code checkpoint stores with preview runners, diffs, and code-task records
 - advanced Friday Competitive AI Workspace to 86/100
+- added durable Friday Voice, Multimodal, and Automation runtime stores for STT/TTS/wake, OCR/VLM planning, scheduled jobs, approvals, and audit files
+- completed Friday Competitive AI Workspace at 100/100 and opened Friday Product UI Integration as the next loop
 
 ## 2026-04-26
 

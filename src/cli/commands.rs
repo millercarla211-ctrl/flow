@@ -25,8 +25,8 @@ use crate::experience::{
 };
 use crate::friday::{
     FridayArtifactStore, FridayFeatureStatus, FridayResearchReport, FridayResearchWorkflow,
-    FridayWorkspaceStore, default_friday_product_plan, friday_answer_search_plan,
-    friday_research_search_plan,
+    FridayRuntimeSurfaceStore, FridayWorkspaceStore, default_friday_product_plan,
+    friday_answer_search_plan, friday_research_search_plan,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -357,6 +357,39 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", store.to_pretty_json()?);
         }
 
+        Command::FridayRuntimeInit { output_dir } => {
+            let store = FridayRuntimeSurfaceStore::seed_local_first();
+            let snapshot = store.write_to_dir(resolve_repo_relative_path(&output_dir))?;
+            println!("Friday Runtime Surface Store");
+            println!("============================");
+            println!("Root: {}", snapshot.root_dir.display());
+            println!("Voice: {}", snapshot.voice_json.display());
+            println!("Multimodal: {}", snapshot.multimodal_json.display());
+            println!("Automations: {}", snapshot.automations_json.display());
+            println!("Manifest: {}", snapshot.manifest_json.display());
+            println!(
+                "Counts: {} multimodal surfaces, {} automations",
+                snapshot.manifest.multimodal_count, snapshot.manifest.automation_count
+            );
+            if snapshot.manifest.findings.is_empty() {
+                println!("Runtime findings: none");
+            } else {
+                println!("Runtime findings:");
+                for finding in &snapshot.manifest.findings {
+                    println!("  - {}", finding.message);
+                }
+            }
+        }
+
+        Command::FridayRuntimeJson { input_dir } => {
+            let store = if let Some(input_dir) = input_dir {
+                FridayRuntimeSurfaceStore::read_from_dir(resolve_repo_relative_path(&input_dir))?
+            } else {
+                FridayRuntimeSurfaceStore::seed_local_first()
+            };
+            println!("{}", store.to_pretty_json()?);
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -520,6 +553,10 @@ fn print_interactive_help() {
     println!("                           Seed Canvas, Artifacts, and Code checkpoint state");
     println!("  --friday-artifacts-json [dir]");
     println!("                           Print seeded or persisted artifact state");
+    println!("  --friday-runtime-init <dir>");
+    println!("                           Seed Voice, Multimodal, and Automation runtime state");
+    println!("  --friday-runtime-json [dir]");
+    println!("                           Print seeded or persisted runtime state");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");

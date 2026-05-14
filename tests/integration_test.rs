@@ -12,8 +12,9 @@ use flow::experience::{
 };
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
-    FridayArtifactStore, FridayCompetitor, FridayConnectorAuthState, FridayPermissionScope,
-    FridayPreviewRunner, FridayResearchWorkflow, FridayWorkspaceStore, default_friday_product_plan,
+    FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
+    FridayMultimodalSurface, FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow,
+    FridayRuntimeSurfaceStore, FridayWorkspaceStore, default_friday_product_plan,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -448,6 +449,36 @@ fn friday_artifact_store_persists_canvas_code_and_artifact_records() {
         restored.task_artifacts("artifact-canvas-checkpoint").len(),
         2
     );
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn friday_runtime_store_persists_voice_multimodal_and_automations() {
+    let root = temp_root("friday-runtime");
+    let store = FridayRuntimeSurfaceStore::seed_local_first();
+    let snapshot = store.write_to_dir(&root).unwrap();
+
+    assert!(snapshot.voice_json.exists());
+    assert!(snapshot.multimodal_json.exists());
+    assert!(snapshot.automations_json.exists());
+    assert_eq!(snapshot.manifest.multimodal_count, 2);
+    assert_eq!(snapshot.manifest.automation_count, 2);
+    assert!(snapshot.manifest.findings.is_empty());
+
+    let restored = FridayRuntimeSurfaceStore::read_from_dir(&root).unwrap();
+    assert_eq!(restored.voice.stt_model_key, "parakeet-tdt-0.6b-v3-int8");
+    assert_eq!(restored.voice.tts_model_key, "kokoro-int8");
+    assert!(restored.voice.wake_commands.contains(&"hello".to_string()));
+    assert!(
+        restored
+            .multimodal
+            .iter()
+            .any(|item| item.surface == FridayMultimodalSurface::Ocr)
+    );
+    assert!(restored.automations.iter().any(|item| item.trigger
+        == FridayAutomationTrigger::BackgroundResearch
+        && item.approval_required));
 
     let _ = fs::remove_dir_all(&root);
 }
