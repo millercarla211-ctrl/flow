@@ -15,7 +15,10 @@ import {
   selectNextDueAutomation,
 } from "../src/features/friday/utils/localAutomation";
 import { rankAskContext } from "../src/features/friday/utils/localRetrieval";
-import { createLocalResearchDraft } from "../src/features/friday/utils/localResearch";
+import {
+  createAskResearchBriefDraft,
+  createLocalResearchDraft,
+} from "../src/features/friday/utils/localResearch";
 import {
   checkFridayProviderHealth,
   parseFridayStreamPayload,
@@ -130,6 +133,21 @@ const researchDraft = createLocalResearchDraft({
 
 if (!researchDraft.report.includes("[1] workspace-records.md")) {
   throw new Error("Friday local research did not include a cited local source.");
+}
+
+const askResearchDraft = createAskResearchBriefDraft({
+  prompt: "How should Friday handle workspace persistence?",
+  answer: "Friday should keep local workspaces exportable and sync only after explicit approval.",
+});
+
+if (
+  askResearchDraft.status !== "Drafted" ||
+  askResearchDraft.sources[0] !== "Ask Friday" ||
+  askResearchDraft.citations?.[0]?.label !== "Ask Friday response" ||
+  !askResearchDraft.report.includes("How should Friday handle workspace persistence?") ||
+  !askResearchDraft.report.includes("explicit approval")
+) {
+  throw new Error("Friday Ask-to-Research draft did not preserve prompt, answer, and citation boundary.");
 }
 
 const retrievedContext = rankAskContext({

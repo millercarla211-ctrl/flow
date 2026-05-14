@@ -31,6 +31,7 @@ import { AskThreadRail } from "./AskThreadRail";
 import { ProjectContextPanel } from "./ProjectContextPanel";
 import { useSettings } from "../../settings/queries";
 import { makeLocalRecord, useLocalList, useLocalSettings } from "../hooks/useLocalPersistence";
+import { createAskResearchBriefDraft } from "../utils/localResearch";
 import { rankAskContext } from "../utils/localRetrieval";
 import { textFromMessage, titleFromText } from "../utils/text";
 import {
@@ -332,17 +333,15 @@ export function FridayAskView() {
     }
 
     if (target === "research") {
+      const draft = createAskResearchBriefDraft({
+        answer: text,
+        prompt: latestUserText,
+      });
       researchBriefs.addItem(
         makeLocalRecord("research", {
-          topic: latestUserText || title,
-          sources: ["Ask Friday"],
+          ...draft,
           projectId: selectedProject?.id,
           projectName: selectedProject?.name,
-          plan: [
-            "Review the saved assistant answer.",
-            "Add source notes or local files.",
-            "Convert the answer into a cited report.",
-          ],
         }),
       );
       showSavedNotice("Saved as Research brief");

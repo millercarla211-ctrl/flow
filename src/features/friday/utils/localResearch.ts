@@ -2,6 +2,7 @@ import type {
   FridayMemory,
   FridayProject,
   ProjectContextItem,
+  ResearchBrief,
   ResearchCitation,
 } from "../components/local-workspaces/types";
 
@@ -36,6 +37,57 @@ function excerptFor(content: string, topic: string) {
       .sort((a, b) => b.score - a.score)[0]?.sentence ?? content;
 
   return bestSentence.length > 260 ? `${bestSentence.slice(0, 257)}...` : bestSentence;
+}
+
+function compactText(text: string, maxLength: number) {
+  const clean = text.replace(/\s+/g, " ").trim();
+  return clean.length > maxLength ? `${clean.slice(0, Math.max(0, maxLength - 3))}...` : clean;
+}
+
+export function createAskResearchBriefDraft({
+  answer,
+  prompt,
+}: {
+  answer: string;
+  prompt?: string;
+}): Pick<ResearchBrief, "citations" | "plan" | "report" | "sources" | "status" | "topic"> {
+  const cleanAnswer = answer.trim();
+  const cleanPrompt = prompt?.trim();
+  const topic = cleanPrompt || compactText(cleanAnswer, 90) || "Ask Friday response";
+  const excerpt = compactText(cleanAnswer, 260);
+
+  return {
+    topic,
+    sources: ["Ask Friday"],
+    status: "Drafted",
+    citations: excerpt
+      ? [
+          {
+            id: "ask-friday-response",
+            label: "Ask Friday response",
+            kind: "note",
+            excerpt,
+          },
+        ]
+      : [],
+    plan: [
+      "Review the saved Ask answer for claims that need evidence.",
+      "Attach local notes, files, web sources, or academic sources.",
+      "Convert the draft into a final cited report.",
+    ],
+    report: [
+      `## Ask Research Brief: ${topic}`,
+      "",
+      cleanPrompt ? `### Original Prompt\n${cleanPrompt}\n` : "",
+      "### Working Answer",
+      cleanAnswer || "No answer text was saved.",
+      "",
+      "### Evidence Needed",
+      "- Add citations before treating this as a final research report.",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  };
 }
 
 function scoreSource(source: ResearchSource, topic: string) {
