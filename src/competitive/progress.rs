@@ -77,9 +77,9 @@ pub fn active_completion_set() -> CompletionSet {
             "export-history-store",
             "Export history store",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "persist dashboard export history for checkpoint-to-checkpoint readiness comparison",
+            CompletionItemStatus::Done,
+            "`flow --friday-dashboard-export` persists dashboard-history.json with latest/previous checkpoint records and score/readiness deltas",
+            "surface checkpoint comparisons in the product UI dashboard",
         ),
         item(
             "release-review-handoff",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_friday_dashboard_runtime_wiring_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Dashboard Runtime Wiring");
-        assert_eq!(set.current_score_out_of_100, 60);
+        assert_eq!(set.current_score_out_of_100, 80);
         assert!(
             set.items
                 .iter()

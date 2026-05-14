@@ -100,6 +100,8 @@
 - added dashboard screenshot history records with captured/missing/metadata-missing states and per-route capture prompts for top Friday routes
 - added typed Friday dashboard actions for local open, run-check, recover, and capture controls from readiness cards
 - advanced Friday Dashboard Runtime Wiring to 60/100
+- added persisted Friday dashboard export history with latest/previous checkpoint records and score/readiness deltas
+- advanced Friday Dashboard Runtime Wiring to 80/100
 
 ## 2026-04-26
 

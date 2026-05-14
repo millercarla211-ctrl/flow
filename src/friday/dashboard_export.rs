@@ -98,9 +98,38 @@ pub struct FridayDashboardExportManifest {
     pub execution_handoffs_json: String,
     pub completion_json: String,
     pub dashboard_index_json: String,
+    #[serde(default)]
+    pub dashboard_history_json: String,
     pub summary_markdown: String,
     pub commands: Vec<String>,
     pub files: Vec<FridayDashboardExportFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardHistoryRecord {
+    pub generated_at_unix_ms: u128,
+    pub product_name: String,
+    pub loop_name: String,
+    pub score_out_of_100: u8,
+    pub readiness_score_out_of_100: u8,
+    pub readiness_warning_count: usize,
+    pub readiness_blocking_count: usize,
+    pub screenshot_captured_count: usize,
+    pub screenshot_missing_count: usize,
+    pub export_dir: String,
+    pub manifest_json: String,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardExportHistory {
+    pub history_json: String,
+    pub record_count: usize,
+    pub score_delta_from_previous: i16,
+    pub readiness_delta_from_previous: i16,
+    pub latest: Option<FridayDashboardHistoryRecord>,
+    pub previous: Option<FridayDashboardHistoryRecord>,
+    pub records: Vec<FridayDashboardHistoryRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,6 +140,7 @@ pub struct FridayDashboardExportBundle {
     pub route_visuals: FridayRouteVisualReport,
     pub execution_handoffs: FridayExecutionHandoffReport,
     pub completion: CompletionSet,
+    pub export_history: FridayDashboardExportHistory,
 }
 
 impl FridayDashboardExportBundle {
@@ -177,6 +207,7 @@ pub struct FridayDashboardPanel {
     pub warnings: Vec<String>,
     pub blocking_count: usize,
     pub source_files: Vec<FridayDashboardExportFile>,
+    pub export_history: FridayDashboardExportHistory,
 }
 
 impl FridayDashboardPanel {
@@ -205,6 +236,7 @@ pub fn export_friday_dashboard_bundle(
     let screenshot_history = friday_dashboard_screenshot_history(&route_visuals);
     let execution_handoffs = friday_execution_handoff_report();
     let completion = active_completion_set();
+    let generated_at_unix_ms = unix_ms();
 
     let readiness_path = export_dir.join("readiness.json");
     let route_bindings_path = export_dir.join("route-bindings.json");
@@ -212,6 +244,7 @@ pub fn export_friday_dashboard_bundle(
     let execution_handoffs_path = export_dir.join("execution-handoffs.json");
     let completion_path = export_dir.join("completion.json");
     let dashboard_index_path = export_dir.join("dashboard-index.json");
+    let dashboard_history_path = export_dir.join("dashboard-history.json");
     let summary_path = export_dir.join("summary.md");
 
     let mut files = vec![
@@ -254,6 +287,9 @@ pub fn export_friday_dashboard_bundle(
             "metadata_missing": screenshot_history.metadata_missing_count,
             "targets": screenshot_history.total_targets,
         },
+        "export_history": {
+            "path": path_string(&dashboard_history_path),
+        },
         "execution_handoffs": {
             "score_out_of_100": execution_handoffs.score_out_of_100,
             "handoffs": execution_handoffs.handoff_count,
@@ -284,7 +320,7 @@ pub fn export_friday_dashboard_bundle(
 
     let manifest_path = export_dir.join("manifest.json");
     let manifest = FridayDashboardExportManifest {
-        generated_at_unix_ms: unix_ms(),
+        generated_at_unix_ms,
         product_name: "Friday".to_string(),
         loop_name: completion.name.clone(),
         score_out_of_100: completion.current_score_out_of_100,
@@ -303,10 +339,22 @@ pub fn export_friday_dashboard_bundle(
         execution_handoffs_json: path_string(&execution_handoffs_path),
         completion_json: path_string(&completion_path),
         dashboard_index_json: path_string(&dashboard_index_path),
+        dashboard_history_json: path_string(&dashboard_history_path),
         summary_markdown: path_string(&summary_path),
         commands: dashboard_commands(),
         files,
     };
+
+    let mut manifest = manifest;
+    let export_history = append_dashboard_export_history(
+        &dashboard_history_path,
+        &manifest,
+        &readiness,
+        &screenshot_history,
+    )?;
+    manifest
+        .files
+        .push(file_record(&dashboard_history_path, "dashboard-history")?);
 
     write_json_file(&manifest_path, "manifest", &manifest)?;
 
@@ -317,6 +365,7 @@ pub fn export_friday_dashboard_bundle(
         route_visuals,
         execution_handoffs,
         completion,
+        export_history,
     })
 }
 
@@ -334,9 +383,11 @@ pub fn friday_dashboard_panel_from_export(
         read_json_file(&manifest.execution_handoffs_json)?;
     let completion: CompletionSet = read_json_file(&manifest.completion_json)?;
     let screenshot_history = friday_dashboard_screenshot_history(&route_visuals);
+    let export_history = read_dashboard_export_history(&dashboard_history_path(&manifest, export_dir))?;
 
     let cards = vec![
         completion_card(&manifest, &completion),
+        export_history_card(&manifest, &export_history),
         readiness_card(&manifest, &readiness),
         route_bindings_card(&manifest, &route_bindings),
         screenshot_history_card(&manifest, &screenshot_history),
@@ -372,7 +423,17 @@ pub fn friday_dashboard_panel_from_export(
         warnings,
         blocking_count,
         source_files: manifest.files.clone(),
+        export_history,
     })
+}
+
+pub fn friday_dashboard_export_history_from_export(
+    export_dir: impl AsRef<Path>,
+) -> Result<FridayDashboardExportHistory> {
+    let export_dir = export_dir.as_ref();
+    let manifest_path = export_dir.join("manifest.json");
+    let manifest: FridayDashboardExportManifest = read_json_file(&manifest_path)?;
+    read_dashboard_export_history(&dashboard_history_path(&manifest, export_dir))
 }
 
 pub fn friday_dashboard_screenshot_history(
@@ -491,6 +552,40 @@ fn completion_card(
             "Open completion",
             "flow --completion",
             FridayDashboardActionKind::Open,
+        )],
+    )
+}
+
+fn export_history_card(
+    manifest: &FridayDashboardExportManifest,
+    history: &FridayDashboardExportHistory,
+) -> FridayDashboardCard {
+    let has_comparison = history.previous.is_some();
+    card(
+        "export-history",
+        "Export History",
+        if has_comparison {
+            FridayDashboardPanelStatus::Ready
+        } else {
+            FridayDashboardPanelStatus::Warning
+        },
+        percentage(history.record_count.min(2), 2),
+        format!("{} checkpoint(s)", history.record_count),
+        if has_comparison {
+            format!(
+                "Score delta {:+}; readiness delta {:+}.",
+                history.score_delta_from_previous, history.readiness_delta_from_previous
+            )
+        } else {
+            "One checkpoint is stored; export again to compare readiness deltas.".to_string()
+        },
+        &manifest.dashboard_history_json,
+        vec![action(
+            "export-history",
+            "refresh-export-history",
+            "Refresh history",
+            &format!("flow --friday-dashboard-export {}", manifest.export_dir),
+            FridayDashboardActionKind::RunCheck,
         )],
     )
 }
@@ -799,6 +894,101 @@ fn dashboard_commands() -> Vec<String> {
         "flow --friday-execution-handoffs".to_string(),
         "flow --completion".to_string(),
     ]
+}
+
+fn append_dashboard_export_history(
+    history_path: &Path,
+    manifest: &FridayDashboardExportManifest,
+    readiness: &FridayOperatorReadinessReport,
+    screenshots: &FridayDashboardScreenshotHistory,
+) -> Result<FridayDashboardExportHistory> {
+    let mut records = if history_path.exists() {
+        let history: FridayDashboardExportHistory = read_json_file(history_path)?;
+        history.records
+    } else {
+        Vec::new()
+    };
+    records.push(dashboard_history_record(manifest, readiness, screenshots));
+
+    let history = dashboard_export_history_from_records(history_path, records);
+    write_json_file(history_path, "dashboard-history", &history)?;
+    Ok(history)
+}
+
+fn read_dashboard_export_history(history_path: &Path) -> Result<FridayDashboardExportHistory> {
+    if history_path.exists() {
+        read_json_file(history_path)
+    } else {
+        Ok(dashboard_export_history_from_records(history_path, Vec::new()))
+    }
+}
+
+fn dashboard_history_path(
+    manifest: &FridayDashboardExportManifest,
+    export_dir: &Path,
+) -> PathBuf {
+    if manifest.dashboard_history_json.trim().is_empty() {
+        export_dir.join("dashboard-history.json")
+    } else {
+        PathBuf::from(&manifest.dashboard_history_json)
+    }
+}
+
+fn dashboard_history_record(
+    manifest: &FridayDashboardExportManifest,
+    readiness: &FridayOperatorReadinessReport,
+    screenshots: &FridayDashboardScreenshotHistory,
+) -> FridayDashboardHistoryRecord {
+    FridayDashboardHistoryRecord {
+        generated_at_unix_ms: manifest.generated_at_unix_ms,
+        product_name: manifest.product_name.clone(),
+        loop_name: manifest.loop_name.clone(),
+        score_out_of_100: manifest.score_out_of_100,
+        readiness_score_out_of_100: readiness.score_out_of_100,
+        readiness_warning_count: readiness.warning_count,
+        readiness_blocking_count: readiness.blocking_count,
+        screenshot_captured_count: screenshots.captured_count,
+        screenshot_missing_count: screenshots.missing_count,
+        export_dir: manifest.export_dir.clone(),
+        manifest_json: manifest.manifest_json.clone(),
+        summary: manifest.summary.clone(),
+    }
+}
+
+fn dashboard_export_history_from_records(
+    history_path: &Path,
+    mut records: Vec<FridayDashboardHistoryRecord>,
+) -> FridayDashboardExportHistory {
+    records.sort_by_key(|record| record.generated_at_unix_ms);
+    if records.len() > 50 {
+        let overflow = records.len() - 50;
+        records.drain(0..overflow);
+    }
+
+    let latest = records.last().cloned();
+    let previous = records.iter().rev().nth(1).cloned();
+    let score_delta_from_previous = match (&latest, &previous) {
+        (Some(latest), Some(previous)) => {
+            latest.score_out_of_100 as i16 - previous.score_out_of_100 as i16
+        }
+        _ => 0,
+    };
+    let readiness_delta_from_previous = match (&latest, &previous) {
+        (Some(latest), Some(previous)) => {
+            latest.readiness_score_out_of_100 as i16 - previous.readiness_score_out_of_100 as i16
+        }
+        _ => 0,
+    };
+
+    FridayDashboardExportHistory {
+        history_json: path_string(history_path),
+        record_count: records.len(),
+        score_delta_from_previous,
+        readiness_delta_from_previous,
+        latest,
+        previous,
+        records,
+    }
 }
 
 fn read_json_file<T: for<'de> Deserialize<'de>>(path: impl AsRef<Path>) -> Result<T> {

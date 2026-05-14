@@ -29,7 +29,8 @@ use flow::friday::{
     FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
-    export_friday_dashboard_bundle, friday_dashboard_panel_from_export,
+    export_friday_dashboard_bundle, friday_dashboard_export_history_from_export,
+    friday_dashboard_panel_from_export,
     friday_dashboard_screenshot_history, friday_execution_handoff_report,
     friday_live_ui_route_binding_report,
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
@@ -939,8 +940,10 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
     let bundle = export_friday_dashboard_bundle(&root).unwrap();
 
     assert_eq!(bundle.completion.name, "Friday Dashboard Runtime Wiring");
-    assert_eq!(bundle.completion.current_score_out_of_100, 60);
-    assert_eq!(bundle.manifest.score_out_of_100, 60);
+    assert_eq!(bundle.completion.current_score_out_of_100, 80);
+    assert_eq!(bundle.manifest.score_out_of_100, 80);
+    assert_eq!(bundle.export_history.record_count, 1);
+    assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
     assert_eq!(bundle.readiness.blocking_count, 0);
     assert_eq!(bundle.route_bindings.blocking_count, 0);
     assert_eq!(bundle.route_visuals.blocking_count, 0);
@@ -955,6 +958,9 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
     assert!(PathBuf::from(&bundle.manifest.summary_markdown).exists());
     assert!(bundle.manifest.files.iter().any(|file| {
         file.path.ends_with("readiness.json") && file.kind == "operator-readiness" && file.bytes > 0
+    }));
+    assert!(bundle.manifest.files.iter().any(|file| {
+        file.path.ends_with("dashboard-history.json") && file.kind == "dashboard-history" && file.bytes > 0
     }));
     assert!(bundle
         .manifest
@@ -972,9 +978,9 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
     assert_eq!(panel.loop_name, "Friday Dashboard Runtime Wiring");
-    assert_eq!(panel.score_out_of_100, 60);
+    assert_eq!(panel.score_out_of_100, 80);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
-    assert_eq!(panel.cards.len(), 6);
+    assert_eq!(panel.cards.len(), 7);
     assert!(panel.cards.iter().any(|card| {
         card.id == "completion-loop"
             && card.source_json.ends_with("completion.json")
@@ -1008,10 +1014,21 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
                 .any(|action| action.kind == FridayDashboardActionKind::Capture
                     && action.command == "flow --friday-route-visuals")
     }));
+    assert!(panel.cards.iter().any(|card| {
+        card.id == "export-history"
+            && card.source_json.ends_with("dashboard-history.json")
+            && card
+                .actions
+                .iter()
+                .any(|action| action.kind == FridayDashboardActionKind::RunCheck
+                    && action.command.contains("--friday-dashboard-export"))
+    }));
     assert!(panel.cards.iter().flat_map(|card| &card.actions).all(|action| {
         action.local_only && action.enabled && !action.destructive && !action.requires_confirmation
     }));
     assert_eq!(panel.screenshot_history.total_targets, 10);
+    assert_eq!(panel.export_history.record_count, 1);
+    assert_eq!(panel.export_history.score_delta_from_previous, 0);
     assert!(panel.screenshot_history.missing_count > 0);
     assert!(panel.screenshot_history.records.iter().any(|record| {
         record.status == FridayDashboardScreenshotStatus::Missing
@@ -1023,6 +1040,32 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     }));
     assert!(panel.warnings.iter().any(|warning| {
         warning.contains("Completion Loop") || warning.contains("Operator Readiness")
+    }));
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn friday_dashboard_export_history_tracks_checkpoints() {
+    let root = temp_root("friday-dashboard-export-history");
+    export_friday_dashboard_bundle(&root).unwrap();
+    export_friday_dashboard_bundle(&root).unwrap();
+
+    let history = friday_dashboard_export_history_from_export(&root).unwrap();
+    assert_eq!(history.record_count, 2);
+    assert!(history.latest.is_some());
+    assert!(history.previous.is_some());
+    assert_eq!(history.score_delta_from_previous, 0);
+    assert_eq!(history.readiness_delta_from_previous, 0);
+    assert!(history.records.iter().all(|record| {
+        record.loop_name == "Friday Dashboard Runtime Wiring"
+            && record.manifest_json.ends_with("manifest.json")
+    }));
+
+    let panel = friday_dashboard_panel_from_export(&root).unwrap();
+    assert_eq!(panel.export_history.record_count, 2);
+    assert!(panel.cards.iter().any(|card| {
+        card.id == "export-history" && card.status == FridayDashboardPanelStatus::Ready
     }));
 
     let _ = fs::remove_dir_all(&root);

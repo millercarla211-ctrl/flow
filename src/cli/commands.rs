@@ -1442,6 +1442,12 @@ fn print_friday_dashboard_panel(input_dir: &str) -> Result<()> {
         panel.screenshot_history.missing_count,
         panel.screenshot_history.metadata_missing_count
     );
+    println!(
+        "History: {} checkpoint(s), score delta {:+}, readiness delta {:+}",
+        panel.export_history.record_count,
+        panel.export_history.score_delta_from_previous,
+        panel.export_history.readiness_delta_from_previous
+    );
     for record in panel
         .screenshot_history
         .records
