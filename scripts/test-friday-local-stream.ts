@@ -18,6 +18,7 @@ import { rankAskContext } from "../src/features/friday/utils/localRetrieval";
 import {
   createAskResearchBriefDraft,
   createLocalResearchDraft,
+  createResearchAgentTaskDraft,
 } from "../src/features/friday/utils/localResearch";
 import {
   checkFridayProviderHealth,
@@ -148,6 +149,31 @@ if (
   !askResearchDraft.report.includes("explicit approval")
 ) {
   throw new Error("Friday Ask-to-Research draft did not preserve prompt, answer, and citation boundary.");
+}
+
+const researchAgentTask = createResearchAgentTaskDraft({
+  topic: "Friday source controls",
+  sources: ["Local files", "Web"],
+  projectName: "Friday OS",
+  plan: ["Review local files.", "Inspect approved web source."],
+  report: "Friday should separate local and web source scopes.",
+  citations: [
+    {
+      id: "source-1",
+      label: "source-controls.md",
+      kind: "file",
+      excerpt: "Source controls stay explicit.",
+    },
+  ],
+});
+
+if (
+  researchAgentTask.status !== "Needs approval" ||
+  researchAgentTask.target !== "browser" ||
+  !researchAgentTask.brief?.includes("Project: Friday OS") ||
+  !researchAgentTask.brief.includes("Source controls stay explicit")
+) {
+  throw new Error("Friday Research-to-Agent draft did not preserve project, source scope, and citations.");
 }
 
 const retrievedContext = rankAskContext({

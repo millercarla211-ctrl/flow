@@ -1,5 +1,6 @@
 import {
   Archive,
+  Bot,
   CalendarClock,
   FileDown,
   FileText,
@@ -16,7 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { makeLocalRecord, useLocalList, useLocalSettings } from "../../hooks/useLocalPersistence";
-import { createLocalResearchDraft } from "../../utils/localResearch";
+import { createLocalResearchDraft, createResearchAgentTaskDraft } from "../../utils/localResearch";
 import { exportFridayResearchBrief } from "../../utils/localFileExport";
 import { synthesizeResearchWithProvider } from "../../utils/providerResearch";
 import { inspectWebSource } from "../../utils/webInspection";
@@ -28,6 +29,7 @@ import { EmptyState, INPUT_CLASS, RecordShell } from "./primitives";
 import {
   DEFAULT_CONNECTORS,
   STORAGE_KEYS,
+  type AgentTask,
   type CanvasArtifact,
   type ConnectorSettings,
   type FridayAutomation,
@@ -68,6 +70,7 @@ export function ResearchWorkspace() {
   const projectContext = useLocalList<ProjectContextItem>(STORAGE_KEYS.projectContext);
   const memories = useLocalList<FridayMemory>(STORAGE_KEYS.memory);
   const artifacts = useLocalList<CanvasArtifact>(STORAGE_KEYS.artifacts);
+  const agents = useLocalList<AgentTask>(STORAGE_KEYS.agents);
   const automations = useLocalList<FridayAutomation>(STORAGE_KEYS.automations);
   const connectors = useLocalSettings<ConnectorSettings>(STORAGE_KEYS.connectors, DEFAULT_CONNECTORS);
   const [topic, setTopic] = useState("");
@@ -210,6 +213,16 @@ export function ResearchWorkspace() {
           .join("\n\n"),
         cadence: "Manual",
         enabled: true,
+        projectId: brief.projectId,
+        projectName: brief.projectName,
+      }),
+    );
+  };
+
+  const queueBriefAgent = (brief: ResearchBrief) => {
+    agents.addItem(
+      makeLocalRecord("agent", {
+        ...createResearchAgentTaskDraft(brief),
         projectId: brief.projectId,
         projectName: brief.projectName,
       }),
@@ -605,6 +618,15 @@ export function ResearchWorkspace() {
                 >
                   <Archive size={13} />
                   Save artifact
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => queueBriefAgent(brief)}
+                >
+                  <Bot size={13} />
+                  Queue agent
                 </Button>
                 <Button
                   type="button"

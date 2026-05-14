@@ -1,4 +1,5 @@
 import type {
+  AgentTask,
   FridayMemory,
   FridayProject,
   ProjectContextItem,
@@ -87,6 +88,39 @@ export function createAskResearchBriefDraft({
     ]
       .filter(Boolean)
       .join("\n"),
+  };
+}
+
+export function createResearchAgentTaskDraft(
+  brief: Pick<
+    ResearchBrief,
+    "citations" | "plan" | "projectName" | "report" | "sources" | "topic"
+  >,
+): Pick<AgentTask, "brief" | "status" | "target" | "title"> {
+  const usesWeb =
+    brief.sources.some((source) => /web|academic|premium/i.test(source)) ||
+    (brief.citations ?? []).some((citation) => citation.kind === "web");
+  const citationLines =
+    brief.citations
+      ?.map((citation, index) => `[${index + 1}] ${citation.label}: ${citation.excerpt}`)
+      .join("\n") ?? "";
+  const planLines = brief.plan.map((step, index) => `${index + 1}. ${step}`).join("\n");
+
+  return {
+    title: `Investigate research: ${brief.topic}`,
+    target: usesWeb ? "browser" : "files",
+    status: "Needs approval",
+    brief: [
+      `Research topic: ${brief.topic}`,
+      brief.projectName ? `Project: ${brief.projectName}` : "",
+      brief.sources.length > 0 ? `Source scope: ${brief.sources.join(", ")}` : "",
+      planLines ? `Plan:\n${planLines}` : "",
+      citationLines ? `Citations:\n${citationLines}` : "",
+      brief.report ? `Current report:\n${brief.report}` : "",
+      "Goal: verify the strongest evidence, identify gaps, and return the next safe research action.",
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
   };
 }
 
