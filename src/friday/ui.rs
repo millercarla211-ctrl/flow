@@ -102,12 +102,25 @@ pub fn default_friday_ui_integration_plan() -> FridayUiIntegrationPlan {
     FridayUiIntegrationPlan {
         product_name: "Friday".to_string(),
         loop_name: "Friday Product UI Integration".to_string(),
-        score_out_of_100: 20,
-        routes: vec![ask_route(), search_route(), research_route()],
+        score_out_of_100: 45,
+        routes: vec![
+            ask_route(),
+            search_route(),
+            research_route(),
+            agents_route(),
+            projects_route(),
+            memory_route(),
+            connectors_route(),
+            canvas_route(),
+            artifacts_route(),
+            code_route(),
+            voice_route(),
+            multimodal_route(),
+            automations_route(),
+        ],
         next_actions: vec![
-            "Wire Projects, Memory, Connectors, Canvas, Artifacts, Code, Voice, Multimodal, and Automations pages to the durable stores.".to_string(),
             "Add end-to-end local checks for STT/TTS/OCR/metasearch/artifact preview flows.".to_string(),
-            "Add production-ready permission and error states across every Friday route.".to_string(),
+            "Deepen production permission and error states with actual frontend interaction handlers.".to_string(),
         ],
     }
 }
@@ -223,6 +236,234 @@ fn research_route() -> FridayUiRouteContract {
     }
 }
 
+fn agents_route() -> FridayUiRouteContract {
+    store_route(
+        FridayWorkspaceArea::Agents,
+        "tool-agent",
+        "flow --tool-agent <prompt>",
+        true,
+        false,
+        false,
+        vec![
+            binding(
+                "agents-runtime-policy",
+                "Friday runtime surface store",
+                "flow --friday-runtime-json [dir]",
+                "approval and audit policy panel",
+                true,
+                "Loads approval boundaries for background, browser, code, and local tool tasks.",
+            ),
+            binding(
+                "agents-tool-router",
+                "Local tool router",
+                "flow --tool-agent-tools <tools.json> <request>",
+                "tool-call preview and result stream",
+                true,
+                "Runs bounded local tool-routing with explicit tool definitions.",
+            ),
+        ],
+        "Run approved local tool tasks with visible policy, audit, and retry state.",
+    )
+}
+
+fn projects_route() -> FridayUiRouteContract {
+    store_route(
+        FridayWorkspaceArea::Projects,
+        "quality-chat",
+        "flow --friday-workspace-json [dir]",
+        false,
+        false,
+        false,
+        vec![binding(
+            "projects-store",
+            "Friday workspace store",
+            "flow --friday-workspace-json [dir]",
+            "project list, instructions, files, memories, and connectors",
+            true,
+            "Reads durable local project records for sidebar, detail panes, and scoped assistant context.",
+        )],
+        "Create or select a local project before adding files, instructions, memories, or connectors.",
+    )
+}
+
+fn memory_route() -> FridayUiRouteContract {
+    store_route(
+        FridayWorkspaceArea::Memory,
+        "helper",
+        "flow --friday-workspace-json [dir]",
+        false,
+        false,
+        false,
+        vec![binding(
+            "memory-store",
+            "Friday workspace memory records",
+            "flow --friday-workspace-json [dir]",
+            "memory review queue",
+            true,
+            "Shows active, pending-review, and archived memory records tied to local projects.",
+        )],
+        "Review saved memories before Friday uses them in local context.",
+    )
+}
+
+fn connectors_route() -> FridayUiRouteContract {
+    store_route(
+        FridayWorkspaceArea::Connectors,
+        "tool-agent",
+        "flow --friday-workspace-json [dir]",
+        false,
+        false,
+        false,
+        vec![binding(
+            "connector-store",
+            "Friday connector registry",
+            "flow --friday-workspace-json [dir]",
+            "connector registry and permission findings",
+            true,
+            "Displays local files, metasearch, provider catalog, and disabled remote-provider boundaries.",
+        )],
+        "Enable local connectors first; cloud connectors stay disabled until explicitly configured.",
+    )
+}
+
+fn canvas_route() -> FridayUiRouteContract {
+    artifact_route(
+        FridayWorkspaceArea::Canvas,
+        "coding",
+        "flow --friday-artifacts-json [dir]",
+        "editable artifact canvas",
+        "Open an artifact to edit markdown, code, UI snippets, or reports with checkpoints.",
+    )
+}
+
+fn artifacts_route() -> FridayUiRouteContract {
+    artifact_route(
+        FridayWorkspaceArea::Artifacts,
+        "coding",
+        "flow --friday-artifacts-json [dir]",
+        "artifact library and preview list",
+        "Browse generated outputs, saved reports, previews, diffs, and reusable files.",
+    )
+}
+
+fn code_route() -> FridayUiRouteContract {
+    artifact_route(
+        FridayWorkspaceArea::Code,
+        "coding",
+        "flow --friday-artifacts-json [dir]",
+        "code task checkpoints and review queue",
+        "Create approved code tasks with checkpointed artifacts before host execution.",
+    )
+}
+
+fn voice_route() -> FridayUiRouteContract {
+    runtime_route(
+        FridayWorkspaceArea::Voice,
+        "speech",
+        "flow --friday-runtime-json [dir]",
+        "voice runtime state, model choices, wake commands, and audit stream",
+        "Use local STT/TTS/wake records before enabling hands-free voice flows.",
+    )
+}
+
+fn multimodal_route() -> FridayUiRouteContract {
+    runtime_route(
+        FridayWorkspaceArea::Multimodal,
+        "multimodal",
+        "flow --friday-runtime-json [dir]",
+        "OCR and vision planning surfaces",
+        "Run OCR or vision planning into local artifacts with explicit input boundaries.",
+    )
+}
+
+fn automations_route() -> FridayUiRouteContract {
+    runtime_route(
+        FridayWorkspaceArea::Automations,
+        "tool-agent",
+        "flow --friday-runtime-json [dir]",
+        "automation schedule, approval, and audit records",
+        "Review scheduled and background jobs before they run.",
+    )
+}
+
+fn artifact_route(
+    area: FridayWorkspaceArea,
+    model_role: &str,
+    command: &str,
+    writes_to: &str,
+    empty_hint: &str,
+) -> FridayUiRouteContract {
+    store_route(
+        area,
+        model_role,
+        command,
+        false,
+        false,
+        false,
+        vec![binding(
+            &format!("{}-artifact-store", area_key(area)),
+            "Friday artifact store",
+            command,
+            writes_to,
+            true,
+            "Loads durable artifacts, checkpoints, diffs, preview runners, and code-task records.",
+        )],
+        empty_hint,
+    )
+}
+
+fn runtime_route(
+    area: FridayWorkspaceArea,
+    model_role: &str,
+    command: &str,
+    writes_to: &str,
+    empty_hint: &str,
+) -> FridayUiRouteContract {
+    store_route(
+        area,
+        model_role,
+        command,
+        false,
+        false,
+        false,
+        vec![binding(
+            &format!("{}-runtime-store", area_key(area)),
+            "Friday runtime surface store",
+            command,
+            writes_to,
+            true,
+            "Loads durable voice, multimodal, automation, approval, and audit records.",
+        )],
+        empty_hint,
+    )
+}
+
+fn store_route(
+    area: FridayWorkspaceArea,
+    model_role: &str,
+    primary_command: &str,
+    stream_enabled: bool,
+    citations_visible: bool,
+    report_persistence: bool,
+    data_bindings: Vec<FridayUiDataBinding>,
+    empty_hint: &str,
+) -> FridayUiRouteContract {
+    FridayUiRouteContract {
+        area,
+        route: area.route().to_string(),
+        title: area.label().to_string(),
+        status: FridayUiIntegrationStatus::Wired,
+        model_role: model_role.to_string(),
+        primary_command: primary_command.to_string(),
+        stream_enabled,
+        citations_visible,
+        report_persistence,
+        source_controls: Vec::new(),
+        data_bindings,
+        states: states_for(area.label(), empty_hint),
+    }
+}
+
 fn default_source_controls() -> Vec<FridayUiSourceControl> {
     vec![
         source(
@@ -262,6 +503,24 @@ fn default_source_controls() -> Vec<FridayUiSourceControl> {
             "Local project files only after project scope is selected.",
         ),
     ]
+}
+
+fn area_key(area: FridayWorkspaceArea) -> &'static str {
+    match area {
+        FridayWorkspaceArea::Ask => "ask",
+        FridayWorkspaceArea::Search => "search",
+        FridayWorkspaceArea::Research => "research",
+        FridayWorkspaceArea::Agents => "agents",
+        FridayWorkspaceArea::Canvas => "canvas",
+        FridayWorkspaceArea::Projects => "projects",
+        FridayWorkspaceArea::Memory => "memory",
+        FridayWorkspaceArea::Connectors => "connectors",
+        FridayWorkspaceArea::Voice => "voice",
+        FridayWorkspaceArea::Artifacts => "artifacts",
+        FridayWorkspaceArea::Automations => "automations",
+        FridayWorkspaceArea::Code => "code",
+        FridayWorkspaceArea::Multimodal => "multimodal",
+    }
 }
 
 fn states_for(route: &str, empty_hint: &str) -> Vec<FridayUiState> {
@@ -352,8 +611,8 @@ mod tests {
     #[test]
     fn ui_plan_wires_ask_search_and_research_routes() {
         let plan = default_friday_ui_integration_plan();
-        assert_eq!(plan.score_out_of_100, 20);
-        assert_eq!(plan.ready_route_count(), 3);
+        assert_eq!(plan.score_out_of_100, 45);
+        assert_eq!(plan.ready_route_count(), 13);
 
         for area in [
             FridayWorkspaceArea::Ask,
@@ -385,5 +644,33 @@ mod tests {
                 .iter()
                 .any(|binding| binding.command.contains("--friday-research-report-save"))
         );
+    }
+
+    #[test]
+    fn ui_plan_wires_store_backed_routes() {
+        let plan = default_friday_ui_integration_plan();
+
+        for area in [
+            FridayWorkspaceArea::Projects,
+            FridayWorkspaceArea::Memory,
+            FridayWorkspaceArea::Connectors,
+            FridayWorkspaceArea::Canvas,
+            FridayWorkspaceArea::Artifacts,
+            FridayWorkspaceArea::Code,
+            FridayWorkspaceArea::Voice,
+            FridayWorkspaceArea::Multimodal,
+            FridayWorkspaceArea::Automations,
+        ] {
+            let route = plan.route(area).unwrap();
+            assert_eq!(route.status, FridayUiIntegrationStatus::Wired);
+            assert!(!route.data_bindings.is_empty());
+            assert!(route.data_bindings.iter().all(|binding| binding.local_only));
+            assert!(
+                route
+                    .states
+                    .iter()
+                    .any(|state| state.kind == FridayUiStateKind::Permission)
+            );
+        }
     }
 }

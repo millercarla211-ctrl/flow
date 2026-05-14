@@ -47,6 +47,8 @@
 - completed Friday Competitive AI Workspace at 100/100 and opened Friday Product UI Integration as the next loop
 - added Friday Ask/Search/Research UI integration route contracts with streaming flags, citations, source controls, saved report bindings, and CLI visibility
 - advanced Friday Product UI Integration to 20/100
+- added store-backed Friday page contracts for Projects, Memory, Connectors, Agents, Canvas, Artifacts, Code, Voice, Multimodal, and Automations
+- advanced Friday Product UI Integration to 45/100
 
 ## 2026-04-26
 

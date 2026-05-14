@@ -61,9 +61,9 @@ pub fn active_completion_set() -> CompletionSet {
             "store-backed-pages",
             "Store-backed Friday pages",
             25,
-            CompletionItemStatus::Planned,
-            "Projects, Memory, Connectors, Canvas, Artifacts, Code, Voice, Multimodal, and Automations stores exist but still need page-level UI bindings",
-            "wire every Friday page to the durable workspace, artifact, and runtime stores",
+            CompletionItemStatus::Done,
+            "Friday now has page-level UI bindings for Projects, Memory, Connectors, Agents, Canvas, Artifacts, Code, Voice, Multimodal, and Automations against the durable local stores",
+            "connect these contracts to the visible desktop/Next.js page components",
         ),
         item(
             "local-execution-checks",

@@ -487,8 +487,8 @@ fn friday_runtime_store_persists_voice_multimodal_and_automations() {
 #[test]
 fn friday_ui_plan_wires_ask_search_and_research_routes() {
     let plan = default_friday_ui_integration_plan();
-    assert_eq!(plan.score_out_of_100, 20);
-    assert_eq!(plan.ready_route_count(), 3);
+    assert_eq!(plan.score_out_of_100, 45);
+    assert_eq!(plan.ready_route_count(), 13);
 
     let ask = plan.route(flow::FridayWorkspaceArea::Ask).unwrap();
     assert_eq!(ask.status, FridayUiIntegrationStatus::Wired);
@@ -507,6 +507,28 @@ fn friday_ui_plan_wires_ask_search_and_research_routes() {
             .iter()
             .any(|binding| binding.command.contains("--friday-research-report-save"))
     );
+}
+
+#[test]
+fn friday_ui_plan_wires_remaining_store_backed_routes() {
+    let plan = default_friday_ui_integration_plan();
+
+    for area in [
+        flow::FridayWorkspaceArea::Projects,
+        flow::FridayWorkspaceArea::Memory,
+        flow::FridayWorkspaceArea::Connectors,
+        flow::FridayWorkspaceArea::Canvas,
+        flow::FridayWorkspaceArea::Artifacts,
+        flow::FridayWorkspaceArea::Code,
+        flow::FridayWorkspaceArea::Voice,
+        flow::FridayWorkspaceArea::Multimodal,
+        flow::FridayWorkspaceArea::Automations,
+    ] {
+        let route = plan.route(area).unwrap();
+        assert_eq!(route.status, FridayUiIntegrationStatus::Wired);
+        assert!(!route.data_bindings.is_empty());
+        assert!(route.data_bindings.iter().all(|binding| binding.local_only));
+    }
 }
 
 #[test]
