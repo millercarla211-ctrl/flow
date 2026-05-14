@@ -3,6 +3,7 @@ pub mod checks;
 pub mod research;
 pub mod runtime;
 pub mod ui;
+pub mod verification;
 pub mod workspace;
 
 pub use artifacts::*;
@@ -10,6 +11,7 @@ pub use checks::*;
 pub use research::*;
 pub use runtime::*;
 pub use ui::*;
+pub use verification::*;
 pub use workspace::*;
 
 use serde::{Deserialize, Serialize};

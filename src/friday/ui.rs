@@ -116,7 +116,7 @@ pub fn default_friday_ui_integration_plan() -> FridayUiIntegrationPlan {
     FridayUiIntegrationPlan {
         product_name: "Friday".to_string(),
         loop_name: "Friday Product UI Integration".to_string(),
-        score_out_of_100: 85,
+        score_out_of_100: 100,
         routes: vec![
             ask_route(),
             search_route(),
@@ -133,8 +133,8 @@ pub fn default_friday_ui_integration_plan() -> FridayUiIntegrationPlan {
             automations_route(),
         ],
         next_actions: vec![
-            "Run targeted browser verification across the visible Friday routes.".to_string(),
-            "Deploy only after the next major user-visible feature lands.".to_string(),
+            "Use `flow --friday-browser-gate` before any browser-extension or web-surface release.".to_string(),
+            "Continue with Multimodal Local Core for OCR, VLM, image, audio, and video execution.".to_string(),
         ],
     }
 }
@@ -675,7 +675,7 @@ mod tests {
     #[test]
     fn ui_plan_wires_ask_search_and_research_routes() {
         let plan = default_friday_ui_integration_plan();
-        assert_eq!(plan.score_out_of_100, 85);
+        assert_eq!(plan.score_out_of_100, 100);
         assert_eq!(plan.ready_route_count(), 13);
 
         for area in [

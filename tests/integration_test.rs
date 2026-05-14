@@ -13,9 +13,11 @@ use flow::experience::{
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
+    FridayVerificationStatus,
     FridayMultimodalSurface, FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow,
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
-    FridayWorkspaceStore, default_friday_local_execution_checks, default_friday_product_plan,
+    FridayWorkspaceStore, default_friday_browser_verification_report,
+    default_friday_local_execution_checks, default_friday_product_plan,
     default_friday_ui_integration_plan,
 };
 use flow::long_context::RlmBridge;
@@ -488,7 +490,7 @@ fn friday_runtime_store_persists_voice_multimodal_and_automations() {
 #[test]
 fn friday_ui_plan_wires_ask_search_and_research_routes() {
     let plan = default_friday_ui_integration_plan();
-    assert_eq!(plan.score_out_of_100, 85);
+    assert_eq!(plan.score_out_of_100, 100);
     assert_eq!(plan.ready_route_count(), 13);
 
     let ask = plan.route(flow::FridayWorkspaceArea::Ask).unwrap();
@@ -585,6 +587,33 @@ fn friday_ui_routes_have_production_state_contracts() {
         assert!(permission.blocks_interaction);
         assert!(permission.action_label.is_some());
     }
+}
+
+#[test]
+fn friday_browser_gate_verifies_tracked_extension_surface() {
+    let report = default_friday_browser_verification_report();
+
+    assert!(report
+        .targets
+        .iter()
+        .any(|target| target.id == "flow-webext-source"));
+    assert!(report
+        .targets
+        .iter()
+        .any(|target| target.id == "flow-webext-chromium-dist"));
+    assert!(report
+        .targets
+        .iter()
+        .any(|target| target.id == "flow-webext-firefox-artifact"));
+    assert!(report
+        .targets
+        .iter()
+        .all(|target| target.status == FridayVerificationStatus::Passed));
+    assert!(report.deploy_gate.deployment_allowed);
+    assert!(report
+        .deploy_gate
+        .required_verification_command
+        .contains("flow --friday-local-checks"));
 }
 
 #[test]

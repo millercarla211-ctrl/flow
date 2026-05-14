@@ -53,6 +53,9 @@
 - advanced Friday Product UI Integration to 65/100
 - added production-ready Friday route state contracts with tone, visibility, blocking behavior, and recovery commands for every route
 - advanced Friday Product UI Integration to 85/100
+- added `flow --friday-browser-gate` / `--friday-browser-gate-json` for browser-extension verification and major-feature deploy gating
+- completed Friday Product UI Integration at 100/100
+- opened Multimodal Local Core at 20/100
 
 ## 2026-04-26
 

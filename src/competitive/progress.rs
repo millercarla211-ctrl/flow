@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "ask-search-research-ui",
-            "Ask, Search, and Research UI wiring",
+            "multimodal-readiness-gate",
+            "Local multimodal readiness gate",
             20,
             CompletionItemStatus::Done,
-            "Friday now has route-level UI contracts for Ask, Search, and Research with streaming flags, citations, source controls, saved reports, and local command/data bindings",
-            "connect these contracts to the desktop/Next.js panes and interaction handlers",
+            "Friday local checks now verify OCR artifacts, STT/TTS readiness, metasearch wiring, and artifact preview contracts without loading heavy models",
+            "connect these readiness checks to visible Multimodal and Voice route diagnostics",
         ),
         item(
-            "store-backed-pages",
-            "Store-backed Friday pages",
-            25,
-            CompletionItemStatus::Done,
-            "Friday now has page-level UI bindings for Projects, Memory, Connectors, Agents, Canvas, Artifacts, Code, Voice, Multimodal, and Automations against the durable local stores",
-            "connect these contracts to the visible desktop/Next.js page components",
-        ),
-        item(
-            "local-execution-checks",
-            "End-to-end local execution checks",
+            "ocr-execution-smoke",
+            "OCR execution smoke path",
             20,
-            CompletionItemStatus::Done,
-            "Friday now exposes low-resource local execution checks for STT, TTS, OCR, metasearch request paths, artifact previews, and runtime records without loading heavy models",
-            "connect the check report to the visible desktop diagnostics panel",
-        ),
-        item(
-            "route-states",
-            "Production route states",
-            20,
-            CompletionItemStatus::Done,
-            "Every Friday route now exposes production empty, loading, error, permission, and ready state contracts with tone, visibility, blocking behavior, and recovery commands",
-            "connect these route-state contracts to the visible desktop/Next.js components",
-        ),
-        item(
-            "browser-verification-deploy-gate",
-            "Browser verification and deploy gate",
-            15,
             CompletionItemStatus::Planned,
-            "The deploy rule exists in the TODO, but this loop still needs targeted browser verification and major-feature-only deploy discipline",
-            "verify the visible product routes and deploy only after a major user-visible feature ships",
+            "GLM-OCR artifacts are discoverable on G: drive, but the loop still needs a small screenshot OCR smoke command and artifact output path",
+            "add a bounded OCR fixture/screenshot smoke path that writes an artifact record",
+        ),
+        item(
+            "vlm-screenshot-path",
+            "VLM screenshot understanding path",
+            20,
+            CompletionItemStatus::Planned,
+            "Vision model artifacts exist for UI work, but Friday needs a runtime-safe screenshot understanding path separate from OCR",
+            "wire a low-resource screenshot/VLM execution contract with explicit model and artifact boundaries",
+        ),
+        item(
+            "media-routing-policy",
+            "Image, audio, and video routing policy",
+            20,
+            CompletionItemStatus::Planned,
+            "The catalog contains multimodal candidates, but Friday still needs explicit local-first promotion, demotion, and missing-model handling for media tasks",
+            "add model-role routing rules for image, audio, video, OCR, and VLM requests",
+        ),
+        item(
+            "multimodal-artifact-metadata",
+            "Publish-ready multimodal artifact metadata",
+            20,
+            CompletionItemStatus::Planned,
+            "Artifact preview contracts exist, but multimodal outputs need richer metadata for source image/audio/video, model, prompt, timings, and confidence",
+            "extend artifact records for OCR/VLM/media outputs and add tests for metadata round trips",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Product UI Integration".to_string(),
+        name: "Multimodal Local Core".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Turn Friday's completed Rust contracts into polished product UI, verified live workflows, and production-ready route states without weakening local-first defaults.".to_string(),
+        loop_rule: "Finish Friday's local OCR, VLM, image, audio, and video foundations with explicit low-resource routing and artifact metadata before adding heavier UI polish.".to_string(),
         items,
     }
 }
@@ -139,6 +139,7 @@ mod tests {
     #[test]
     fn active_set_tracks_incomplete_ui_loop() {
         let set = active_completion_set();
+        assert_eq!(set.name, "Multimodal Local Core");
         assert!(set.current_score_out_of_100 < set.target_score_out_of_100);
         assert!(
             set.items

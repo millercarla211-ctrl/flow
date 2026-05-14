@@ -26,8 +26,9 @@ use crate::experience::{
 use crate::friday::{
     FridayArtifactStore, FridayFeatureStatus, FridayResearchReport, FridayResearchWorkflow,
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
-    default_friday_local_execution_checks, default_friday_product_plan,
-    default_friday_ui_integration_plan, friday_answer_search_plan, friday_research_search_plan,
+    default_friday_browser_verification_report, default_friday_local_execution_checks,
+    default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
+    friday_research_search_plan,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -407,6 +408,17 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", default_friday_local_execution_checks().to_pretty_json()?);
         }
 
+        Command::FridayBrowserGate => {
+            print_friday_browser_gate();
+        }
+
+        Command::FridayBrowserGateJson => {
+            println!(
+                "{}",
+                default_friday_browser_verification_report().to_pretty_json()?
+            );
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -579,6 +591,9 @@ fn print_interactive_help() {
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
+    println!("  --friday-browser-gate   Show browser verification and deploy gate");
+    println!("  --friday-browser-gate-json");
+    println!("                           Print browser gate status as JSON");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");
@@ -923,6 +938,54 @@ fn print_friday_local_execution_checks() {
         }
         if check.status != crate::friday::FridayLocalCheckStatus::Passed {
             println!("  next: {}", check.next_action);
+        }
+    }
+}
+
+fn print_friday_browser_gate() {
+    let report = default_friday_browser_verification_report();
+
+    println!("Friday Browser Verification Gate");
+    println!("================================");
+    println!("{}", report.summary);
+    println!(
+        "Targets: {}/{} passed, blocking: {}",
+        report.passed_target_count(),
+        report.targets.len(),
+        report.blocking_count()
+    );
+    println!(
+        "Deploy allowed: {}",
+        yes_no(report.deploy_gate.deployment_allowed)
+    );
+    println!("Major feature: {}", report.deploy_gate.major_user_visible_feature);
+    println!(
+        "Required check: {}",
+        report.deploy_gate.required_verification_command
+    );
+    println!("Rule: {}", report.deploy_gate.deploy_rule);
+    println!();
+
+    for target in &report.targets {
+        println!(
+            "- [{}] {}",
+            target.status.label(),
+            target.surface
+        );
+        println!("  command: {}", target.command);
+        for item in &target.evidence {
+            println!("  evidence: {}", item);
+        }
+        if target.status != crate::friday::FridayVerificationStatus::Passed {
+            println!("  next: {}", target.next_action);
+        }
+    }
+
+    if !report.deploy_gate.notes.is_empty() {
+        println!();
+        println!("Notes:");
+        for note in &report.deploy_gate.notes {
+            println!("  - {}", note);
         }
     }
 }

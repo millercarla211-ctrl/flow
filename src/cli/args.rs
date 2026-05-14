@@ -78,6 +78,10 @@ pub enum Command {
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
     FridayLocalChecksJson,
+    /// Show Friday browser verification and deploy gate status
+    FridayBrowserGate,
+    /// Print Friday browser verification and deploy gate status as JSON
+    FridayBrowserGateJson,
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -359,6 +363,10 @@ impl Args {
             "--friday-local-checks" | "--friday-execution-checks" => Command::FridayLocalChecks,
             "--friday-local-checks-json" | "--friday-execution-checks-json" => {
                 Command::FridayLocalChecksJson
+            }
+            "--friday-browser-gate" | "--friday-verification-gate" => Command::FridayBrowserGate,
+            "--friday-browser-gate-json" | "--friday-verification-gate-json" => {
+                Command::FridayBrowserGateJson
             }
             "--accessibility-diagnostics" | "--accessibility" => {
                 let live = !args.iter().any(|value| value == "--dry-run");

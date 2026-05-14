@@ -86,28 +86,39 @@ Goal: make Friday a local-first AI workspace that can compete with the useful su
 
 This set is complete. The next loop should open `Friday Product UI Integration` and connect these Rust contracts to the desktop/Next.js UI, live execution flows, visual verification, and production-ready interaction states.
 
-## Next Active Set: Friday Product UI Integration
+## Completed Set: Friday Product UI Integration
 
-Status: 85/100
+Status: 100/100
 
 Goal: turn the completed Friday runtime contracts into a polished product UI and verified live workflows without weakening the local-first, low-resource defaults.
 
-### Remaining To Reach 100/100
+### Done
 
 - [x] Wire Ask/Search/Research to visible streaming UI, citations, saved reports, and source controls.
 - [x] Wire Projects, Memory, Connectors, Canvas, Artifacts, Code, Voice, Multimodal, and Automations pages to the new stores.
 - [x] Add end-to-end local execution checks for STT/TTS/OCR/metasearch/artifact preview flows.
 - [x] Add production-ready empty/loading/error/permission states for every Friday route.
-- [ ] Run targeted browser verification and only deploy after a major user-visible feature ships.
+- [x] Run targeted browser verification and only deploy after a major user-visible feature ships.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Multimodal Local Core` and finish local OCR, VLM, image, audio, and video foundations before adding more UI polish.
+
+## Next Active Set: Multimodal Local Core
+
+Status: 20/100
+
+Goal: finish Friday's local OCR, VLM, image, audio, and video foundations with explicit low-resource routing and artifact metadata before adding heavier UI polish.
+
+### Remaining To Reach 100/100
+
+- [x] Add a local multimodal readiness gate covering OCR artifacts, speech readiness, metasearch wiring, and artifact previews.
+- [ ] Add a bounded OCR fixture/screenshot smoke path that writes an artifact record.
+- [ ] Wire a low-resource screenshot/VLM execution contract with explicit model and artifact boundaries.
+- [ ] Add model-role routing rules for image, audio, video, OCR, and VLM requests.
+- [ ] Extend artifact records for OCR/VLM/media outputs and add tests for metadata round trips.
 
 ## Next Set Candidates
-
-### Multimodal Local Core
-
-- [ ] Finish local OCR/VLM/image/video runtime execution paths.
-- [ ] Add conversion and validation workflows for community model artifacts.
-- [ ] Add publish-ready local artifact metadata.
-- [ ] Add low-end routing promotion/demotion checks for every model role.
 
 ### Browser And Extension Core
 
