@@ -22,6 +22,8 @@
 - opened Writing Quality Core as the next active 100-point product loop
 - added structured writing-change explanations for typing assistance and text commands, covering grammar, tone, concision, terminology, snippets, domain rules, style rules, and formatting
 - advanced Writing Quality Core to 30/100
+- added local-first academic review reports for citation needs, claim review, fact-check risk, supplied-source matching, and source-overlap warnings
+- advanced Writing Quality Core to 55/100
 
 ## 2026-04-26
 

@@ -12,7 +12,7 @@ use super::{
     onboarding::{FlowOnboardingBuilder, FlowOnboardingPlan},
     overlay::{FlowOverlayController, FlowOverlayState},
     permissions::{FlowPermissionBundle, FlowPermissionPlanner},
-    proofing::{FlowProofingPlanner, ProofingIssue},
+    proofing::{AcademicReviewReport, AcademicReviewRequest, FlowProofingPlanner, ProofingIssue},
     runtime_policy::{DeviceBenchmarkSnapshot, FlowRuntimeTierPolicy},
     types::{
         AppContext, TextCommandRequest, TextCommandResult, TypingAssistRequest, TypingAssistResult,
@@ -51,6 +51,7 @@ pub struct FlowSessionRuntime {
 pub struct FlowTextPass {
     pub typing: TypingAssistResult,
     pub proofing: Vec<ProofingIssue>,
+    pub academic_review: Option<AcademicReviewReport>,
     pub insert_action: Option<ControlActionPlan>,
 }
 
@@ -131,6 +132,22 @@ impl FlowSessionRuntime {
                 notes: vec![format!("Typing assistance failed: {error}")],
             });
         let proofing = context.proofing.inspect(&typing.final_text);
+        let academic_review = if context.proofing.goals.iter().any(|goal| {
+            matches!(
+                goal,
+                super::proofing::ProofingGoal::CitationSupport
+                    | super::proofing::ProofingGoal::FactCheck
+                    | super::proofing::ProofingGoal::PlagiarismScreen
+            )
+        }) {
+            Some(context.proofing.review_academic(AcademicReviewRequest {
+                text: typing.final_text.clone(),
+                sources: Vec::new(),
+                strict: context.proofing.strict_mode,
+            }))
+        } else {
+            None
+        };
         let insert_action = if typing.final_text != typing.original_text {
             Some(context.control.plan_text_insert(typing.final_text.clone()))
         } else {
@@ -140,6 +157,7 @@ impl FlowSessionRuntime {
         FlowTextPass {
             typing,
             proofing,
+            academic_review,
             insert_action,
         }
     }

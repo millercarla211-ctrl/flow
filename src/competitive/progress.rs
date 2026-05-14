@@ -61,9 +61,9 @@ pub fn active_completion_set() -> CompletionSet {
             "citation-factcheck",
             "Citation, fact-checking, and academic assistance paths",
             25,
-            CompletionItemStatus::Planned,
-            "proofing planners include citation and fact-check goals, but execution is not yet wired",
-            "connect citation, fact-check, and academic review requests to local-first research surfaces",
+            CompletionItemStatus::Done,
+            "FlowProofingPlanner now exposes a local-first academic review report with citation needs, claim reviews, fact-check risk, supplied-source matching, and source-overlap warnings",
+            "keep the academic review API local-first while adding durable style-guide and brand-tone policies",
         ),
         item(
             "style-guide-policy",

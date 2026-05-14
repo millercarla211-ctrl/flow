@@ -43,17 +43,17 @@ This set is complete. The next loop should open `Writing Quality Core` as the ne
 
 ## Active Set: Writing Quality Core
 
-Status: 30/100
+Status: 55/100
 
 Goal: make Flow's writing assistance excellent enough to feel useful every day, with deeper explanations, citations, style policies, multilingual support, and host-friendly review surfaces.
 
 ### Done
 
 - [x] Deepen grammar, clarity, and rewrite explanations beyond the current Harper-backed baseline.
+- [x] Add citation, fact-checking, and academic assistance paths.
 
 ### Remaining To Reach 100/100
 
-- [ ] Add citation, fact-checking, and academic assistance paths.
 - [ ] Add style-guide and brand-tone policy enforcement.
 - [ ] Add multilingual writing assistance.
 - [ ] Add host-facing writing review summaries with accept/reject handoff.

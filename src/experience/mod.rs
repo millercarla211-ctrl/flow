@@ -123,7 +123,11 @@ pub use permissions::{
 };
 pub use persistence::{FlowPersistentState, PersistedApprovalRecord, PersistedModuleRecord};
 pub use presenters::{ManagedAudioRuntime, NativeOverlayPresenter};
-pub use proofing::{FlowProofingPlanner, ProofingGoal, ProofingIssue, ProofingSeverity};
+pub use proofing::{
+    AcademicCitationNeed, AcademicClaimReview, AcademicClaimStatus, AcademicReviewReport,
+    AcademicReviewRequest, AcademicSource, FlowProofingPlanner, ProofingGoal, ProofingIssue,
+    ProofingSeverity,
+};
 pub use recovery::{FlowRecoveryPlan, FlowRecoveryPlanner, RecoveryAction, RecoveryEvent};
 pub use runtime_policy::{
     DeviceBenchmarkSnapshot, FlowRuntimeTierPolicy, PromotionRecommendation, TierAdjustment,

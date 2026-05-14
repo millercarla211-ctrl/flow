@@ -65,14 +65,16 @@ pub use embed::{
     SearchStrategy, SerializerStrategy,
 };
 pub use experience::{
-    AccessibilityBackend, AccessibilityDiagnosticSeverity, AccessibilityMode, AppContext,
-    AppUsageStat, DictationAssistRequest, DictationAssistResult, DictionaryEntry, ExpandedSnippet,
-    FlowAccessibilityDiagnostic, FlowAccessibilityRuntime, FlowDictationEngine, FlowExperienceHub,
-    FlowHostDictationBlocker, FlowHostDictationExecution, FlowHostDictationReadiness,
-    FlowHostDictationRequest, FlowHostPauseController, FlowHostPauseSnapshot, FlowTypingAssistant,
-    FlowWorkspaceProfile, SnippetEntry, StylePreset, StyleRule, TextCommandRequest,
-    TextCommandResult, ToneStyle, TypingAssistRequest, TypingAssistResult, UsageDashboardSnapshot,
-    WritingChangeExplanation, WritingChangeKind, WritingDomain,
+    AcademicCitationNeed, AcademicClaimReview, AcademicClaimStatus, AcademicReviewReport,
+    AcademicReviewRequest, AcademicSource, AccessibilityBackend, AccessibilityDiagnosticSeverity,
+    AccessibilityMode, AppContext, AppUsageStat, DictationAssistRequest, DictationAssistResult,
+    DictionaryEntry, ExpandedSnippet, FlowAccessibilityDiagnostic, FlowAccessibilityRuntime,
+    FlowDictationEngine, FlowExperienceHub, FlowHostDictationBlocker, FlowHostDictationExecution,
+    FlowHostDictationReadiness, FlowHostDictationRequest, FlowHostPauseController,
+    FlowHostPauseSnapshot, FlowTypingAssistant, FlowWorkspaceProfile, SnippetEntry, StylePreset,
+    StyleRule, TextCommandRequest, TextCommandResult, ToneStyle, TypingAssistRequest,
+    TypingAssistResult, UsageDashboardSnapshot, WritingChangeExplanation, WritingChangeKind,
+    WritingDomain,
 };
 pub use forge_bridge::{ForgeAssetKind, ForgeBridge, ForgeRemoteKind, ForgeSyncPlan};
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
