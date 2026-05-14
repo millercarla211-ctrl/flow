@@ -16,6 +16,7 @@ import {
 } from "../../utils/workspaceCloudSync";
 import {
   buildFridayWorkspaceBackup,
+  createFridayWorkspaceBackupFilename,
   formatFridayWorkspaceBackupSummary,
   formatFridayWorkspaceBackupStatus,
   getFridayWorkspaceBackupEntries,
@@ -32,6 +33,16 @@ const CONNECTOR_OPTIONS: Array<[keyof ConnectorSettings, string, string]> = [
   ["aiGateway", "Cloud AI", "Use configured online providers such as Groq or AI Gateway."],
   ["mcpConnectors", "MCP connectors", "Future app connectors stay off until configured."],
 ];
+
+function downloadWorkspaceBackup(backup: ReturnType<typeof buildFridayWorkspaceBackup>, prefix?: string) {
+  const payload = serializeFridayWorkspaceBackup(backup);
+  const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = createFridayWorkspaceBackupFilename(backup, prefix);
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
 
 type RestoreCheckpointState = {
   tone: "idle" | "ready" | "error";
@@ -114,18 +125,26 @@ export function ConnectorsWorkspace() {
 
   const exportWorkspaceBackup = () => {
     const backup = buildFridayWorkspaceBackup((key) => window.localStorage.getItem(key));
-    const payload = serializeFridayWorkspaceBackup(backup);
-    const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `friday-workspace-${backup.exportedAt.slice(0, 10)}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    downloadWorkspaceBackup(backup);
 
     const count = getFridayWorkspaceBackupEntries(backup).length;
     setBackupMessage({
       tone: "success",
       text: `${count} local section${count === 1 ? "" : "s"} exported: ${formatFridayWorkspaceBackupSummary(backup)}.`,
+    });
+  };
+
+  const exportRestoreCheckpoint = () => {
+    const parsed = readFridayRestoreCheckpoint(window.localStorage);
+    if (!parsed.ok) {
+      setBackupMessage({ tone: "error", text: parsed.message });
+      return;
+    }
+
+    downloadWorkspaceBackup(parsed.backup, "friday-restore-checkpoint");
+    setBackupMessage({
+      tone: "success",
+      text: `Restore checkpoint exported: ${formatFridayWorkspaceBackupStatus(parsed.backup, "Checkpoint")}`,
     });
   };
 
@@ -465,6 +484,16 @@ export function ConnectorsWorkspace() {
             >
               <RotateCcw size={14} />
               Restore checkpoint
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={restoreCheckpoint.tone !== "ready"}
+              onClick={exportRestoreCheckpoint}
+            >
+              <Download size={14} />
+              Export checkpoint
             </Button>
             <input
               ref={backupInputRef}

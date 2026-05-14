@@ -44,6 +44,7 @@ import {
 } from "../src/features/friday/utils/workspaceCloudSync";
 import {
   buildFridayWorkspaceBackup,
+  createFridayWorkspaceBackupFilename,
   FRIDAY_RESTORE_CHECKPOINT_KEY,
   formatFridayWorkspaceBackupSummary,
   formatFridayWorkspaceBackupStatus,
@@ -843,6 +844,14 @@ if (
     "Backup saved 2026-05-14 00:00:00 UTC: Projects: 1, Connector settings: 3."
 ) {
   throw new Error("Friday workspace backup status did not include stable timestamp and counts.");
+}
+
+if (
+  !parsedBackup.ok ||
+  createFridayWorkspaceBackupFilename(parsedBackup.backup, "friday-restore-checkpoint") !==
+    "friday-restore-checkpoint-2026-05-14.json"
+) {
+  throw new Error("Friday workspace backup filename did not use a stable date segment.");
 }
 
 if (parsedBackup.ok) {

@@ -245,6 +245,21 @@ export function serializeFridayWorkspaceBackup(backup: FridayWorkspaceBackup) {
   return JSON.stringify(backup, null, 2);
 }
 
+export function createFridayWorkspaceBackupFilename(
+  backup: FridayWorkspaceBackup,
+  prefix = "friday-workspace",
+) {
+  const exportedAt = new Date(backup.exportedAt);
+  const dateSegment = Number.isNaN(exportedAt.getTime())
+    ? backup.exportedAt
+        .replace(/[^a-z0-9-]+/gi, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 32) || "unknown-date"
+    : exportedAt.toISOString().slice(0, 10);
+
+  return `${prefix}-${dateSegment}.json`;
+}
+
 export function parseFridayWorkspaceBackup(raw: string): FridayWorkspaceBackupParseResult {
   let parsed: unknown;
 
