@@ -401,7 +401,7 @@ export function formatFridayWorkspaceBackupSummary(backup: FridayWorkspaceBackup
 
 export function formatFridayWorkspaceBackupTimestamp(backup: FridayWorkspaceBackup) {
   const exportedAt = new Date(backup.exportedAt);
-  if (Number.isNaN(exportedAt.getTime())) return backup.exportedAt;
+  if (Number.isNaN(exportedAt.getTime())) return backup.exportedAt.trim() || "Unknown date";
 
   return exportedAt
     .toISOString()

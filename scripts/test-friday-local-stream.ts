@@ -871,6 +871,15 @@ if (
   throw new Error("Friday workspace export status did not explain empty backups clearly.");
 }
 
+const unknownDateBackup = { ...emptyBackup, exportedAt: "" };
+if (
+  formatFridayWorkspaceBackupStatus(unknownDateBackup) !==
+    "Backup saved Unknown date: No Friday workspace sections." ||
+  createFridayWorkspaceBackupFilename(unknownDateBackup) !== "friday-workspace-unknown-date.json"
+) {
+  throw new Error("Friday workspace backup status did not handle blank export timestamps.");
+}
+
 if (
   !parsedBackup.ok ||
   createFridayWorkspaceBackupFilename(parsedBackup.backup, "friday-restore-checkpoint") !==
