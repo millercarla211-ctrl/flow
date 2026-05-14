@@ -21,7 +21,7 @@ use crate::config::FlowIntegrationTarget;
 use crate::embed::{FlowEmbeddingRegistry, HostSurface};
 use crate::experience::{
     FlowAccessibilityDiagnostic, FlowAccessibilityRuntime, FlowAutomationBridge,
-    NativeSelectionBridge, OperatingSystemFamily,
+    FlowFileStateStore, FlowStateStore, NativeSelectionBridge, OperatingSystemFamily,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -195,6 +195,10 @@ pub async fn execute(command: Command) -> Result<()> {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
 
+        Command::AuditLog { state_file, limit } => {
+            print_audit_log(&state_file, limit)?;
+        }
+
         Command::Completion => {
             print_completion();
         }
@@ -329,6 +333,8 @@ fn print_interactive_help() {
     println!("  --scorecard              Show the Flow competitive scorecard");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
+    println!("  --audit-log <state-file> [limit]");
+    println!("                           Review persisted host automation audit records");
     println!("  --completion             Show the active 100-point completion loop");
     println!("  --completion-json        Print the active completion loop as JSON");
     println!("  --models [modality]      Show broker model catalog");
@@ -367,6 +373,7 @@ fn print_interactive_help() {
     println!("  cargo run --bin flow -- --projects");
     println!("  cargo run --bin flow -- --scorecard");
     println!("  cargo run --bin flow -- --accessibility windows");
+    println!("  cargo run --bin flow -- --audit-log tmp/flow-state.txt");
     println!("  cargo run --bin flow -- --completion");
     println!("  cargo run --bin flow -- --completion-json");
     println!("  cargo run --bin flow -- --models chat");
@@ -568,6 +575,43 @@ fn print_accessibility_notes(diagnostic: &FlowAccessibilityDiagnostic) {
     }
 }
 
+fn print_audit_log(state_file: &str, limit: usize) -> Result<()> {
+    let state_path = resolve_repo_relative_path(state_file);
+    let store = FlowFileStateStore::new(state_path.clone());
+    let state = store
+        .load_state()
+        .with_context(|| format!("Could not load Flow state from {}", state_path.display()))?;
+    let summary = state.audit_summary(limit);
+
+    println!("Flow Host Audit Log");
+    println!("===================");
+    println!("State: {}", state_path.display());
+    println!("Entries: {}", summary.total_entries);
+    println!("Approved: {}", summary.approved_entries);
+    println!("Denied: {}", summary.denied_entries);
+    println!("Showing: {}", summary.recent_entries.len());
+
+    if summary.recent_entries.is_empty() {
+        println!();
+        println!("No persisted audit records yet.");
+        return Ok(());
+    }
+
+    println!();
+    println!("Recent records:");
+    for entry in &summary.recent_entries {
+        println!(
+            "  - [{}] {} on {}",
+            if entry.approved { "approved" } else { "denied" },
+            entry.capability,
+            entry.surface
+        );
+        println!("    {}", entry.description);
+    }
+
+    Ok(())
+}
+
 fn yes_no(value: bool) -> &'static str {
     if value { "yes" } else { "no" }
 }
@@ -616,7 +660,10 @@ fn print_completion() {
 }
 
 fn print_completion_json() -> Result<()> {
-    println!("{}", serde_json::to_string_pretty(&active_completion_set())?);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&active_completion_set())?
+    );
     Ok(())
 }
 

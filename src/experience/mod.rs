@@ -59,7 +59,10 @@ pub use always_on::{
 pub use audio::{
     AudioBackend, DictationPipelinePlan, FlowAudioPipeline, FlowAudioPlanner, WakePipelinePlan,
 };
-pub use audit::{ActionAuditEntry, ApprovalScope, ControlApproval, FlowControlAuditLog};
+pub use audit::{
+    ActionAuditEntry, ApprovalScope, CompactAuditRecord, ControlApproval, FlowAuditSummary,
+    FlowControlAuditLog,
+};
 pub use automation::{FlowAutomationEngine, FlowSelectionExecution, FlowShortcutExecution};
 pub use bridges::ClipboardAutomationBridge;
 pub use bundle::FlowHostBundle;

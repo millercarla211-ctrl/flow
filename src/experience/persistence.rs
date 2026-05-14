@@ -1,10 +1,12 @@
 use super::{
     always_on::FlowDeviceTier,
-    audit::{ApprovalScope, FlowControlAuditLog},
+    audit::{ApprovalScope, CompactAuditRecord, FlowAuditSummary, FlowControlAuditLog},
     installer::{FlowInstallState, InstalledModuleRecord, ModuleInstallStatus},
     modules::{FlowModuleInstallPlan, OperatingSystemFamily},
     runtime_policy::DeviceBenchmarkSnapshot,
 };
+
+const MAX_PERSISTED_AUDIT_RECORDS: usize = 100;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PersistedApprovalRecord {
@@ -25,6 +27,7 @@ pub struct FlowPersistentState {
     pub tier: FlowDeviceTier,
     pub modules: Vec<PersistedModuleRecord>,
     pub approvals: Vec<PersistedApprovalRecord>,
+    pub audit_entries: Vec<CompactAuditRecord>,
     pub benchmark_history: Vec<DeviceBenchmarkSnapshot>,
 }
 
@@ -57,8 +60,13 @@ impl FlowPersistentState {
             tier: install_state.current_tier.clone(),
             modules,
             approvals,
+            audit_entries: audit.compact_records(MAX_PERSISTED_AUDIT_RECORDS),
             benchmark_history,
         }
+    }
+
+    pub fn audit_summary(&self, limit: usize) -> FlowAuditSummary {
+        FlowAuditSummary::from_records(&self.audit_entries, limit)
     }
 
     pub fn installed_modules(&self) -> Vec<&str> {

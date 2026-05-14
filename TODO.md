@@ -25,7 +25,7 @@ This set is complete. The next loop should open `Host Autonomy Core` as the new 
 
 ## Active Set: Host Autonomy Core
 
-Status: 70/100
+Status: 80/100
 
 Goal: make Flow safer and more reliable as a host-level assistant that can read selections, rewrite text, pause itself, diagnose accessibility, and leave an audit trail.
 
@@ -34,11 +34,11 @@ Goal: make Flow safer and more reliable as a host-level assistant that can read 
 - [x] Record host audit entries when automation reads and replaces the active selection.
 - [x] Add operator-facing accessibility diagnostics for host automation readiness.
 - [x] Add reliable pause/resume/snooze controls for always-on runtime hosts.
+- [x] Persist and expose compact host audit logs for operator review.
 
 ### Remaining To Reach 100/100
 
 - [ ] Harden Windows global dictation host behavior beyond CLI/demo paths.
-- [ ] Persist and expose compact host audit logs for operator review.
 
 ## Next Set Candidates
 

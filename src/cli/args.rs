@@ -37,10 +37,9 @@ pub enum Command {
     /// Show the Flow competitive scorecard
     Scorecard,
     /// Diagnose host accessibility automation readiness
-    AccessibilityDiagnostics {
-        os: Option<String>,
-        live: bool,
-    },
+    AccessibilityDiagnostics { os: Option<String>, live: bool },
+    /// Print persisted host automation audit records for operator review
+    AuditLog { state_file: String, limit: usize },
     /// Show the active completion loop and next 100-point feature set
     Completion,
     /// Print the active completion loop as JSON
@@ -193,6 +192,18 @@ impl Args {
                     .find(|value| !value.starts_with("--"))
                     .cloned();
                 Command::AccessibilityDiagnostics { os, live }
+            }
+            "--audit-log" | "--audit-summary" => {
+                let state_file = args.get(2).cloned().unwrap_or_else(|| {
+                    eprintln!("Error: state file required");
+                    eprintln!("Usage: flow --audit-log <flow-state-file> [limit]");
+                    std::process::exit(1);
+                });
+                let limit = args
+                    .get(3)
+                    .and_then(|value| value.parse::<usize>().ok())
+                    .unwrap_or(20);
+                Command::AuditLog { state_file, limit }
             }
             "--completion" | "--progress" | "--next-100" => Command::Completion,
             "--completion-json" | "--progress-json" | "--next-100-json" => Command::CompletionJson,

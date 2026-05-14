@@ -55,7 +55,7 @@ pub fn active_completion_set() -> CompletionSet {
             25,
             CompletionItemStatus::Done,
             "FlowAutomationEngine records ReadSelection and ReplaceSelection audit entries during rewrite-selection flows",
-            "persist host audit summaries into release/runtime handoff surfaces",
+            "keep host audit records compact enough for always-on runtime use",
         ),
         item(
             "accessibility-diagnostics",
@@ -85,9 +85,9 @@ pub fn active_completion_set() -> CompletionSet {
             "persistent-audit",
             "Persist native automation audit logs for host review",
             10,
-            CompletionItemStatus::Planned,
-            "session state stores approvals, but host audit review is still in-memory only",
-            "export compact audit records through persistent state and release diagnostics",
+            CompletionItemStatus::Done,
+            "FlowPersistentState stores compact audit records and `flow --audit-log` exposes bounded operator summaries",
+            "wire audit review into concrete desktop host UI surfaces",
         ),
     ];
 

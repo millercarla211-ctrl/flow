@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use super::{
     ApprovalScope,
     always_on::FlowDeviceTier,
+    audit::CompactAuditRecord,
     contracts::FlowStateStore,
     installer::ModuleInstallStatus,
     modules::OperatingSystemFamily,
@@ -61,6 +62,16 @@ fn serialize_state(state: &FlowPersistentState) -> String {
         ));
     }
 
+    for entry in &state.audit_entries {
+        lines.push(format!(
+            "audit={}|{}|{}|{}",
+            escape(&entry.capability),
+            escape(&entry.surface),
+            entry.approved,
+            escape(&entry.description)
+        ));
+    }
+
     for benchmark in &state.benchmark_history {
         lines.push(format!(
             "benchmark={}|{}|{}|{}|{}|{}|{}",
@@ -91,6 +102,7 @@ fn parse_state(raw: &str) -> Option<FlowPersistentState> {
     let mut tier = None;
     let mut modules = Vec::new();
     let mut approvals = Vec::new();
+    let mut audit_entries = Vec::new();
     let mut benchmark_history = Vec::new();
 
     for line in raw.lines() {
@@ -109,34 +121,45 @@ fn parse_state(raw: &str) -> Option<FlowPersistentState> {
         }
 
         if let Some(value) = line.strip_prefix("module=") {
-            let mut parts = value.split('|');
+            let parts = split_escaped(value);
             modules.push(PersistedModuleRecord {
-                id: unescape(parts.next()?),
-                status: parse_install_status(parts.next()?)?,
+                id: parts.first()?.clone(),
+                status: parse_install_status(parts.get(1)?.as_str())?,
             });
             continue;
         }
 
         if let Some(value) = line.strip_prefix("approval=") {
-            let mut parts = value.split('|');
+            let parts = split_escaped(value);
             approvals.push(PersistedApprovalRecord {
-                capability: unescape(parts.next()?),
-                scope: parse_approval_scope(parts.next()?)?,
-                granted: parts.next()?.parse().ok()?,
+                capability: parts.first()?.clone(),
+                scope: parse_approval_scope(parts.get(1)?.as_str())?,
+                granted: parts.get(2)?.parse().ok()?,
+            });
+            continue;
+        }
+
+        if let Some(value) = line.strip_prefix("audit=") {
+            let parts = split_escaped(value);
+            audit_entries.push(CompactAuditRecord {
+                capability: parts.first()?.clone(),
+                surface: parts.get(1)?.clone(),
+                approved: parts.get(2)?.parse().ok()?,
+                description: parts.get(3)?.clone(),
             });
             continue;
         }
 
         if let Some(value) = line.strip_prefix("benchmark=") {
-            let mut parts = value.split('|');
+            let parts = split_escaped(value);
             benchmark_history.push(DeviceBenchmarkSnapshot {
-                ram_gb: parts.next()?.parse().ok()?,
-                vram_gb: parse_optional_f32(parts.next()?),
-                average_prompt_latency_ms: parts.next()?.parse().ok()?,
-                average_decode_tokens_per_sec: parts.next()?.parse().ok()?,
-                battery_percent: parse_optional_u8(parts.next()?),
-                thermal_celsius: parse_optional_u8(parts.next()?),
-                cpu_only: parts.next()?.parse().ok()?,
+                ram_gb: parts.first()?.parse().ok()?,
+                vram_gb: parse_optional_f32(parts.get(1)?.as_str()),
+                average_prompt_latency_ms: parts.get(2)?.parse().ok()?,
+                average_decode_tokens_per_sec: parts.get(3)?.parse().ok()?,
+                battery_percent: parse_optional_u8(parts.get(4)?.as_str()),
+                thermal_celsius: parse_optional_u8(parts.get(5)?.as_str()),
+                cpu_only: parts.get(6)?.parse().ok()?,
             });
         }
     }
@@ -146,6 +169,7 @@ fn parse_state(raw: &str) -> Option<FlowPersistentState> {
         tier: tier?,
         modules,
         approvals,
+        audit_entries,
         benchmark_history,
     })
 }
@@ -154,20 +178,30 @@ fn escape(value: &str) -> String {
     value.replace('\\', "\\\\").replace('|', "\\|")
 }
 
-fn unescape(value: &str) -> String {
-    let mut out = String::new();
+fn split_escaped(value: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut current = String::new();
     let mut escaping = false;
+
     for ch in value.chars() {
         if escaping {
-            out.push(ch);
+            current.push(ch);
             escaping = false;
         } else if ch == '\\' {
             escaping = true;
+        } else if ch == '|' {
+            parts.push(current);
+            current = String::new();
         } else {
-            out.push(ch);
+            current.push(ch);
         }
     }
-    out
+
+    if escaping {
+        current.push('\\');
+    }
+    parts.push(current);
+    parts
 }
 
 fn parse_optional_f32(value: &str) -> Option<f32> {
@@ -266,4 +300,45 @@ fn parse_approval_scope(value: &str) -> Option<ApprovalScope> {
         "workspace" => ApprovalScope::Workspace,
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn file_state_store_round_trips_compact_audit_entries() {
+        let path = std::env::temp_dir().join(format!(
+            "flow_state_audit_test_{}.txt",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        let mut store = FlowFileStateStore::new(path.clone());
+        let state = FlowPersistentState {
+            os: OperatingSystemFamily::Windows,
+            tier: FlowDeviceTier::LowEnd,
+            modules: Vec::new(),
+            approvals: Vec::new(),
+            audit_entries: vec![CompactAuditRecord {
+                capability: "ReadSelection".to_string(),
+                surface: "Desktop|Main".to_string(),
+                description: "Read selected \\ text | from host.".to_string(),
+                approved: true,
+            }],
+            benchmark_history: Vec::new(),
+        };
+
+        store.save_state(state.clone());
+        let loaded = store.load_state().expect("state should round-trip");
+        let summary = loaded.audit_summary(10);
+
+        assert_eq!(loaded.audit_entries, state.audit_entries);
+        assert_eq!(summary.total_entries, 1);
+        assert_eq!(summary.approved_entries, 1);
+
+        let _ = fs::remove_file(path);
+    }
 }

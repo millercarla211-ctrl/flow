@@ -15,6 +15,8 @@
 - advanced Host Autonomy Core to 50/100
 - added host pause, snooze, resume, and pause-refresh controls for always-on runtimes
 - advanced Host Autonomy Core to 70/100
+- added compact persisted host audit records plus `flow --audit-log <state-file> [limit]` for operator review
+- advanced Host Autonomy Core to 80/100
 
 ## 2026-04-26
 
