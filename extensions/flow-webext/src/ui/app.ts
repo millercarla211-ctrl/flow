@@ -28,6 +28,7 @@ type UiState = {
   running: boolean;
   lastPlan: FlowExecutionPlan | null;
   lastPack: BrowserPackManifest | null;
+  dashboardActionStates: Record<string, "idle" | "loading" | "success" | "error">;
 };
 
 const TASK_OPTIONS: Array<{ task: FlowTask; label: string; detail: string }> = [
@@ -805,7 +806,26 @@ function renderPacks(state: UiState, engine: FlowBrowserEngine) {
   `;
 }
 
-function renderDashboardCard(card: FlowDashboardProductUiCardBinding) {
+function dashboardActionLabel(
+  action: FlowDashboardProductUiCardBinding["actions"][number],
+  state: UiState["dashboardActionStates"][string] = "idle",
+) {
+  if (state === "loading") {
+    return action.buttonState.loadingLabel;
+  }
+  if (state === "success") {
+    return action.buttonState.successLabel;
+  }
+  if (state === "error") {
+    return action.buttonState.errorLabel;
+  }
+  return action.buttonState.idleLabel;
+}
+
+function renderDashboardCard(
+  card: FlowDashboardProductUiCardBinding,
+  actionStates: UiState["dashboardActionStates"],
+) {
   return `
     <article class="feature-card dashboard-card ${card.status}">
       <div class="card-topline">
@@ -818,6 +838,26 @@ function renderDashboardCard(card: FlowDashboardProductUiCardBinding) {
         <span><strong>Score</strong> ${card.scoreOutOf100}/100</span>
         <span><strong>Actions</strong> ${card.actionCount}</span>
         <span><strong>Source</strong> ${escapeHtml(card.sourceJson)}</span>
+      </div>
+      <div class="actions dashboard-actions">
+        ${card.actions
+          .map((action) => {
+            const state = actionStates[action.actionId] ?? "idle";
+            return `
+              <button
+                type="button"
+                class="secondary dashboard-action ${state}"
+                data-action="dashboard-action"
+                data-action-id="${escapeHtml(action.actionId)}"
+                aria-label="${escapeHtml(action.buttonState.ariaLabel)}"
+                ${action.buttonState.disabled || state === "loading" ? "disabled" : ""}
+                title="${escapeHtml(action.command)}"
+              >
+                ${escapeHtml(dashboardActionLabel(action, state))}
+              </button>
+            `;
+          })
+          .join("")}
       </div>
     </article>
   `;
@@ -855,7 +895,9 @@ function renderDashboard(state: UiState) {
       </article>
 
       <div class="card-grid dashboard-grid">
-        ${binding.cards.map(renderDashboardCard).join("")}
+        ${binding.cards
+          .map((card) => renderDashboardCard(card, state.dashboardActionStates))
+          .join("")}
       </div>
 
       <article class="feature-card">
@@ -970,6 +1012,7 @@ export async function mountFlowApp(surfaceInput: string) {
     running: false,
     lastPlan: null,
     lastPack: null,
+    dashboardActionStates: {},
   };
 
   function render() {
@@ -1164,7 +1207,37 @@ export async function mountFlowApp(surfaceInput: string) {
     }
   }
 
+  async function runDashboardAction(actionId: string) {
+    const action = state.dashboardBinding.cards
+      .flatMap((card) => card.actions)
+      .find((item) => item.actionId === actionId);
+
+    if (!action || action.buttonState.disabled) {
+      return;
+    }
+
+    state.dashboardActionStates = { ...state.dashboardActionStates, [actionId]: "loading" };
+    state.status = `Preparing local dashboard action: ${action.command}`;
+    render();
+
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    state.dashboardActionStates = { ...state.dashboardActionStates, [actionId]: "success" };
+    state.status = `Ready to run locally: ${action.command}`;
+    render();
+  }
+
   function bind() {
+    mountRoot
+      .querySelectorAll<HTMLButtonElement>("[data-action='dashboard-action']")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          const actionId = button.dataset.actionId;
+          if (actionId) {
+            void runDashboardAction(actionId);
+          }
+        });
+      });
+
     mountRoot
       .querySelectorAll<HTMLButtonElement>("[data-action='change-section']")
       .forEach((button) => {

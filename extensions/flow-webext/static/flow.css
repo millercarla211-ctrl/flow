@@ -277,6 +277,29 @@ p {
   overflow-wrap: anywhere;
 }
 
+.dashboard-actions {
+  margin-top: 14px;
+}
+
+.dashboard-action {
+  min-width: 132px;
+  justify-content: center;
+}
+
+.dashboard-action.loading {
+  opacity: 0.72;
+}
+
+.dashboard-action.success {
+  border-color: rgba(83, 214, 158, 0.42);
+  color: var(--accent-2);
+}
+
+.dashboard-action.error {
+  border-color: rgba(255, 142, 128, 0.38);
+  color: #ffc5bb;
+}
+
 .context-grid {
   display: grid;
   gap: 12px;

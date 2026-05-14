@@ -117,6 +117,8 @@
 - completed Friday Dashboard Product UI Wiring at 100/100 and listed Friday Dashboard Visible UI Execution as the next set
 - opened Friday Dashboard Visible UI Execution at 20/100
 - added a typed browser-extension dashboard section that renders Friday dashboard cards from `FlowDashboardProductUiBinding`
+- advanced Friday Dashboard Visible UI Execution to 40/100
+- added visible dashboard action buttons with typed local commands plus idle, loading, success, error, disabled, and aria states
 
 ## 2026-04-26
 

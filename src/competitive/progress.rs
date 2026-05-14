@@ -61,9 +61,9 @@ pub fn active_completion_set() -> CompletionSet {
             "dashboard-visible-action-buttons",
             "Visible dashboard action buttons",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "render disabled/loading/success/error button states for local-only dashboard actions",
+            CompletionItemStatus::Done,
+            "`extensions/flow-webext/src/ui/app.ts` renders local dashboard action buttons with idle/loading/success/error labels from typed button state metadata",
+            "render export history deltas, release-review links, and screenshot prompts in the dashboard",
         ),
         item(
             "dashboard-history-release-rail",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_friday_dashboard_product_ui_wiring_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Dashboard Visible UI Execution");
-        assert_eq!(set.current_score_out_of_100, 20);
+        assert_eq!(set.current_score_out_of_100, 40);
         assert!(
             set.items
                 .iter()

@@ -131,6 +131,29 @@ export interface QuickContextPayload {
 }
 
 export type FlowDashboardPanelStatus = "ready" | "warning" | "blocked";
+export type FlowDashboardActionKind = "open" | "run-check" | "recover" | "capture";
+
+export interface FlowDashboardProductUiButtonState {
+  disabled: boolean;
+  disabledReason: string | null;
+  idleLabel: string;
+  loadingLabel: string;
+  successLabel: string;
+  errorLabel: string;
+  ariaLabel: string;
+  destructive: boolean;
+  requiresConfirmation: boolean;
+}
+
+export interface FlowDashboardProductUiActionBinding {
+  actionId: string;
+  label: string;
+  kind: FlowDashboardActionKind;
+  command: string;
+  localOnly: boolean;
+  enabled: boolean;
+  buttonState: FlowDashboardProductUiButtonState;
+}
 
 export interface FlowDashboardProductUiCardBinding {
   cardId: string;
@@ -140,6 +163,7 @@ export interface FlowDashboardProductUiCardBinding {
   primaryMetric: string;
   sourceJson: string;
   actionCount: number;
+  actions: FlowDashboardProductUiActionBinding[];
 }
 
 export interface FlowDashboardProductUiBinding {
