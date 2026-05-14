@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "extension-smoke-matrix",
-            "Packaged extension smoke matrix",
+            "tracked-route-file-bindings",
+            "Tracked route file bindings",
             20,
             CompletionItemStatus::Done,
-            "`flow --browser-extension-smoke` verifies Chromium, Edge, Firefox, and Safari package/dist readiness and detects installed browser targets without network access",
-            "wire the smoke report into live launch automation for installed browsers",
+            "`flow --friday-live-ui-routes` verifies every Friday route points at tracked UI/runtime files instead of contract-only placeholders",
+            "add screenshot-backed checks for the most-used routes",
         ),
         item(
-            "live-browser-launch-smoke",
-            "Live browser launch smoke",
+            "screenshot-backed-route-checks",
+            "Screenshot-backed route checks",
             20,
-            CompletionItemStatus::Done,
-            "`flow --browser-extension-launch-smoke --execute` runs bounded temporary-profile launch smoke for installed Chromium-family targets and reports unsupported/missing browsers explicitly",
-            "connect the launch report to release handoff exports and add Firefox-specific live smoke support when Firefox is installed",
+            CompletionItemStatus::Planned,
+            "not started",
+            "capture and compare the default Friday, Voice, Search, Research, and Multimodal route screens",
         ),
         item(
-            "offline-browser-pack-reuse",
-            "Offline browser-pack reuse",
+            "operator-readiness-summary",
+            "Operator readiness summary",
             20,
-            CompletionItemStatus::Done,
-            "`flow --browser-pack-reuse-smoke` simulates cached browser packs and verifies local-only execution planning with `remote_allowed=false` and local browserpack URLs",
-            "connect this offline reuse contract to extension storage recovery fixtures",
+            CompletionItemStatus::Planned,
+            "not started",
+            "summarize local model, browser extension, desktop app, and route readiness in one operator report",
         ),
         item(
-            "browser-pack-recovery",
-            "Browser-pack recovery",
+            "desktop-web-execution-handoff",
+            "Desktop/web execution handoff",
             20,
-            CompletionItemStatus::Done,
-            "`flow --browser-pack-recovery-smoke` verifies deterministic partial-download resume, corrupt-hash rejection, and quota-pressure recovery contracts for each browser pack",
-            "connect the recovery contract to live extension storage fixtures when the browser worker is wired",
+            CompletionItemStatus::Planned,
+            "not started",
+            "add explicit contracts for launching live flows from desktop, web, and browser-extension UI surfaces",
         ),
         item(
-            "chromium-webllm-acceleration",
-            "Chromium WebLLM acceleration",
+            "release-dashboard-export",
+            "Release dashboard export",
             20,
-            CompletionItemStatus::Done,
-            "`flow --browser-webllm-acceleration` verifies an opt-in Chromium/WebGPU WebLLM worker path for the Qwen text pack while preserving Transformers.js fallback and non-Chromium guardrails",
-            "connect this acceleration contract to the extension options UI when the browser worker is implemented",
+            CompletionItemStatus::Planned,
+            "not started",
+            "export the live UI readiness summary for Friday/DX dashboards",
         ),
     ];
 
     CompletionSet {
-        name: "Browser And Extension Core".to_string(),
+        name: "Friday Live UI Execution".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Harden Friday's browser extension release path with packaged smoke checks, installed-browser launch validation, offline browser-pack reuse, recovery handling, and optional Chromium acceleration without weakening local-first defaults.".to_string(),
+        loop_rule: "Connect Friday's Rust contracts to tracked desktop/web UI route files, screenshot-backed verification, and operator-facing readiness summaries without weakening local-first execution.".to_string(),
         items,
     }
 }
@@ -137,14 +137,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_browser_extension_core_loop() {
+    fn active_set_tracks_friday_live_ui_execution_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Browser And Extension Core");
-        assert_eq!(set.current_score_out_of_100, 100);
+        assert_eq!(set.name, "Friday Live UI Execution");
+        assert_eq!(set.current_score_out_of_100, 20);
         assert!(
             set.items
                 .iter()
-                .all(|item| item.status == CompletionItemStatus::Done)
+                .any(|item| item.status == CompletionItemStatus::Planned)
         );
     }
 

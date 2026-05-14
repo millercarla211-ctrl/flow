@@ -31,9 +31,9 @@ use crate::friday::{
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
-    friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
-    friday_multimodal_visual_check, friday_research_search_plan, run_friday_ocr_smoke,
-    run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
+    friday_live_ui_route_binding_report, friday_media_affordances, friday_multimodal_route,
+    friday_multimodal_ui_diagnostics, friday_multimodal_visual_check, friday_research_search_plan,
+    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -421,6 +421,14 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", default_friday_ui_integration_plan().to_pretty_json()?);
         }
 
+        Command::FridayLiveUiRoutes => {
+            print_friday_live_ui_routes();
+        }
+
+        Command::FridayLiveUiRoutesJson => {
+            println!("{}", friday_live_ui_route_binding_report().to_pretty_json()?);
+        }
+
         Command::FridayLocalChecks => {
             print_friday_local_execution_checks();
         }
@@ -782,6 +790,9 @@ fn print_interactive_help() {
     println!("                           Print seeded or persisted runtime state");
     println!("  --friday-ui             Show Friday product UI integration contracts");
     println!("  --friday-ui-json        Print Friday UI integration contracts as JSON");
+    println!("  --friday-live-ui-routes Show tracked Friday UI route file bindings");
+    println!("  --friday-live-ui-routes-json");
+    println!("                           Print tracked Friday UI route file bindings as JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
@@ -1148,6 +1159,45 @@ fn print_friday_ui_plan() {
     println!("Next actions:");
     for action in &plan.next_actions {
         println!("  - {}", action);
+    }
+}
+
+fn print_friday_live_ui_routes() {
+    let report = friday_live_ui_route_binding_report();
+
+    println!("Friday Live UI Route Bindings");
+    println!("=============================");
+    println!("{}", report.summary);
+    println!("Score: {} / 100", report.score_out_of_100);
+    println!(
+        "Routes: {} passed, {} warning, {} blocking",
+        report.passed_count, report.warning_count, report.blocking_count
+    );
+    println!();
+
+    for route in &report.routes {
+        println!(
+            "- [{}] {} ({})",
+            route.status.label(),
+            route.title,
+            route.route
+        );
+        println!("  command: {}", route.primary_command);
+        for file in &route.source_files {
+            println!(
+                "  file: {} [{}] exists={}, bytes={}",
+                file.path,
+                file.role,
+                yes_no(file.exists),
+                file.bytes
+            );
+        }
+        for item in &route.evidence {
+            println!("  evidence: {}", item);
+        }
+        if route.status != crate::friday::FridayLiveUiBindingStatus::Passed {
+            println!("  next: {}", route.next_action);
+        }
     }
 }
 

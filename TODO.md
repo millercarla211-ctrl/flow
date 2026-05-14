@@ -158,10 +158,19 @@ Goal: harden Friday's browser extension release path with packaged smoke checks,
 
 This set is complete. The next loop should open `Friday Live UI Execution` and connect these contracts to tracked desktop/web route files, screenshot-backed visual verification, and operator-facing readiness summaries.
 
-## Next Set Candidates
+## Active Set: Friday Live UI Execution
 
-### Friday Live UI Execution
+Status: 20/100
 
-- [ ] Connect the Friday Rust contracts to the tracked desktop/web UI route files instead of contract-only CLI output.
+Goal: connect Friday's Rust contracts to tracked desktop/web UI route files, screenshot-backed visual verification, and operator-facing readiness summaries.
+
+### Done
+
+- [x] Connect the Friday Rust contracts to tracked desktop/web UI route files instead of contract-only CLI output.
+
+### Remaining To Reach 100/100
+
 - [ ] Add screenshot-backed visual verification for the most-used Friday routes.
 - [ ] Add operator-facing release summaries for local model, extension, and desktop app readiness.
+- [ ] Add desktop/web execution handoff contracts for launching live flows from UI surfaces.
+- [ ] Export readiness summaries for Friday/DX dashboards.

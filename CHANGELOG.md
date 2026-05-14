@@ -84,6 +84,8 @@
 - advanced Browser And Extension Core to 80/100
 - added `flow --browser-webllm-acceleration` / `--browser-webllm-acceleration-json` to verify an opt-in Chromium/WebGPU WebLLM worker path for the Qwen text pack while preserving Transformers.js fallback and non-Chromium guardrails
 - completed Browser And Extension Core at 100/100
+- opened Friday Live UI Execution at 20/100
+- added `flow --friday-live-ui-routes` / `--friday-live-ui-routes-json` to verify Friday route contracts are bound to tracked desktop, web, and browser-extension UI/runtime files
 
 ## 2026-04-26
 

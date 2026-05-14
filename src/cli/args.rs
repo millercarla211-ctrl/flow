@@ -84,6 +84,10 @@ pub enum Command {
     FridayUiPlan,
     /// Print Friday product UI integration route contracts as JSON
     FridayUiPlanJson,
+    /// Show tracked Friday live UI route file bindings
+    FridayLiveUiRoutes,
+    /// Print tracked Friday live UI route file bindings as JSON
+    FridayLiveUiRoutesJson,
     /// Run low-resource Friday local execution readiness checks
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
@@ -468,6 +472,10 @@ impl Args {
             },
             "--friday-ui" | "--friday-ui-plan" => Command::FridayUiPlan,
             "--friday-ui-json" | "--friday-ui-plan-json" => Command::FridayUiPlanJson,
+            "--friday-live-ui-routes" | "--friday-route-files" => Command::FridayLiveUiRoutes,
+            "--friday-live-ui-routes-json" | "--friday-route-files-json" => {
+                Command::FridayLiveUiRoutesJson
+            }
             "--friday-local-checks" | "--friday-execution-checks" => Command::FridayLocalChecks,
             "--friday-local-checks-json" | "--friday-execution-checks-json" => {
                 Command::FridayLocalChecksJson

@@ -20,13 +20,14 @@ use flow::experience::{
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
+    FridayLiveUiBindingStatus,
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
     FridayMultimodalSurface, FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow,
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
     FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
-    default_friday_product_plan,
-    default_friday_ui_integration_plan, friday_media_affordances, friday_multimodal_route,
+    default_friday_product_plan, default_friday_ui_integration_plan,
+    friday_live_ui_route_binding_report, friday_media_affordances, friday_multimodal_route,
     friday_multimodal_ui_diagnostics, friday_multimodal_visual_check, run_friday_ocr_smoke,
     run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
@@ -802,6 +803,40 @@ fn friday_browser_gate_verifies_tracked_extension_surface() {
         .deploy_gate
         .required_verification_command
         .contains("flow --friday-local-checks"));
+}
+
+#[test]
+fn friday_live_ui_routes_bind_contracts_to_tracked_files() {
+    let report = friday_live_ui_route_binding_report();
+
+    assert_eq!(report.score_out_of_100, 100);
+    assert_eq!(report.blocking_count, 0);
+    assert_eq!(
+        report.route_count,
+        default_friday_ui_integration_plan().routes.len()
+    );
+    assert!(report.routes.iter().all(|route| {
+        route.status == FridayLiveUiBindingStatus::Passed
+            && !route.source_files.is_empty()
+            && route
+                .source_files
+                .iter()
+                .all(|file| file.exists && file.bytes > 0)
+    }));
+    assert!(report.routes.iter().any(|route| {
+        route.route == "/voice"
+            && route
+                .source_files
+                .iter()
+                .any(|file| file.path == "src/bin/flow-dictate.rs")
+    }));
+    assert!(report.routes.iter().any(|route| {
+        route.route == "/multimodal"
+            && route
+                .source_files
+                .iter()
+                .any(|file| file.path.contains("transformers-runtime.ts"))
+    }));
 }
 
 #[test]
