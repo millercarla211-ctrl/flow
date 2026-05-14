@@ -19,6 +19,13 @@ const FRIDAY_WORKSPACE_LIST_STORAGE_KEYS = FRIDAY_WORKSPACE_STORAGE_KEYS.filter(
   (key) => key !== STORAGE_KEYS.connectors,
 );
 const FRIDAY_CONNECTOR_KEYS = ["localFiles", "webSearch", "aiGateway", "mcpConnectors"] as const;
+const ARTIFACT_KINDS = ["Doc", "Code", "Markdown", "UI"] as const;
+const AGENT_TARGETS = ["browser", "code", "files"] as const;
+const AGENT_STATUSES = ["Needs approval", "Queued", "Running", "Completed", "Blocked"] as const;
+const CONTEXT_KINDS = ["note", "file", "instruction"] as const;
+const MEMORY_SCOPES = ["Global", "Project", "Voice"] as const;
+const RESEARCH_STATUSES = ["Planned", "Drafted"] as const;
+const RESEARCH_CITATION_KINDS = ["note", "file", "instruction", "memory", "web"] as const;
 
 export type FridayWorkspaceBackup = {
   app: "Friday";
@@ -35,12 +42,133 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isStringArray(value: unknown) {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isKnownValue<T extends readonly string[]>(values: T, value: unknown): value is T[number] {
+  return typeof value === "string" && values.includes(value);
+}
+
 function parseStorageValue(raw: string): unknown {
   try {
     return JSON.parse(raw) as unknown;
   } catch {
     return raw;
   }
+}
+
+function validateLocalRecord(section: string, value: unknown) {
+  if (!isRecord(value)) return `${section} records must be objects.`;
+  if (
+    typeof value.id !== "string" ||
+    typeof value.createdAt !== "string" ||
+    typeof value.updatedAt !== "string"
+  ) {
+    return `${section} records must include id, createdAt, and updatedAt strings.`;
+  }
+  return null;
+}
+
+function validateOptionalCitations(value: unknown) {
+  if (value === undefined) return null;
+  if (!Array.isArray(value)) return "Friday research citations must be a list.";
+
+  for (const citation of value) {
+    if (!isRecord(citation)) return "Friday research citation records must be objects.";
+    if (
+      typeof citation.id !== "string" ||
+      typeof citation.label !== "string" ||
+      typeof citation.excerpt !== "string" ||
+      !isKnownValue(RESEARCH_CITATION_KINDS, citation.kind)
+    ) {
+      return "Friday research citations must include id, label, kind, and excerpt.";
+    }
+  }
+
+  return null;
+}
+
+function validateBackupRecord(key: FridayWorkspaceStorageKey, value: unknown) {
+  const baseMessage = validateLocalRecord(key, value);
+  if (baseMessage) return baseMessage;
+  if (!isRecord(value)) return `${key} records must be objects.`;
+
+  if (key === STORAGE_KEYS.askThreads) {
+    return typeof value.title === "string" &&
+      typeof value.modelKey === "string" &&
+      typeof value.messageCount === "number" &&
+      Array.isArray(value.messages)
+      ? null
+      : "Friday Ask thread records are malformed.";
+  }
+
+  if (key === STORAGE_KEYS.research) {
+    if (
+      typeof value.topic !== "string" ||
+      !isStringArray(value.sources) ||
+      !isStringArray(value.plan)
+    ) {
+      return "Friday research records are malformed.";
+    }
+    if (value.status !== undefined && !isKnownValue(RESEARCH_STATUSES, value.status)) {
+      return "Friday research status is not supported.";
+    }
+    return validateOptionalCitations(value.citations);
+  }
+
+  if (key === STORAGE_KEYS.agents) {
+    return typeof value.title === "string" &&
+      isKnownValue(AGENT_TARGETS, value.target) &&
+      isKnownValue(AGENT_STATUSES, value.status)
+      ? null
+      : "Friday agent records are malformed.";
+  }
+
+  if (key === STORAGE_KEYS.artifacts) {
+    return typeof value.title === "string" &&
+      isKnownValue(ARTIFACT_KINDS, value.kind) &&
+      typeof value.content === "string"
+      ? null
+      : "Friday artifact records are malformed.";
+  }
+
+  if (key === STORAGE_KEYS.projects) {
+    return typeof value.name === "string" &&
+      typeof value.instructions === "string" &&
+      typeof value.modelKey === "string"
+      ? null
+      : "Friday project records are malformed.";
+  }
+
+  if (key === STORAGE_KEYS.projectContext) {
+    return typeof value.projectId === "string" &&
+      typeof value.projectName === "string" &&
+      typeof value.label === "string" &&
+      isKnownValue(CONTEXT_KINDS, value.kind) &&
+      typeof value.content === "string"
+      ? null
+      : "Friday project context records are malformed.";
+  }
+
+  if (key === STORAGE_KEYS.memory) {
+    return typeof value.title === "string" &&
+      typeof value.body === "string" &&
+      isKnownValue(MEMORY_SCOPES, value.scope) &&
+      typeof value.pinned === "boolean"
+      ? null
+      : "Friday memory records are malformed.";
+  }
+
+  if (key === STORAGE_KEYS.automations) {
+    return typeof value.title === "string" &&
+      typeof value.cadence === "string" &&
+      typeof value.enabled === "boolean"
+      ? null
+      : "Friday automation records are malformed.";
+  }
+
+  return null;
 }
 
 function validateBackupSection(key: FridayWorkspaceStorageKey, value: unknown) {
@@ -60,6 +188,15 @@ function validateBackupSection(key: FridayWorkspaceStorageKey, value: unknown) {
 
   if (FRIDAY_WORKSPACE_LIST_STORAGE_KEYS.includes(key) && !Array.isArray(value)) {
     return `Friday backup section ${key} must be a list.`;
+  }
+
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      const recordMessage = validateBackupRecord(key, item);
+      if (recordMessage) {
+        return `${recordMessage} Check ${key} item ${index + 1}.`;
+      }
+    }
   }
 
   return null;

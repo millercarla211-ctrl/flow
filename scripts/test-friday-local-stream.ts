@@ -807,7 +807,16 @@ if (failedSearch.ok || failedSearch.message !== "search offline") {
 const backup = buildFridayWorkspaceBackup(
   (key) =>
     key === "friday.projects.v1"
-      ? JSON.stringify([{ id: "project_test", name: "Friday OS" }])
+      ? JSON.stringify([
+          {
+            id: "project_test",
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            name: "Friday OS",
+            instructions: "Keep workspace sync explicit.",
+            modelKey: "qwen35-4b-revised-q4km",
+          },
+        ])
       : key === "friday.connectors.v1"
         ? JSON.stringify({ localFiles: true, webSearch: false, aiGateway: true })
         : null,
@@ -840,6 +849,31 @@ const rejectedMalformedListBackup = parseFridayWorkspaceBackup(
 
 if (rejectedMalformedListBackup.ok || !rejectedMalformedListBackup.message.includes("must be a list")) {
   throw new Error("Friday workspace backup accepted a malformed list section.");
+}
+
+const rejectedMalformedProjectRecordBackup = parseFridayWorkspaceBackup(
+  JSON.stringify({
+    app: "Friday",
+    version: 1,
+    exportedAt: timestamp,
+    keys: {
+      [STORAGE_KEYS.projects]: [
+        {
+          id: "project_bad",
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          name: "Broken project",
+        },
+      ],
+    },
+  }),
+);
+
+if (
+  rejectedMalformedProjectRecordBackup.ok ||
+  !rejectedMalformedProjectRecordBackup.message.includes("project records")
+) {
+  throw new Error("Friday workspace backup accepted a malformed project record.");
 }
 
 const rejectedMalformedConnectorBackup = parseFridayWorkspaceBackup(
