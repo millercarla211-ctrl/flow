@@ -47,14 +47,19 @@ export function selectNextDueAutomation<
     })[0];
 }
 
-export function createAutomationPrompt(automation: Pick<FridayAutomation, "cadence" | "instruction" | "title">) {
+export function createAutomationPrompt(
+  automation: Pick<FridayAutomation, "cadence" | "instruction" | "projectName" | "title">,
+) {
   const instruction = automation.instruction?.trim();
   return [
     "Run this local Friday automation. Produce a concise result note with outcome, next action, and any blocker.",
     `Automation: ${automation.title}`,
+    automation.projectName ? `Project: ${automation.projectName}` : "",
     `Cadence: ${automation.cadence}`,
     instruction ? `Instruction: ${instruction}` : "Instruction: create the most useful local follow-up note.",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function createAutomationFallbackResult(automation: Pick<FridayAutomation, "title">) {

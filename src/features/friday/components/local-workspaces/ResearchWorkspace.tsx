@@ -200,6 +200,14 @@ export function ResearchWorkspace() {
     automations.addItem(
       makeLocalRecord("automation", {
         title: `Follow up research: ${brief.topic}`,
+        instruction: [
+          `Research topic: ${brief.topic}`,
+          brief.sources?.length ? `Sources: ${brief.sources.join(", ")}` : "",
+          brief.report ? `Current report:\n${brief.report}` : "",
+          "Check whether the brief needs fresher sources, clearer citations, or a concrete next action.",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
         cadence: "Manual",
         enabled: true,
         projectId: brief.projectId,

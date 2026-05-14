@@ -1,12 +1,13 @@
 import { CalendarClock } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { makeLocalRecord } from "../../hooks/useLocalPersistence";
+import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
 import { useFridayAutomationRunner } from "../../hooks/useFridayAutomationRunner";
 import { isAutomationDue, nextScheduledAutomationRun } from "../../utils/localAutomation";
 import { EmptyState, INPUT_CLASS, RecordShell, TEXTAREA_CLASS } from "./primitives";
+import { STORAGE_KEYS, type FridayProject } from "./types";
 
 export function AutomationsWorkspace() {
   const {
@@ -23,6 +24,12 @@ export function AutomationsWorkspace() {
   const [instruction, setInstruction] = useState("");
   const [cadence, setCadence] = useState("Daily");
   const [nextRunAt, setNextRunAt] = useState("");
+  const [projectId, setProjectId] = useState("none");
+  const projects = useLocalList<FridayProject>(STORAGE_KEYS.projects);
+  const selectedProject = useMemo(
+    () => projects.items.find((project) => project.id === projectId) ?? null,
+    [projectId, projects.items],
+  );
 
   const formatRunTime = (value?: string) => {
     if (!value) return "Not scheduled";
@@ -49,6 +56,8 @@ export function AutomationsWorkspace() {
           nextRunAt && cadence !== "Manual"
             ? new Date(nextRunAt).toISOString()
             : nextScheduledAutomationRun(cadence),
+        projectId: selectedProject?.id,
+        projectName: selectedProject?.name,
         runCount: 0,
       }),
     );
@@ -59,7 +68,7 @@ export function AutomationsWorkspace() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-[1fr_150px_220px_auto]">
+      <div className="grid gap-3 md:grid-cols-[1fr_150px_220px_200px_auto]">
         <input
           className={INPUT_CLASS}
           value={title}
@@ -82,6 +91,18 @@ export function AutomationsWorkspace() {
           value={nextRunAt}
           onChange={(event) => setNextRunAt(event.target.value)}
         />
+        <select
+          className={INPUT_CLASS}
+          value={projectId}
+          onChange={(event) => setProjectId(event.target.value)}
+        >
+          <option value="none">No project</option>
+          {projects.items.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
         <Button type="button" onClick={createAutomation}>
           Schedule
         </Button>
@@ -158,6 +179,11 @@ export function AutomationsWorkspace() {
                 <Badge variant="outline" className="border-[var(--border)]">
                   {automation.enabled ? "Active" : "Paused"}
                 </Badge>
+                {automation.projectName && (
+                  <Badge variant="outline" className="border-[var(--border)]">
+                    {automation.projectName}
+                  </Badge>
+                )}
                 {isAutomationDue(automation.nextRunAt) && automation.enabled && (
                   <Badge variant="outline" className="border-[var(--border)]">
                     Due now

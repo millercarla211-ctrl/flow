@@ -948,10 +948,14 @@ if (selectedDueAutomation?.title !== "First due") {
 const automationPromptText = createAutomationPrompt({
   title: "Follow up",
   cadence: "Daily",
+  projectName: "Friday OS",
   instruction: "Summarize open Friday work.",
 });
 
-if (!automationPromptText.includes("Instruction: Summarize open Friday work.")) {
+if (
+  !automationPromptText.includes("Project: Friday OS") ||
+  !automationPromptText.includes("Instruction: Summarize open Friday work.")
+) {
   throw new Error("Friday automation prompt did not preserve explicit instructions.");
 }
 

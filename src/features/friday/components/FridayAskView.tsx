@@ -354,6 +354,13 @@ export function FridayAskView() {
         title: `Follow up: ${title}`,
         cadence: "Manual",
         enabled: true,
+        instruction: [
+          latestUserText ? `Original prompt: ${latestUserText}` : "",
+          `Saved answer:\n${text}`,
+          "Review this answer and suggest the next practical step.",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
         projectId: selectedProject?.id,
         projectName: selectedProject?.name,
       }),
