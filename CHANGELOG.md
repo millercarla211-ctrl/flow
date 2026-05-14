@@ -11,6 +11,8 @@
 - checkpointed the local model verification policy before starting the new completion loop
 - completed the Completion Control Loop and opened Host Autonomy Core at 25/100
 - added host automation audit records for selection-read and selection-replacement flows
+- added `flow --accessibility [os] [--dry-run]` for host automation readiness diagnostics
+- advanced Host Autonomy Core to 50/100
 
 ## 2026-04-26
 

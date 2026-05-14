@@ -36,6 +36,11 @@ pub enum Command {
     Projects,
     /// Show the Flow competitive scorecard
     Scorecard,
+    /// Diagnose host accessibility automation readiness
+    AccessibilityDiagnostics {
+        os: Option<String>,
+        live: bool,
+    },
     /// Show the active completion loop and next 100-point feature set
     Completion,
     /// Print the active completion loop as JSON
@@ -180,6 +185,15 @@ impl Args {
             "--profile" => Command::Profile,
             "--projects" => Command::Projects,
             "--scorecard" => Command::Scorecard,
+            "--accessibility-diagnostics" | "--accessibility" => {
+                let live = !args.iter().any(|value| value == "--dry-run");
+                let os = args
+                    .iter()
+                    .skip(2)
+                    .find(|value| !value.starts_with("--"))
+                    .cloned();
+                Command::AccessibilityDiagnostics { os, live }
+            }
             "--completion" | "--progress" | "--next-100" => Command::Completion,
             "--completion-json" | "--progress-json" | "--next-100-json" => Command::CompletionJson,
             "--models" => {

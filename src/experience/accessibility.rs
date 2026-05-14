@@ -31,6 +31,37 @@ pub struct FlowAccessibilityRuntime {
     pub notes: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AccessibilityDiagnosticSeverity {
+    Ready,
+    Degraded,
+    Blocked,
+}
+
+impl AccessibilityDiagnosticSeverity {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::Degraded => "degraded",
+            Self::Blocked => "blocked",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlowAccessibilityDiagnostic {
+    pub os: OperatingSystemFamily,
+    pub backend: AccessibilityBackend,
+    pub mode: AccessibilityMode,
+    pub severity: AccessibilityDiagnosticSeverity,
+    pub ready_for_full_automation: bool,
+    pub ready_for_selection_rewrite: bool,
+    pub ready_for_shortcuts: bool,
+    pub summary: String,
+    pub actions: Vec<String>,
+    pub notes: Vec<String>,
+}
+
 impl FlowAccessibilityRuntime {
     pub fn dry_run(os: OperatingSystemFamily) -> Self {
         Self::for_host(os, false)
@@ -82,6 +113,87 @@ impl FlowAccessibilityRuntime {
     pub fn can_automate_selection(&self) -> bool {
         self.available && self.can_read_selection && self.can_replace_selection
     }
+
+    pub fn diagnostic(&self) -> FlowAccessibilityDiagnostic {
+        let ready_for_selection_rewrite = self.can_automate_selection();
+        let ready_for_shortcuts = self.available && self.can_send_shortcuts;
+        let ready_for_full_automation = self.is_full()
+            && ready_for_selection_rewrite
+            && ready_for_shortcuts
+            && self.os.is_desktop();
+
+        let severity = if ready_for_full_automation {
+            AccessibilityDiagnosticSeverity::Ready
+        } else if self.available || ready_for_selection_rewrite || ready_for_shortcuts {
+            AccessibilityDiagnosticSeverity::Degraded
+        } else {
+            AccessibilityDiagnosticSeverity::Blocked
+        };
+
+        let mut actions = Vec::new();
+        if !self.os.is_desktop() {
+            actions.push(
+                "Use a desktop host adapter for native accessibility automation.".to_string(),
+            );
+        }
+        if !self.available {
+            actions.push(
+                "Install or expose the native automation tools required for this host."
+                    .to_string(),
+            );
+        }
+        if self.os.is_desktop() && !ready_for_selection_rewrite {
+            actions.push(
+                "Fix selection read/write support before enabling rewrite-selection automation."
+                    .to_string(),
+            );
+        }
+        if self.os.is_desktop() && !ready_for_shortcuts {
+            actions.push(
+                "Fix shortcut dispatch support before enabling global command shortcuts.".to_string(),
+            );
+        }
+        if self.os.is_desktop() && self.available && !self.is_full() {
+            actions.push(
+                "Run a live host adapter after first-run permission review to leave clipboard fallback mode."
+                    .to_string(),
+            );
+        }
+        if actions.is_empty() {
+            actions.push("No accessibility action required for the current host mode.".to_string());
+        }
+
+        FlowAccessibilityDiagnostic {
+            os: self.os.clone(),
+            backend: self.backend.clone(),
+            mode: self.mode.clone(),
+            severity,
+            ready_for_full_automation,
+            ready_for_selection_rewrite,
+            ready_for_shortcuts,
+            summary: accessibility_summary(self),
+            actions,
+            notes: self.notes.clone(),
+        }
+    }
+}
+
+fn accessibility_summary(runtime: &FlowAccessibilityRuntime) -> String {
+    if runtime.is_full() && runtime.can_automate_selection() && runtime.can_send_shortcuts {
+        return "Full native accessibility automation is ready.".to_string();
+    }
+
+    if runtime.available && runtime.can_automate_selection() {
+        return "Selection automation is available, but the host is not in full native mode."
+            .to_string();
+    }
+
+    if runtime.available {
+        return "Some native automation support is available, but Flow cannot safely rewrite selections yet."
+            .to_string();
+    }
+
+    "No usable native accessibility automation path is available for this host.".to_string()
 }
 
 fn windows_runtime(live: bool) -> FlowAccessibilityRuntime {
@@ -248,5 +360,23 @@ mod tests {
         let runtime = FlowAccessibilityRuntime::dry_run(OperatingSystemFamily::BrowserWasm);
         assert!(matches!(runtime.mode, AccessibilityMode::Disabled));
         assert!(!runtime.available);
+    }
+
+    #[test]
+    fn browser_diagnostic_is_blocked_with_action() {
+        let runtime = FlowAccessibilityRuntime::dry_run(OperatingSystemFamily::BrowserWasm);
+        let diagnostic = runtime.diagnostic();
+
+        assert!(matches!(
+            diagnostic.severity,
+            AccessibilityDiagnosticSeverity::Blocked
+        ));
+        assert!(!diagnostic.ready_for_selection_rewrite);
+        assert!(
+            diagnostic
+                .actions
+                .iter()
+                .any(|action| action.contains("desktop host adapter"))
+        );
     }
 }

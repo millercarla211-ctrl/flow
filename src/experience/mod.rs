@@ -43,7 +43,10 @@ pub mod wake;
 pub mod wakedetect;
 pub mod workspace;
 
-pub use accessibility::{AccessibilityBackend, AccessibilityMode, FlowAccessibilityRuntime};
+pub use accessibility::{
+    AccessibilityBackend, AccessibilityDiagnosticSeverity, AccessibilityMode,
+    FlowAccessibilityDiagnostic, FlowAccessibilityRuntime,
+};
 pub use activation::{
     ActivationMode, ActivationSource, FlowActivationProfile, KeyboardShortcut, WakeAlias,
     WakeModelSource,

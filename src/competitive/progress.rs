@@ -61,9 +61,9 @@ pub fn active_completion_set() -> CompletionSet {
             "accessibility-diagnostics",
             "Production-grade desktop accessibility diagnostics",
             25,
-            CompletionItemStatus::Planned,
-            "health reporting detects disabled or fallback desktop accessibility paths",
-            "add a concise CLI/operator report that explains the exact native bridge state and fix",
+            CompletionItemStatus::Done,
+            "`flow --accessibility [os] [--dry-run]` reports backend, mode, readiness, notes, and fix actions",
+            "wire accessibility diagnostics into desktop host UI surfaces",
         ),
         item(
             "pause-resume-snooze",

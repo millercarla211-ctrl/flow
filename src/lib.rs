@@ -64,11 +64,12 @@ pub use embed::{
     SearchStrategy, SerializerStrategy,
 };
 pub use experience::{
+    AccessibilityBackend, AccessibilityDiagnosticSeverity, AccessibilityMode,
     AppContext, AppUsageStat, DictationAssistRequest, DictationAssistResult, DictionaryEntry,
-    ExpandedSnippet, FlowDictationEngine, FlowExperienceHub, FlowTypingAssistant,
-    FlowWorkspaceProfile, SnippetEntry, StylePreset, StyleRule, TextCommandRequest,
-    TextCommandResult, ToneStyle, TypingAssistRequest, TypingAssistResult, UsageDashboardSnapshot,
-    WritingDomain,
+    ExpandedSnippet, FlowAccessibilityDiagnostic, FlowAccessibilityRuntime, FlowDictationEngine,
+    FlowExperienceHub, FlowTypingAssistant, FlowWorkspaceProfile, SnippetEntry, StylePreset,
+    StyleRule, TextCommandRequest, TextCommandResult, ToneStyle, TypingAssistRequest,
+    TypingAssistResult, UsageDashboardSnapshot, WritingDomain,
 };
 pub use forge_bridge::{ForgeAssetKind, ForgeBridge, ForgeRemoteKind, ForgeSyncPlan};
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};

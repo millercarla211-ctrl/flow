@@ -19,7 +19,10 @@ use crate::competitive::active_completion_set;
 use crate::competitive::default_competitive_scorecard;
 use crate::config::FlowIntegrationTarget;
 use crate::embed::{FlowEmbeddingRegistry, HostSurface};
-use crate::experience::{FlowAutomationBridge, NativeSelectionBridge, OperatingSystemFamily};
+use crate::experience::{
+    FlowAccessibilityDiagnostic, FlowAccessibilityRuntime, FlowAutomationBridge,
+    NativeSelectionBridge, OperatingSystemFamily,
+};
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
     GenerationMetrics, GlmOcr, KokoroTTS, LocalLlm, LocalSttEngine,
@@ -188,6 +191,10 @@ pub async fn execute(command: Command) -> Result<()> {
             print_scorecard();
         }
 
+        Command::AccessibilityDiagnostics { os, live } => {
+            print_accessibility_diagnostics(os.as_deref(), live)?;
+        }
+
         Command::Completion => {
             print_completion();
         }
@@ -320,6 +327,8 @@ fn print_interactive_help() {
     println!("  --profile                Show device profile and activation config");
     println!("  --projects               Show the DX project stack");
     println!("  --scorecard              Show the Flow competitive scorecard");
+    println!("  --accessibility [os] [--dry-run]");
+    println!("                           Diagnose host accessibility automation readiness");
     println!("  --completion             Show the active 100-point completion loop");
     println!("  --completion-json        Print the active completion loop as JSON");
     println!("  --models [modality]      Show broker model catalog");
@@ -357,6 +366,7 @@ fn print_interactive_help() {
     println!("  cargo run --bin flow -- --profile");
     println!("  cargo run --bin flow -- --projects");
     println!("  cargo run --bin flow -- --scorecard");
+    println!("  cargo run --bin flow -- --accessibility windows");
     println!("  cargo run --bin flow -- --completion");
     println!("  cargo run --bin flow -- --completion-json");
     println!("  cargo run --bin flow -- --models chat");
@@ -506,6 +516,60 @@ fn print_scorecard() {
     for gap in scorecard.top_gaps {
         println!("  - {}", gap);
     }
+}
+
+fn print_accessibility_diagnostics(os: Option<&str>, live: bool) -> Result<()> {
+    let os = match os {
+        Some(value) => parse_operating_system(value)?,
+        None => {
+            let broker = RuntimeBroker::detect();
+            OperatingSystemFamily::from_host_label(&broker.device_profile().os)
+        }
+    };
+    let runtime = if live {
+        FlowAccessibilityRuntime::live(os)
+    } else {
+        FlowAccessibilityRuntime::dry_run(os)
+    };
+    let diagnostic = runtime.diagnostic();
+
+    println!("Flow Accessibility Diagnostics");
+    println!("==============================");
+    println!("OS: {:?}", diagnostic.os);
+    println!("Probe mode: {}", if live { "live" } else { "dry-run" });
+    println!("Backend: {:?}", diagnostic.backend);
+    println!("Mode: {:?}", diagnostic.mode);
+    println!("Severity: {}", diagnostic.severity.label());
+    println!("Summary: {}", diagnostic.summary);
+    println!(
+        "Ready: full={}, selection_rewrite={}, shortcuts={}",
+        yes_no(diagnostic.ready_for_full_automation),
+        yes_no(diagnostic.ready_for_selection_rewrite),
+        yes_no(diagnostic.ready_for_shortcuts)
+    );
+    print_accessibility_notes(&diagnostic);
+
+    Ok(())
+}
+
+fn print_accessibility_notes(diagnostic: &FlowAccessibilityDiagnostic) {
+    if !diagnostic.notes.is_empty() {
+        println!();
+        println!("Notes:");
+        for note in &diagnostic.notes {
+            println!("  - {}", note);
+        }
+    }
+
+    println!();
+    println!("Actions:");
+    for action in &diagnostic.actions {
+        println!("  - {}", action);
+    }
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value { "yes" } else { "no" }
 }
 
 fn print_completion() {
@@ -3085,6 +3149,19 @@ fn parse_host_surface(value: &str) -> Result<HostSurface> {
         "tablet" => Ok(HostSurface::Tablet),
         "custom" => Ok(HostSurface::CustomRustHost),
         other => Err(anyhow::anyhow!("Unsupported host surface '{}'", other)),
+    }
+}
+
+fn parse_operating_system(value: &str) -> Result<OperatingSystemFamily> {
+    match value.to_ascii_lowercase().as_str() {
+        "windows" | "win" | "win32" => Ok(OperatingSystemFamily::Windows),
+        "macos" | "mac" | "darwin" | "osx" => Ok(OperatingSystemFamily::Macos),
+        "linux" => Ok(OperatingSystemFamily::Linux),
+        "android" => Ok(OperatingSystemFamily::Android),
+        "ios" => Ok(OperatingSystemFamily::Ios),
+        "browser" | "wasm" | "web" | "browser-wasm" => Ok(OperatingSystemFamily::BrowserWasm),
+        "server" | "daemon" => Ok(OperatingSystemFamily::Server),
+        other => Err(anyhow::anyhow!("Unsupported operating system '{}'", other)),
     }
 }
 
