@@ -85,9 +85,9 @@ pub fn active_completion_set() -> CompletionSet {
             "multimodal-artifact-metadata",
             "Publish-ready multimodal artifact metadata",
             20,
-            CompletionItemStatus::Planned,
-            "Artifact preview contracts exist, but multimodal outputs need richer metadata for source image/audio/video, model, prompt, timings, and confidence",
-            "extend artifact records for OCR/VLM/media outputs and add tests for metadata round trips",
+            CompletionItemStatus::Done,
+            "OCR and VLM artifact paths now write `FridayMultimodalArtifactMetadata` sidecars with source, request kind, model, prompt, output format, local-only flag, execution flag, timing, confidence, and round-trip tests",
+            "open the next 100-point loop for UI-connected multimodal execution and capture",
         ),
     ];
 

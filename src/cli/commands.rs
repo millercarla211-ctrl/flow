@@ -1086,6 +1086,7 @@ fn print_friday_ocr_smoke(report: &crate::friday::FridayOcrSmokeReport) {
     println!("Markdown: {}", report.output_markdown);
     println!("Artifact: {}", report.artifact_json);
     println!("Checkpoint: {}", report.checkpoint_json);
+    println!("Metadata: {}", report.metadata_json);
     println!("Report: {}", report.report_json);
     println!(
         "Artifact record: {} -> {}",
@@ -1115,6 +1116,7 @@ fn print_friday_vlm_contract(report: &crate::friday::FridayVlmContractReport) {
     println!("Markdown: {}", report.output_markdown);
     println!("Artifact: {}", report.artifact_json);
     println!("Checkpoint: {}", report.checkpoint_json);
+    println!("Metadata: {}", report.metadata_json);
     println!("Report: {}", report.report_json);
     println!("Model execution: {}", yes_no(report.model_execution));
     println!("Model files:");

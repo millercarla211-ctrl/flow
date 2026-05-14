@@ -104,21 +104,33 @@ Goal: turn the completed Friday runtime contracts into a polished product UI and
 
 This set is complete. The next loop should open `Multimodal Local Core` and finish local OCR, VLM, image, audio, and video foundations before adding more UI polish.
 
-## Next Active Set: Multimodal Local Core
+## Completed Set: Multimodal Local Core
 
-Status: 80/100
+Status: 100/100
 
 Goal: finish Friday's local OCR, VLM, image, audio, and video foundations with explicit low-resource routing and artifact metadata before adding heavier UI polish.
 
-### Remaining To Reach 100/100
+### Done
 
 - [x] Add a local multimodal readiness gate covering OCR artifacts, speech readiness, metasearch wiring, and artifact previews.
 - [x] Add a bounded OCR fixture/screenshot smoke path that writes an artifact record.
 - [x] Wire a low-resource screenshot/VLM execution contract with explicit model and artifact boundaries.
 - [x] Add model-role routing rules for image, audio, video, OCR, and VLM requests.
-- [ ] Extend artifact records for OCR/VLM/media outputs and add tests for metadata round trips.
+- [x] Extend artifact records for OCR/VLM/media outputs and add tests for metadata round trips.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Multimodal Product Execution` and connect these contracts to UI capture, real VLM execution, image/video install actions, and persisted user-facing artifacts without changing the low-resource idle defaults.
 
 ## Next Set Candidates
+
+### Multimodal Product Execution
+
+- [ ] Connect OCR smoke reports to the Multimodal UI and OCR page diagnostics.
+- [ ] Add a screenshot capture command that feeds the VLM contract from a real local image path.
+- [ ] Add explicit install/run affordances for image and video model candidates.
+- [ ] Persist multimodal artifact metadata in the Friday artifact store.
+- [ ] Add browser or desktop visual checks for the Multimodal UI route.
 
 ### Browser And Extension Core
 

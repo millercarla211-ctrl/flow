@@ -565,10 +565,13 @@ fn friday_ocr_smoke_writes_artifact_record() {
     assert!(PathBuf::from(&report.output_markdown).exists());
     assert!(PathBuf::from(&report.artifact_json).exists());
     assert!(PathBuf::from(&report.checkpoint_json).exists());
+    assert!(PathBuf::from(&report.metadata_json).exists());
     assert!(PathBuf::from(&report.report_json).exists());
     assert_eq!(report.artifact.kind, flow::FridayArtifactKind::Markdown);
     assert_eq!(report.artifact.current_checkpoint_id, report.checkpoint.id);
     assert_eq!(report.checkpoint.artifact_id, report.artifact.id);
+    assert_eq!(report.metadata.artifact_id, report.artifact.id);
+    assert_eq!(report.metadata.request_kind, FridayMultimodalRequestKind::Ocr);
     assert_eq!(report.artifact.preview_runner, FridayPreviewRunner::Markdown);
 
     let _ = fs::remove_dir_all(&root);
@@ -585,10 +588,13 @@ fn friday_vlm_contract_writes_model_boundary_artifact() {
     assert!(PathBuf::from(&report.output_markdown).exists());
     assert!(PathBuf::from(&report.artifact_json).exists());
     assert!(PathBuf::from(&report.checkpoint_json).exists());
+    assert!(PathBuf::from(&report.metadata_json).exists());
     assert!(PathBuf::from(&report.report_json).exists());
     assert_eq!(report.artifact.kind, flow::FridayArtifactKind::Markdown);
     assert_eq!(report.artifact.current_checkpoint_id, report.checkpoint.id);
     assert_eq!(report.checkpoint.artifact_id, report.artifact.id);
+    assert_eq!(report.metadata.artifact_id, report.artifact.id);
+    assert_eq!(report.metadata.request_kind, FridayMultimodalRequestKind::Vlm);
     assert_eq!(report.artifact.preview_runner, FridayPreviewRunner::Markdown);
 
     let _ = fs::remove_dir_all(&root);

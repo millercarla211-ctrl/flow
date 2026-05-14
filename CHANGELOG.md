@@ -62,6 +62,8 @@
 - advanced Multimodal Local Core to 60/100
 - added `flow --friday-multimodal-route` / `--friday-multimodal-route-json` for local-first OCR, VLM, audio, image, and video routing policy with explicit remote allowance and resident-load boundaries
 - advanced Multimodal Local Core to 80/100
+- added publish-ready multimodal artifact metadata sidecars for OCR and VLM outputs, including source, request kind, model, prompt, local-only flag, execution flag, timing, confidence, and JSON round-trip coverage
+- completed Multimodal Local Core at 100/100 and listed Multimodal Product Execution as the next candidate loop
 
 ## 2026-04-26
 
