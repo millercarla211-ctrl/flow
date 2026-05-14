@@ -28,7 +28,8 @@ use crate::friday::{
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
-    friday_research_search_plan, run_friday_ocr_smoke, run_friday_vlm_contract,
+    friday_multimodal_route, friday_research_search_plan, run_friday_ocr_smoke,
+    run_friday_vlm_contract,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -471,6 +472,24 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayMultimodalRoute {
+            request_kind,
+            remote_allowed,
+        } => {
+            let request_kind = parse_friday_multimodal_request_kind(&request_kind)?;
+            let route = friday_multimodal_route(request_kind, remote_allowed);
+            print_friday_multimodal_route(&route);
+        }
+
+        Command::FridayMultimodalRouteJson {
+            request_kind,
+            remote_allowed,
+        } => {
+            let request_kind = parse_friday_multimodal_request_kind(&request_kind)?;
+            let route = friday_multimodal_route(request_kind, remote_allowed);
+            println!("{}", route.to_pretty_json()?);
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -654,6 +673,10 @@ fn print_interactive_help() {
     println!("                           Write a VLM screenshot artifact contract");
     println!("  --friday-vlm-contract-json <dir> [screenshot] [prompt]");
     println!("                           Print the VLM screenshot contract as JSON");
+    println!("  --friday-multimodal-route <ocr|vlm|audio|image|video> [--remote]");
+    println!("                           Show local-first model routing policy");
+    println!("  --friday-multimodal-route-json <kind> [--remote]");
+    println!("                           Print multimodal routing policy as JSON");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");
@@ -701,6 +724,7 @@ fn print_interactive_help() {
     println!("  cargo run --bin flow -- --completion-json");
     println!("  cargo run --bin flow -- --friday-ocr-smoke tmp/friday-ocr-smoke");
     println!("  cargo run --bin flow -- --friday-vlm-contract tmp/friday-vlm-contract");
+    println!("  cargo run --bin flow -- --friday-multimodal-route vlm");
     println!("  cargo run --bin flow -- --models chat");
     println!("  cargo run --release --bin flow -- --install-model qwen3-0.6b");
     println!("  cargo run --release --bin flow -- --install-model qwen35-4b-revised-q4km");
@@ -1112,6 +1136,41 @@ fn print_friday_vlm_contract(report: &crate::friday::FridayVlmContractReport) {
     }
 }
 
+fn print_friday_multimodal_route(route: &crate::friday::FridayMultimodalRouteDecision) {
+    println!("Friday Multimodal Route");
+    println!("=======================");
+    println!("Request: {}", route.request_kind.label());
+    println!("Status: {}", route.status.label());
+    println!("Local first: {}", yes_no(route.local_first));
+    println!("Remote allowed: {}", yes_no(route.remote_allowed));
+    if let Some(selected) = &route.selected {
+        println!("Selected: {} ({})", selected.model_key, selected.purpose);
+        println!("Command: {}", selected.command);
+        println!("Resident: {}", yes_no(selected.resident));
+        for file in &selected.files {
+            println!(
+                "  - [{}] {} ({})",
+                if file.present { "present" } else { "missing" },
+                file.path,
+                file.purpose
+            );
+        }
+    } else {
+        println!("Selected: none");
+    }
+    if !route.fallbacks.is_empty() {
+        println!("Fallbacks:");
+        for fallback in &route.fallbacks {
+            println!("  - {} ({})", fallback.model_key, fallback.purpose);
+        }
+    }
+    println!("Rationale:");
+    for item in &route.rationale {
+        println!("  - {}", item);
+    }
+    println!("Next: {}", route.next_action);
+}
+
 fn print_search_request_plan(title: &str, plan: &crate::search::SearchRequestPlan) -> Result<()> {
     println!("{}", title);
     println!("{}", "=".repeat(title.len()));
@@ -1135,6 +1194,13 @@ fn print_search_request_plan(title: &str, plan: &crate::search::SearchRequestPla
         println!("  - {}", note);
     }
     Ok(())
+}
+
+fn parse_friday_multimodal_request_kind(
+    value: &str,
+) -> Result<crate::friday::FridayMultimodalRequestKind> {
+    crate::friday::FridayMultimodalRequestKind::parse(value)
+        .with_context(|| format!("unknown multimodal request kind `{value}`"))
 }
 
 fn print_friday_research_workflow(workflow: &FridayResearchWorkflow) {

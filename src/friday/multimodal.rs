@@ -19,6 +19,85 @@ const DEFAULT_VLM_PROMPT: &str =
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
+pub enum FridayMultimodalRequestKind {
+    Ocr,
+    Vlm,
+    Audio,
+    Image,
+    Video,
+}
+
+impl FridayMultimodalRequestKind {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value.to_ascii_lowercase().as_str() {
+            "ocr" | "image-ocr" => Some(Self::Ocr),
+            "vlm" | "screenshot" | "vision" => Some(Self::Vlm),
+            "audio" | "speech" | "stt" | "tts" => Some(Self::Audio),
+            "image" | "image-generation" => Some(Self::Image),
+            "video" | "video-understanding" => Some(Self::Video),
+            _ => None,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Ocr => "ocr",
+            Self::Vlm => "vlm",
+            Self::Audio => "audio",
+            Self::Image => "image",
+            Self::Video => "video",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayMultimodalRouteStatus {
+    Ready,
+    NeedsModel,
+    Planned,
+}
+
+impl FridayMultimodalRouteStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::NeedsModel => "needs-model",
+            Self::Planned => "planned",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayMultimodalModelRoute {
+    pub model_key: String,
+    pub purpose: String,
+    pub local_only: bool,
+    pub resident: bool,
+    pub command: String,
+    pub files: Vec<FridayMultimodalModelFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayMultimodalRouteDecision {
+    pub request_kind: FridayMultimodalRequestKind,
+    pub status: FridayMultimodalRouteStatus,
+    pub local_first: bool,
+    pub remote_allowed: bool,
+    pub selected: Option<FridayMultimodalModelRoute>,
+    pub fallbacks: Vec<FridayMultimodalModelRoute>,
+    pub rationale: Vec<String>,
+    pub next_action: String,
+}
+
+impl FridayMultimodalRouteDecision {
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum FridayOcrSmokeStatus {
     Passed,
     Failed,
@@ -103,6 +182,57 @@ impl FridayOcrSmokeReport {
 impl FridayVlmContractReport {
     pub fn to_pretty_json(&self) -> serde_json::Result<String> {
         serde_json::to_string_pretty(self)
+    }
+}
+
+pub fn friday_multimodal_route(
+    request_kind: FridayMultimodalRequestKind,
+    remote_allowed: bool,
+) -> FridayMultimodalRouteDecision {
+    match request_kind {
+        FridayMultimodalRequestKind::Ocr => route_decision(
+            request_kind,
+            remote_allowed,
+            ocr_route(),
+            Vec::new(),
+            vec![
+                "OCR uses GLM-OCR only when explicitly invoked.".to_string(),
+                "Readiness checks can verify files without loading the model.".to_string(),
+            ],
+            "Use `flow --friday-ocr-smoke <dir> <image> --execute` for a bounded local OCR run.",
+        ),
+        FridayMultimodalRequestKind::Vlm => route_decision(
+            request_kind,
+            remote_allowed,
+            vlm_route(),
+            Vec::new(),
+            vec![
+                "Screenshot understanding is separated from OCR so prompts, artifacts, and model files stay explicit.".to_string(),
+                "The VLM contract writes metadata first and avoids resident model loading.".to_string(),
+            ],
+            "Use `flow --friday-vlm-contract <dir> <screenshot> <prompt>` before enabling real VLM execution.",
+        ),
+        FridayMultimodalRequestKind::Audio => route_decision(
+            request_kind,
+            remote_allowed,
+            audio_route(),
+            vec![tts_route()],
+            vec![
+                "Audio stays local-first through Parakeet STT and Kokoro TTS.".to_string(),
+                "Models should warm on demand, not remain resident in the idle overlay.".to_string(),
+            ],
+            "Keep STT/TTS local by default and expose remote audio providers only behind explicit settings.",
+        ),
+        FridayMultimodalRequestKind::Image => planned_decision(
+            request_kind,
+            remote_allowed,
+            "Local image generation is not resident yet; route to artifact planning and require explicit model installation before execution.",
+        ),
+        FridayMultimodalRequestKind::Video => planned_decision(
+            request_kind,
+            remote_allowed,
+            "Video understanding is planned as frame sampling plus VLM/OCR artifacts, not a resident video model.",
+        ),
     }
 }
 
@@ -214,6 +344,116 @@ pub fn run_friday_ocr_smoke(
     write_json(&report_json, &report)?;
 
     Ok(report)
+}
+
+fn route_decision(
+    request_kind: FridayMultimodalRequestKind,
+    remote_allowed: bool,
+    selected: FridayMultimodalModelRoute,
+    fallbacks: Vec<FridayMultimodalModelRoute>,
+    rationale: Vec<String>,
+    next_action: &str,
+) -> FridayMultimodalRouteDecision {
+    let all_files_ready = selected.files.iter().all(|file| file.present)
+        && fallbacks
+            .iter()
+            .flat_map(|route| &route.files)
+            .all(|file| file.present);
+    FridayMultimodalRouteDecision {
+        request_kind,
+        status: if all_files_ready {
+            FridayMultimodalRouteStatus::Ready
+        } else {
+            FridayMultimodalRouteStatus::NeedsModel
+        },
+        local_first: true,
+        remote_allowed,
+        selected: Some(selected),
+        fallbacks,
+        rationale,
+        next_action: next_action.to_string(),
+    }
+}
+
+fn planned_decision(
+    request_kind: FridayMultimodalRequestKind,
+    remote_allowed: bool,
+    next_action: &str,
+) -> FridayMultimodalRouteDecision {
+    FridayMultimodalRouteDecision {
+        request_kind,
+        status: FridayMultimodalRouteStatus::Planned,
+        local_first: true,
+        remote_allowed,
+        selected: None,
+        fallbacks: Vec::new(),
+        rationale: vec![
+            "Keep local-only mode as the default.".to_string(),
+            "Do not silently call cloud providers for multimodal work.".to_string(),
+        ],
+        next_action: next_action.to_string(),
+    }
+}
+
+fn ocr_route() -> FridayMultimodalModelRoute {
+    FridayMultimodalModelRoute {
+        model_key: "glm-ocr-q4km".to_string(),
+        purpose: "image OCR".to_string(),
+        local_only: true,
+        resident: false,
+        command: "flow --friday-ocr-smoke <dir> <image> --execute".to_string(),
+        files: GlmOcr::resolved_model_paths()
+            .iter()
+            .enumerate()
+            .map(|(index, path)| FridayMultimodalModelFile {
+                path: path.to_string_lossy().into_owned(),
+                purpose: if index == 0 { "ocr model" } else { "ocr projector" }.to_string(),
+                present: path.exists(),
+            })
+            .collect(),
+    }
+}
+
+fn vlm_route() -> FridayMultimodalModelRoute {
+    FridayMultimodalModelRoute {
+        model_key: VLM_MODEL_KEY.to_string(),
+        purpose: "screenshot understanding".to_string(),
+        local_only: true,
+        resident: false,
+        command: "flow --friday-vlm-contract <dir> <screenshot> <prompt>".to_string(),
+        files: vlm_model_files(),
+    }
+}
+
+fn audio_route() -> FridayMultimodalModelRoute {
+    FridayMultimodalModelRoute {
+        model_key: "parakeet-unified-en-0.6b-int8".to_string(),
+        purpose: "speech-to-text".to_string(),
+        local_only: true,
+        resident: false,
+        command: "flow --dictate".to_string(),
+        files: vec![FridayMultimodalModelFile {
+            path: "models/stt/parakeet-unified-en-0.6b-int8/encoder.int8.onnx".to_string(),
+            purpose: "stt encoder".to_string(),
+            present: Path::new("models/stt/parakeet-unified-en-0.6b-int8/encoder.int8.onnx")
+                .exists(),
+        }],
+    }
+}
+
+fn tts_route() -> FridayMultimodalModelRoute {
+    FridayMultimodalModelRoute {
+        model_key: "kokoro-int8".to_string(),
+        purpose: "text-to-speech".to_string(),
+        local_only: true,
+        resident: false,
+        command: "flow --speak <text>".to_string(),
+        files: vec![FridayMultimodalModelFile {
+            path: "models/tts/kokoro.onnx".to_string(),
+            purpose: "tts model".to_string(),
+            present: Path::new("models/tts/kokoro.onnx").exists(),
+        }],
+    }
 }
 
 pub fn run_friday_vlm_contract(
@@ -416,5 +656,17 @@ mod tests {
         assert_eq!(report.artifact.preview_runner, FridayPreviewRunner::Markdown);
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn multimodal_route_keeps_cloud_explicit() {
+        let route = friday_multimodal_route(FridayMultimodalRequestKind::Vlm, false);
+        assert!(route.local_first);
+        assert!(!route.remote_allowed);
+        assert_eq!(route.selected.unwrap().model_key, VLM_MODEL_KEY);
+
+        let image = friday_multimodal_route(FridayMultimodalRequestKind::Image, false);
+        assert_eq!(image.status, FridayMultimodalRouteStatus::Planned);
+        assert!(image.selected.is_none());
     }
 }

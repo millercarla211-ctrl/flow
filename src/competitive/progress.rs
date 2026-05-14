@@ -77,9 +77,9 @@ pub fn active_completion_set() -> CompletionSet {
             "media-routing-policy",
             "Image, audio, and video routing policy",
             20,
-            CompletionItemStatus::Planned,
-            "The catalog contains multimodal candidates, but Friday still needs explicit local-first promotion, demotion, and missing-model handling for media tasks",
-            "add model-role routing rules for image, audio, video, OCR, and VLM requests",
+            CompletionItemStatus::Done,
+            "`flow --friday-multimodal-route <ocr|vlm|audio|image|video> [--remote]` exposes local-first route decisions, selected models, fallbacks, resident-load policy, and planned media paths",
+            "wire routing decisions into the Multimodal UI and connect image/video install actions",
         ),
         item(
             "multimodal-artifact-metadata",

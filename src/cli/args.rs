@@ -106,6 +106,16 @@ pub enum Command {
         screenshot: Option<String>,
         prompt: Option<String>,
     },
+    /// Print Friday's local-first multimodal route for a request kind
+    FridayMultimodalRoute {
+        request_kind: String,
+        remote_allowed: bool,
+    },
+    /// Print Friday's local-first multimodal route as JSON
+    FridayMultimodalRouteJson {
+        request_kind: String,
+        remote_allowed: bool,
+    },
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -424,6 +434,20 @@ impl Args {
                     prompt,
                 }
             }
+            "--friday-multimodal-route" | "--friday-media-route" => {
+                let (request_kind, remote_allowed) = parse_friday_multimodal_route_args(&args);
+                Command::FridayMultimodalRoute {
+                    request_kind,
+                    remote_allowed,
+                }
+            }
+            "--friday-multimodal-route-json" | "--friday-media-route-json" => {
+                let (request_kind, remote_allowed) = parse_friday_multimodal_route_args(&args);
+                Command::FridayMultimodalRouteJson {
+                    request_kind,
+                    remote_allowed,
+                }
+            }
             "--accessibility-diagnostics" | "--accessibility" => {
                 let live = !args.iter().any(|value| value == "--dry-run");
                 let os = args
@@ -651,4 +675,14 @@ fn parse_friday_vlm_contract_args(args: &[String]) -> (String, Option<String>, O
         None
     };
     (output_dir, screenshot, prompt)
+}
+
+fn parse_friday_multimodal_route_args(args: &[String]) -> (String, bool) {
+    let request_kind = args.get(2).cloned().unwrap_or_else(|| {
+        eprintln!("Error: request kind required");
+        eprintln!("Usage: flow --friday-multimodal-route <ocr|vlm|audio|image|video> [--remote]");
+        std::process::exit(1);
+    });
+    let remote_allowed = args.iter().any(|value| value == "--remote");
+    (request_kind, remote_allowed)
 }

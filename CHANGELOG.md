@@ -60,6 +60,8 @@
 - advanced Multimodal Local Core to 40/100
 - added `flow --friday-vlm-contract` / `--friday-vlm-contract-json` for local-only screenshot understanding contracts with explicit VLM model files, artifact, checkpoint, and missing-model findings
 - advanced Multimodal Local Core to 60/100
+- added `flow --friday-multimodal-route` / `--friday-multimodal-route-json` for local-first OCR, VLM, audio, image, and video routing policy with explicit remote allowance and resident-load boundaries
+- advanced Multimodal Local Core to 80/100
 
 ## 2026-04-26
 

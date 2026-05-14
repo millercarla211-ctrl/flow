@@ -13,12 +13,13 @@ use flow::experience::{
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
-    FridayVerificationStatus,
-    FridayMultimodalSurface, FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
+    FridayMultimodalRequestKind, FridayMultimodalRouteStatus, FridayMultimodalSurface,
+    FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow, FridayRuntimeSurfaceStore,
+    FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone, FridayVerificationStatus,
     FridayWorkspaceStore, default_friday_browser_verification_report,
     default_friday_local_execution_checks, default_friday_product_plan,
-    default_friday_ui_integration_plan, run_friday_ocr_smoke, run_friday_vlm_contract,
+    default_friday_ui_integration_plan, friday_multimodal_route, run_friday_ocr_smoke,
+    run_friday_vlm_contract,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -591,6 +592,26 @@ fn friday_vlm_contract_writes_model_boundary_artifact() {
     assert_eq!(report.artifact.preview_runner, FridayPreviewRunner::Markdown);
 
     let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn friday_multimodal_routes_keep_local_first_boundaries() {
+    let ocr = friday_multimodal_route(FridayMultimodalRequestKind::Ocr, false);
+    assert!(ocr.local_first);
+    assert!(!ocr.remote_allowed);
+    assert!(ocr.selected.unwrap().command.contains("--friday-ocr-smoke"));
+
+    let audio = friday_multimodal_route(FridayMultimodalRequestKind::Audio, false);
+    assert!(audio
+        .fallbacks
+        .iter()
+        .any(|route| route.model_key == "kokoro-int8"));
+
+    let image = friday_multimodal_route(FridayMultimodalRequestKind::Image, true);
+    assert_eq!(image.status, FridayMultimodalRouteStatus::Planned);
+    assert!(image.local_first);
+    assert!(image.remote_allowed);
+    assert!(image.selected.is_none());
 }
 
 #[test]

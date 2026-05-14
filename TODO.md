@@ -106,7 +106,7 @@ This set is complete. The next loop should open `Multimodal Local Core` and fini
 
 ## Next Active Set: Multimodal Local Core
 
-Status: 60/100
+Status: 80/100
 
 Goal: finish Friday's local OCR, VLM, image, audio, and video foundations with explicit low-resource routing and artifact metadata before adding heavier UI polish.
 
@@ -115,7 +115,7 @@ Goal: finish Friday's local OCR, VLM, image, audio, and video foundations with e
 - [x] Add a local multimodal readiness gate covering OCR artifacts, speech readiness, metasearch wiring, and artifact previews.
 - [x] Add a bounded OCR fixture/screenshot smoke path that writes an artifact record.
 - [x] Wire a low-resource screenshot/VLM execution contract with explicit model and artifact boundaries.
-- [ ] Add model-role routing rules for image, audio, video, OCR, and VLM requests.
+- [x] Add model-role routing rules for image, audio, video, OCR, and VLM requests.
 - [ ] Extend artifact records for OCR/VLM/media outputs and add tests for metadata round trips.
 
 ## Next Set Candidates
