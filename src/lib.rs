@@ -104,6 +104,7 @@ pub use friday::{
     FridayDashboardReleaseReviewItem, FridayDashboardReleaseReviewLink,
     FridayDashboardProductUiActionBinding, FridayDashboardProductUiBinding,
     FridayDashboardProductUiButtonState, FridayDashboardProductUiCardBinding,
+    FridayDashboardProductUiHistoryBinding, FridayDashboardProductUiScreenshotPrompt,
     FridayDashboardScreenshotHistory, FridayDashboardScreenshotRecord, FridayDashboardScreenshotStatus,
     FridayExecutionHandoff, FridayExecutionHandoffReport, FridayExecutionHandoffStatus,
     FridayExecutionSurface, FridayFeatureStatus, FridayGenerationSummary, FridayLocalCheckKind,

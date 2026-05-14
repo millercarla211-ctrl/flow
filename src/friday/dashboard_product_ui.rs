@@ -4,8 +4,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    FridayDashboardActionKind, FridayDashboardPanelStatus, FridayUiDataBinding,
-    friday_dashboard_panel_from_export,
+    FridayDashboardActionKind, FridayDashboardPanelStatus, FridayDashboardScreenshotStatus,
+    FridayUiDataBinding, friday_dashboard_panel_from_export,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,6 +45,26 @@ pub struct FridayDashboardProductUiButtonState {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardProductUiHistoryBinding {
+    pub record_count: usize,
+    pub score_delta_from_previous: i16,
+    pub readiness_delta_from_previous: i16,
+    pub latest_score_out_of_100: Option<u8>,
+    pub previous_score_out_of_100: Option<u8>,
+    pub trend_label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardProductUiScreenshotPrompt {
+    pub route: String,
+    pub title: String,
+    pub viewport_id: String,
+    pub status: FridayDashboardScreenshotStatus,
+    pub prompt: String,
+    pub capture_command: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FridayDashboardProductUiBinding {
     pub product_name: String,
     pub route: String,
@@ -64,6 +84,8 @@ pub struct FridayDashboardProductUiBinding {
     pub data_bindings: Vec<FridayUiDataBinding>,
     pub cards: Vec<FridayDashboardProductUiCardBinding>,
     pub action_bindings: Vec<FridayDashboardProductUiActionBinding>,
+    pub history: FridayDashboardProductUiHistoryBinding,
+    pub screenshot_prompts: Vec<FridayDashboardProductUiScreenshotPrompt>,
     pub next_actions: Vec<String>,
 }
 
@@ -151,6 +173,21 @@ pub fn friday_dashboard_product_ui_binding_from_export(
         action_count: action_bindings.len(),
         warning_count,
         blocking_count: panel.blocking_count,
+        history: dashboard_history_binding(&panel.export_history),
+        screenshot_prompts: panel
+            .screenshot_history
+            .records
+            .iter()
+            .filter(|record| record.status != FridayDashboardScreenshotStatus::Captured)
+            .map(|record| FridayDashboardProductUiScreenshotPrompt {
+                route: record.route.clone(),
+                title: record.title.clone(),
+                viewport_id: record.viewport_id.clone(),
+                status: record.status,
+                prompt: record.prompt.clone(),
+                capture_command: record.capture_command.clone(),
+            })
+            .collect(),
         data_bindings: dashboard_data_bindings(
             &panel_json_command,
             &export_command,
@@ -168,6 +205,36 @@ pub fn friday_dashboard_product_ui_binding_from_export(
                 .to_string(),
         ],
     })
+}
+
+fn dashboard_history_binding(
+    history: &super::FridayDashboardExportHistory,
+) -> FridayDashboardProductUiHistoryBinding {
+    let latest_score_out_of_100 = history
+        .latest
+        .as_ref()
+        .map(|record| record.score_out_of_100);
+    let previous_score_out_of_100 = history
+        .previous
+        .as_ref()
+        .map(|record| record.score_out_of_100);
+
+    FridayDashboardProductUiHistoryBinding {
+        record_count: history.record_count,
+        score_delta_from_previous: history.score_delta_from_previous,
+        readiness_delta_from_previous: history.readiness_delta_from_previous,
+        latest_score_out_of_100,
+        previous_score_out_of_100,
+        trend_label: if history.record_count < 2 {
+            "not-enough-history".to_string()
+        } else if history.score_delta_from_previous > 0 {
+            "improving".to_string()
+        } else if history.score_delta_from_previous < 0 {
+            "regressed".to_string()
+        } else {
+            "steady".to_string()
+        },
+    }
 }
 
 fn action_button_state(

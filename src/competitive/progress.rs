@@ -69,9 +69,9 @@ pub fn active_completion_set() -> CompletionSet {
             "dashboard-history-deltas",
             "Dashboard history deltas",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "show export history deltas and screenshot prompts in the product UI",
+            CompletionItemStatus::Done,
+            "`flow --friday-dashboard-product-ui-json` exposes history trend labels plus missing screenshot prompts and capture commands for product UI rendering",
+            "render these deltas and screenshot prompts in the visible dashboard",
         ),
         item(
             "release-review-links",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_friday_dashboard_product_ui_wiring_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Dashboard Product UI Wiring");
-        assert_eq!(set.current_score_out_of_100, 40);
+        assert_eq!(set.current_score_out_of_100, 60);
         assert!(
             set.items
                 .iter()

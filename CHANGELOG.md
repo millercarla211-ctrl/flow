@@ -108,6 +108,8 @@
 - added `flow --friday-dashboard-product-ui` / `--friday-dashboard-product-ui-json` to bind dashboard panel JSON into the visible Friday dashboard route contract
 - advanced Friday Dashboard Product UI Wiring to 40/100
 - added safe dashboard button state metadata with local-only commands, loading labels, disabled reasons, confirmation flags, and error labels
+- advanced Friday Dashboard Product UI Wiring to 60/100
+- added product UI bindings for dashboard history trends, latest/previous scores, missing screenshot prompts, and capture commands
 
 ## 2026-04-26
 
