@@ -22,14 +22,16 @@ use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
     FridayLiveUiBindingStatus,
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
-    FridayMultimodalSurface, FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
-    FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
+    FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
+    FridayPreviewRunner, FridayResearchWorkflow, FridayRuntimeSurfaceStore,
+    FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus,
+    FridayVerificationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
     friday_live_ui_route_binding_report, friday_media_affordances, friday_multimodal_route,
-    friday_multimodal_ui_diagnostics, friday_multimodal_visual_check, run_friday_ocr_smoke,
-    run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
+    friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
+    friday_operator_readiness_report, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
+    run_friday_vlm_contract,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -837,6 +839,30 @@ fn friday_live_ui_routes_bind_contracts_to_tracked_files() {
                 .iter()
                 .any(|file| file.path.contains("transformers-runtime.ts"))
     }));
+}
+
+#[test]
+fn friday_operator_readiness_rolls_up_live_surfaces() {
+    let report = friday_operator_readiness_report();
+
+    assert!(report.score_out_of_100 >= 70);
+    assert!(report.items.iter().any(|item| {
+        item.id == "route-bindings" && item.status == FridayOperatorReadinessStatus::Passed
+    }));
+    assert!(report.items.iter().any(|item| {
+        item.id == "local-execution" && item.command == "flow --friday-local-checks"
+    }));
+    assert!(report.items.iter().any(|item| {
+        item.id == "browser-gate" && item.command == "flow --friday-browser-gate"
+    }));
+    assert!(report.items.iter().any(|item| {
+        item.id == "desktop-host"
+            && item
+                .evidence
+                .iter()
+                .any(|evidence| evidence.contains("src/bin/flow-dictate.rs=present"))
+    }));
+    assert!(report.items.iter().all(|item| item.local_only));
 }
 
 #[test]

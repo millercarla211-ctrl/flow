@@ -88,6 +88,10 @@ pub enum Command {
     FridayLiveUiRoutes,
     /// Print tracked Friday live UI route file bindings as JSON
     FridayLiveUiRoutesJson,
+    /// Show Friday operator readiness across route, local, browser, and desktop surfaces
+    FridayReadiness,
+    /// Print Friday operator readiness as JSON
+    FridayReadinessJson,
     /// Run low-resource Friday local execution readiness checks
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
@@ -475,6 +479,10 @@ impl Args {
             "--friday-live-ui-routes" | "--friday-route-files" => Command::FridayLiveUiRoutes,
             "--friday-live-ui-routes-json" | "--friday-route-files-json" => {
                 Command::FridayLiveUiRoutesJson
+            }
+            "--friday-readiness" | "--friday-operator-readiness" => Command::FridayReadiness,
+            "--friday-readiness-json" | "--friday-operator-readiness-json" => {
+                Command::FridayReadinessJson
             }
             "--friday-local-checks" | "--friday-execution-checks" => Command::FridayLocalChecks,
             "--friday-local-checks-json" | "--friday-execution-checks-json" => {

@@ -32,8 +32,9 @@ use crate::friday::{
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
     friday_live_ui_route_binding_report, friday_media_affordances, friday_multimodal_route,
-    friday_multimodal_ui_diagnostics, friday_multimodal_visual_check, friday_research_search_plan,
-    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
+    friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
+    friday_operator_readiness_report, friday_research_search_plan, run_friday_ocr_smoke,
+    run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -429,6 +430,14 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", friday_live_ui_route_binding_report().to_pretty_json()?);
         }
 
+        Command::FridayReadiness => {
+            print_friday_readiness();
+        }
+
+        Command::FridayReadinessJson => {
+            println!("{}", friday_operator_readiness_report().to_pretty_json()?);
+        }
+
         Command::FridayLocalChecks => {
             print_friday_local_execution_checks();
         }
@@ -793,6 +802,8 @@ fn print_interactive_help() {
     println!("  --friday-live-ui-routes Show tracked Friday UI route file bindings");
     println!("  --friday-live-ui-routes-json");
     println!("                           Print tracked Friday UI route file bindings as JSON");
+    println!("  --friday-readiness      Show Friday operator readiness summary");
+    println!("  --friday-readiness-json Print Friday operator readiness as JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
@@ -1197,6 +1208,37 @@ fn print_friday_live_ui_routes() {
         }
         if route.status != crate::friday::FridayLiveUiBindingStatus::Passed {
             println!("  next: {}", route.next_action);
+        }
+    }
+}
+
+fn print_friday_readiness() {
+    let report = friday_operator_readiness_report();
+
+    println!("Friday Operator Readiness");
+    println!("=========================");
+    println!("{}", report.summary);
+    println!("Score: {} / 100", report.score_out_of_100);
+    println!(
+        "Areas: {} passed, {} warning, {} blocking",
+        report.passed_count, report.warning_count, report.blocking_count
+    );
+    println!();
+
+    for item in &report.items {
+        println!(
+            "- [{}] {} ({} / 100)",
+            item.status.label(),
+            item.title,
+            item.score_out_of_100
+        );
+        println!("  command: {}", item.command);
+        println!("  local_only: {}", yes_no(item.local_only));
+        for evidence in &item.evidence {
+            println!("  evidence: {}", evidence);
+        }
+        if item.status != crate::friday::FridayOperatorReadinessStatus::Passed {
+            println!("  next: {}", item.next_action);
         }
     }
 }

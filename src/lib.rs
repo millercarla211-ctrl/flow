@@ -108,10 +108,11 @@ pub use friday::{
     FridayMultimodalDiagnosticStatus, FridayMultimodalModelFile, FridayMultimodalModelRoute,
     FridayMultimodalRequestKind, FridayMultimodalRouteDecision, FridayMultimodalRouteStatus,
     FridayMultimodalRuntimeRecord, FridayMultimodalSurface, FridayMultimodalUiDiagnostics,
-    FridayOcrSmokeReport, FridayOcrSmokeStatus, FridayPermissionFinding, FridayPermissionScope,
-    FridayPreviewRunner, FridayScreenshotSourceRecord, FridayScreenshotVlmHandoffReport,
-    FridayProductPlan, FridayProjectFile, FridayProjectRecord, FridayResearchEventKind,
-    FridayResearchExportManifest,
+    FridayOcrSmokeReport, FridayOcrSmokeStatus, FridayOperatorReadinessItem,
+    FridayOperatorReadinessReport, FridayOperatorReadinessStatus, FridayPermissionFinding,
+    FridayPermissionScope, FridayPreviewRunner, FridayScreenshotSourceRecord,
+    FridayScreenshotVlmHandoffReport, FridayProductPlan, FridayProjectFile, FridayProjectRecord,
+    FridayResearchEventKind, FridayResearchExportManifest,
     FridayResearchReport, FridayResearchRunEvent, FridayResearchStage, FridayResearchStageKind,
     FridayResearchStageStatus, FridayResearchWorkflow, FridayRuntimeFinding,
     FridayRuntimeRecordStatus, FridayRuntimeSurfaceManifest, FridayRuntimeSurfaceSnapshot,
@@ -129,8 +130,9 @@ pub use friday::{
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
     friday_live_ui_route_binding_report, friday_live_ui_route_binding_report_for_root,
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
-    friday_multimodal_visual_check, friday_research_search_plan, run_friday_ocr_smoke,
-    run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
+    friday_multimodal_visual_check, friday_operator_readiness_report,
+    friday_research_search_plan, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
+    run_friday_vlm_contract,
 };
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
 pub use models::{KokoroTTS, LocalLlm, LocalSttEngine, MoonshineSTT};

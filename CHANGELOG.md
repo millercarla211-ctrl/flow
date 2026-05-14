@@ -86,6 +86,8 @@
 - completed Browser And Extension Core at 100/100
 - opened Friday Live UI Execution at 20/100
 - added `flow --friday-live-ui-routes` / `--friday-live-ui-routes-json` to verify Friday route contracts are bound to tracked desktop, web, and browser-extension UI/runtime files
+- added `flow --friday-readiness` / `--friday-readiness-json` for a local-only operator summary of route, model, browser, desktop host, multimodal, media, and release-loop readiness
+- advanced Friday Live UI Execution to 40/100
 
 ## 2026-04-26
 
