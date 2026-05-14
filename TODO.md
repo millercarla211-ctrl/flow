@@ -158,9 +158,9 @@ Goal: harden Friday's browser extension release path with packaged smoke checks,
 
 This set is complete. The next loop should open `Friday Live UI Execution` and connect these contracts to tracked desktop/web route files, screenshot-backed visual verification, and operator-facing readiness summaries.
 
-## Active Set: Friday Live UI Execution
+## Completed Set: Friday Live UI Execution
 
-Status: 80/100
+Status: 100/100
 
 Goal: connect Friday's Rust contracts to tracked desktop/web UI route files, screenshot-backed visual verification, and operator-facing readiness summaries.
 
@@ -170,7 +170,22 @@ Goal: connect Friday's Rust contracts to tracked desktop/web UI route files, scr
 - [x] Add an operator-facing readiness summary for local model, extension, desktop host, route, multimodal, and release-loop readiness.
 - [x] Add screenshot target verification for the most-used Friday routes across desktop/mobile viewports with tracked artifact paths.
 - [x] Add desktop/web execution handoff contracts for launching live flows from UI surfaces.
+- [x] Export readiness summaries for Friday/DX dashboards.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Dashboard Runtime Wiring` and consume the exported readiness bundle from the product UI/DX dashboard instead of scraping CLI text.
+
+## Next Set Candidate: Friday Dashboard Runtime Wiring
+
+Status: 0/100
+
+Goal: make Friday's dashboard and DX surfaces consume live readiness exports, display recent visual captures, and guide the next release loop without manual CLI copying.
 
 ### Remaining To Reach 100/100
 
-- [ ] Export readiness summaries for Friday/DX dashboards.
+- [ ] Wire the dashboard export bundle into a real Friday/DX UI panel.
+- [ ] Add recent screenshot capture history and missing-capture prompts for top Friday routes.
+- [ ] Add one-click local command launch/recovery actions from dashboard readiness cards.
+- [ ] Persist export history so operators can compare readiness between checkpoints.
+- [ ] Add a release-review handoff that links completion, changelog, TODO, visual targets, and dashboard export files.

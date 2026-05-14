@@ -85,9 +85,9 @@ pub fn active_completion_set() -> CompletionSet {
             "release-dashboard-export",
             "Release dashboard export",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "export the live UI readiness summary for Friday/DX dashboards",
+            CompletionItemStatus::Done,
+            "`flow --friday-dashboard-export` writes readiness, route bindings, route visuals, execution handoffs, completion status, dashboard index, manifest, and markdown summary for Friday/DX dashboards",
+            "open the next 100-point set after dashboard export consumers are wired",
         ),
     ];
 
@@ -140,11 +140,11 @@ mod tests {
     fn active_set_tracks_friday_live_ui_execution_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Live UI Execution");
-        assert_eq!(set.current_score_out_of_100, 80);
+        assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items
                 .iter()
-                .any(|item| item.status == CompletionItemStatus::Planned)
+                .all(|item| item.status == CompletionItemStatus::Done)
         );
     }
 

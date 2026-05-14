@@ -100,6 +100,10 @@ pub enum Command {
     FridayExecutionHandoffs,
     /// Print Friday execution handoff contracts as JSON
     FridayExecutionHandoffsJson,
+    /// Export Friday readiness bundle for Friday/DX dashboards
+    FridayDashboardExport { output_dir: String },
+    /// Export Friday readiness bundle and print JSON
+    FridayDashboardExportJson { output_dir: String },
     /// Run low-resource Friday local execution readiness checks
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
@@ -501,6 +505,22 @@ impl Args {
             }
             "--friday-execution-handoffs-json" | "--friday-handoffs-json" => {
                 Command::FridayExecutionHandoffsJson
+            }
+            "--friday-dashboard-export" | "--friday-readiness-export" => {
+                Command::FridayDashboardExport {
+                    output_dir: args
+                        .get(2)
+                        .cloned()
+                        .unwrap_or_else(|| "tmp/friday-dashboard".to_string()),
+                }
+            }
+            "--friday-dashboard-export-json" | "--friday-readiness-export-json" => {
+                Command::FridayDashboardExportJson {
+                    output_dir: args
+                        .get(2)
+                        .cloned()
+                        .unwrap_or_else(|| "tmp/friday-dashboard".to_string()),
+                }
             }
             "--friday-local-checks" | "--friday-execution-checks" => Command::FridayLocalChecks,
             "--friday-local-checks-json" | "--friday-execution-checks-json" => {

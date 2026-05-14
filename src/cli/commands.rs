@@ -31,7 +31,8 @@ use crate::friday::{
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
-    friday_execution_handoff_report, friday_live_ui_route_binding_report,
+    export_friday_dashboard_bundle, friday_execution_handoff_report,
+    friday_live_ui_route_binding_report,
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
     friday_multimodal_visual_check, friday_operator_readiness_report, friday_research_search_plan,
     friday_route_visual_report, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
@@ -455,6 +456,15 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", friday_execution_handoff_report().to_pretty_json()?);
         }
 
+        Command::FridayDashboardExport { output_dir } => {
+            print_friday_dashboard_export(&output_dir)?;
+        }
+
+        Command::FridayDashboardExportJson { output_dir } => {
+            let bundle = export_friday_dashboard_bundle(resolve_repo_relative_path(&output_dir))?;
+            println!("{}", bundle.to_pretty_json()?);
+        }
+
         Command::FridayLocalChecks => {
             print_friday_local_execution_checks();
         }
@@ -828,6 +838,10 @@ fn print_interactive_help() {
     println!("                           Show Friday desktop/web execution handoff contracts");
     println!("  --friday-execution-handoffs-json");
     println!("                           Print Friday execution handoff contracts as JSON");
+    println!("  --friday-dashboard-export [dir]");
+    println!("                           Export readiness bundle for Friday/DX dashboards");
+    println!("  --friday-dashboard-export-json [dir]");
+    println!("                           Export readiness bundle and print JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
@@ -1345,6 +1359,32 @@ fn print_friday_execution_handoffs() {
             println!("  next: {}", handoff.next_action);
         }
     }
+}
+
+fn print_friday_dashboard_export(output_dir: &str) -> Result<()> {
+    let bundle = export_friday_dashboard_bundle(resolve_repo_relative_path(output_dir))?;
+    let manifest = &bundle.manifest;
+
+    println!("Friday Dashboard Export");
+    println!("=======================");
+    println!("{}", manifest.summary);
+    println!("Score: {} / 100", manifest.score_out_of_100);
+    println!("Directory: {}", manifest.export_dir);
+    println!();
+
+    println!("Files:");
+    for file in &manifest.files {
+        println!("  - {} [{}] {} bytes", file.path, file.kind, file.bytes);
+    }
+    println!("  - {} [manifest]", manifest.manifest_json);
+    println!();
+
+    println!("Commands:");
+    for command in &manifest.commands {
+        println!("  - {}", command);
+    }
+
+    Ok(())
 }
 
 fn print_friday_local_execution_checks() {

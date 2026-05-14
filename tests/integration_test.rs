@@ -28,6 +28,7 @@ use flow::friday::{
     FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
+    export_friday_dashboard_bundle,
     friday_execution_handoff_report, friday_live_ui_route_binding_report,
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
     friday_multimodal_visual_check, friday_operator_readiness_report, friday_route_visual_report,
@@ -927,6 +928,37 @@ fn friday_execution_handoffs_bind_ui_actions_to_local_commands() {
             .iter()
             .any(|handoff| handoff.id == "readiness-command" && !handoff.requires_user_gesture)
     );
+}
+
+#[test]
+fn friday_dashboard_export_writes_dashboard_bundle() {
+    let root = temp_root("friday-dashboard-export");
+    let bundle = export_friday_dashboard_bundle(&root).unwrap();
+
+    assert_eq!(bundle.completion.current_score_out_of_100, 100);
+    assert_eq!(bundle.manifest.score_out_of_100, 100);
+    assert_eq!(bundle.readiness.blocking_count, 0);
+    assert_eq!(bundle.route_bindings.blocking_count, 0);
+    assert_eq!(bundle.route_visuals.blocking_count, 0);
+    assert_eq!(bundle.execution_handoffs.blocking_count, 0);
+    assert!(PathBuf::from(&bundle.manifest.manifest_json).exists());
+    assert!(PathBuf::from(&bundle.manifest.readiness_json).exists());
+    assert!(PathBuf::from(&bundle.manifest.route_bindings_json).exists());
+    assert!(PathBuf::from(&bundle.manifest.route_visuals_json).exists());
+    assert!(PathBuf::from(&bundle.manifest.execution_handoffs_json).exists());
+    assert!(PathBuf::from(&bundle.manifest.completion_json).exists());
+    assert!(PathBuf::from(&bundle.manifest.dashboard_index_json).exists());
+    assert!(PathBuf::from(&bundle.manifest.summary_markdown).exists());
+    assert!(bundle.manifest.files.iter().any(|file| {
+        file.path.ends_with("readiness.json") && file.kind == "operator-readiness" && file.bytes > 0
+    }));
+    assert!(bundle
+        .manifest
+        .commands
+        .iter()
+        .any(|command| command.contains("--friday-dashboard-export")));
+
+    let _ = fs::remove_dir_all(&root);
 }
 
 #[test]

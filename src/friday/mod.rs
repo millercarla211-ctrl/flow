@@ -1,5 +1,6 @@
 pub mod artifacts;
 pub mod checks;
+pub mod dashboard_export;
 pub mod execution_handoff;
 pub mod live_ui;
 pub mod multimodal;
@@ -13,6 +14,7 @@ pub mod workspace;
 
 pub use artifacts::*;
 pub use checks::*;
+pub use dashboard_export::*;
 pub use execution_handoff::*;
 pub use live_ui::*;
 pub use multimodal::*;

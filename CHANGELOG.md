@@ -92,6 +92,8 @@
 - advanced Friday Live UI Execution to 60/100
 - added `flow --friday-execution-handoffs` / `--friday-execution-handoffs-json` to bind live UI actions to local commands, permission scopes, artifact paths, source files, and recovery commands
 - advanced Friday Live UI Execution to 80/100
+- added `flow --friday-dashboard-export` / `--friday-dashboard-export-json` to write dashboard-ready readiness, route binding, route visual, execution handoff, completion, manifest, index, and markdown summary files
+- completed Friday Live UI Execution at 100/100 and listed Friday Dashboard Runtime Wiring as the next candidate loop
 
 ## 2026-04-26
 
