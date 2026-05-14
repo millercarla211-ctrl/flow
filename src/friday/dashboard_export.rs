@@ -8,9 +8,9 @@ use serde_json::json;
 
 use super::{
     FridayExecutionHandoffReport, FridayLiveUiRouteBindingReport, FridayOperatorReadinessReport,
-    FridayRouteVisualReport, FridayRouteVisualTarget, friday_execution_handoff_report,
-    friday_live_ui_route_binding_report, friday_operator_readiness_report,
-    friday_route_visual_report,
+    FridayOperatorReadinessStatus, FridayRouteVisualReport, FridayRouteVisualTarget,
+    friday_execution_handoff_report, friday_live_ui_route_binding_report,
+    friday_operator_readiness_report, friday_route_visual_report,
 };
 use crate::competitive::{CompletionSet, active_completion_set};
 
@@ -119,11 +119,35 @@ impl FridayDashboardExportBundle {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayDashboardActionKind {
+    Open,
+    RunCheck,
+    Recover,
+    Capture,
+}
+
+impl FridayDashboardActionKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Open => "open",
+            Self::RunCheck => "run-check",
+            Self::Recover => "recover",
+            Self::Capture => "capture",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FridayDashboardAction {
     pub id: String,
     pub label: String,
     pub command: String,
+    pub kind: FridayDashboardActionKind,
+    pub source: String,
+    pub local_only: bool,
+    pub enabled: bool,
     pub destructive: bool,
     pub requires_confirmation: bool,
 }
@@ -462,9 +486,11 @@ fn completion_card(
         },
         &manifest.completion_json,
         vec![action(
+            "completion-loop",
             "open-completion",
             "Open completion",
             "flow --completion",
+            FridayDashboardActionKind::Open,
         )],
     )
 }
@@ -484,11 +510,7 @@ fn readiness_card(
         ),
         readiness.summary.clone(),
         &manifest.readiness_json,
-        vec![action(
-            "run-readiness",
-            "Run readiness",
-            "flow --friday-readiness",
-        )],
+        readiness_actions(readiness),
     )
 }
 
@@ -508,9 +530,11 @@ fn route_bindings_card(
         report.summary.clone(),
         &manifest.route_bindings_json,
         vec![action(
+            "route-bindings",
             "check-route-bindings",
             "Check routes",
             "flow --friday-live-ui-routes",
+            FridayDashboardActionKind::RunCheck,
         )],
     )
 }
@@ -539,9 +563,11 @@ fn screenshot_history_card(
         },
         &manifest.route_visuals_json,
         vec![action(
+            "screenshot-history",
             "capture-route-screenshots",
             "Capture screenshots",
             "flow --friday-route-visuals",
+            FridayDashboardActionKind::Capture,
         )],
     )
 }
@@ -562,9 +588,11 @@ fn route_visuals_card(
         format!("{} Artifact root: {}", report.summary, report.artifact_root),
         &manifest.route_visuals_json,
         vec![action(
+            "route-visuals",
             "check-route-visuals",
             "Check visuals",
             "flow --friday-route-visuals",
+            FridayDashboardActionKind::RunCheck,
         )],
     )
 }
@@ -585,11 +613,39 @@ fn execution_handoffs_card(
         report.summary.clone(),
         &manifest.execution_handoffs_json,
         vec![action(
+            "execution-handoffs",
             "check-execution-handoffs",
             "Check handoffs",
             "flow --friday-execution-handoffs",
+            FridayDashboardActionKind::RunCheck,
         )],
     )
+}
+
+fn readiness_actions(readiness: &FridayOperatorReadinessReport) -> Vec<FridayDashboardAction> {
+    let mut actions = vec![action(
+        "operator-readiness",
+        "run-readiness",
+        "Run readiness",
+        "flow --friday-readiness",
+        FridayDashboardActionKind::RunCheck,
+    )];
+
+    for item in readiness
+        .items
+        .iter()
+        .filter(|item| item.status != FridayOperatorReadinessStatus::Passed)
+    {
+        actions.push(action(
+            "operator-readiness",
+            &format!("recover-{}", item.id),
+            &format!("Recover {}", item.title),
+            &item.command,
+            FridayDashboardActionKind::Recover,
+        ));
+    }
+
+    actions
 }
 
 fn screenshot_record(target: &FridayRouteVisualTarget) -> FridayDashboardScreenshotRecord {
@@ -680,11 +736,21 @@ fn card(
     }
 }
 
-fn action(id: &str, label: &str, command: &str) -> FridayDashboardAction {
+fn action(
+    source: &str,
+    id: &str,
+    label: &str,
+    command: &str,
+    kind: FridayDashboardActionKind,
+) -> FridayDashboardAction {
     FridayDashboardAction {
         id: id.to_string(),
         label: label.to_string(),
         command: command.to_string(),
+        kind,
+        source: source.to_string(),
+        local_only: true,
+        enabled: !command.trim().is_empty(),
         destructive: false,
         requires_confirmation: false,
     }

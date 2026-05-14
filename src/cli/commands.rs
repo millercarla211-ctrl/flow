@@ -1426,7 +1426,12 @@ fn print_friday_dashboard_panel(input_dir: &str) -> Result<()> {
         println!("  metric: {}", card.primary_metric);
         println!("  source: {}", card.source_json);
         for action in &card.actions {
-            println!("  action: {} -> {}", action.label, action.command);
+            println!(
+                "  action: [{}] {} -> {}",
+                action.kind.label(),
+                action.label,
+                action.command
+            );
         }
     }
 

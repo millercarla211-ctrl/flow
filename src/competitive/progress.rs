@@ -69,9 +69,9 @@ pub fn active_completion_set() -> CompletionSet {
             "dashboard-recovery-actions",
             "Dashboard recovery actions",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "add one-click local command launch and recovery actions from readiness cards",
+            CompletionItemStatus::Done,
+            "`flow --friday-dashboard-panel` exposes typed open, run-check, recover, and capture actions with local-only commands for warning readiness items",
+            "wire these typed actions into the product UI/DX dashboard button handlers",
         ),
         item(
             "export-history-store",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_friday_dashboard_runtime_wiring_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Dashboard Runtime Wiring");
-        assert_eq!(set.current_score_out_of_100, 40);
+        assert_eq!(set.current_score_out_of_100, 60);
         assert!(
             set.items
                 .iter()

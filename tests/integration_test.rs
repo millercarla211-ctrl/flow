@@ -20,7 +20,8 @@ use flow::experience::{
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
-    FridayDashboardPanelStatus, FridayDashboardScreenshotStatus, FridayExecutionHandoffStatus,
+    FridayDashboardActionKind, FridayDashboardPanelStatus, FridayDashboardScreenshotStatus,
+    FridayExecutionHandoffStatus,
     FridayLiveUiBindingStatus, FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind,
     FridayMultimodalRouteStatus, FridayMultimodalSurface, FridayOperatorReadinessStatus,
     FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
@@ -938,8 +939,8 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
     let bundle = export_friday_dashboard_bundle(&root).unwrap();
 
     assert_eq!(bundle.completion.name, "Friday Dashboard Runtime Wiring");
-    assert_eq!(bundle.completion.current_score_out_of_100, 40);
-    assert_eq!(bundle.manifest.score_out_of_100, 40);
+    assert_eq!(bundle.completion.current_score_out_of_100, 60);
+    assert_eq!(bundle.manifest.score_out_of_100, 60);
     assert_eq!(bundle.readiness.blocking_count, 0);
     assert_eq!(bundle.route_bindings.blocking_count, 0);
     assert_eq!(bundle.route_visuals.blocking_count, 0);
@@ -971,7 +972,7 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
     assert_eq!(panel.loop_name, "Friday Dashboard Runtime Wiring");
-    assert_eq!(panel.score_out_of_100, 40);
+    assert_eq!(panel.score_out_of_100, 60);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
     assert_eq!(panel.cards.len(), 6);
     assert!(panel.cards.iter().any(|card| {
@@ -980,7 +981,9 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
             && card
                 .actions
                 .iter()
-                .any(|action| action.command == "flow --completion")
+                .any(|action| action.kind == FridayDashboardActionKind::Open
+                    && action.command == "flow --completion"
+                    && action.source == "completion-loop")
     }));
     assert!(panel.cards.iter().any(|card| {
         card.id == "operator-readiness"
@@ -988,7 +991,13 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
             && card
                 .actions
                 .iter()
-                .any(|action| action.command == "flow --friday-readiness")
+                .any(|action| action.kind == FridayDashboardActionKind::RunCheck
+                    && action.command == "flow --friday-readiness")
+            && card
+                .actions
+                .iter()
+                .any(|action| action.kind == FridayDashboardActionKind::Recover
+                    && action.command == "flow --friday-media-affordances")
     }));
     assert!(panel.cards.iter().any(|card| {
         card.id == "screenshot-history"
@@ -996,7 +1005,11 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
             && card
                 .actions
                 .iter()
-                .any(|action| action.command == "flow --friday-route-visuals")
+                .any(|action| action.kind == FridayDashboardActionKind::Capture
+                    && action.command == "flow --friday-route-visuals")
+    }));
+    assert!(panel.cards.iter().flat_map(|card| &card.actions).all(|action| {
+        action.local_only && action.enabled && !action.destructive && !action.requires_confirmation
     }));
     assert_eq!(panel.screenshot_history.total_targets, 10);
     assert!(panel.screenshot_history.missing_count > 0);
