@@ -82,6 +82,8 @@
 - advanced Browser And Extension Core to 60/100
 - added `flow --browser-pack-recovery-smoke` / `--browser-pack-recovery-smoke-json` to verify partial-download resume, corrupt-hash rejection, and quota-pressure recovery contracts for browser packs
 - advanced Browser And Extension Core to 80/100
+- added `flow --browser-webllm-acceleration` / `--browser-webllm-acceleration-json` to verify an opt-in Chromium/WebGPU WebLLM worker path for the Qwen text pack while preserving Transformers.js fallback and non-Chromium guardrails
+- completed Browser And Extension Core at 100/100
 
 ## 2026-04-26
 

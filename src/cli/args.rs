@@ -108,6 +108,10 @@ pub enum Command {
     BrowserPackRecoverySmoke,
     /// Print browser-pack recovery smoke readiness as JSON
     BrowserPackRecoverySmokeJson,
+    /// Show Chromium WebLLM acceleration readiness
+    BrowserWebLlmAcceleration,
+    /// Print Chromium WebLLM acceleration readiness as JSON
+    BrowserWebLlmAccelerationJson,
     /// Run a bounded Friday OCR smoke path and write artifact records
     FridayOcrSmoke {
         output_dir: String,
@@ -500,6 +504,13 @@ impl Args {
             }
             "--browser-pack-recovery-smoke-json" | "--friday-browser-pack-recovery-smoke-json" => {
                 Command::BrowserPackRecoverySmokeJson
+            }
+            "--browser-webllm-acceleration" | "--friday-browser-webllm-acceleration" => {
+                Command::BrowserWebLlmAcceleration
+            }
+            "--browser-webllm-acceleration-json"
+            | "--friday-browser-webllm-acceleration-json" => {
+                Command::BrowserWebLlmAccelerationJson
             }
             "--friday-ocr-smoke" => {
                 let (output_dir, image, execute_model) = parse_friday_ocr_smoke_args(&args);

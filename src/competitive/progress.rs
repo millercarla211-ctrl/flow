@@ -85,9 +85,9 @@ pub fn active_completion_set() -> CompletionSet {
             "chromium-webllm-acceleration",
             "Chromium WebLLM acceleration",
             20,
-            CompletionItemStatus::Planned,
-            "Transformers.js browser packs are the validated baseline; optional WebLLM acceleration remains gated until Qwen packs are stable",
-            "add a Chromium-only WebLLM plan after offline pack reuse is verified",
+            CompletionItemStatus::Done,
+            "`flow --browser-webllm-acceleration` verifies an opt-in Chromium/WebGPU WebLLM worker path for the Qwen text pack while preserving Transformers.js fallback and non-Chromium guardrails",
+            "connect this acceleration contract to the extension options UI when the browser worker is implemented",
         ),
     ];
 
@@ -140,11 +140,11 @@ mod tests {
     fn active_set_tracks_browser_extension_core_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Browser And Extension Core");
-        assert_eq!(set.current_score_out_of_100, 80);
+        assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items
                 .iter()
-                .any(|item| item.status == CompletionItemStatus::Planned)
+                .all(|item| item.status == CompletionItemStatus::Done)
         );
     }
 

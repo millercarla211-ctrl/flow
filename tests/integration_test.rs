@@ -6,9 +6,10 @@ use flow::FlowLocalRuntime;
 use flow::audio::{AudioLoader, MelSpectrogramConfig, compute_mel_spectrogram};
 use flow::browser::{
     BrowserExtensionInstallProbe, BrowserExtensionSmokeStatus, BrowserPackRecoveryScenarioKind,
-    BrowserPackRecoveryStatus, BrowserPackReuseStatus,
+    BrowserPackRecoveryStatus, BrowserPackReuseStatus, BrowserWebLlmAccelerationStatus,
     browser_extension_launch_smoke_report_for_root, browser_extension_smoke_report_for_root,
     browser_pack_recovery_smoke_report, browser_pack_reuse_smoke_report,
+    browser_webllm_acceleration_report,
 };
 use flow::competitive::default_competitive_scorecard;
 use flow::embed::{FlowEmbeddingRegistry, HostSurface, IntegrationMode};
@@ -926,6 +927,35 @@ fn browser_pack_recovery_smoke_covers_resume_hash_and_quota_paths() {
                 scenario.kind == BrowserPackRecoveryScenarioKind::QuotaPressureRecovery
                     && scenario.status == BrowserPackRecoveryStatus::Passed
             })
+    }));
+}
+
+#[test]
+fn browser_webllm_acceleration_gates_chromium_and_preserves_fallbacks() {
+    let report = browser_webllm_acceleration_report();
+
+    assert_eq!(report.score_out_of_100, 100);
+    assert_eq!(report.blocking_count(), 0);
+    assert!(report.local_only);
+    assert!(!report.touches_network);
+    assert!(!report.targets.is_empty());
+    assert!(report.targets.iter().all(|target| {
+        target.status == BrowserWebLlmAccelerationStatus::Passed
+            && target.model_key == "qwen3-0.6b"
+            && target.acceleration_backend == flow::BrowserExecutionBackend::WebLlmWorker
+            && target.fallback_backend == flow::BrowserExecutionBackend::TransformersJsOnnx
+            && target.host_flavor == flow::BrowserHostFlavor::ChromiumExtension
+            && target.device_target == flow::BrowserDeviceTarget::WebGpu
+            && target.worker_kind == flow::BrowserWorkerKind::DedicatedWorker
+            && target.local_only
+            && !target.remote_allowed
+            && target
+                .requirements
+                .contains(&"explicit-user-opt-in".to_string())
+    }));
+    assert!(report.guardrails.iter().all(|guardrail| {
+        !guardrail.acceleration_allowed
+            && guardrail.fallback_backend == flow::BrowserExecutionBackend::TransformersJsOnnx
     }));
 }
 

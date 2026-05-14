@@ -140,19 +140,23 @@ Goal: connect Friday's multimodal contracts to UI capture, install/run affordanc
 
 This set is complete. The next loop should open `Browser And Extension Core` and connect these verification gates to live desktop/browser screenshot checks, packaged-extension smoke tests, offline browser model reuse, and quota recovery.
 
-## Next Active Set: Browser And Extension Core
+## Completed Set: Browser And Extension Core
 
-Status: 80/100
+Status: 100/100
 
 Goal: harden Friday's browser extension release path with packaged smoke checks, installed-browser launch validation, offline browser-pack reuse, recovery handling, and optional Chromium acceleration without weakening local-first defaults.
 
-### Remaining To Reach 100/100
+### Done
 
 - [x] Add a packaged extension smoke matrix for Chromium, Edge, Firefox, and Safari targets with installed-browser detection.
 - [x] Smoke test packaged extensions with isolated temporary-profile launches in installed Chrome, Edge, Firefox, and Safari targets.
 - [x] Verify offline browser-pack reuse after first download.
 - [x] Verify partial-download resume, hash rejection, and quota recovery.
-- [ ] Add optional Chromium WebLLM acceleration after Qwen browser packs are validated.
+- [x] Add optional Chromium WebLLM acceleration after Qwen browser packs are validated.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Live UI Execution` and connect these contracts to tracked desktop/web route files, screenshot-backed visual verification, and operator-facing readiness summaries.
 
 ## Next Set Candidates
 

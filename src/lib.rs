@@ -42,11 +42,13 @@ pub use browser::{
     BrowserPackRecoveryTarget, BrowserPackResolution, BrowserPackReuseFile,
     BrowserPackReuseReport, BrowserPackReuseStatus, BrowserPackReuseTarget, BrowserPackSupport,
     BrowserStorageBackend, BrowserTask, BrowserTokenStreamPlan, BrowserUiSurface,
-    BrowserWorkerKind, FlowBrowserEngine,
+    BrowserWebLlmAccelerationReport, BrowserWebLlmAccelerationStatus,
+    BrowserWebLlmAccelerationTarget, BrowserWebLlmGuardrail, BrowserWorkerKind, FlowBrowserEngine,
     browser_extension_launch_smoke_report, browser_extension_launch_smoke_report_for_root,
     browser_extension_smoke_report, browser_extension_smoke_report_for_root,
     browser_pack_recovery_smoke_report, browser_pack_recovery_smoke_report_for_catalog,
     browser_pack_reuse_smoke_report, browser_pack_reuse_smoke_report_for_catalog,
+    browser_webllm_acceleration_report, browser_webllm_acceleration_report_for_catalog,
     default_browser_pack_catalog,
 };
 pub use cli::{Args, Command, execute};

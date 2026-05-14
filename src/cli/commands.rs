@@ -15,7 +15,7 @@ use crate::browser::{
     BrowserExtensionSmokeStatus, BrowserHostFlavor, BrowserTask, FlowBrowserEngine,
     browser_extension_launch_smoke_report, browser_extension_smoke_report,
     browser_pack_recovery_smoke_report, browser_pack_reuse_smoke_report,
-    default_browser_pack_catalog,
+    browser_webllm_acceleration_report, default_browser_pack_catalog,
 };
 use crate::cli::Command;
 use crate::competitive::active_completion_set;
@@ -478,6 +478,17 @@ pub async fn execute(command: Command) -> Result<()> {
             );
         }
 
+        Command::BrowserWebLlmAcceleration => {
+            print_browser_webllm_acceleration();
+        }
+
+        Command::BrowserWebLlmAccelerationJson => {
+            println!(
+                "{}",
+                browser_webllm_acceleration_report().to_pretty_json()?
+            );
+        }
+
         Command::FridayOcrSmoke {
             output_dir,
             image,
@@ -793,6 +804,10 @@ fn print_interactive_help() {
     println!("                           Show browser-pack recovery smoke readiness");
     println!("  --browser-pack-recovery-smoke-json");
     println!("                           Print browser-pack recovery smoke readiness as JSON");
+    println!("  --browser-webllm-acceleration");
+    println!("                           Show Chromium WebLLM acceleration readiness");
+    println!("  --browser-webllm-acceleration-json");
+    println!("                           Print Chromium WebLLM acceleration readiness as JSON");
     println!("  --friday-ocr-smoke <dir> [image] [--execute]");
     println!("                           Write a bounded OCR smoke artifact bundle");
     println!("  --friday-ocr-smoke-json <dir> [image] [--execute]");
@@ -1398,6 +1413,68 @@ fn print_browser_pack_recovery_smoke() {
             for item in &scenario.evidence {
                 println!("    evidence: {}", item);
             }
+        }
+    }
+}
+
+fn print_browser_webllm_acceleration() {
+    let report = browser_webllm_acceleration_report();
+
+    println!("Chromium WebLLM Acceleration");
+    println!("============================");
+    println!("{}", report.summary);
+    println!("Score: {} / 100", report.score_out_of_100);
+    println!("Local only: {}", yes_no(report.local_only));
+    println!("Touches network: {}", yes_no(report.touches_network));
+    println!(
+        "Targets: {} passed, {} warning, {} blocking",
+        report.passed_count(),
+        report.warning_count(),
+        report.blocking_count()
+    );
+    println!();
+
+    for target in &report.targets {
+        println!(
+            "- [{}] {} ({})",
+            target.status.label(),
+            target.display_name,
+            target.pack_key
+        );
+        println!("  model: {}", target.model_key);
+        println!("  host: {:?}", target.host_flavor);
+        println!("  task: {}", target.task.label());
+        println!(
+            "  backend: {:?} with {:?} fallback",
+            target.acceleration_backend, target.fallback_backend
+        );
+        println!(
+            "  worker={:?}, device={:?}, local_only={}, remote_allowed={}",
+            target.worker_kind,
+            target.device_target,
+            yes_no(target.local_only),
+            yes_no(target.remote_allowed)
+        );
+        println!("  requirements: {}", target.requirements.join(", "));
+        for item in &target.evidence {
+            println!("  evidence: {}", item);
+        }
+        if target.status != crate::browser::BrowserWebLlmAccelerationStatus::Passed {
+            println!("  next: {}", target.next_action);
+        }
+    }
+
+    println!();
+    println!("Guardrails:");
+    for guardrail in &report.guardrails {
+        println!(
+            "  - {:?}: acceleration_allowed={}, fallback={:?}",
+            guardrail.host_flavor,
+            yes_no(guardrail.acceleration_allowed),
+            guardrail.fallback_backend
+        );
+        for item in &guardrail.evidence {
+            println!("    evidence: {}", item);
         }
     }
 }
