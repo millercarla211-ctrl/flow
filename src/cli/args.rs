@@ -94,6 +94,18 @@ pub enum Command {
         image: Option<String>,
         execute_model: bool,
     },
+    /// Write a Friday VLM screenshot understanding contract
+    FridayVlmContract {
+        output_dir: String,
+        screenshot: Option<String>,
+        prompt: Option<String>,
+    },
+    /// Write a Friday VLM screenshot understanding contract and print JSON
+    FridayVlmContractJson {
+        output_dir: String,
+        screenshot: Option<String>,
+        prompt: Option<String>,
+    },
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -396,6 +408,22 @@ impl Args {
                     execute_model,
                 }
             }
+            "--friday-vlm-contract" | "--friday-vlm-smoke" => {
+                let (output_dir, screenshot, prompt) = parse_friday_vlm_contract_args(&args);
+                Command::FridayVlmContract {
+                    output_dir,
+                    screenshot,
+                    prompt,
+                }
+            }
+            "--friday-vlm-contract-json" | "--friday-vlm-smoke-json" => {
+                let (output_dir, screenshot, prompt) = parse_friday_vlm_contract_args(&args);
+                Command::FridayVlmContractJson {
+                    output_dir,
+                    screenshot,
+                    prompt,
+                }
+            }
             "--accessibility-diagnostics" | "--accessibility" => {
                 let live = !args.iter().any(|value| value == "--dry-run");
                 let os = args
@@ -608,4 +636,19 @@ fn parse_friday_ocr_smoke_args(args: &[String]) -> (String, Option<String>, bool
         .find(|value| !value.starts_with("--"))
         .cloned();
     (output_dir, image, execute_model)
+}
+
+fn parse_friday_vlm_contract_args(args: &[String]) -> (String, Option<String>, Option<String>) {
+    let output_dir = args.get(2).cloned().unwrap_or_else(|| {
+        eprintln!("Error: output directory required");
+        eprintln!("Usage: flow --friday-vlm-contract <output-dir> [screenshot-path] [prompt]");
+        std::process::exit(1);
+    });
+    let screenshot = args.get(3).cloned();
+    let prompt = if args.len() > 4 {
+        Some(args[4..].join(" "))
+    } else {
+        None
+    };
+    (output_dir, screenshot, prompt)
 }

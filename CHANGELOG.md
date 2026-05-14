@@ -58,6 +58,8 @@
 - opened Multimodal Local Core at 20/100
 - added `flow --friday-ocr-smoke` / `--friday-ocr-smoke-json` for bounded OCR fixture or explicit model smoke runs that write markdown, artifact, checkpoint, and report records
 - advanced Multimodal Local Core to 40/100
+- added `flow --friday-vlm-contract` / `--friday-vlm-contract-json` for local-only screenshot understanding contracts with explicit VLM model files, artifact, checkpoint, and missing-model findings
+- advanced Multimodal Local Core to 60/100
 
 ## 2026-04-26
 

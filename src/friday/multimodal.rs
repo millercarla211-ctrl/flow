@@ -11,6 +11,12 @@ use super::{
 };
 use crate::models::GlmOcr;
 
+const VLM_MODEL_KEY: &str = "gemma4-e4b-frontend-q4km";
+const VLM_MODEL_PATH: &str = "models/llm/gemma-4-E4B-it.Q4_K_M.gguf";
+const VLM_MMPROJ_PATH: &str = "models/llm/gemma-4-E4B-it.BF16-mmproj.gguf";
+const DEFAULT_VLM_PROMPT: &str =
+    "Describe the screenshot, visible text, primary UI regions, and likely user intent.";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FridayOcrSmokeStatus {
@@ -45,7 +51,56 @@ pub struct FridayOcrSmokeReport {
     pub findings: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayVlmContractStatus {
+    Ready,
+    Warning,
+}
+
+impl FridayVlmContractStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::Warning => "warning",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayMultimodalModelFile {
+    pub path: String,
+    pub purpose: String,
+    pub present: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayVlmContractReport {
+    pub generated_at_unix_ms: u128,
+    pub status: FridayVlmContractStatus,
+    pub output_dir: String,
+    pub screenshot_source: String,
+    pub prompt: String,
+    pub model_key: String,
+    pub model_execution: bool,
+    pub model_files: Vec<FridayMultimodalModelFile>,
+    pub artifact_json: String,
+    pub checkpoint_json: String,
+    pub output_markdown: String,
+    pub report_json: String,
+    pub artifact: FridayArtifactRecord,
+    pub checkpoint: FridayArtifactCheckpoint,
+    pub summary_preview: String,
+    pub findings: Vec<String>,
+}
+
 impl FridayOcrSmokeReport {
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
+impl FridayVlmContractReport {
     pub fn to_pretty_json(&self) -> serde_json::Result<String> {
         serde_json::to_string_pretty(self)
     }
@@ -161,6 +216,135 @@ pub fn run_friday_ocr_smoke(
     Ok(report)
 }
 
+pub fn run_friday_vlm_contract(
+    output_dir: impl AsRef<Path>,
+    screenshot_path: Option<&str>,
+    prompt: Option<&str>,
+) -> Result<FridayVlmContractReport> {
+    let output_dir = output_dir.as_ref();
+    fs::create_dir_all(output_dir)
+        .with_context(|| format!("failed to create VLM contract dir {}", output_dir.display()))?;
+
+    let generated_at_unix_ms = unix_ms();
+    let screenshot_source = screenshot_path
+        .map(str::to_string)
+        .unwrap_or_else(|| "fixture://friday-vlm-screenshot".to_string());
+    let prompt = prompt
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_VLM_PROMPT)
+        .to_string();
+    let model_files = vlm_model_files();
+    let missing_model_files = model_files
+        .iter()
+        .filter(|file| !file.present)
+        .map(|file| file.path.clone())
+        .collect::<Vec<_>>();
+    let status = if missing_model_files.is_empty() {
+        FridayVlmContractStatus::Ready
+    } else {
+        FridayVlmContractStatus::Warning
+    };
+
+    let output_markdown = output_dir.join("vlm-screenshot-contract.md");
+    let artifact_json = output_dir.join("vlm-screenshot-artifact.json");
+    let checkpoint_json = output_dir.join("vlm-screenshot-checkpoint.json");
+    let report_json = output_dir.join("vlm-screenshot-report.json");
+    let artifact_id = "vlm-screenshot-contract".to_string();
+    let checkpoint_id = "vlm-screenshot-contract-cp1".to_string();
+    let model_file_lines = model_files
+        .iter()
+        .map(|file| {
+            format!(
+                "- `{}` ({}) present={}",
+                file.path, file.purpose, file.present
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let summary = format!(
+        "Friday VLM contract for `{}` using `{}`. The runtime must keep execution local, read one screenshot, emit one artifact, and avoid loading the VLM until the user explicitly runs screenshot understanding.",
+        screenshot_source, VLM_MODEL_KEY
+    );
+
+    let markdown = format!(
+        "# Friday VLM Screenshot Contract\n\n- Source: `{}`\n- Prompt: `{}`\n- Model: `{}`\n- Status: `{}`\n- Model execution: `false`\n\n## Model Files\n\n{}\n\n## Boundary\n\n{}\n",
+        screenshot_source,
+        prompt,
+        VLM_MODEL_KEY,
+        status.label(),
+        model_file_lines,
+        summary
+    );
+    fs::write(&output_markdown, markdown)
+        .with_context(|| format!("failed to write {}", output_markdown.display()))?;
+
+    let artifact = FridayArtifactRecord {
+        id: artifact_id.clone(),
+        project_id: "friday-local".to_string(),
+        kind: FridayArtifactKind::Markdown,
+        title: "VLM screenshot contract".to_string(),
+        path: output_markdown.to_string_lossy().into_owned(),
+        language: Some("markdown".to_string()),
+        preview_runner: FridayPreviewRunner::Markdown,
+        current_checkpoint_id: checkpoint_id.clone(),
+        created_at_unix_ms: generated_at_unix_ms,
+        updated_at_unix_ms: generated_at_unix_ms,
+    };
+    let checkpoint = FridayArtifactCheckpoint {
+        id: checkpoint_id,
+        artifact_id,
+        reason: FridayCheckpointReason::Created,
+        summary: "VLM screenshot contract created with explicit local model and artifact boundaries."
+            .to_string(),
+        content_hash: stable_hash(&summary),
+        created_at_unix_ms: generated_at_unix_ms,
+    };
+
+    write_json(&artifact_json, &artifact)?;
+    write_json(&checkpoint_json, &checkpoint)?;
+
+    let findings = missing_model_files
+        .iter()
+        .map(|path| format!("VLM model file is not present yet: {path}"))
+        .collect::<Vec<_>>();
+    let report = FridayVlmContractReport {
+        generated_at_unix_ms,
+        status,
+        output_dir: output_dir.to_string_lossy().into_owned(),
+        screenshot_source,
+        prompt,
+        model_key: VLM_MODEL_KEY.to_string(),
+        model_execution: false,
+        model_files,
+        artifact_json: artifact_json.to_string_lossy().into_owned(),
+        checkpoint_json: checkpoint_json.to_string_lossy().into_owned(),
+        output_markdown: output_markdown.to_string_lossy().into_owned(),
+        report_json: report_json.to_string_lossy().into_owned(),
+        artifact,
+        checkpoint,
+        summary_preview: summary,
+        findings,
+    };
+    write_json(&report_json, &report)?;
+
+    Ok(report)
+}
+
+fn vlm_model_files() -> Vec<FridayMultimodalModelFile> {
+    [
+        (VLM_MODEL_PATH, "vision-language model"),
+        (VLM_MMPROJ_PATH, "vision projector"),
+    ]
+    .into_iter()
+    .map(|(path, purpose)| FridayMultimodalModelFile {
+        path: path.to_string(),
+        purpose: purpose.to_string(),
+        present: Path::new(path).exists(),
+    })
+    .collect()
+}
+
 fn stable_hash(input: &str) -> String {
     let mut hash: u64 = 0xcbf29ce484222325;
     for byte in input.as_bytes() {
@@ -205,6 +389,29 @@ mod tests {
         assert!(PathBuf::from(&report.report_json).exists());
         assert_eq!(report.artifact.id, "ocr-smoke-output");
         assert_eq!(report.checkpoint.artifact_id, report.artifact.id);
+        assert_eq!(report.artifact.current_checkpoint_id, report.checkpoint.id);
+        assert_eq!(report.artifact.preview_runner, FridayPreviewRunner::Markdown);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn vlm_contract_writes_local_artifact_boundary() {
+        let root = std::env::temp_dir().join(format!(
+            "friday-vlm-contract-{}-{}",
+            std::process::id(),
+            unix_ms()
+        ));
+        let _ = fs::remove_dir_all(&root);
+
+        let report = run_friday_vlm_contract(&root, None, Some("read visible UI text")).unwrap();
+        assert!(!report.model_execution);
+        assert_eq!(report.model_key, VLM_MODEL_KEY);
+        assert_eq!(report.model_files.len(), 2);
+        assert!(PathBuf::from(&report.artifact_json).exists());
+        assert!(PathBuf::from(&report.checkpoint_json).exists());
+        assert!(PathBuf::from(&report.output_markdown).exists());
+        assert!(PathBuf::from(&report.report_json).exists());
         assert_eq!(report.artifact.current_checkpoint_id, report.checkpoint.id);
         assert_eq!(report.artifact.preview_runner, FridayPreviewRunner::Markdown);
 

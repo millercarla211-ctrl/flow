@@ -69,9 +69,9 @@ pub fn active_completion_set() -> CompletionSet {
             "vlm-screenshot-path",
             "VLM screenshot understanding path",
             20,
-            CompletionItemStatus::Planned,
-            "Vision model artifacts exist for UI work, but Friday needs a runtime-safe screenshot understanding path separate from OCR",
-            "wire a low-resource screenshot/VLM execution contract with explicit model and artifact boundaries",
+            CompletionItemStatus::Done,
+            "`flow --friday-vlm-contract <dir> [screenshot] [prompt]` writes a local-only screenshot understanding contract with explicit VLM model files, prompt, artifact, checkpoint, and missing-model findings",
+            "surface VLM contract reports in the Multimodal route and connect them to real screenshot capture",
         ),
         item(
             "media-routing-policy",

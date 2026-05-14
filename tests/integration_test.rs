@@ -18,7 +18,7 @@ use flow::friday::{
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
     FridayWorkspaceStore, default_friday_browser_verification_report,
     default_friday_local_execution_checks, default_friday_product_plan,
-    default_friday_ui_integration_plan, run_friday_ocr_smoke,
+    default_friday_ui_integration_plan, run_friday_ocr_smoke, run_friday_vlm_contract,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -561,6 +561,26 @@ fn friday_ocr_smoke_writes_artifact_record() {
 
     assert_eq!(report.status, flow::FridayOcrSmokeStatus::Passed);
     assert!(!report.model_execution);
+    assert!(PathBuf::from(&report.output_markdown).exists());
+    assert!(PathBuf::from(&report.artifact_json).exists());
+    assert!(PathBuf::from(&report.checkpoint_json).exists());
+    assert!(PathBuf::from(&report.report_json).exists());
+    assert_eq!(report.artifact.kind, flow::FridayArtifactKind::Markdown);
+    assert_eq!(report.artifact.current_checkpoint_id, report.checkpoint.id);
+    assert_eq!(report.checkpoint.artifact_id, report.artifact.id);
+    assert_eq!(report.artifact.preview_runner, FridayPreviewRunner::Markdown);
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn friday_vlm_contract_writes_model_boundary_artifact() {
+    let root = temp_root("friday-vlm-contract");
+    let report = run_friday_vlm_contract(&root, None, None).unwrap();
+
+    assert!(!report.model_execution);
+    assert_eq!(report.model_key, "gemma4-e4b-frontend-q4km");
+    assert_eq!(report.model_files.len(), 2);
     assert!(PathBuf::from(&report.output_markdown).exists());
     assert!(PathBuf::from(&report.artifact_json).exists());
     assert!(PathBuf::from(&report.checkpoint_json).exists());

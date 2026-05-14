@@ -28,7 +28,7 @@ use crate::friday::{
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
-    friday_research_search_plan, run_friday_ocr_smoke,
+    friday_research_search_plan, run_friday_ocr_smoke, run_friday_vlm_contract,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -445,6 +445,32 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayVlmContract {
+            output_dir,
+            screenshot,
+            prompt,
+        } => {
+            let report = run_friday_vlm_contract(
+                resolve_repo_relative_path(&output_dir),
+                screenshot.as_deref(),
+                prompt.as_deref(),
+            )?;
+            print_friday_vlm_contract(&report);
+        }
+
+        Command::FridayVlmContractJson {
+            output_dir,
+            screenshot,
+            prompt,
+        } => {
+            let report = run_friday_vlm_contract(
+                resolve_repo_relative_path(&output_dir),
+                screenshot.as_deref(),
+                prompt.as_deref(),
+            )?;
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -624,6 +650,10 @@ fn print_interactive_help() {
     println!("                           Write a bounded OCR smoke artifact bundle");
     println!("  --friday-ocr-smoke-json <dir> [image] [--execute]");
     println!("                           Print OCR smoke artifact bundle status as JSON");
+    println!("  --friday-vlm-contract <dir> [screenshot] [prompt]");
+    println!("                           Write a VLM screenshot artifact contract");
+    println!("  --friday-vlm-contract-json <dir> [screenshot] [prompt]");
+    println!("                           Print the VLM screenshot contract as JSON");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");
@@ -670,6 +700,7 @@ fn print_interactive_help() {
     println!("  cargo run --bin flow -- --completion");
     println!("  cargo run --bin flow -- --completion-json");
     println!("  cargo run --bin flow -- --friday-ocr-smoke tmp/friday-ocr-smoke");
+    println!("  cargo run --bin flow -- --friday-vlm-contract tmp/friday-vlm-contract");
     println!("  cargo run --bin flow -- --models chat");
     println!("  cargo run --release --bin flow -- --install-model qwen3-0.6b");
     println!("  cargo run --release --bin flow -- --install-model qwen35-4b-revised-q4km");
@@ -1038,6 +1069,38 @@ fn print_friday_ocr_smoke(report: &crate::friday::FridayOcrSmokeReport) {
     );
     if !report.extracted_text_preview.is_empty() {
         println!("Preview: {}", report.extracted_text_preview);
+    }
+    if report.findings.is_empty() {
+        println!("Findings: none");
+    } else {
+        println!("Findings:");
+        for finding in &report.findings {
+            println!("  - {}", finding);
+        }
+    }
+}
+
+fn print_friday_vlm_contract(report: &crate::friday::FridayVlmContractReport) {
+    println!("Friday VLM Screenshot Contract");
+    println!("==============================");
+    println!("Status: {}", report.status.label());
+    println!("Model: {}", report.model_key);
+    println!("Source: {}", report.screenshot_source);
+    println!("Prompt: {}", report.prompt);
+    println!("Output dir: {}", report.output_dir);
+    println!("Markdown: {}", report.output_markdown);
+    println!("Artifact: {}", report.artifact_json);
+    println!("Checkpoint: {}", report.checkpoint_json);
+    println!("Report: {}", report.report_json);
+    println!("Model execution: {}", yes_no(report.model_execution));
+    println!("Model files:");
+    for file in &report.model_files {
+        println!(
+            "  - [{}] {} ({})",
+            if file.present { "present" } else { "missing" },
+            file.path,
+            file.purpose
+        );
     }
     if report.findings.is_empty() {
         println!("Findings: none");
