@@ -8,7 +8,7 @@ import { tryRunTauriLocalChat } from "@/features/ai/tauri-local-chat";
 import { exportFridayArtifact } from "../../utils/localFileExport";
 import { makeLocalRecord, useLocalList } from "../../hooks/useLocalPersistence";
 import { EmptyState, INPUT_CLASS, RecordShell, TEXTAREA_CLASS } from "./primitives";
-import { STORAGE_KEYS, type CanvasArtifact } from "./types";
+import { STORAGE_KEYS, type CanvasArtifact, type FridayProject } from "./types";
 
 type CanvasTransform = "polish" | "summarize" | "actions";
 
@@ -101,12 +101,15 @@ export function CanvasWorkspace() {
   const { items, addItem, updateItem, removeItem } = useLocalList<CanvasArtifact>(
     STORAGE_KEYS.artifacts,
   );
+  const projects = useLocalList<FridayProject>(STORAGE_KEYS.projects);
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<CanvasArtifact["kind"]>("Doc");
+  const [projectId, setProjectId] = useState("none");
   const [content, setContent] = useState("");
   const [selectedArtifactId, setSelectedArtifactId] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editKind, setEditKind] = useState<CanvasArtifact["kind"]>("Doc");
+  const [editProjectId, setEditProjectId] = useState("none");
   const [editContent, setEditContent] = useState("");
   const [transforming, setTransforming] = useState<CanvasTransform | null>(null);
   const [lastTransform, setLastTransform] = useState<string | null>(null);
@@ -117,6 +120,14 @@ export function CanvasWorkspace() {
     () => items.find((artifact) => artifact.id === selectedArtifactId) ?? null,
     [items, selectedArtifactId],
   );
+  const selectedProject = useMemo(
+    () => projects.items.find((project) => project.id === projectId) ?? null,
+    [projectId, projects.items],
+  );
+  const selectedEditProject = useMemo(
+    () => projects.items.find((project) => project.id === editProjectId) ?? null,
+    [editProjectId, projects.items],
+  );
 
   useEffect(() => {
     if (selectedArtifactId && selectedArtifact) return;
@@ -124,14 +135,22 @@ export function CanvasWorkspace() {
   }, [items, selectedArtifact, selectedArtifactId]);
 
   useEffect(() => {
+    if (projectId === "none") return;
+    if (projects.items.some((project) => project.id === projectId)) return;
+    setProjectId("none");
+  }, [projectId, projects.items]);
+
+  useEffect(() => {
     if (!selectedArtifact) {
       setEditTitle("");
       setEditKind("Doc");
+      setEditProjectId("none");
       setEditContent("");
       return;
     }
     setEditTitle(selectedArtifact.title);
     setEditKind(selectedArtifact.kind);
+    setEditProjectId(selectedArtifact.projectId ?? "none");
     setEditContent(selectedArtifact.content);
   }, [selectedArtifact]);
 
@@ -142,6 +161,8 @@ export function CanvasWorkspace() {
       title: cleanTitle,
       kind,
       content: content.trim(),
+      projectId: selectedProject?.id,
+      projectName: selectedProject?.name,
     });
     addItem(artifact);
     setSelectedArtifactId(artifact.id);
@@ -155,6 +176,8 @@ export function CanvasWorkspace() {
       title: editTitle.trim() || "Untitled artifact",
       kind: editKind,
       content: editContent,
+      projectId: selectedEditProject?.id,
+      projectName: selectedEditProject?.name,
     });
   };
 
@@ -197,16 +220,30 @@ export function CanvasWorkspace() {
           onChange={(event) => setTitle(event.target.value)}
           placeholder="Artifact title"
         />
-        <select
-          className={INPUT_CLASS}
-          value={kind}
-          onChange={(event) => setKind(event.target.value as CanvasArtifact["kind"])}
-        >
-          <option>Doc</option>
-          <option>Code</option>
-          <option>Markdown</option>
-          <option>UI</option>
-        </select>
+        <div className="grid gap-3 md:grid-cols-[160px_1fr]">
+          <select
+            className={INPUT_CLASS}
+            value={kind}
+            onChange={(event) => setKind(event.target.value as CanvasArtifact["kind"])}
+          >
+            <option>Doc</option>
+            <option>Code</option>
+            <option>Markdown</option>
+            <option>UI</option>
+          </select>
+          <select
+            className={INPUT_CLASS}
+            value={projectId}
+            onChange={(event) => setProjectId(event.target.value)}
+          >
+            <option value="none">No project</option>
+            {projects.items.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <textarea
           className={TEXTAREA_CLASS}
           value={content}
@@ -227,16 +264,30 @@ export function CanvasWorkspace() {
               onChange={(event) => setEditTitle(event.target.value)}
               placeholder="Artifact title"
             />
-            <select
-              className={`${INPUT_CLASS} mt-3`}
-              value={editKind}
-              onChange={(event) => setEditKind(event.target.value as CanvasArtifact["kind"])}
-            >
-              <option>Doc</option>
-              <option>Code</option>
-              <option>Markdown</option>
-              <option>UI</option>
-            </select>
+            <div className="mt-3 grid gap-3 md:grid-cols-[160px_1fr]">
+              <select
+                className={INPUT_CLASS}
+                value={editKind}
+                onChange={(event) => setEditKind(event.target.value as CanvasArtifact["kind"])}
+              >
+                <option>Doc</option>
+                <option>Code</option>
+                <option>Markdown</option>
+                <option>UI</option>
+              </select>
+              <select
+                className={INPUT_CLASS}
+                value={editProjectId}
+                onChange={(event) => setEditProjectId(event.target.value)}
+              >
+                <option value="none">No project</option>
+                {projects.items.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <textarea
               className={`${TEXTAREA_CLASS} mt-3 min-h-56`}
               value={editContent}
@@ -306,6 +357,11 @@ export function CanvasWorkspace() {
               <Badge variant="outline" className="border-[var(--border)]">
                 {selectedArtifact.kind}
               </Badge>
+              {selectedEditProject && (
+                <Badge variant="outline" className="border-[var(--border)]">
+                  {selectedEditProject.name}
+                </Badge>
+              )}
             </div>
             <ArtifactPreview
               artifact={{
@@ -313,6 +369,8 @@ export function CanvasWorkspace() {
                 title: editTitle || selectedArtifact.title,
                 kind: editKind,
                 content: editContent,
+                projectId: selectedEditProject?.id,
+                projectName: selectedEditProject?.name,
               }}
             />
           </div>
@@ -330,7 +388,11 @@ export function CanvasWorkspace() {
               <RecordShell
                 icon={<Archive size={15} />}
                 title={artifact.title}
-                subtitle={artifact.kind}
+                subtitle={
+                  artifact.projectName
+                    ? `${artifact.kind} / ${artifact.projectName}`
+                    : artifact.kind
+                }
               >
                 <p className="mt-2 line-clamp-3 text-xs leading-5 text-[var(--muted-foreground)]">
                   {artifact.content || "No content yet"}
