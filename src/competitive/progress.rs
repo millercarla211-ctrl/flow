@@ -77,9 +77,9 @@ pub fn active_completion_set() -> CompletionSet {
             "desktop-web-execution-handoff",
             "Desktop/web execution handoff",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "add explicit contracts for launching live flows from desktop, web, and browser-extension UI surfaces",
+            CompletionItemStatus::Done,
+            "`flow --friday-execution-handoffs` binds Ask, Search, Research, Voice, Multimodal, and Readiness UI actions to local commands, permission scopes, artifact paths, source files, and recovery commands",
+            "export this handoff report into Friday/DX dashboard files",
         ),
         item(
             "release-dashboard-export",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_friday_live_ui_execution_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Live UI Execution");
-        assert_eq!(set.current_score_out_of_100, 60);
+        assert_eq!(set.current_score_out_of_100, 80);
         assert!(
             set.items
                 .iter()

@@ -96,6 +96,10 @@ pub enum Command {
     FridayRouteVisuals,
     /// Print Friday route screenshot verification targets as JSON
     FridayRouteVisualsJson,
+    /// Show Friday desktop/web/browser execution handoff contracts
+    FridayExecutionHandoffs,
+    /// Print Friday execution handoff contracts as JSON
+    FridayExecutionHandoffsJson,
     /// Run low-resource Friday local execution readiness checks
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
@@ -491,6 +495,12 @@ impl Args {
             "--friday-route-visuals" | "--friday-screenshot-routes" => Command::FridayRouteVisuals,
             "--friday-route-visuals-json" | "--friday-screenshot-routes-json" => {
                 Command::FridayRouteVisualsJson
+            }
+            "--friday-execution-handoffs" | "--friday-handoffs" => {
+                Command::FridayExecutionHandoffs
+            }
+            "--friday-execution-handoffs-json" | "--friday-handoffs-json" => {
+                Command::FridayExecutionHandoffsJson
             }
             "--friday-local-checks" | "--friday-execution-checks" => Command::FridayLocalChecks,
             "--friday-local-checks-json" | "--friday-execution-checks-json" => {

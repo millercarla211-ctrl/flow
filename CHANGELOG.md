@@ -90,6 +90,8 @@
 - advanced Friday Live UI Execution to 40/100
 - added `flow --friday-route-visuals` / `--friday-route-visuals-json` for Ask, Search, Research, Voice, and Multimodal screenshot target verification across desktop/mobile viewports
 - advanced Friday Live UI Execution to 60/100
+- added `flow --friday-execution-handoffs` / `--friday-execution-handoffs-json` to bind live UI actions to local commands, permission scopes, artifact paths, source files, and recovery commands
+- advanced Friday Live UI Execution to 80/100
 
 ## 2026-04-26
 

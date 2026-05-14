@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use super::{
     FridayLocalCheckStatus, FridayMediaAffordanceStatus, FridayUiVisualCheckStatus,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
-    friday_live_ui_route_binding_report, friday_media_affordances, friday_multimodal_visual_check,
-    friday_route_visual_report,
+    friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
+    friday_multimodal_visual_check, friday_route_visual_report,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,6 +71,7 @@ pub fn friday_operator_readiness_report() -> FridayOperatorReadinessReport {
     let items = vec![
         route_binding_item(),
         route_visual_item(),
+        execution_handoff_item(),
         local_execution_item(),
         browser_gate_item(),
         desktop_host_item(),
@@ -156,6 +157,33 @@ fn route_visual_item() -> FridayOperatorReadinessItem {
             format!("artifact_root={}", report.artifact_root),
         ],
         "Capture screenshots into the configured artifact paths after meaningful route UI edits.",
+    )
+}
+
+fn execution_handoff_item() -> FridayOperatorReadinessItem {
+    let report = friday_execution_handoff_report();
+    let status = if report.blocking_count > 0 {
+        FridayOperatorReadinessStatus::Failed
+    } else if report.warning_count > 0 {
+        FridayOperatorReadinessStatus::Warning
+    } else {
+        FridayOperatorReadinessStatus::Passed
+    };
+
+    item(
+        "execution-handoffs",
+        "Desktop/web execution handoffs",
+        status,
+        report.score_out_of_100,
+        true,
+        "flow --friday-execution-handoffs",
+        vec![
+            format!("handoffs={}", report.handoff_count),
+            format!("passed={}", report.passed_count),
+            format!("warnings={}", report.warning_count),
+            format!("blocking={}", report.blocking_count),
+        ],
+        "Keep UI actions bound to explicit local commands, permissions, artifacts, and recovery commands.",
     )
 }
 

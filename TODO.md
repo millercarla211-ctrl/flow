@@ -160,7 +160,7 @@ This set is complete. The next loop should open `Friday Live UI Execution` and c
 
 ## Active Set: Friday Live UI Execution
 
-Status: 60/100
+Status: 80/100
 
 Goal: connect Friday's Rust contracts to tracked desktop/web UI route files, screenshot-backed visual verification, and operator-facing readiness summaries.
 
@@ -169,8 +169,8 @@ Goal: connect Friday's Rust contracts to tracked desktop/web UI route files, scr
 - [x] Connect the Friday Rust contracts to tracked desktop/web UI route files instead of contract-only CLI output.
 - [x] Add an operator-facing readiness summary for local model, extension, desktop host, route, multimodal, and release-loop readiness.
 - [x] Add screenshot target verification for the most-used Friday routes across desktop/mobile viewports with tracked artifact paths.
+- [x] Add desktop/web execution handoff contracts for launching live flows from UI surfaces.
 
 ### Remaining To Reach 100/100
 
-- [ ] Add desktop/web execution handoff contracts for launching live flows from UI surfaces.
 - [ ] Export readiness summaries for Friday/DX dashboards.

@@ -20,7 +20,7 @@ use flow::experience::{
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
-    FridayLiveUiBindingStatus,
+    FridayExecutionHandoffStatus, FridayLiveUiBindingStatus,
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
@@ -28,10 +28,10 @@ use flow::friday::{
     FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
-    friday_live_ui_route_binding_report, friday_media_affordances, friday_multimodal_route,
-    friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
-    friday_operator_readiness_report, friday_route_visual_report, run_friday_ocr_smoke,
-    run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
+    friday_execution_handoff_report, friday_live_ui_route_binding_report,
+    friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
+    friday_multimodal_visual_check, friday_operator_readiness_report, friday_route_visual_report,
+    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -891,6 +891,42 @@ fn friday_route_visuals_cover_most_used_routes() {
                 .source_file
                 .contains("transformers-runtime.ts")
     }));
+}
+
+#[test]
+fn friday_execution_handoffs_bind_ui_actions_to_local_commands() {
+    let report = friday_execution_handoff_report();
+
+    assert_eq!(report.score_out_of_100, 100);
+    assert_eq!(report.handoff_count, 6);
+    assert_eq!(report.blocking_count, 0);
+    assert!(report.handoffs.iter().all(|handoff| {
+        handoff.status == FridayExecutionHandoffStatus::Passed
+            && handoff.local_only
+            && !handoff.permission_scopes.is_empty()
+            && !handoff.recovery_command.trim().is_empty()
+            && (handoff.source_file.ends_with(".rs") || handoff.source_file.ends_with(".ts"))
+    }));
+    assert!(report.handoffs.iter().any(|handoff| {
+        handoff.id == "voice-dictation"
+            && handoff.command == "flow --dictate"
+            && handoff.requires_user_gesture
+            && handoff.permission_scopes.contains(&"microphone".to_string())
+    }));
+    assert!(report.handoffs.iter().any(|handoff| {
+        handoff.id == "research-report"
+            && handoff
+                .artifact_path
+                .as_deref()
+                .unwrap_or_default()
+                .ends_with("manifest.json")
+    }));
+    assert!(
+        report
+            .handoffs
+            .iter()
+            .any(|handoff| handoff.id == "readiness-command" && !handoff.requires_user_gesture)
+    );
 }
 
 #[test]
