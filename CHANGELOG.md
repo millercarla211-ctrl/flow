@@ -80,6 +80,8 @@
 - advanced Browser And Extension Core to 40/100
 - added `flow --browser-pack-reuse-smoke` / `--browser-pack-reuse-smoke-json` to simulate cached browser packs and verify offline local-only routing through browserpack-local URLs with remote fallback disabled
 - advanced Browser And Extension Core to 60/100
+- added `flow --browser-pack-recovery-smoke` / `--browser-pack-recovery-smoke-json` to verify partial-download resume, corrupt-hash rejection, and quota-pressure recovery contracts for browser packs
+- advanced Browser And Extension Core to 80/100
 
 ## 2026-04-26
 

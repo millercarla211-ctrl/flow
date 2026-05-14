@@ -5,9 +5,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use flow::FlowLocalRuntime;
 use flow::audio::{AudioLoader, MelSpectrogramConfig, compute_mel_spectrogram};
 use flow::browser::{
-    BrowserExtensionInstallProbe, BrowserExtensionSmokeStatus, BrowserPackReuseStatus,
+    BrowserExtensionInstallProbe, BrowserExtensionSmokeStatus, BrowserPackRecoveryScenarioKind,
+    BrowserPackRecoveryStatus, BrowserPackReuseStatus,
     browser_extension_launch_smoke_report_for_root, browser_extension_smoke_report_for_root,
-    browser_pack_reuse_smoke_report,
+    browser_pack_recovery_smoke_report, browser_pack_reuse_smoke_report,
 };
 use flow::competitive::default_competitive_scorecard;
 use flow::embed::{FlowEmbeddingRegistry, HostSurface, IntegrationMode};
@@ -890,6 +891,41 @@ fn browser_pack_reuse_smoke_proves_offline_cached_routing() {
                 .files
                 .iter()
                 .all(|file| file.local_url.starts_with("https://flow.browserpack.local/"))
+    }));
+}
+
+#[test]
+fn browser_pack_recovery_smoke_covers_resume_hash_and_quota_paths() {
+    let report = browser_pack_recovery_smoke_report();
+
+    assert_eq!(report.score_out_of_100, 100);
+    assert_eq!(report.blocking_count(), 0);
+    assert!(report.local_only);
+    assert!(!report.touches_network);
+    assert!(report.targets.len() >= 3);
+    assert!(report.targets.iter().all(|target| {
+        target.status() == BrowserPackRecoveryStatus::Passed
+            && target.available_bytes_before < target.required_bytes
+            && target.available_bytes_after >= target.required_bytes
+            && target.files.iter().all(|file| {
+                file.valid_relative_path
+                    && file.partial_bytes > 0
+                    && file.partial_bytes < file.expected_bytes
+                    && file.resumed_bytes + file.partial_bytes == file.expected_bytes
+                    && file.observed_hash != file.expected_hash
+            })
+            && target.scenarios.iter().any(|scenario| {
+                scenario.kind == BrowserPackRecoveryScenarioKind::PartialDownloadResume
+                    && scenario.status == BrowserPackRecoveryStatus::Passed
+            })
+            && target.scenarios.iter().any(|scenario| {
+                scenario.kind == BrowserPackRecoveryScenarioKind::HashMismatchRejection
+                    && scenario.status == BrowserPackRecoveryStatus::Passed
+            })
+            && target.scenarios.iter().any(|scenario| {
+                scenario.kind == BrowserPackRecoveryScenarioKind::QuotaPressureRecovery
+                    && scenario.status == BrowserPackRecoveryStatus::Passed
+            })
     }));
 }
 

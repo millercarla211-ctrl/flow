@@ -77,9 +77,9 @@ pub fn active_completion_set() -> CompletionSet {
             "browser-pack-recovery",
             "Browser-pack recovery",
             20,
-            CompletionItemStatus::Planned,
-            "The extension storage layer verifies hashes, but partial-download resume, hash rejection, and quota recovery need operator tests",
-            "add corruption and partial-cache test fixtures for browser pack storage",
+            CompletionItemStatus::Done,
+            "`flow --browser-pack-recovery-smoke` verifies deterministic partial-download resume, corrupt-hash rejection, and quota-pressure recovery contracts for each browser pack",
+            "connect the recovery contract to live extension storage fixtures when the browser worker is wired",
         ),
         item(
             "chromium-webllm-acceleration",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_browser_extension_core_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Browser And Extension Core");
-        assert_eq!(set.current_score_out_of_100, 60);
+        assert_eq!(set.current_score_out_of_100, 80);
         assert!(
             set.items
                 .iter()

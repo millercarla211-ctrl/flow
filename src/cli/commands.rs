@@ -14,7 +14,8 @@ use crate::audio::{NoiseGateVAD, WakeWordDetector};
 use crate::browser::{
     BrowserExtensionSmokeStatus, BrowserHostFlavor, BrowserTask, FlowBrowserEngine,
     browser_extension_launch_smoke_report, browser_extension_smoke_report,
-    browser_pack_reuse_smoke_report, default_browser_pack_catalog,
+    browser_pack_recovery_smoke_report, browser_pack_reuse_smoke_report,
+    default_browser_pack_catalog,
 };
 use crate::cli::Command;
 use crate::competitive::active_completion_set;
@@ -466,6 +467,17 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", browser_pack_reuse_smoke_report().to_pretty_json()?);
         }
 
+        Command::BrowserPackRecoverySmoke => {
+            print_browser_pack_recovery_smoke();
+        }
+
+        Command::BrowserPackRecoverySmokeJson => {
+            println!(
+                "{}",
+                browser_pack_recovery_smoke_report().to_pretty_json()?
+            );
+        }
+
         Command::FridayOcrSmoke {
             output_dir,
             image,
@@ -777,6 +789,10 @@ fn print_interactive_help() {
     println!("                           Show offline browser-pack reuse smoke readiness");
     println!("  --browser-pack-reuse-smoke-json");
     println!("                           Print offline browser-pack reuse smoke readiness as JSON");
+    println!("  --browser-pack-recovery-smoke");
+    println!("                           Show browser-pack recovery smoke readiness");
+    println!("  --browser-pack-recovery-smoke-json");
+    println!("                           Print browser-pack recovery smoke readiness as JSON");
     println!("  --friday-ocr-smoke <dir> [image] [--execute]");
     println!("                           Write a bounded OCR smoke artifact bundle");
     println!("  --friday-ocr-smoke-json <dir> [image] [--execute]");
@@ -1335,6 +1351,53 @@ fn print_browser_pack_reuse_smoke() {
         }
         if target.status != crate::browser::BrowserPackReuseStatus::Passed {
             println!("  next: {}", target.next_action);
+        }
+    }
+}
+
+fn print_browser_pack_recovery_smoke() {
+    let report = browser_pack_recovery_smoke_report();
+
+    println!("Browser Pack Recovery Smoke");
+    println!("===========================");
+    println!("{}", report.summary);
+    println!("Score: {} / 100", report.score_out_of_100);
+    println!("Local only: {}", yes_no(report.local_only));
+    println!("Touches network: {}", yes_no(report.touches_network));
+    println!(
+        "Targets: {} passed, {} warning, {} blocking",
+        report.passed_count(),
+        report.warning_count(),
+        report.blocking_count()
+    );
+    println!();
+
+    for target in &report.targets {
+        println!(
+            "- [{}] {} ({})",
+            target.status().label(),
+            target.display_name,
+            target.pack_key
+        );
+        println!("  model: {}", target.model_key);
+        println!(
+            "  cache files: {}, required_bytes={}, available_before={}, evicted_stale={}, available_after={}",
+            target.files_total,
+            target.required_bytes,
+            target.available_bytes_before,
+            target.stale_bytes_evicted,
+            target.available_bytes_after
+        );
+        for scenario in &target.scenarios {
+            println!(
+                "  - [{}] {}",
+                scenario.status.label(),
+                scenario.kind.label()
+            );
+            println!("    action: {}", scenario.action);
+            for item in &scenario.evidence {
+                println!("    evidence: {}", item);
+            }
         }
     }
 }

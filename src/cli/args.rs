@@ -104,6 +104,10 @@ pub enum Command {
     BrowserPackReuseSmoke,
     /// Print offline browser-pack reuse smoke readiness as JSON
     BrowserPackReuseSmokeJson,
+    /// Show browser-pack recovery smoke readiness
+    BrowserPackRecoverySmoke,
+    /// Print browser-pack recovery smoke readiness as JSON
+    BrowserPackRecoverySmokeJson,
     /// Run a bounded Friday OCR smoke path and write artifact records
     FridayOcrSmoke {
         output_dir: String,
@@ -490,6 +494,12 @@ impl Args {
             }
             "--browser-pack-reuse-smoke-json" | "--friday-browser-pack-reuse-smoke-json" => {
                 Command::BrowserPackReuseSmokeJson
+            }
+            "--browser-pack-recovery-smoke" | "--friday-browser-pack-recovery-smoke" => {
+                Command::BrowserPackRecoverySmoke
+            }
+            "--browser-pack-recovery-smoke-json" | "--friday-browser-pack-recovery-smoke-json" => {
+                Command::BrowserPackRecoverySmokeJson
             }
             "--friday-ocr-smoke" => {
                 let (output_dir, image, execute_model) = parse_friday_ocr_smoke_args(&args);
