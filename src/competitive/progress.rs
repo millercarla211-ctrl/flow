@@ -69,9 +69,9 @@ pub fn active_completion_set() -> CompletionSet {
             "pause-resume-snooze",
             "Reliable pause, resume, and snooze controls for always-on hosts",
             20,
-            CompletionItemStatus::Planned,
-            "lifecycle and microphone primitives exist, but there is no complete operator-facing snooze path",
-            "add explicit pause windows and status reporting to hostkit/supervisor surfaces",
+            CompletionItemStatus::Done,
+            "FlowDefaultHostKit and FlowRuntimeSupervisor expose pause, snooze, resume, refresh, and pause snapshots",
+            "wire pause controls into concrete desktop tray/overlay hosts",
         ),
         item(
             "global-dictation-host",

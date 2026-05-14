@@ -34,6 +34,7 @@ pub mod recovery;
 pub mod runtime_policy;
 pub mod selection;
 pub mod session;
+pub mod snooze;
 pub mod status;
 pub mod stores;
 pub mod supervisor;
@@ -121,6 +122,7 @@ pub use runtime_policy::{
 };
 pub use selection::NativeSelectionBridge;
 pub use session::{FlowCommandPass, FlowSessionContext, FlowSessionRuntime, FlowTextPass};
+pub use snooze::{FlowHostPauseController, FlowHostPauseSnapshot};
 pub use status::{FlowCapabilityStatus, FlowCompletionSnapshot};
 pub use stores::FlowFileStateStore;
 pub use supervisor::FlowRuntimeSupervisor;

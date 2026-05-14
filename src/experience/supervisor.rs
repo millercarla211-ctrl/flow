@@ -6,6 +6,7 @@ use super::{
     session::FlowSessionContext,
     wake::WakeRuntimeState,
 };
+use std::time::Duration;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct FlowRuntimeSupervisor {
@@ -97,6 +98,49 @@ impl FlowRuntimeSupervisor {
         let plan = host.recover(context, event);
         self.last_health = Some(host.health_report(context));
         plan
+    }
+
+    pub fn pause(
+        &mut self,
+        host: &mut FlowDefaultHostKit,
+        context: &mut FlowSessionContext,
+        reason: impl Into<String>,
+    ) -> super::snooze::FlowHostPauseSnapshot {
+        let snapshot = host.pause_host(context, reason);
+        self.last_health = Some(host.health_report(context));
+        snapshot
+    }
+
+    pub fn snooze(
+        &mut self,
+        host: &mut FlowDefaultHostKit,
+        context: &mut FlowSessionContext,
+        duration: Duration,
+        reason: impl Into<String>,
+    ) -> super::snooze::FlowHostPauseSnapshot {
+        let snapshot = host.snooze_host(context, duration, reason);
+        self.last_health = Some(host.health_report(context));
+        snapshot
+    }
+
+    pub fn resume(
+        &mut self,
+        host: &mut FlowDefaultHostKit,
+        context: &mut FlowSessionContext,
+    ) -> super::snooze::FlowHostPauseSnapshot {
+        let snapshot = host.resume_host(context);
+        self.last_health = Some(host.health_report(context));
+        snapshot
+    }
+
+    pub fn refresh_pause(
+        &mut self,
+        host: &mut FlowDefaultHostKit,
+        context: &mut FlowSessionContext,
+    ) -> super::snooze::FlowHostPauseSnapshot {
+        let snapshot = host.refresh_pause(context);
+        self.last_health = Some(host.health_report(context));
+        snapshot
     }
 
     pub fn sync(

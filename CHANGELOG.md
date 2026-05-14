@@ -13,6 +13,8 @@
 - added host automation audit records for selection-read and selection-replacement flows
 - added `flow --accessibility [os] [--dry-run]` for host automation readiness diagnostics
 - advanced Host Autonomy Core to 50/100
+- added host pause, snooze, resume, and pause-refresh controls for always-on runtimes
+- advanced Host Autonomy Core to 70/100
 
 ## 2026-04-26
 

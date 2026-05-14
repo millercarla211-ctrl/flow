@@ -71,6 +71,32 @@ impl FlowHealthReport {
             });
         }
 
+        let pause = host.pause_snapshot();
+        if pause.active {
+            let detail = match (pause.reason.as_deref(), pause.remaining_ms) {
+                (Some(reason), Some(remaining_ms)) => format!(
+                    "Host is snoozed for '{}' and will resume in about {} ms.",
+                    reason, remaining_ms
+                ),
+                (Some(reason), None) => format!(
+                    "Host is paused for '{}' and requires an explicit resume.",
+                    reason
+                ),
+                (None, Some(remaining_ms)) => format!(
+                    "Host is snoozed and will resume in about {} ms.",
+                    remaining_ms
+                ),
+                (None, None) => {
+                    "Host is paused and requires an explicit resume.".to_string()
+                }
+            };
+            issues.push(FlowHealthIssue {
+                severity: FlowHealthSeverity::Info,
+                title: "Host pause window active".to_string(),
+                detail,
+            });
+        }
+
         let microphone = host.microphone.snapshot();
         if !microphone.configured {
             issues.push(FlowHealthIssue {

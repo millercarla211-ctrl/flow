@@ -17,6 +17,7 @@ use super::{
     runtime_policy::DeviceBenchmarkSnapshot,
     selection::NativeSelectionBridge,
     session::FlowSessionContext,
+    snooze::{FlowHostPauseController, FlowHostPauseSnapshot},
     stores::FlowFileStateStore,
     types::TypingAssistRequest,
     wake::{FlowWakeRuntime, ManagedWakeRuntime, WakeRuntimeState},
@@ -39,6 +40,7 @@ pub struct FlowDefaultHostKit {
     pub automation: NativeSelectionBridge,
     pub wake: ManagedWakeRuntime,
     pub wake_worker: OpenWakeInferenceWorker,
+    pub pause: FlowHostPauseController,
 }
 
 impl FlowDefaultHostKit {
@@ -64,6 +66,7 @@ impl FlowDefaultHostKit {
             automation: NativeSelectionBridge::with_accessibility(accessibility, true),
             wake: ManagedWakeRuntime::default(),
             wake_worker: OpenWakeInferenceWorker::default(),
+            pause: FlowHostPauseController::default(),
         }
     }
 
@@ -89,6 +92,7 @@ impl FlowDefaultHostKit {
             automation: NativeSelectionBridge::with_accessibility(accessibility, false),
             wake: ManagedWakeRuntime::default(),
             wake_worker: OpenWakeInferenceWorker::default(),
+            pause: FlowHostPauseController::default(),
         }
     }
 
@@ -177,6 +181,47 @@ impl FlowDefaultHostKit {
         let snapshot = self.bundle.advance(context, event);
         self.sync(context);
         snapshot
+    }
+
+    pub fn pause_host(
+        &mut self,
+        context: &mut FlowSessionContext,
+        reason: impl Into<String>,
+    ) -> FlowHostPauseSnapshot {
+        let snapshot = self.pause.pause(reason);
+        let _ = self.advance(context, super::lifecycle::FlowRuntimeEvent::PauseRequested);
+        snapshot
+    }
+
+    pub fn snooze_host(
+        &mut self,
+        context: &mut FlowSessionContext,
+        duration: std::time::Duration,
+        reason: impl Into<String>,
+    ) -> FlowHostPauseSnapshot {
+        let snapshot = self.pause.snooze(duration, reason);
+        let _ = self.advance(context, super::lifecycle::FlowRuntimeEvent::PauseRequested);
+        snapshot
+    }
+
+    pub fn resume_host(&mut self, context: &mut FlowSessionContext) -> FlowHostPauseSnapshot {
+        let snapshot = self.pause.resume();
+        let _ = self.advance(context, super::lifecycle::FlowRuntimeEvent::ResumeRequested);
+        snapshot
+    }
+
+    pub fn refresh_pause(&mut self, context: &mut FlowSessionContext) -> FlowHostPauseSnapshot {
+        if self.pause.refresh() {
+            let _ = self.advance(context, super::lifecycle::FlowRuntimeEvent::ResumeRequested);
+        } else if self.pause.is_active() {
+            self.sync(context);
+        }
+
+        self.pause.snapshot()
+    }
+
+    pub fn pause_snapshot(&self) -> FlowHostPauseSnapshot {
+        self.pause.snapshot()
     }
 
     pub fn recover(
@@ -342,4 +387,41 @@ fn parse_capability(value: &str) -> Option<super::control::ControlCapability> {
         "ShellCommand" => super::control::ControlCapability::ShellCommand,
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::experience::{FlowRuntimeState, MicrophoneMode, OperatingSystemFamily};
+
+    #[test]
+    fn host_pause_and_resume_updates_runtime_services() {
+        let state_path = std::env::temp_dir().join("flow_host_pause_test_state.json");
+        let _ = std::fs::remove_file(&state_path);
+        let snapshot =
+            FlowHostSnapshot::new(OperatingSystemFamily::Windows, "test-host", 8.0, None, true);
+        let hub = FlowExperienceHub::new("test");
+        let mut host = FlowDefaultHostKit::new(snapshot, hub, &state_path);
+        let mut context = host.bootstrap();
+
+        let pause = host.pause_host(&mut context, "operator break");
+        assert!(pause.active);
+        assert!(matches!(context.lifecycle.state, FlowRuntimeState::Sleeping));
+        assert!(matches!(
+            host.microphone.snapshot().mode,
+            MicrophoneMode::Paused
+        ));
+        assert!(!host.capture.status().running);
+
+        let resumed = host.resume_host(&mut context);
+        assert!(!resumed.active);
+        assert!(matches!(context.lifecycle.state, FlowRuntimeState::Listening));
+        assert!(matches!(
+            host.microphone.snapshot().mode,
+            MicrophoneMode::Armed
+        ));
+        assert!(host.capture.status().running);
+
+        let _ = std::fs::remove_file(&state_path);
+    }
 }
