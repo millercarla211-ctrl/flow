@@ -46,6 +46,15 @@ function safeLocalFilename(title: string, extension: string) {
   return `${clean || "friday-export"}.${extension}`;
 }
 
+export function formatFridayLocalFileExportError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message.trim() || "Friday file export failed.";
+  }
+
+  const message = String(error).trim();
+  return message || "Friday file export failed.";
+}
+
 function artifactExtension(kind: CanvasArtifact["kind"]) {
   if (kind === "Code") return "txt";
   if (kind === "UI") return "tsx";
@@ -239,7 +248,7 @@ async function exportFridayFile(request: FridayExportRequest): Promise<FridayExp
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : String(error),
+      message: formatFridayLocalFileExportError(error),
     };
   }
 }

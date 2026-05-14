@@ -10,6 +10,7 @@
 - Hardened workspace backup, restore, sync, provider health, provider research, web search, and web inspection status messages so blank failures do not surface as empty UI text.
 - Added timestamped backup/export/import/sync status details for safer local-first recovery.
 - Hardened automation runner failures so scheduled task history stores a readable fallback instead of blank error text.
+- Hardened local file export failures so artifact, research, agent, and project exports do not report blank errors.
 
 ---
 

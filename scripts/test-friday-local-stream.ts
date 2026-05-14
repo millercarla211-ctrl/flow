@@ -15,6 +15,7 @@ import {
   nextScheduledAutomationRun,
   selectNextDueAutomation,
 } from "../src/features/friday/utils/localAutomation";
+import { formatFridayLocalFileExportError } from "../src/features/friday/utils/localFileExport";
 import { rankAskContext } from "../src/features/friday/utils/localRetrieval";
 import {
   createAskResearchBriefDraft,
@@ -1373,6 +1374,14 @@ if (
   blankAutomationFailure.result !== "Automation failed: Unknown automation error"
 ) {
   throw new Error("Friday automation failure result did not handle blank errors.");
+}
+
+if (
+  formatFridayLocalFileExportError(new Error("   ")) !== "Friday file export failed." ||
+  formatFridayLocalFileExportError("   ") !== "Friday file export failed." ||
+  formatFridayLocalFileExportError("disk full") !== "disk full"
+) {
+  throw new Error("Friday local file export error formatter did not handle blank errors.");
 }
 
 const authConfigStatus = getFridayAuthConfigStatus();

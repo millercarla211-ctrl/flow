@@ -4,7 +4,7 @@ This file tracks the active 100% feature set loop for Friday. The score is about
 
 ## Active Set: Friday Reliable Workspace Core
 
-Status: 24/100
+Status: 30/100
 
 Goal: make Friday's local-first assistant workspace dependable enough for daily use before starting the next major product layer.
 
@@ -15,7 +15,7 @@ Goal: make Friday's local-first assistant workspace dependable enough for daily 
 - [x] Add workspace backup export, import, restore checkpoint, and sync status feedback.
 - [x] Harden backup, sync, provider health, provider research, web search, and web inspection blank-error states.
 - [x] Harden automation runner failures so scheduled tasks never save blank errors.
-- [ ] Harden local file export failures so downloads/importable files never report blank errors.
+- [x] Harden local file export failures so downloads/importable files never report blank errors.
 - [ ] Add visible reliability status on the Friday dashboard for local mode, cloud mode, sync, and voice readiness.
 - [ ] Add a recovery center page or panel for restore checkpoints, failed automations, sync status, and local backup export.
 - [ ] Add actionable empty states for Ask, Research, Agents, Projects, Memory, Connectors, Artifacts, Automations, and Voice.
