@@ -15,6 +15,10 @@ export const FRIDAY_WORKSPACE_STORAGE_KEYS = [
 ] as const;
 
 type FridayWorkspaceStorageKey = (typeof FRIDAY_WORKSPACE_STORAGE_KEYS)[number];
+const FRIDAY_WORKSPACE_LIST_STORAGE_KEYS = FRIDAY_WORKSPACE_STORAGE_KEYS.filter(
+  (key) => key !== STORAGE_KEYS.connectors,
+);
+const FRIDAY_CONNECTOR_KEYS = ["localFiles", "webSearch", "aiGateway", "mcpConnectors"] as const;
 
 export type FridayWorkspaceBackup = {
   app: "Friday";
@@ -37,6 +41,28 @@ function parseStorageValue(raw: string): unknown {
   } catch {
     return raw;
   }
+}
+
+function validateBackupSection(key: FridayWorkspaceStorageKey, value: unknown) {
+  if (key === STORAGE_KEYS.connectors) {
+    if (!isRecord(value)) return "Friday connector settings must be an object.";
+
+    const hasInvalidConnectorValue = FRIDAY_CONNECTOR_KEYS.some(
+      (connectorKey) =>
+        Object.prototype.hasOwnProperty.call(value, connectorKey) &&
+        typeof value[connectorKey] !== "boolean",
+    );
+
+    return hasInvalidConnectorValue
+      ? "Friday connector settings must use boolean values."
+      : null;
+  }
+
+  if (FRIDAY_WORKSPACE_LIST_STORAGE_KEYS.includes(key) && !Array.isArray(value)) {
+    return `Friday backup section ${key} must be a list.`;
+  }
+
+  return null;
 }
 
 export function buildFridayWorkspaceBackup(
@@ -88,6 +114,11 @@ export function parseFridayWorkspaceBackup(raw: string): FridayWorkspaceBackupPa
   const keys: FridayWorkspaceBackup["keys"] = {};
   for (const key of FRIDAY_WORKSPACE_STORAGE_KEYS) {
     if (Object.prototype.hasOwnProperty.call(parsed.keys, key)) {
+      const validationMessage = validateBackupSection(key, parsed.keys[key]);
+      if (validationMessage) {
+        return { ok: false, message: validationMessage };
+      }
+
       keys[key] = parsed.keys[key];
     }
   }
@@ -110,4 +141,3 @@ export function getFridayWorkspaceBackupEntries(backup: FridayWorkspaceBackup) {
       : [],
   );
 }
-

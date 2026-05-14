@@ -54,6 +54,7 @@ import {
   requireFridayWorkspaceSyncSession,
   validateFridayWorkspaceSyncPayload,
 } from "../src/server/friday/workspaceSync";
+import { STORAGE_KEYS } from "../src/features/friday/components/local-workspaces/types";
 
 const model = resolveFridayModel("qwen35-4b-revised-q4km");
 const draft = createLocalAssistantDraft("write a short Friday status", model, {
@@ -824,6 +825,39 @@ const rejectedBackup = parseFridayWorkspaceBackup(
 
 if (rejectedBackup.ok) {
   throw new Error("Friday workspace backup accepted a non-Friday payload.");
+}
+
+const rejectedMalformedListBackup = parseFridayWorkspaceBackup(
+  JSON.stringify({
+    app: "Friday",
+    version: 1,
+    exportedAt: timestamp,
+    keys: {
+      [STORAGE_KEYS.projects]: { id: "not-a-list" },
+    },
+  }),
+);
+
+if (rejectedMalformedListBackup.ok || !rejectedMalformedListBackup.message.includes("must be a list")) {
+  throw new Error("Friday workspace backup accepted a malformed list section.");
+}
+
+const rejectedMalformedConnectorBackup = parseFridayWorkspaceBackup(
+  JSON.stringify({
+    app: "Friday",
+    version: 1,
+    exportedAt: timestamp,
+    keys: {
+      [STORAGE_KEYS.connectors]: { localFiles: "yes" },
+    },
+  }),
+);
+
+if (
+  rejectedMalformedConnectorBackup.ok ||
+  !rejectedMalformedConnectorBackup.message.includes("boolean")
+) {
+  throw new Error("Friday workspace backup accepted malformed connector settings.");
 }
 
 const syncPayload = validateFridayWorkspaceSyncPayload(backup);
