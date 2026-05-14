@@ -860,6 +860,16 @@ if (failedSearch.ok || failedSearch.message !== "search offline") {
   throw new Error("Friday web search did not return a controlled fetch failure.");
 }
 
+const blankFailedSearch = await searchWebSources("friday local research", {
+  fetcher: async () => {
+    throw new Error("   ");
+  },
+});
+
+if (blankFailedSearch.ok || blankFailedSearch.message !== "Web search failed.") {
+  throw new Error("Friday web search did not use its fallback for blank fetch failures.");
+}
+
 const backup = buildFridayWorkspaceBackup(
   (key) =>
     key === "friday.projects.v1"

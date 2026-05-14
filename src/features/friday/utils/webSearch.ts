@@ -27,11 +27,12 @@ type WebSearchOptions = {
 };
 
 function createWebSearchFailure(error: unknown, query: string): WebSearchResult {
+  const errorMessage = error instanceof Error ? error.message.trim() : "";
   const message =
     error instanceof DOMException && error.name === "AbortError"
       ? "Web search timed out."
       : error instanceof Error
-        ? error.message
+        ? errorMessage || "Web search failed."
         : "Web search failed.";
 
   return { ok: false, message, query };
