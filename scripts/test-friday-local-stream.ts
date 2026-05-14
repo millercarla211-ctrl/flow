@@ -815,6 +815,16 @@ if (failedInspection.ok || failedInspection.message !== "inspection offline") {
   throw new Error("Friday web inspection did not return a controlled fetch failure.");
 }
 
+const blankFailedInspection = await inspectWebSource("https://example.com/friday", {
+  fetcher: async () => {
+    throw new Error("   ");
+  },
+});
+
+if (blankFailedInspection.ok || blankFailedInspection.message !== "Web inspection failed.") {
+  throw new Error("Friday web inspection did not use its fallback for blank fetch failures.");
+}
+
 const sampleSearchResults = parseDuckDuckGoLiteResults(`
   <html>
     <body>

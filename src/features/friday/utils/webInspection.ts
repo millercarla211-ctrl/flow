@@ -22,11 +22,12 @@ type WebInspectionOptions = {
 };
 
 function createWebInspectionFailure(error: unknown, url?: string): WebInspectionResult {
+  const errorMessage = error instanceof Error ? error.message.trim() : "";
   const message =
     error instanceof DOMException && error.name === "AbortError"
       ? "Web inspection timed out."
       : error instanceof Error
-        ? error.message
+        ? errorMessage || "Web inspection failed."
         : "Web inspection failed.";
 
   return { ok: false, message, url };
