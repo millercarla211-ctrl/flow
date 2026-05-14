@@ -416,6 +416,24 @@ export function formatFridayWorkspaceBackupStatus(
   return `${label} saved ${formatFridayWorkspaceBackupTimestamp(backup)}: ${formatFridayWorkspaceBackupSummary(backup)}.`;
 }
 
+export function formatFridayWorkspaceRestoreStatus({
+  action,
+  backup,
+  checkpoint,
+  entries,
+}: {
+  action: string;
+  backup: FridayWorkspaceBackup;
+  checkpoint: FridayWorkspaceBackup;
+  entries: FridayWorkspaceRestoreResult["entries"];
+}) {
+  const sectionLabel = entries.length === 1 ? "section" : "sections";
+
+  return `${entries.length} local ${sectionLabel} ${action}: ${formatFridayWorkspaceBackupSummary(
+    backup,
+  )}. ${formatFridayWorkspaceBackupStatus(checkpoint, "Safety checkpoint")}`;
+}
+
 export function formatFridayRestoreCheckpointClearMessage(
   result: FridayWorkspaceBackupParseResult,
 ) {

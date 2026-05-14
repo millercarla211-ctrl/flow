@@ -20,6 +20,7 @@ import {
   createFridayWorkspaceBackupFilename,
   formatFridayRestoreCheckpointClearMessage,
   formatFridayWorkspaceBackupSummary,
+  formatFridayWorkspaceRestoreStatus,
   formatFridayWorkspaceBackupStatus,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
@@ -177,7 +178,12 @@ export function ConnectorsWorkspace() {
 
     setBackupMessage({
       tone: "success",
-      text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored: ${formatFridayWorkspaceBackupSummary(parsed.backup)}. Safety checkpoint saved: ${formatFridayWorkspaceBackupSummary(checkpoint)}.`,
+      text: formatFridayWorkspaceRestoreStatus({
+        action: "restored",
+        backup: parsed.backup,
+        checkpoint,
+        entries,
+      }),
     });
   };
 
@@ -196,7 +202,12 @@ export function ConnectorsWorkspace() {
 
     setBackupMessage({
       tone: "success",
-      text: `${entries.length} local section${entries.length === 1 ? "" : "s"} restored from checkpoint: ${formatFridayWorkspaceBackupSummary(parsed.backup)}. New safety checkpoint saved: ${formatFridayWorkspaceBackupSummary(checkpoint)}.`,
+      text: formatFridayWorkspaceRestoreStatus({
+        action: "restored from checkpoint",
+        backup: parsed.backup,
+        checkpoint,
+        entries,
+      }),
     });
     refreshRestoreCheckpoint();
   };
@@ -242,9 +253,12 @@ export function ConnectorsWorkspace() {
         });
         setWorkspaceSyncMessage({
           tone: "success",
-          text: `${entries.length} local section${
-            entries.length === 1 ? "" : "s"
-          } restored from sync: ${formatFridayWorkspaceBackupSummary(result.payload)}. Safety checkpoint saved: ${formatFridayWorkspaceBackupSummary(checkpoint)}.`,
+          text: formatFridayWorkspaceRestoreStatus({
+            action: "restored from sync",
+            backup: result.payload,
+            checkpoint,
+            entries,
+          }),
         });
       } else {
         setWorkspaceSyncMessage({

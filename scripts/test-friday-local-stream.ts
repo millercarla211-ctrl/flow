@@ -50,6 +50,7 @@ import {
   FRIDAY_RESTORE_CHECKPOINT_KEY,
   formatFridayWorkspaceBackupSummary,
   formatFridayWorkspaceBackupStatus,
+  formatFridayWorkspaceRestoreStatus,
   getFridayWorkspaceBackupEntries,
   parseFridayWorkspaceBackup,
   readFridayRestoreCheckpoint,
@@ -910,6 +911,15 @@ if (parsedBackup.ok) {
   const checkpoint = checkpointRaw ? parseFridayWorkspaceBackup(checkpointRaw) : null;
   const readCheckpoint = readFridayRestoreCheckpoint(restoreStorage);
   const clearCheckpointMessage = formatFridayRestoreCheckpointClearMessage(readCheckpoint);
+  const restoreStatus =
+    checkpoint?.ok === true
+      ? formatFridayWorkspaceRestoreStatus({
+          action: "restored from test",
+          backup: parsedBackup.backup,
+          checkpoint: checkpoint.backup,
+          entries: restored.entries,
+        })
+      : "";
 
   if (
     restored.entries.length !== 2 ||
@@ -919,6 +929,8 @@ if (parsedBackup.ok) {
     !formatFridayWorkspaceBackupSummary(checkpoint.backup).includes("Projects: 1") ||
     !formatFridayWorkspaceBackupSummary(readCheckpoint.backup).includes("Projects: 1") ||
     !clearCheckpointMessage.includes("Checkpoint saved 2026-05-14 01:00:00 UTC") ||
+    !restoreStatus.includes("2 local sections restored from test") ||
+    !restoreStatus.includes("Safety checkpoint saved 2026-05-14 01:00:00 UTC") ||
     !emittedRestoreKeys.includes(STORAGE_KEYS.projects) ||
     emittedRestoreKeys.at(-1) !== undefined
   ) {
