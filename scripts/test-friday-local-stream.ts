@@ -46,6 +46,7 @@ import {
   buildFridayWorkspaceBackup,
   clearFridayRestoreCheckpoint,
   createFridayWorkspaceBackupFilename,
+  formatFridayRestoreCheckpointClearMessage,
   FRIDAY_RESTORE_CHECKPOINT_KEY,
   formatFridayWorkspaceBackupSummary,
   formatFridayWorkspaceBackupStatus,
@@ -878,6 +879,7 @@ if (parsedBackup.ok) {
   const checkpointRaw = restoreStorage.getItem(FRIDAY_RESTORE_CHECKPOINT_KEY);
   const checkpoint = checkpointRaw ? parseFridayWorkspaceBackup(checkpointRaw) : null;
   const readCheckpoint = readFridayRestoreCheckpoint(restoreStorage);
+  const clearCheckpointMessage = formatFridayRestoreCheckpointClearMessage(readCheckpoint);
 
   if (
     restored.entries.length !== 2 ||
@@ -886,6 +888,7 @@ if (parsedBackup.ok) {
     !readCheckpoint.ok ||
     !formatFridayWorkspaceBackupSummary(checkpoint.backup).includes("Projects: 1") ||
     !formatFridayWorkspaceBackupSummary(readCheckpoint.backup).includes("Projects: 1") ||
+    !clearCheckpointMessage.includes("Checkpoint saved 2026-05-14 01:00:00 UTC") ||
     !emittedRestoreKeys.includes(STORAGE_KEYS.projects) ||
     emittedRestoreKeys.at(-1) !== undefined
   ) {
@@ -905,6 +908,18 @@ if (
   !missingRestoreCheckpoint.message.includes("No Friday restore checkpoint")
 ) {
   throw new Error("Friday restore checkpoint reader did not report missing checkpoints.");
+}
+
+const invalidRestoreCheckpoint = readFridayRestoreCheckpoint(
+  createTestStorage({ [FRIDAY_RESTORE_CHECKPOINT_KEY]: "not-json" }),
+);
+if (
+  invalidRestoreCheckpoint.ok ||
+  !formatFridayRestoreCheckpointClearMessage(invalidRestoreCheckpoint).includes(
+    "Invalid restore checkpoint cleared",
+  )
+) {
+  throw new Error("Friday restore checkpoint clear message did not explain invalid checkpoints.");
 }
 
 const rejectedBackup = parseFridayWorkspaceBackup(

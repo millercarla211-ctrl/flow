@@ -18,6 +18,7 @@ import {
   buildFridayWorkspaceBackup,
   clearFridayRestoreCheckpoint,
   createFridayWorkspaceBackupFilename,
+  formatFridayRestoreCheckpointClearMessage,
   formatFridayWorkspaceBackupSummary,
   formatFridayWorkspaceBackupStatus,
   getFridayWorkspaceBackupEntries,
@@ -194,12 +195,13 @@ export function ConnectorsWorkspace() {
   };
 
   const clearRestoreCheckpoint = () => {
+    const checkpointBeforeClear = readFridayRestoreCheckpoint(window.localStorage);
     clearFridayRestoreCheckpoint(window.localStorage);
     emitFridayStorageChange();
     refreshRestoreCheckpoint();
     setBackupMessage({
       tone: "success",
-      text: "Restore checkpoint cleared from this browser profile.",
+      text: formatFridayRestoreCheckpointClearMessage(checkpointBeforeClear),
     });
   };
 

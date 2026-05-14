@@ -367,6 +367,20 @@ export function formatFridayWorkspaceBackupStatus(
   return `${label} saved ${formatFridayWorkspaceBackupTimestamp(backup)}: ${formatFridayWorkspaceBackupSummary(backup)}.`;
 }
 
+export function formatFridayRestoreCheckpointClearMessage(
+  result: FridayWorkspaceBackupParseResult,
+) {
+  if (result.ok) {
+    return `Restore checkpoint cleared: ${formatFridayWorkspaceBackupStatus(result.backup, "Checkpoint")}`;
+  }
+
+  if (result.message.includes("No Friday restore checkpoint")) {
+    return "No restore checkpoint was saved.";
+  }
+
+  return `Invalid restore checkpoint cleared: ${result.message}`;
+}
+
 export function restoreFridayWorkspaceBackupToStorage({
   backup,
   checkpointAt = new Date().toISOString(),
