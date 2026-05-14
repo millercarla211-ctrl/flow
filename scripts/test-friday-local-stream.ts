@@ -597,6 +597,19 @@ if (failedSyncHealth.status !== "error" || failedSyncHealth.message !== "sync of
   throw new Error("Friday sync health did not return a controlled fetch failure.");
 }
 
+const blankFailedSyncHealth = await checkFridaySyncHealth({
+  fetcher: async () => {
+    throw new Error("   ");
+  },
+});
+
+if (
+  blankFailedSyncHealth.status !== "error" ||
+  blankFailedSyncHealth.message !== "Sync check failed."
+) {
+  throw new Error("Friday sync health did not use its fallback for blank fetch failures.");
+}
+
 const providerResearchPrompt = buildProviderResearchPrompt({
   id: "research_test",
   createdAt: timestamp,

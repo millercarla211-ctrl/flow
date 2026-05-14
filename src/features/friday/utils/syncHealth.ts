@@ -77,11 +77,12 @@ export async function checkFridaySyncHealth({
     };
   } catch (error) {
     const latencyMs = Math.round(nowMs() - startedAt);
+    const errorMessage = error instanceof Error ? error.message.trim() : "";
     const message =
       error instanceof DOMException && error.name === "AbortError"
         ? "Sync check timed out."
         : error instanceof Error
-          ? error.message
+          ? errorMessage || "Sync check failed."
           : "Sync check failed.";
 
     return {
