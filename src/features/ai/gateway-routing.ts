@@ -15,6 +15,10 @@ type FridayGatewayRuntime = {
   groqEnabled?: boolean;
 };
 
+const MAX_GATEWAY_MESSAGES = 32;
+const MAX_GATEWAY_PARTS_PER_MESSAGE = 24;
+const MAX_GATEWAY_TEXT_CHARS = 24_000;
+
 export type FridayGatewayChatRequest =
   | {
       ok: true;
@@ -30,6 +34,14 @@ export type FridayGatewayChatRequest =
       status: 400 | 403;
     };
 
+function getTextPartLength(part: unknown) {
+  if (!part || typeof part !== "object") return 0;
+  const candidate = part as { text?: unknown; type?: unknown };
+  return candidate.type === "text" && typeof candidate.text === "string"
+    ? candidate.text.length
+    : 0;
+}
+
 function isUiMessageList(value: unknown): value is UIMessage[] {
   return (
     Array.isArray(value) &&
@@ -41,10 +53,17 @@ function isUiMessageList(value: unknown): value is UIMessage[] {
         (candidate.role === "user" ||
           candidate.role === "assistant" ||
           candidate.role === "system") &&
-        Array.isArray(candidate.parts)
+        Array.isArray(candidate.parts) &&
+        candidate.parts.length <= MAX_GATEWAY_PARTS_PER_MESSAGE
       );
     })
   );
+}
+
+function getUiMessageTextLength(messages: UIMessage[]) {
+  return messages.reduce((total, message) => {
+    return total + message.parts.reduce((partTotal, part) => partTotal + getTextPartLength(part), 0);
+  }, 0);
 }
 
 function isCloudEnabled(runtime?: FridayGatewayRuntime) {
@@ -71,7 +90,23 @@ export function resolveFridayGatewayChatRequest(
     return {
       ok: false,
       status: 400,
-      error: "Friday chat requires UI messages.",
+      error: `Friday chat requires up to ${MAX_GATEWAY_MESSAGES} valid UI messages with up to ${MAX_GATEWAY_PARTS_PER_MESSAGE} parts each.`,
+    };
+  }
+
+  if (payload.messages.length > MAX_GATEWAY_MESSAGES) {
+    return {
+      ok: false,
+      status: 400,
+      error: `Friday chat accepts at most ${MAX_GATEWAY_MESSAGES} messages per request.`,
+    };
+  }
+
+  if (getUiMessageTextLength(payload.messages) > MAX_GATEWAY_TEXT_CHARS) {
+    return {
+      ok: false,
+      status: 400,
+      error: `Friday chat accepts at most ${MAX_GATEWAY_TEXT_CHARS.toLocaleString()} text characters per request.`,
     };
   }
 

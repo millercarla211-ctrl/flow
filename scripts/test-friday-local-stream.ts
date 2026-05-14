@@ -217,6 +217,61 @@ if (gatewayDeniedByRequest.ok || gatewayDeniedByRequest.status !== 403) {
   throw new Error("Friday gateway route did not require explicit cloud approval.");
 }
 
+const gatewayDeniedByMessageCount = resolveFridayGatewayChatRequest(
+  {
+    allowCloud: true,
+    model: "groq-llama-3-1-8b-instant",
+    messages: Array.from({ length: 33 }, (_, index) => ({
+      id: `msg_limit_${index}`,
+      role: "user",
+      parts: [{ type: "text", text: "hello" }],
+    })),
+  },
+  { groqEnabled: true },
+);
+
+if (gatewayDeniedByMessageCount.ok || gatewayDeniedByMessageCount.status !== 400) {
+  throw new Error("Friday gateway route accepted too many UI messages.");
+}
+
+const gatewayDeniedByPartCount = resolveFridayGatewayChatRequest(
+  {
+    allowCloud: true,
+    model: "groq-llama-3-1-8b-instant",
+    messages: [
+      {
+        id: "msg_many_parts",
+        role: "user",
+        parts: Array.from({ length: 25 }, () => ({ type: "text", text: "x" })),
+      },
+    ],
+  },
+  { groqEnabled: true },
+);
+
+if (gatewayDeniedByPartCount.ok || gatewayDeniedByPartCount.status !== 400) {
+  throw new Error("Friday gateway route accepted too many message parts.");
+}
+
+const gatewayDeniedByTextSize = resolveFridayGatewayChatRequest(
+  {
+    allowCloud: true,
+    model: "groq-llama-3-1-8b-instant",
+    messages: [
+      {
+        id: "msg_huge_text",
+        role: "user",
+        parts: [{ type: "text", text: "x".repeat(24_001) }],
+      },
+    ],
+  },
+  { groqEnabled: true },
+);
+
+if (gatewayDeniedByTextSize.ok || gatewayDeniedByTextSize.status !== 400) {
+  throw new Error("Friday gateway route accepted an oversized text payload.");
+}
+
 const gatewayDeniedByBuild = resolveFridayGatewayChatRequest(
   {
     allowCloud: true,
