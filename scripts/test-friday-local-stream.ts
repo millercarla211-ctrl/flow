@@ -55,6 +55,7 @@ import {
   readFridayRestoreCheckpoint,
   restoreFridayWorkspaceBackupToStorage,
   serializeFridayWorkspaceBackup,
+  validateFridayWorkspaceBackupSize,
 } from "../src/features/friday/utils/workspaceBackup";
 import { getFridayAuthConfigStatus } from "../src/server/auth/db";
 import {
@@ -854,6 +855,13 @@ if (
     "friday-restore-checkpoint-2026-05-14.json"
 ) {
   throw new Error("Friday workspace backup filename did not use a stable date segment.");
+}
+
+if (
+  validateFridayWorkspaceBackupSize(1024) !== null ||
+  validateFridayWorkspaceBackupSize(9 * 1024 * 1024)?.ok !== false
+) {
+  throw new Error("Friday workspace backup size guard did not accept small files and reject large files.");
 }
 
 if (parsedBackup.ok) {

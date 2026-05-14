@@ -2,6 +2,7 @@ import { STORAGE_KEYS } from "../components/local-workspaces/types";
 
 export const FRIDAY_WORKSPACE_BACKUP_VERSION = 1;
 export const FRIDAY_RESTORE_CHECKPOINT_KEY = "friday.restore-checkpoint.v1";
+export const FRIDAY_WORKSPACE_BACKUP_MAX_BYTES = 8 * 1024 * 1024;
 
 export const FRIDAY_WORKSPACE_STORAGE_KEYS = [
   STORAGE_KEYS.askThreads,
@@ -50,6 +51,10 @@ export type FridayWorkspaceBackup = {
 export type FridayWorkspaceBackupParseResult =
   | { ok: true; backup: FridayWorkspaceBackup }
   | { ok: false; message: string };
+type FridayWorkspaceBackupParseError = Extract<
+  FridayWorkspaceBackupParseResult,
+  { ok: false }
+>;
 
 export type FridayWorkspaceRestoreResult = {
   checkpoint: FridayWorkspaceBackup;
@@ -243,6 +248,21 @@ export function buildFridayWorkspaceBackup(
 
 export function serializeFridayWorkspaceBackup(backup: FridayWorkspaceBackup) {
   return JSON.stringify(backup, null, 2);
+}
+
+export function validateFridayWorkspaceBackupSize(
+  byteSize: number,
+  maxBytes = FRIDAY_WORKSPACE_BACKUP_MAX_BYTES,
+): FridayWorkspaceBackupParseError | null {
+  if (byteSize <= maxBytes) return null;
+
+  const maxMegabytes = (maxBytes / 1024 / 1024).toLocaleString("en", {
+    maximumFractionDigits: 1,
+  });
+  return {
+    ok: false,
+    message: `This Friday backup is too large to import safely. Choose a JSON file under ${maxMegabytes} MB.`,
+  };
 }
 
 export function createFridayWorkspaceBackupFilename(
