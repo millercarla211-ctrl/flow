@@ -1,3 +1,17 @@
+## Unreleased - Friday
+
+### Product Direction
+
+- Started the `Friday Reliable Workspace Core` 100% feature-set loop in `TODO.md`.
+- Reframed progress tracking around concrete capability sets instead of near-complete vanity scores.
+
+### Reliability
+
+- Hardened workspace backup, restore, sync, provider health, provider research, web search, and web inspection status messages so blank failures do not surface as empty UI text.
+- Added timestamped backup/export/import/sync status details for safer local-first recovery.
+
+---
+
 0.8.4
 
 ### New Features
