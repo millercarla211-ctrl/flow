@@ -23,15 +23,15 @@ use flow::friday::{
     FridayLiveUiBindingStatus,
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
-    FridayPreviewRunner, FridayResearchWorkflow, FridayRuntimeSurfaceStore,
-    FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus,
-    FridayVerificationStatus, FridayWorkspaceStore,
+    FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
+    FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
+    FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
     friday_live_ui_route_binding_report, friday_media_affordances, friday_multimodal_route,
     friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
-    friday_operator_readiness_report, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    run_friday_vlm_contract,
+    friday_operator_readiness_report, friday_route_visual_report, run_friday_ocr_smoke,
+    run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -863,6 +863,34 @@ fn friday_operator_readiness_rolls_up_live_surfaces() {
                 .any(|evidence| evidence.contains("src/bin/flow-dictate.rs=present"))
     }));
     assert!(report.items.iter().all(|item| item.local_only));
+}
+
+#[test]
+fn friday_route_visuals_cover_most_used_routes() {
+    let report = friday_route_visual_report();
+
+    assert_eq!(report.score_out_of_100, 100);
+    assert_eq!(report.target_count, 10);
+    assert_eq!(report.blocking_count, 0);
+    assert!(report.targets.iter().all(|target| {
+        target.status == FridayRouteVisualStatus::Passed
+            && target.screenshot_path.ends_with(".png")
+            && target.metadata_path.ends_with(".json")
+            && target.capture_command.contains("agent-browser screenshot")
+    }));
+    for route in ["/ask", "/search", "/research", "/voice", "/multimodal"] {
+        assert!(report.targets.iter().any(|target| target.route == route));
+    }
+    assert!(report.targets.iter().any(|target| {
+        target.route == "/voice"
+            && target.source_file == "extensions/flow-webext/src/content/index.ts"
+    }));
+    assert!(report.targets.iter().any(|target| {
+        target.route == "/multimodal"
+            && target
+                .source_file
+                .contains("transformers-runtime.ts")
+    }));
 }
 
 #[test]

@@ -7,6 +7,7 @@ use super::{
     FridayLocalCheckStatus, FridayMediaAffordanceStatus, FridayUiVisualCheckStatus,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     friday_live_ui_route_binding_report, friday_media_affordances, friday_multimodal_visual_check,
+    friday_route_visual_report,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -69,6 +70,7 @@ impl FridayOperatorReadinessReport {
 pub fn friday_operator_readiness_report() -> FridayOperatorReadinessReport {
     let items = vec![
         route_binding_item(),
+        route_visual_item(),
         local_execution_item(),
         browser_gate_item(),
         desktop_host_item(),
@@ -126,6 +128,34 @@ fn route_binding_item() -> FridayOperatorReadinessItem {
             format!("blocking={}", report.blocking_count),
         ],
         "Keep this command green whenever adding or moving Friday UI routes.",
+    )
+}
+
+fn route_visual_item() -> FridayOperatorReadinessItem {
+    let report = friday_route_visual_report();
+    let status = if report.blocking_count > 0 {
+        FridayOperatorReadinessStatus::Failed
+    } else if report.warning_count > 0 {
+        FridayOperatorReadinessStatus::Warning
+    } else {
+        FridayOperatorReadinessStatus::Passed
+    };
+
+    item(
+        "route-visuals",
+        "Route screenshot targets",
+        status,
+        report.score_out_of_100,
+        true,
+        "flow --friday-route-visuals",
+        vec![
+            format!("targets={}", report.target_count),
+            format!("passed={}", report.passed_count),
+            format!("warnings={}", report.warning_count),
+            format!("blocking={}", report.blocking_count),
+            format!("artifact_root={}", report.artifact_root),
+        ],
+        "Capture screenshots into the configured artifact paths after meaningful route UI edits.",
     )
 }
 

@@ -34,7 +34,7 @@ use crate::friday::{
     friday_live_ui_route_binding_report, friday_media_affordances, friday_multimodal_route,
     friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_research_search_plan, run_friday_ocr_smoke,
-    run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
+    friday_route_visual_report, run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -438,6 +438,14 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", friday_operator_readiness_report().to_pretty_json()?);
         }
 
+        Command::FridayRouteVisuals => {
+            print_friday_route_visuals();
+        }
+
+        Command::FridayRouteVisualsJson => {
+            println!("{}", friday_route_visual_report().to_pretty_json()?);
+        }
+
         Command::FridayLocalChecks => {
             print_friday_local_execution_checks();
         }
@@ -804,6 +812,9 @@ fn print_interactive_help() {
     println!("                           Print tracked Friday UI route file bindings as JSON");
     println!("  --friday-readiness      Show Friday operator readiness summary");
     println!("  --friday-readiness-json Print Friday operator readiness as JSON");
+    println!("  --friday-route-visuals  Show Friday route screenshot targets");
+    println!("  --friday-route-visuals-json");
+    println!("                           Print Friday route screenshot targets as JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
@@ -1239,6 +1250,43 @@ fn print_friday_readiness() {
         }
         if item.status != crate::friday::FridayOperatorReadinessStatus::Passed {
             println!("  next: {}", item.next_action);
+        }
+    }
+}
+
+fn print_friday_route_visuals() {
+    let report = friday_route_visual_report();
+
+    println!("Friday Route Screenshot Targets");
+    println!("===============================");
+    println!("{}", report.summary);
+    println!("Score: {} / 100", report.score_out_of_100);
+    println!("Artifact root: {}", report.artifact_root);
+    println!(
+        "Targets: {} passed, {} warning, {} blocking",
+        report.passed_count, report.warning_count, report.blocking_count
+    );
+    println!();
+
+    for target in &report.targets {
+        println!(
+            "- [{}] {} {} ({}x{})",
+            target.status.label(),
+            target.title,
+            target.route,
+            target.viewport.width,
+            target.viewport.height
+        );
+        println!("  layout: {}", target.viewport.expected_layout);
+        println!("  source: {}", target.source_file);
+        println!("  screenshot: {}", target.screenshot_path);
+        println!("  metadata: {}", target.metadata_path);
+        println!("  capture: {}", target.capture_command);
+        for evidence in &target.evidence {
+            println!("  evidence: {}", evidence);
+        }
+        if target.status != crate::friday::FridayRouteVisualStatus::Passed {
+            println!("  next: {}", target.next_action);
         }
     }
 }

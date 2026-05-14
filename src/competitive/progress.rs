@@ -61,9 +61,9 @@ pub fn active_completion_set() -> CompletionSet {
             "screenshot-backed-route-checks",
             "Screenshot-backed route checks",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "capture and compare the default Friday, Voice, Search, Research, and Multimodal route screens",
+            CompletionItemStatus::Done,
+            "`flow --friday-route-visuals` defines screenshot capture targets for Ask, Search, Research, Voice, and Multimodal across desktop/mobile viewports with tracked source files and artifact paths",
+            "run the browser screenshot pass after the next visible UI change",
         ),
         item(
             "operator-readiness-summary",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_friday_live_ui_execution_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Live UI Execution");
-        assert_eq!(set.current_score_out_of_100, 40);
+        assert_eq!(set.current_score_out_of_100, 60);
         assert!(
             set.items
                 .iter()

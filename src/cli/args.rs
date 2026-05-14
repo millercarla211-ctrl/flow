@@ -92,6 +92,10 @@ pub enum Command {
     FridayReadiness,
     /// Print Friday operator readiness as JSON
     FridayReadinessJson,
+    /// Show Friday route screenshot verification targets
+    FridayRouteVisuals,
+    /// Print Friday route screenshot verification targets as JSON
+    FridayRouteVisualsJson,
     /// Run low-resource Friday local execution readiness checks
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
@@ -483,6 +487,10 @@ impl Args {
             "--friday-readiness" | "--friday-operator-readiness" => Command::FridayReadiness,
             "--friday-readiness-json" | "--friday-operator-readiness-json" => {
                 Command::FridayReadinessJson
+            }
+            "--friday-route-visuals" | "--friday-screenshot-routes" => Command::FridayRouteVisuals,
+            "--friday-route-visuals-json" | "--friday-screenshot-routes-json" => {
+                Command::FridayRouteVisualsJson
             }
             "--friday-local-checks" | "--friday-execution-checks" => Command::FridayLocalChecks,
             "--friday-local-checks-json" | "--friday-execution-checks-json" => {
