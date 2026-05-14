@@ -64,6 +64,8 @@
 - advanced Multimodal Local Core to 80/100
 - added publish-ready multimodal artifact metadata sidecars for OCR and VLM outputs, including source, request kind, model, prompt, local-only flag, execution flag, timing, confidence, and JSON round-trip coverage
 - completed Multimodal Local Core at 100/100 and listed Multimodal Product Execution as the next candidate loop
+- opened Multimodal Product Execution at 20/100
+- added `flow --friday-multimodal-diagnostics` / `--friday-multimodal-diagnostics-json` to connect OCR smoke reports, VLM contracts, routing policy, and metadata sidecars to the Multimodal UI contract
 
 ## 2026-04-26
 

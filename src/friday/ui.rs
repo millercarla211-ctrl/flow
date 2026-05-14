@@ -384,9 +384,9 @@ fn multimodal_route() -> FridayUiRouteContract {
     runtime_route(
         FridayWorkspaceArea::Multimodal,
         "multimodal",
-        "flow --friday-runtime-json [dir]",
-        "OCR and vision planning surfaces",
-        "Run OCR or vision planning into local artifacts with explicit input boundaries.",
+        "flow --friday-multimodal-diagnostics",
+        "OCR/VLM diagnostics, route policy, and artifact metadata",
+        "Run OCR or vision diagnostics into local artifacts with explicit input boundaries.",
     )
 }
 

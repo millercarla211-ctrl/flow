@@ -116,6 +116,10 @@ pub enum Command {
         request_kind: String,
         remote_allowed: bool,
     },
+    /// Show Friday's Multimodal UI diagnostics
+    FridayMultimodalDiagnostics,
+    /// Print Friday's Multimodal UI diagnostics as JSON
+    FridayMultimodalDiagnosticsJson,
     /// Diagnose host accessibility automation readiness
     AccessibilityDiagnostics { os: Option<String>, live: bool },
     /// Print persisted host automation audit records for operator review
@@ -447,6 +451,12 @@ impl Args {
                     request_kind,
                     remote_allowed,
                 }
+            }
+            "--friday-multimodal-diagnostics" | "--friday-ocr-diagnostics" => {
+                Command::FridayMultimodalDiagnostics
+            }
+            "--friday-multimodal-diagnostics-json" | "--friday-ocr-diagnostics-json" => {
+                Command::FridayMultimodalDiagnosticsJson
             }
             "--accessibility-diagnostics" | "--accessibility" => {
                 let live = !args.iter().any(|value| value == "--dry-run");

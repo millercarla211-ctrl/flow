@@ -13,13 +13,13 @@ use flow::experience::{
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
-    FridayMultimodalRequestKind, FridayMultimodalRouteStatus, FridayMultimodalSurface,
-    FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow, FridayRuntimeSurfaceStore,
-    FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone, FridayVerificationStatus,
-    FridayWorkspaceStore, default_friday_browser_verification_report,
+    FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
+    FridayMultimodalSurface, FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow,
+    FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
+    FridayVerificationStatus, FridayWorkspaceStore, default_friday_browser_verification_report,
     default_friday_local_execution_checks, default_friday_product_plan,
-    default_friday_ui_integration_plan, friday_multimodal_route, run_friday_ocr_smoke,
-    run_friday_vlm_contract,
+    default_friday_ui_integration_plan, friday_multimodal_route,
+    friday_multimodal_ui_diagnostics, run_friday_ocr_smoke, run_friday_vlm_contract,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -533,6 +533,11 @@ fn friday_ui_plan_wires_remaining_store_backed_routes() {
         assert!(!route.data_bindings.is_empty());
         assert!(route.data_bindings.iter().all(|binding| binding.local_only));
     }
+
+    let multimodal = plan.route(flow::FridayWorkspaceArea::Multimodal).unwrap();
+    assert!(multimodal
+        .primary_command
+        .contains("--friday-multimodal-diagnostics"));
 }
 
 #[test]
@@ -618,6 +623,27 @@ fn friday_multimodal_routes_keep_local_first_boundaries() {
     assert!(image.local_first);
     assert!(image.remote_allowed);
     assert!(image.selected.is_none());
+}
+
+#[test]
+fn friday_multimodal_diagnostics_connect_ocr_and_vlm_outputs() {
+    let diagnostics = friday_multimodal_ui_diagnostics();
+
+    assert_eq!(diagnostics.area, flow::FridayWorkspaceArea::Multimodal);
+    assert!(diagnostics.score_out_of_100 >= 60);
+    assert!(diagnostics
+        .items
+        .iter()
+        .any(|item| item.command.contains("--friday-ocr-smoke")
+            && item.status == FridayMultimodalDiagnosticStatus::Ready));
+    assert!(diagnostics
+        .items
+        .iter()
+        .any(|item| item.command.contains("--friday-vlm-contract")));
+    assert!(diagnostics
+        .items
+        .iter()
+        .any(|item| item.artifact_output.contains("metadata")));
 }
 
 #[test]

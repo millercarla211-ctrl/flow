@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     FridayArtifactCheckpoint, FridayArtifactKind, FridayArtifactRecord, FridayCheckpointReason,
-    FridayPreviewRunner,
+    FridayPreviewRunner, FridayWorkspaceArea,
 };
 use crate::models::GlmOcr;
 
@@ -105,6 +105,68 @@ pub struct FridayMultimodalArtifactMetadata {
     pub duration_ms: u128,
     pub confidence_percent: Option<u8>,
     pub created_at_unix_ms: u128,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayMultimodalDiagnosticStatus {
+    Ready,
+    Warning,
+    Planned,
+}
+
+impl FridayMultimodalDiagnosticStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::Warning => "warning",
+            Self::Planned => "planned",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayMultimodalDiagnosticItem {
+    pub id: String,
+    pub title: String,
+    pub status: FridayMultimodalDiagnosticStatus,
+    pub command: String,
+    pub artifact_output: String,
+    pub local_only: bool,
+    pub loads_model: bool,
+    pub evidence: Vec<String>,
+    pub next_action: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayMultimodalUiDiagnostics {
+    pub generated_at_unix_ms: u128,
+    pub area: FridayWorkspaceArea,
+    pub route: String,
+    pub score_out_of_100: u8,
+    pub primary_command: String,
+    pub items: Vec<FridayMultimodalDiagnosticItem>,
+    pub findings: Vec<String>,
+}
+
+impl FridayMultimodalUiDiagnostics {
+    pub fn ready_count(&self) -> usize {
+        self.items
+            .iter()
+            .filter(|item| item.status == FridayMultimodalDiagnosticStatus::Ready)
+            .count()
+    }
+
+    pub fn warning_count(&self) -> usize {
+        self.items
+            .iter()
+            .filter(|item| item.status == FridayMultimodalDiagnosticStatus::Warning)
+            .count()
+    }
+
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
 }
 
 impl FridayMultimodalArtifactMetadata {
@@ -263,6 +325,95 @@ pub fn friday_multimodal_route(
     }
 }
 
+pub fn friday_multimodal_ui_diagnostics() -> FridayMultimodalUiDiagnostics {
+    let ocr_route = friday_multimodal_route(FridayMultimodalRequestKind::Ocr, false);
+    let vlm_route = friday_multimodal_route(FridayMultimodalRequestKind::Vlm, false);
+    let audio_route = friday_multimodal_route(FridayMultimodalRequestKind::Audio, false);
+    let image_route = friday_multimodal_route(FridayMultimodalRequestKind::Image, false);
+    let video_route = friday_multimodal_route(FridayMultimodalRequestKind::Video, false);
+
+    let items = vec![
+        diagnostic_item(
+            "ocr-fixture-smoke",
+            "OCR fixture artifact path",
+            FridayMultimodalDiagnosticStatus::Ready,
+            "flow --friday-ocr-smoke tmp/friday-ocr-smoke",
+            "ocr-smoke-output.md + artifact/checkpoint/metadata/report JSON",
+            false,
+            vec![
+                "Fixture mode proves UI diagnostics can write artifacts without loading GLM-OCR."
+                    .to_string(),
+                "The metadata sidecar links source, request kind, model key, timing, and local-only policy."
+                    .to_string(),
+            ],
+            "Surface the latest OCR smoke report in the Multimodal and OCR pages.",
+        ),
+        diagnostic_item(
+            "ocr-model-run",
+            "OCR local model execution",
+            route_status_to_diagnostic(ocr_route.status),
+            "flow --friday-ocr-smoke <dir> <image> --execute",
+            "OCR markdown, artifact, checkpoint, metadata, and report bundle",
+            true,
+            route_evidence(&ocr_route),
+            "Run explicit OCR only after the user supplies an image path.",
+        ),
+        diagnostic_item(
+            "vlm-contract",
+            "VLM screenshot contract",
+            route_status_to_diagnostic(vlm_route.status),
+            "flow --friday-vlm-contract <dir> <screenshot> <prompt>",
+            "VLM contract markdown, artifact, checkpoint, metadata, and report bundle",
+            false,
+            route_evidence(&vlm_route),
+            "Connect the next slice to a real screenshot capture path.",
+        ),
+        diagnostic_item(
+            "media-routing",
+            "Image, audio, and video route policy",
+            FridayMultimodalDiagnosticStatus::Ready,
+            "flow --friday-multimodal-route <ocr|vlm|audio|image|video>",
+            "local-first route decision JSON",
+            false,
+            vec![
+                format!("audio={}", audio_route.status.label()),
+                format!("image={}", image_route.status.label()),
+                format!("video={}", video_route.status.label()),
+            ],
+            "Add install/run affordances for planned image and video paths.",
+        ),
+        diagnostic_item(
+            "artifact-metadata",
+            "Multimodal artifact metadata",
+            FridayMultimodalDiagnosticStatus::Ready,
+            "flow --friday-ocr-smoke <dir> or flow --friday-vlm-contract <dir>",
+            "FridayMultimodalArtifactMetadata JSON sidecar",
+            false,
+            vec![
+                "Metadata includes source URI, request kind, model key, prompt, output format, local-only flag, execution flag, timing, and confidence."
+                    .to_string(),
+            ],
+            "Persist metadata inside the durable Friday artifact store.",
+        ),
+    ];
+    let score_out_of_100 = diagnostic_score(&items);
+    let findings = items
+        .iter()
+        .filter(|item| item.status != FridayMultimodalDiagnosticStatus::Ready)
+        .map(|item| format!("{}: {}", item.id, item.next_action))
+        .collect();
+
+    FridayMultimodalUiDiagnostics {
+        generated_at_unix_ms: unix_ms(),
+        area: FridayWorkspaceArea::Multimodal,
+        route: FridayWorkspaceArea::Multimodal.route().to_string(),
+        score_out_of_100,
+        primary_command: "flow --friday-multimodal-diagnostics".to_string(),
+        items,
+        findings,
+    }
+}
+
 pub fn run_friday_ocr_smoke(
     output_dir: impl AsRef<Path>,
     image_path: Option<&str>,
@@ -391,6 +542,76 @@ pub fn run_friday_ocr_smoke(
     write_json(&report_json, &report)?;
 
     Ok(report)
+}
+
+fn diagnostic_item(
+    id: &str,
+    title: &str,
+    status: FridayMultimodalDiagnosticStatus,
+    command: &str,
+    artifact_output: &str,
+    loads_model: bool,
+    evidence: Vec<String>,
+    next_action: &str,
+) -> FridayMultimodalDiagnosticItem {
+    FridayMultimodalDiagnosticItem {
+        id: id.to_string(),
+        title: title.to_string(),
+        status,
+        command: command.to_string(),
+        artifact_output: artifact_output.to_string(),
+        local_only: true,
+        loads_model,
+        evidence,
+        next_action: next_action.to_string(),
+    }
+}
+
+fn route_status_to_diagnostic(
+    status: FridayMultimodalRouteStatus,
+) -> FridayMultimodalDiagnosticStatus {
+    match status {
+        FridayMultimodalRouteStatus::Ready => FridayMultimodalDiagnosticStatus::Ready,
+        FridayMultimodalRouteStatus::NeedsModel => FridayMultimodalDiagnosticStatus::Warning,
+        FridayMultimodalRouteStatus::Planned => FridayMultimodalDiagnosticStatus::Planned,
+    }
+}
+
+fn route_evidence(route: &FridayMultimodalRouteDecision) -> Vec<String> {
+    let selected = route.selected.as_ref();
+    let mut evidence = vec![
+        format!("status={}", route.status.label()),
+        format!("remote_allowed={}", route.remote_allowed),
+    ];
+    if let Some(selected) = selected {
+        evidence.push(format!("model={}", selected.model_key));
+        evidence.extend(selected.files.iter().map(|file| {
+            format!(
+                "{}={} ({})",
+                file.purpose,
+                if file.present { "present" } else { "missing" },
+                file.path
+            )
+        }));
+    }
+    evidence
+}
+
+fn diagnostic_score(items: &[FridayMultimodalDiagnosticItem]) -> u8 {
+    if items.is_empty() {
+        return 0;
+    }
+
+    let earned = items
+        .iter()
+        .map(|item| match item.status {
+            FridayMultimodalDiagnosticStatus::Ready => 1.0,
+            FridayMultimodalDiagnosticStatus::Warning => 0.5,
+            FridayMultimodalDiagnosticStatus::Planned => 0.0,
+        })
+        .sum::<f32>();
+
+    ((earned / items.len() as f32) * 100.0).round() as u8
 }
 
 fn route_decision(
@@ -761,5 +982,20 @@ mod tests {
         let image = friday_multimodal_route(FridayMultimodalRequestKind::Image, false);
         assert_eq!(image.status, FridayMultimodalRouteStatus::Planned);
         assert!(image.selected.is_none());
+    }
+
+    #[test]
+    fn multimodal_ui_diagnostics_connect_report_commands() {
+        let diagnostics = friday_multimodal_ui_diagnostics();
+        assert_eq!(diagnostics.area, FridayWorkspaceArea::Multimodal);
+        assert!(diagnostics.score_out_of_100 >= 60);
+        assert!(diagnostics
+            .items
+            .iter()
+            .any(|item| item.command.contains("--friday-ocr-smoke")));
+        assert!(diagnostics
+            .items
+            .iter()
+            .any(|item| item.artifact_output.contains("metadata")));
     }
 }

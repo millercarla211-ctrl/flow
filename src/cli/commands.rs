@@ -28,8 +28,8 @@ use crate::friday::{
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
-    friday_multimodal_route, friday_research_search_plan, run_friday_ocr_smoke,
-    run_friday_vlm_contract,
+    friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_research_search_plan,
+    run_friday_ocr_smoke, run_friday_vlm_contract,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -490,6 +490,14 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", route.to_pretty_json()?);
         }
 
+        Command::FridayMultimodalDiagnostics => {
+            print_friday_multimodal_diagnostics(&friday_multimodal_ui_diagnostics());
+        }
+
+        Command::FridayMultimodalDiagnosticsJson => {
+            println!("{}", friday_multimodal_ui_diagnostics().to_pretty_json()?);
+        }
+
         Command::AccessibilityDiagnostics { os, live } => {
             print_accessibility_diagnostics(os.as_deref(), live)?;
         }
@@ -677,6 +685,10 @@ fn print_interactive_help() {
     println!("                           Show local-first model routing policy");
     println!("  --friday-multimodal-route-json <kind> [--remote]");
     println!("                           Print multimodal routing policy as JSON");
+    println!("  --friday-multimodal-diagnostics");
+    println!("                           Show Multimodal UI and OCR diagnostics");
+    println!("  --friday-multimodal-diagnostics-json");
+    println!("                           Print Multimodal UI diagnostics as JSON");
     println!("  --accessibility [os] [--dry-run]");
     println!("                           Diagnose host accessibility automation readiness");
     println!("  --audit-log <state-file> [limit]");
@@ -725,6 +737,7 @@ fn print_interactive_help() {
     println!("  cargo run --bin flow -- --friday-ocr-smoke tmp/friday-ocr-smoke");
     println!("  cargo run --bin flow -- --friday-vlm-contract tmp/friday-vlm-contract");
     println!("  cargo run --bin flow -- --friday-multimodal-route vlm");
+    println!("  cargo run --bin flow -- --friday-multimodal-diagnostics");
     println!("  cargo run --bin flow -- --models chat");
     println!("  cargo run --release --bin flow -- --install-model qwen3-0.6b");
     println!("  cargo run --release --bin flow -- --install-model qwen35-4b-revised-q4km");
@@ -1171,6 +1184,42 @@ fn print_friday_multimodal_route(route: &crate::friday::FridayMultimodalRouteDec
         println!("  - {}", item);
     }
     println!("Next: {}", route.next_action);
+}
+
+fn print_friday_multimodal_diagnostics(
+    diagnostics: &crate::friday::FridayMultimodalUiDiagnostics,
+) {
+    println!("Friday Multimodal Diagnostics");
+    println!("=============================");
+    println!("Route: {}", diagnostics.route);
+    println!("Score: {} / 100", diagnostics.score_out_of_100);
+    println!("Ready: {}", diagnostics.ready_count());
+    println!("Warnings: {}", diagnostics.warning_count());
+    println!("Primary command: {}", diagnostics.primary_command);
+    println!();
+    for item in &diagnostics.items {
+        println!("- [{}] {}", item.status.label(), item.title);
+        println!("  command: {}", item.command);
+        println!("  output: {}", item.artifact_output);
+        println!(
+            "  local_only={}, loads_model={}",
+            yes_no(item.local_only),
+            yes_no(item.loads_model)
+        );
+        for evidence in &item.evidence {
+            println!("  evidence: {}", evidence);
+        }
+        if item.status != crate::friday::FridayMultimodalDiagnosticStatus::Ready {
+            println!("  next: {}", item.next_action);
+        }
+    }
+    if !diagnostics.findings.is_empty() {
+        println!();
+        println!("Findings:");
+        for finding in &diagnostics.findings {
+            println!("  - {}", finding);
+        }
+    }
 }
 
 fn print_search_request_plan(title: &str, plan: &crate::search::SearchRequestPlan) -> Result<()> {

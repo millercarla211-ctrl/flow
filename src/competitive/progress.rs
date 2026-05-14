@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "multimodal-readiness-gate",
-            "Local multimodal readiness gate",
+            "multimodal-ui-diagnostics",
+            "Multimodal UI diagnostics",
             20,
             CompletionItemStatus::Done,
-            "Friday local checks now verify OCR artifacts, STT/TTS readiness, metasearch wiring, and artifact preview contracts without loading heavy models",
-            "connect these readiness checks to visible Multimodal and Voice route diagnostics",
+            "`flow --friday-multimodal-diagnostics` connects OCR smoke reports, VLM contracts, routing policy, and metadata sidecars to the Multimodal UI contract",
+            "render diagnostics in the desktop/Next.js Multimodal page and show latest artifact bundle links",
         ),
         item(
-            "ocr-execution-smoke",
-            "OCR execution smoke path",
+            "screenshot-capture-contract",
+            "Screenshot capture command",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-ocr-smoke <dir> [image] [--execute]` writes a bounded OCR smoke markdown file, artifact JSON, checkpoint JSON, and report JSON without loading the model unless explicitly requested",
-            "connect OCR smoke reports to visible Multimodal route diagnostics and richer artifact metadata",
+            CompletionItemStatus::Planned,
+            "The VLM contract can consume a screenshot path, but Friday still needs a local screenshot capture command that feeds that path without involving cloud services",
+            "add a screenshot capture command that feeds the VLM contract from a real local image path",
         ),
         item(
-            "vlm-screenshot-path",
-            "VLM screenshot understanding path",
+            "image-video-affordances",
+            "Image and video install/run affordances",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-vlm-contract <dir> [screenshot] [prompt]` writes a local-only screenshot understanding contract with explicit VLM model files, prompt, artifact, checkpoint, and missing-model findings",
-            "surface VLM contract reports in the Multimodal route and connect them to real screenshot capture",
+            CompletionItemStatus::Planned,
+            "Image and video routes are explicit but still planned, so operators need install/run affordances before the UI can expose them safely",
+            "add explicit install/run affordances for image and video model candidates",
         ),
         item(
-            "media-routing-policy",
-            "Image, audio, and video routing policy",
+            "artifact-store-metadata",
+            "Persist multimodal metadata in artifact store",
             20,
-            CompletionItemStatus::Done,
-            "`flow --friday-multimodal-route <ocr|vlm|audio|image|video> [--remote]` exposes local-first route decisions, selected models, fallbacks, resident-load policy, and planned media paths",
-            "wire routing decisions into the Multimodal UI and connect image/video install actions",
+            CompletionItemStatus::Planned,
+            "OCR and VLM commands write metadata sidecars, but the durable Friday artifact store does not yet index those sidecars for UI browsing",
+            "persist multimodal artifact metadata in the Friday artifact store",
         ),
         item(
-            "multimodal-artifact-metadata",
-            "Publish-ready multimodal artifact metadata",
+            "multimodal-visual-check",
+            "Multimodal route visual checks",
             20,
-            CompletionItemStatus::Done,
-            "OCR and VLM artifact paths now write `FridayMultimodalArtifactMetadata` sidecars with source, request kind, model, prompt, output format, local-only flag, execution flag, timing, confidence, and round-trip tests",
-            "open the next 100-point loop for UI-connected multimodal execution and capture",
+            CompletionItemStatus::Planned,
+            "Friday has browser-gate contracts, but the Multimodal route still needs a focused visual check after diagnostics are wired into the UI",
+            "add browser or desktop visual checks for the Multimodal UI route",
         ),
     ];
 
     CompletionSet {
-        name: "Multimodal Local Core".to_string(),
+        name: "Multimodal Product Execution".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Finish Friday's local OCR, VLM, image, audio, and video foundations with explicit low-resource routing and artifact metadata before adding heavier UI polish.".to_string(),
+        loop_rule: "Connect Friday's multimodal contracts to UI capture, install/run affordances, persisted artifacts, and visual checks without changing the low-resource idle defaults.".to_string(),
         items,
     }
 }
@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn active_set_tracks_incomplete_ui_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Multimodal Local Core");
+        assert_eq!(set.name, "Multimodal Product Execution");
         assert!(set.current_score_out_of_100 < set.target_score_out_of_100);
         assert!(
             set.items
