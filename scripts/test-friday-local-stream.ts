@@ -707,6 +707,20 @@ if (failedProviderResearch.ok || failedProviderResearch.message !== "research of
   throw new Error("Friday provider research did not return a controlled fetch failure.");
 }
 
+const blankFailedProviderResearch = await synthesizeResearchWithProvider({
+  brief: providerResearchBrief,
+  fetcher: async () => {
+    throw new Error("   ");
+  },
+});
+
+if (
+  blankFailedProviderResearch.ok ||
+  blankFailedProviderResearch.message !== "Provider synthesis failed."
+) {
+  throw new Error("Friday provider research did not use its fallback for blank fetch failures.");
+}
+
 const blockedLocalUrl = normalizeWebInspectionUrl("http://localhost:8735");
 if (blockedLocalUrl.ok) {
   throw new Error("Friday web inspection allowed a local URL.");

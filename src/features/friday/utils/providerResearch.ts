@@ -135,11 +135,12 @@ export async function synthesizeResearchWithProvider({
     };
   } catch (error) {
     const latencyMs = Math.round(nowMs() - startedAt);
+    const errorMessage = error instanceof Error ? error.message.trim() : "";
     const message =
       error instanceof DOMException && error.name === "AbortError"
         ? "Provider synthesis timed out."
         : error instanceof Error
-          ? error.message
+          ? errorMessage || "Provider synthesis failed."
           : "Provider synthesis failed.";
 
     return {
