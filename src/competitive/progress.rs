@@ -61,9 +61,9 @@ pub fn active_completion_set() -> CompletionSet {
             "dashboard-action-buttons",
             "Dashboard action buttons",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "wire typed dashboard actions to safe UI buttons with disabled, loading, and error states",
+            CompletionItemStatus::Done,
+            "`flow --friday-dashboard-product-ui-json` exposes safe button state labels, disabled reasons, confirmation flags, and local-only action metadata",
+            "render these button states in the visible dashboard controls",
         ),
         item(
             "dashboard-history-deltas",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_friday_dashboard_product_ui_wiring_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Dashboard Product UI Wiring");
-        assert_eq!(set.current_score_out_of_100, 20);
+        assert_eq!(set.current_score_out_of_100, 40);
         assert!(
             set.items
                 .iter()

@@ -103,7 +103,7 @@ pub use friday::{
     FridayDashboardPanelStatus, FridayDashboardReleaseReviewHandoff,
     FridayDashboardReleaseReviewItem, FridayDashboardReleaseReviewLink,
     FridayDashboardProductUiActionBinding, FridayDashboardProductUiBinding,
-    FridayDashboardProductUiCardBinding,
+    FridayDashboardProductUiButtonState, FridayDashboardProductUiCardBinding,
     FridayDashboardScreenshotHistory, FridayDashboardScreenshotRecord, FridayDashboardScreenshotStatus,
     FridayExecutionHandoff, FridayExecutionHandoffReport, FridayExecutionHandoffStatus,
     FridayExecutionSurface, FridayFeatureStatus, FridayGenerationSummary, FridayLocalCheckKind,

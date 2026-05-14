@@ -28,7 +28,20 @@ pub struct FridayDashboardProductUiActionBinding {
     pub command: String,
     pub local_only: bool,
     pub enabled: bool,
+    pub button_state: FridayDashboardProductUiButtonState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayDashboardProductUiButtonState {
+    pub disabled: bool,
     pub disabled_reason: Option<String>,
+    pub idle_label: String,
+    pub loading_label: String,
+    pub success_label: String,
+    pub error_label: String,
+    pub aria_label: String,
+    pub destructive: bool,
+    pub requires_confirmation: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,11 +106,13 @@ pub fn friday_dashboard_product_ui_binding_from_export(
                     command: action.command.clone(),
                     local_only: action.local_only,
                     enabled: action.enabled,
-                    disabled_reason: if action.enabled {
-                        None
-                    } else {
-                        Some("Action command is empty.".to_string())
-                    },
+                    button_state: action_button_state(
+                        action.kind,
+                        &action.label,
+                        action.enabled,
+                        action.destructive,
+                        action.requires_confirmation,
+                    ),
                 })
         })
         .collect::<Vec<_>>();
@@ -153,6 +168,43 @@ pub fn friday_dashboard_product_ui_binding_from_export(
                 .to_string(),
         ],
     })
+}
+
+fn action_button_state(
+    kind: FridayDashboardActionKind,
+    label: &str,
+    enabled: bool,
+    destructive: bool,
+    requires_confirmation: bool,
+) -> FridayDashboardProductUiButtonState {
+    let verb = match kind {
+        FridayDashboardActionKind::Open => "Open",
+        FridayDashboardActionKind::RunCheck => "Run",
+        FridayDashboardActionKind::Recover => "Recover",
+        FridayDashboardActionKind::Capture => "Capture",
+    };
+    let loading_label = match kind {
+        FridayDashboardActionKind::Open => "Opening...".to_string(),
+        FridayDashboardActionKind::RunCheck => "Running...".to_string(),
+        FridayDashboardActionKind::Recover => "Recovering...".to_string(),
+        FridayDashboardActionKind::Capture => "Capturing...".to_string(),
+    };
+
+    FridayDashboardProductUiButtonState {
+        disabled: !enabled,
+        disabled_reason: if enabled {
+            None
+        } else {
+            Some("Action command is empty.".to_string())
+        },
+        idle_label: label.to_string(),
+        loading_label,
+        success_label: format!("{verb} complete"),
+        error_label: format!("{verb} failed"),
+        aria_label: format!("{verb} dashboard action: {label}"),
+        destructive,
+        requires_confirmation,
+    }
 }
 
 fn dashboard_data_bindings(
