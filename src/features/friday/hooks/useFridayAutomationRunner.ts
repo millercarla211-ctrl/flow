@@ -7,6 +7,7 @@ import { tryRunTauriLocalChat } from "@/features/ai/tauri-local-chat";
 import { useLocalList } from "./useLocalPersistence";
 import {
   createAutomationFallbackResult,
+  createAutomationFailureResult,
   createAutomationPrompt,
   isAutomationDue,
   nextScheduledAutomationRun,
@@ -61,12 +62,12 @@ export function useFridayAutomationRunner() {
         });
         return true;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown automation error";
+        const failure = createAutomationFailureResult(error);
         automations.updateItem(automation.id, {
           lastRunAt: now,
-          lastResult: `Automation failed: ${message}`,
+          lastResult: failure.result,
           lastRunStatus: "Failed",
-          lastError: message,
+          lastError: failure.message,
           runCount: automation.runCount ?? 0,
           lastRunMode: mode,
           nextRunAt: nextScheduledAutomationRun(automation.cadence),

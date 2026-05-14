@@ -9,6 +9,7 @@ import {
 import { createLocalAgentRun } from "../src/features/friday/utils/localAgentRunner";
 import {
   createAutomationFallbackResult,
+  createAutomationFailureResult,
   createAutomationPrompt,
   isAutomationDue,
   nextScheduledAutomationRun,
@@ -1364,6 +1365,14 @@ if (
 
 if (!createAutomationFallbackResult({ title: "Follow up" }).includes("Follow up")) {
   throw new Error("Friday automation fallback result did not include the automation title.");
+}
+
+const blankAutomationFailure = createAutomationFailureResult(new Error("   "));
+if (
+  blankAutomationFailure.message !== "Unknown automation error" ||
+  blankAutomationFailure.result !== "Automation failed: Unknown automation error"
+) {
+  throw new Error("Friday automation failure result did not handle blank errors.");
 }
 
 const authConfigStatus = getFridayAuthConfigStatus();

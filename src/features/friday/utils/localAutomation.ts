@@ -65,3 +65,13 @@ export function createAutomationPrompt(
 export function createAutomationFallbackResult(automation: Pick<FridayAutomation, "title">) {
   return `Local run completed for "${automation.title}". Add an instruction to make this automation more specific.`;
 }
+
+export function createAutomationFailureResult(error: unknown) {
+  const message =
+    error instanceof Error ? error.message.trim() || "Unknown automation error" : "Unknown automation error";
+
+  return {
+    message,
+    result: `Automation failed: ${message}`,
+  };
+}
