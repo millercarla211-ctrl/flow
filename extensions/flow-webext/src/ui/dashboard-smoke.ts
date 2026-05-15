@@ -9,6 +9,7 @@ import {
   normalizeReleaseDeploymentGate,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseOperatorChecklist,
+  normalizeReleasePromotionLedger,
   normalizeReleaseQaCommandCenter,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
@@ -937,6 +938,128 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-candidate-archive --archive tmp/friday-dashboard/release-candidate-archive.json --gate <deployment-gate.json>",
     ],
   });
+  const releasePromotionLedger = normalizeReleasePromotionLedger({
+    ledger_id: "friday-release-promotion-ledger-smoke",
+    ledger_json: "tmp/friday-dashboard/release-promotion-ledger.json",
+    generated_at_unix_ms: 9,
+    local_only: true,
+    record_count: 2,
+    promoted_count: 1,
+    held_count: 1,
+    rolled_back_count: 0,
+    superseded_count: 0,
+    abandoned_count: 0,
+    post_promotion_missing_count: 1,
+    active_promotion_id: "promotion-candidate-promoted",
+    active_candidate_id: "candidate-promoted",
+    active_rollback_reference: "candidate-initial",
+    latest_decision: "promoted",
+    latest_deployment_note: "Promoted to the local Friday checkpoint after QA review.",
+    warnings: ["Latest promoted candidate is missing 1 post-promotion check(s)."],
+    records: [
+      {
+        promotion_id: "promotion-candidate-held",
+        candidate_id: "candidate-regressed",
+        archive_json: "tmp/friday-dashboard/release-candidate-archive.json",
+        gate_json: "tmp/friday-dashboard/release-deployment-gate-2.json",
+        export_kit_json: "tmp/friday-dashboard/release-evidence-export-kit.json",
+        recorded_at_unix_ms: 8,
+        product_name: "Friday",
+        local_only: true,
+        decision: "held",
+        operator: "essencefromexistence",
+        reason: "Held until dashboard smoke is fresh.",
+        deployment_note: "No deployment performed.",
+        target: {
+          id: "local-friday-checkpoint",
+          label: "Local Friday checkpoint",
+          environment: "local",
+          provider: "local",
+          url: null,
+          local_only_required: true,
+          requires_vercel: false,
+          expected_product_name: "Friday",
+          rollback_note: "Keep previous evidence attached.",
+        },
+        rollback_reference: "candidate-initial",
+        candidate_score_out_of_100: 71,
+        candidate_ready_to_deploy: false,
+        candidate_blocker_count: 2,
+        post_promotion_required_count: 2,
+        post_promotion_missing_count: 0,
+        post_promotion_checks: [
+          {
+            id: "deployment-note",
+            label: "Deployment note",
+            result_path: "inline",
+            required: true,
+            present: true,
+            bytes: 0,
+            summary: "Deployment note is recorded.",
+            next_action: "Attach note.",
+          },
+        ],
+        summary: "Candidate was held.",
+      },
+      {
+        promotion_id: "promotion-candidate-promoted",
+        candidate_id: "candidate-promoted",
+        archive_json: "tmp/friday-dashboard/release-candidate-archive.json",
+        gate_json: "tmp/friday-dashboard/release-deployment-gate-3.json",
+        export_kit_json: "tmp/friday-dashboard/release-evidence-export-kit.json",
+        recorded_at_unix_ms: 9,
+        product_name: "Friday",
+        local_only: true,
+        decision: "promoted",
+        operator: "essencefromexistence",
+        reason: "Promoted after lightweight checks were reviewed.",
+        deployment_note: "Promoted to the local Friday checkpoint after QA review.",
+        target: {
+          id: "local-friday-checkpoint",
+          label: "Local Friday checkpoint",
+          environment: "local",
+          provider: "local",
+          url: null,
+          local_only_required: true,
+          requires_vercel: false,
+          expected_product_name: "Friday",
+          rollback_note: "Keep previous evidence attached.",
+        },
+        rollback_reference: "candidate-initial",
+        candidate_score_out_of_100: 94,
+        candidate_ready_to_deploy: true,
+        candidate_blocker_count: 0,
+        post_promotion_required_count: 3,
+        post_promotion_missing_count: 1,
+        post_promotion_checks: [
+          {
+            id: "deployment-note",
+            label: "Deployment note",
+            result_path: "inline",
+            required: true,
+            present: true,
+            bytes: 0,
+            summary: "Deployment note is recorded.",
+            next_action: "Attach note.",
+          },
+          {
+            id: "post-promotion-smoke",
+            label: "post promotion smoke",
+            result_path: "tmp/friday-dashboard/post-promotion-smoke.json",
+            required: true,
+            present: false,
+            bytes: 0,
+            summary: "Post-promotion check evidence is missing.",
+            next_action: "Create the check-result file and record promotion again.",
+          },
+        ],
+        summary: "Candidate was promoted with one missing post-promotion check.",
+      },
+    ],
+    commands: [
+      "flow --friday-release-promotion-ledger --ledger tmp/friday-dashboard/release-promotion-ledger.json --archive tmp/friday-dashboard/release-candidate-archive.json --decision held --reason \"<reason>\"",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -1263,8 +1386,29 @@ export function dashboardSectionSmokeReport(
         ) &&
         releaseCandidateArchive.commands.some((command) =>
           command.includes("--friday-release-candidate-archive"),
-        ),
+      ),
       `${releaseCandidateArchive?.regressionCount ?? 0} candidate archive regression(s)`,
+    ),
+    check(
+      "release-promotion-ledger-importable",
+      releasePromotionLedger?.recordCount === 2 &&
+        releasePromotionLedger.promotedCount === 1 &&
+        releasePromotionLedger.heldCount === 1 &&
+        releasePromotionLedger.activeRollbackReference === "candidate-initial",
+      `${releasePromotionLedger?.recordCount ?? 0} release promotion record(s)`,
+    ),
+    check(
+      "release-promotion-ledger-checks",
+      releasePromotionLedger?.postPromotionMissingCount === 1 &&
+        releasePromotionLedger.records.some(
+          (record) =>
+            record.decision === "promoted" &&
+            record.postPromotionChecks.some((item) => item.id === "post-promotion-smoke"),
+        ) &&
+        releasePromotionLedger.commands.some((command) =>
+          command.includes("--friday-release-promotion-ledger"),
+        ),
+      `${releasePromotionLedger?.postPromotionMissingCount ?? 0} missing promotion check(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

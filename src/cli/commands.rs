@@ -31,8 +31,9 @@ use crate::friday::{
     FridayReleaseChecklistSignoff, FridayReleaseChecklistSignoffDecision,
     FridayReleaseDeploymentGateReport, FridayReleaseDeploymentTarget,
     FridayReleaseEvidenceExportKitReport, FridayReleaseOperatorChecklistReport,
-    FridayReleaseQaCommandCenterReport, FridayResearchReport, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleasePromotionDecision, FridayReleasePromotionLedger,
+    FridayReleasePromotionRecordRequest, FridayReleaseQaCommandCenterReport, FridayResearchReport,
+    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
@@ -40,7 +41,7 @@ use crate::friday::{
     FridayTrustedHostRunnerUxReport, FridayTrustedRunnerReleasePackageReport,
     FridayTrustedRunnerReleaseTimeline, FridayUiIntegrationStatus, FridayWorkspaceStore,
     append_friday_release_candidate_to_archive, append_friday_release_operator_signoff,
-    append_friday_trusted_host_runner_history,
+    append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -52,19 +53,21 @@ use crate::friday::{
     friday_operator_readiness_report, friday_release_candidate_archive_report,
     friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
     friday_release_evidence_export_kit_report, friday_release_operator_checklist_report,
-    friday_release_qa_command_center_report, friday_research_search_plan,
-    friday_route_visual_report, friday_trusted_host_live_runner_state_from_history_file,
+    friday_release_promotion_ledger_report, friday_release_qa_command_center_report,
+    friday_research_search_plan, friday_route_visual_report,
+    friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
     friday_trusted_host_runner_operator_review_report_from_history_file,
     friday_trusted_host_runner_ux_report_from_history_file,
     friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
-    read_friday_release_candidate_archive, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    run_friday_trusted_host_command, run_friday_trusted_host_command_bridge,
-    run_friday_vlm_contract, write_friday_release_deployment_gate,
-    write_friday_release_evidence_export_kit, write_friday_release_operator_checklist,
-    write_friday_release_qa_command_center_report, write_friday_trusted_host_live_runner_state,
-    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
+    read_friday_release_candidate_archive, read_friday_release_promotion_ledger,
+    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
+    run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
+    write_friday_release_deployment_gate, write_friday_release_evidence_export_kit,
+    write_friday_release_operator_checklist, write_friday_release_qa_command_center_report,
+    write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
+    write_friday_trusted_runner_release_timeline,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -1040,6 +1043,56 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", archive.to_pretty_json()?);
         }
 
+        Command::FridayReleasePromotionLedger {
+            ledger_file,
+            archive_file,
+            candidate_id,
+            decision,
+            operator,
+            reason,
+            deployment_note,
+            rollback_reference,
+            post_check_files,
+        } => {
+            let ledger = run_friday_release_promotion_ledger(
+                &ledger_file,
+                &archive_file,
+                candidate_id,
+                &decision,
+                &operator,
+                &reason,
+                &deployment_note,
+                &rollback_reference,
+                post_check_files,
+            )?;
+            print_friday_release_promotion_ledger(&ledger);
+        }
+
+        Command::FridayReleasePromotionLedgerJson {
+            ledger_file,
+            archive_file,
+            candidate_id,
+            decision,
+            operator,
+            reason,
+            deployment_note,
+            rollback_reference,
+            post_check_files,
+        } => {
+            let ledger = run_friday_release_promotion_ledger(
+                &ledger_file,
+                &archive_file,
+                candidate_id,
+                &decision,
+                &operator,
+                &reason,
+                &deployment_note,
+                &rollback_reference,
+                post_check_files,
+            )?;
+            println!("{}", ledger.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1549,6 +1602,12 @@ fn print_interactive_help() {
     println!("                           Append deployment gate(s) to candidate archive");
     println!("  --friday-release-candidate-archive-json [archive-file] [--gate file]");
     println!("                           Print release candidate archive as JSON");
+    println!("  --friday-release-promotion-ledger [ledger-file] [--archive file]");
+    println!(
+        "                           Record candidate promotion, hold, rollback, or abandonment"
+    );
+    println!("  --friday-release-promotion-ledger-json [ledger-file] [--archive file]");
+    println!("                           Record a promotion decision and print ledger JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -3021,6 +3080,111 @@ fn print_friday_release_candidate_archive(archive: &FridayReleaseCandidateArchiv
     println!();
     println!("Commands:");
     for command in &archive.commands {
+        println!("  - {command}");
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_friday_release_promotion_ledger(
+    ledger_file: &str,
+    archive_file: &str,
+    candidate_id: Option<String>,
+    decision: &str,
+    operator: &str,
+    reason: &str,
+    deployment_note: &str,
+    rollback_reference: &str,
+    post_check_files: Vec<String>,
+) -> Result<FridayReleasePromotionLedger> {
+    let ledger_path = resolve_repo_relative_path(ledger_file);
+    let archive_path = resolve_repo_relative_path(archive_file);
+
+    if !archive_path.exists() {
+        return Ok(read_friday_release_promotion_ledger(&ledger_path)
+            .unwrap_or_else(|_| friday_release_promotion_ledger_report(&ledger_path, Vec::new())));
+    }
+
+    append_friday_release_promotion_to_ledger(
+        &ledger_path,
+        &archive_path,
+        FridayReleasePromotionRecordRequest {
+            candidate_id,
+            decision: FridayReleasePromotionDecision::parse(decision)?,
+            operator: operator.to_string(),
+            reason: reason.to_string(),
+            deployment_note: deployment_note.to_string(),
+            rollback_reference: rollback_reference.to_string(),
+            post_check_files,
+        },
+    )
+}
+
+fn print_friday_release_promotion_ledger(ledger: &FridayReleasePromotionLedger) {
+    println!("Friday Release Promotion Ledger");
+    println!("===============================");
+    println!(
+        "Records: {} | promoted: {} | held: {} | rolled-back: {} | superseded: {} | abandoned: {}",
+        ledger.record_count,
+        ledger.promoted_count,
+        ledger.held_count,
+        ledger.rolled_back_count,
+        ledger.superseded_count,
+        ledger.abandoned_count
+    );
+    println!("Ledger: {}", ledger.ledger_json);
+    if let Some(decision) = ledger.latest_decision {
+        println!("Latest decision: {}", decision.label());
+    }
+    if let Some(candidate_id) = &ledger.active_candidate_id {
+        println!("Active candidate: {}", candidate_id);
+    }
+    if let Some(rollback) = &ledger.active_rollback_reference {
+        println!("Active rollback: {}", rollback);
+    }
+    if ledger.post_promotion_missing_count > 0 {
+        println!(
+            "Missing post-promotion checks: {}",
+            ledger.post_promotion_missing_count
+        );
+    }
+    if !ledger.warnings.is_empty() {
+        println!();
+        println!("Warnings:");
+        for warning in &ledger.warnings {
+            println!("  - {warning}");
+        }
+    }
+    println!();
+    println!("Promotion records:");
+    if ledger.records.is_empty() {
+        println!("  - none");
+    } else {
+        for record in ledger.records.iter().rev().take(5) {
+            println!(
+                "  - {} [{}] candidate={} score={} missing-checks={}",
+                record.promotion_id,
+                record.decision.label(),
+                record.candidate_id,
+                record.candidate_score_out_of_100,
+                record.post_promotion_missing_count
+            );
+            println!("    operator: {}", record.operator);
+            println!("    reason: {}", record.reason);
+            println!("    deployment note: {}", record.deployment_note);
+            println!("    rollback: {}", record.rollback_reference);
+            for check in record.post_promotion_checks.iter().take(4) {
+                println!(
+                    "    check {}: {} ({})",
+                    check.id,
+                    if check.present { "present" } else { "missing" },
+                    check.result_path
+                );
+            }
+        }
+    }
+    println!();
+    println!("Commands:");
+    for command in &ledger.commands {
         println!("  - {command}");
     }
 }

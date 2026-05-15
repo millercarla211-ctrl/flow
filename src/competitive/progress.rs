@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-candidate-archive-model",
-            "Typed release candidate archive model",
+            "release-promotion-ledger-model",
+            "Typed release promotion ledger model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseCandidateArchive` stores deployment gate path, export kit path/checksum, target profile, score, decision, blocker ids, and rollback note",
-            "add dashboard candidate-history rendering",
+            "`FridayReleasePromotionLedger` links release candidates to operator decisions, deployment notes, targets, rollback references, and post-promotion checks",
+            "open the next release monitor set",
         ),
         item(
-            "release-candidate-archive-diffs",
-            "Candidate diff summaries",
+            "release-promotion-ledger-decisions",
+            "Promotion decision categories",
             20,
             CompletionItemStatus::Done,
-            "candidate diffs track score deltas, decision changes, target changes, evidence checksum changes, new blockers, resolved blockers, and regressions",
-            "add dashboard candidate-history rendering",
+            "`FridayReleasePromotionDecision` covers promoted, held, rolled-back, superseded, and abandoned candidate states",
+            "open the next release monitor set",
         ),
         item(
-            "release-candidate-archive-cli",
-            "Candidate archive CLI and JSON commands",
+            "release-promotion-ledger-cli",
+            "Promotion ledger CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-candidate-archive` appends gates and `--friday-release-candidate-archive-json` previews candidate history without running builds or deployments",
-            "add dashboard candidate-history rendering",
+            "`flow --friday-release-promotion-ledger` and JSON mode record local promotion decisions without running deployments",
+            "open the next release monitor set",
         ),
         item(
-            "release-candidate-archive-dashboard",
-            "Dashboard candidate archive rendering",
+            "release-promotion-ledger-dashboard",
+            "Dashboard promotion ledger rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports candidate archive JSON and renders latest candidate, go/no-go counts, regressions, candidate cards, diff summaries, and copyable archive command",
-            "open the next release promotion ledger set",
+            "the visible dashboard imports promotion ledger JSON and renders promotion history, active rollback reference, warnings, post-promotion checks, and copyable ledger command",
+            "open the next release monitor set",
         ),
         item(
-            "release-candidate-archive-coverage",
-            "Candidate archive Rust and TypeScript coverage",
+            "release-promotion-ledger-coverage",
+            "Promotion ledger Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify archive writes, diff warnings, command copy, and visible dashboard import/rendering",
-            "open the next release promotion ledger set",
+            "focused Rust integration coverage plus dashboard smoke checks verify ledger writes, rollback references, post-promotion checks, command copy, and visible dashboard import/rendering",
+            "open the next release monitor set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Candidate Archive".to_string(),
+        name: "Friday Release Promotion Ledger".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Preserve every Friday major-checkpoint candidate as comparable local records with deployment gates, evidence kits, target metadata, rollback notes, and promotion history.".to_string(),
+        loop_rule: "Track every Friday candidate promotion decision with deployment notes, rollback references, operator reasons, and post-promotion verification evidence.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_candidate_archive_loop() {
+    fn active_set_tracks_friday_release_promotion_ledger_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Candidate Archive");
+        assert_eq!(set.name, "Friday Release Promotion Ledger");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

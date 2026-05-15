@@ -26,15 +26,17 @@ use flow::friday::{
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayReleaseCandidateArchiveEntry, FridayReleaseChecklistSignoffDecision,
-    FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget, FridayReleaseQaCheckStatus,
-    FridayResearchWorkflow, FridayRouteVisualStatus, FridayRuntimeSurfaceStore,
-    FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
+    FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget,
+    FridayReleasePromotionDecision, FridayReleasePromotionRecordRequest,
+    FridayReleaseQaCheckStatus, FridayResearchWorkflow, FridayRouteVisualStatus,
+    FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
     FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
     FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus, FridayVerificationStatus,
     FridayWorkspaceStore, append_friday_release_candidate_to_archive,
-    append_friday_release_operator_signoff, append_friday_trusted_host_runner_history,
+    append_friday_release_operator_signoff, append_friday_release_promotion_to_ledger,
+    append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -2042,6 +2044,68 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
                 .contains(&"new-deploy-blocker".to_string())
             && diff.evidence_checksum_changed
     }));
+    let promotion_ledger_path = root.join("release-promotion-ledger.json");
+    let promotion_ledger = append_friday_release_promotion_to_ledger(
+        &promotion_ledger_path,
+        &candidate_archive_path,
+        FridayReleasePromotionRecordRequest {
+            candidate_id: candidate_archive.latest_candidate_id.clone(),
+            decision: FridayReleasePromotionDecision::Held,
+            operator: "essencefromexistence".to_string(),
+            reason: "No-go candidate is held until QA is green.".to_string(),
+            deployment_note: "Not deployed; attach gate and candidate archive.".to_string(),
+            rollback_reference: "previous-stable-friday".to_string(),
+            post_check_files: vec![format!(
+                "dashboard-smoke={}",
+                dashboard_smoke_result_path
+                    .to_string_lossy()
+                    .replace('\\', "/")
+            )],
+        },
+    )
+    .unwrap();
+    assert_eq!(promotion_ledger.record_count, 1);
+    assert_eq!(promotion_ledger.held_count, 1);
+    assert_eq!(
+        promotion_ledger.latest_decision,
+        Some(FridayReleasePromotionDecision::Held)
+    );
+    assert_eq!(
+        promotion_ledger.active_rollback_reference.as_deref(),
+        Some("previous-stable-friday")
+    );
+    assert!(promotion_ledger.records[0].post_promotion_missing_count == 0);
+    assert!(
+        promotion_ledger
+            .commands
+            .iter()
+            .any(|command| command.contains("--friday-release-promotion-ledger"))
+    );
+    let promoted_ledger = append_friday_release_promotion_to_ledger(
+        &promotion_ledger_path,
+        &candidate_archive_path,
+        FridayReleasePromotionRecordRequest {
+            candidate_id: candidate_archive.latest_candidate_id.clone(),
+            decision: FridayReleasePromotionDecision::Promoted,
+            operator: "essencefromexistence".to_string(),
+            reason: "Promotion is intentionally recorded for warning coverage.".to_string(),
+            deployment_note: "Promoted only in the local audit ledger.".to_string(),
+            rollback_reference: "previous-stable-friday".to_string(),
+            post_check_files: vec![
+                "post-promotion-smoke=missing-post-promotion-smoke.json".to_string(),
+            ],
+        },
+    )
+    .unwrap();
+    assert_eq!(promoted_ledger.record_count, 2);
+    assert_eq!(promoted_ledger.promoted_count, 1);
+    assert!(promoted_ledger.post_promotion_missing_count > 0);
+    assert!(
+        promoted_ledger
+            .warnings
+            .iter()
+            .any(|warning| { warning.contains("missing") || warning.contains("not marked ready") })
+    );
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

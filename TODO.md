@@ -521,16 +521,34 @@ Goal: preserve every Friday major-checkpoint candidate as a comparable local rec
 
 This set is complete. The next loop should open `Friday Release Promotion Ledger` and make go/no-go candidate promotion, deployment notes, rollback references, and post-promotion verification auditable before any major deploy.
 
-## Next Set: Friday Release Promotion Ledger
+## Completed Set: Friday Release Promotion Ledger
 
-Status: 0/100
+Status: 100/100
 
 Goal: track which candidate was promoted, why it was promoted, what deployment note was attached, which rollback reference is active, and what post-promotion checks still need evidence.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed promotion ledger model that links a release candidate to an operator decision, deployment note, target, and rollback reference.
+- [x] Add promotion decision categories for promoted, held, rolled back, superseded, and abandoned candidates.
+- [x] Add CLI and JSON commands for recording promotions without running deployments.
+- [x] Add dashboard import/rendering for promotion history, active rollback reference, and post-promotion checks.
+- [x] Add focused Rust/TypeScript coverage for promotion writes, rollback references, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Post-Promotion Monitor` and track post-promotion verification evidence, stale checks, rollback readiness, and incident notes after a candidate is promoted.
+
+## Next Set: Friday Release Post-Promotion Monitor
+
+Status: 0/100
+
+Goal: make Friday's post-promotion state visible after a candidate is promoted, including verification freshness, incident notes, rollback readiness, and follow-up checks.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed promotion ledger model that links a release candidate to an operator decision, deployment note, target, and rollback reference.
-- [ ] Add promotion decision categories for promoted, held, rolled back, superseded, and abandoned candidates.
-- [ ] Add CLI and JSON commands for recording promotions without running deployments.
-- [ ] Add dashboard import/rendering for promotion history, active rollback reference, and post-promotion checks.
-- [ ] Add focused Rust/TypeScript coverage for promotion writes, rollback references, and dashboard rendering.
+- [ ] Add a typed post-promotion monitor model that consumes the promotion ledger, QA command center, dashboard smoke, and incident-note evidence.
+- [ ] Add stale-check and missing-evidence warnings for promoted candidates.
+- [ ] Add CLI and JSON commands for generating monitor reports without running deployments.
+- [ ] Add dashboard import/rendering for post-promotion status, rollback readiness, and incident notes.
+- [ ] Add focused Rust/TypeScript coverage for monitor scoring, stale warnings, and dashboard rendering.

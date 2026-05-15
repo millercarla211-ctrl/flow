@@ -341,6 +341,30 @@ pub enum Command {
         archive_file: String,
         gate_files: Vec<String>,
     },
+    /// Record a Friday release candidate promotion decision
+    FridayReleasePromotionLedger {
+        ledger_file: String,
+        archive_file: String,
+        candidate_id: Option<String>,
+        decision: String,
+        operator: String,
+        reason: String,
+        deployment_note: String,
+        rollback_reference: String,
+        post_check_files: Vec<String>,
+    },
+    /// Record a Friday release promotion decision and print ledger JSON
+    FridayReleasePromotionLedgerJson {
+        ledger_file: String,
+        archive_file: String,
+        candidate_id: Option<String>,
+        decision: String,
+        operator: String,
+        reason: String,
+        deployment_note: String,
+        rollback_reference: String,
+        post_check_files: Vec<String>,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1241,6 +1265,54 @@ impl Args {
                     gate_files,
                 }
             }
+            "--friday-release-promotion-ledger" | "--friday-promotion-ledger" => {
+                let (
+                    ledger_file,
+                    archive_file,
+                    candidate_id,
+                    decision,
+                    operator,
+                    reason,
+                    deployment_note,
+                    rollback_reference,
+                    post_check_files,
+                ) = parse_friday_release_promotion_ledger_args(&args);
+                Command::FridayReleasePromotionLedger {
+                    ledger_file,
+                    archive_file,
+                    candidate_id,
+                    decision,
+                    operator,
+                    reason,
+                    deployment_note,
+                    rollback_reference,
+                    post_check_files,
+                }
+            }
+            "--friday-release-promotion-ledger-json" | "--friday-promotion-ledger-json" => {
+                let (
+                    ledger_file,
+                    archive_file,
+                    candidate_id,
+                    decision,
+                    operator,
+                    reason,
+                    deployment_note,
+                    rollback_reference,
+                    post_check_files,
+                ) = parse_friday_release_promotion_ledger_args(&args);
+                Command::FridayReleasePromotionLedgerJson {
+                    ledger_file,
+                    archive_file,
+                    candidate_id,
+                    decision,
+                    operator,
+                    reason,
+                    deployment_note,
+                    rollback_reference,
+                    post_check_files,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -2038,6 +2110,78 @@ fn parse_friday_release_candidate_archive_args(args: &[String]) -> (String, Vec<
         .chain(positional_gates)
         .collect::<Vec<_>>();
     (archive_file, gate_files)
+}
+
+#[allow(clippy::type_complexity)]
+fn parse_friday_release_promotion_ledger_args(
+    args: &[String],
+) -> (
+    String,
+    String,
+    Option<String>,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Vec<String>,
+) {
+    let positional = positional_values(
+        args,
+        &[
+            "--ledger",
+            "--archive",
+            "--candidate",
+            "--decision",
+            "--operator",
+            "--reason",
+            "--deployment-note",
+            "--rollback",
+            "--rollback-reference",
+            "--post-check",
+        ],
+    );
+    let ledger_from_flag = flag_value(args, "--ledger");
+    let archive_from_flag = flag_value(args, "--archive");
+    let ledger_file = ledger_from_flag
+        .clone()
+        .or_else(|| positional.first().cloned())
+        .unwrap_or_else(|| "tmp/friday-dashboard/release-promotion-ledger.json".to_string());
+    let archive_file = archive_from_flag
+        .clone()
+        .or_else(|| {
+            if ledger_from_flag.is_some() {
+                positional.first().cloned()
+            } else {
+                positional.get(1).cloned()
+            }
+        })
+        .unwrap_or_else(|| "tmp/friday-dashboard/release-candidate-archive.json".to_string());
+    let candidate_id = flag_value(args, "--candidate");
+    let decision = flag_value(args, "--decision").unwrap_or_else(|| "held".to_string());
+    let operator = flag_value(args, "--operator").unwrap_or_else(|| "operator".to_string());
+    let reason = flag_value(args, "--reason")
+        .unwrap_or_else(|| "Operator reviewed the Friday release candidate archive.".to_string());
+    let deployment_note = flag_value(args, "--deployment-note")
+        .unwrap_or_else(|| "No deployment was executed by this local ledger command.".to_string());
+    let rollback_reference = flag_value(args, "--rollback")
+        .or_else(|| flag_value(args, "--rollback-reference"))
+        .unwrap_or_else(|| {
+            "Previous stable Friday release remains the rollback reference.".to_string()
+        });
+    let post_check_files = repeated_flag_values(args, "--post-check");
+
+    (
+        ledger_file,
+        archive_file,
+        candidate_id,
+        decision,
+        operator,
+        reason,
+        deployment_note,
+        rollback_reference,
+        post_check_files,
+    )
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

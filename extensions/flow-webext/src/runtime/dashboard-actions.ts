@@ -576,6 +576,70 @@ export interface FlowReleaseCandidateArchive {
   commands: string[];
 }
 
+export type FlowReleasePromotionDecision =
+  | "promoted"
+  | "held"
+  | "rolled-back"
+  | "superseded"
+  | "abandoned";
+
+export interface FlowReleasePromotionPostCheck {
+  id: string;
+  label: string;
+  resultPath: string;
+  required: boolean;
+  present: boolean;
+  bytes: number;
+  summary: string;
+  nextAction: string;
+}
+
+export interface FlowReleasePromotionRecord {
+  promotionId: string;
+  candidateId: string;
+  archiveJson: string;
+  gateJson: string;
+  exportKitJson: string;
+  recordedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  decision: FlowReleasePromotionDecision;
+  operator: string;
+  reason: string;
+  deploymentNote: string;
+  target: FlowReleaseDeploymentTarget;
+  rollbackReference: string;
+  candidateScoreOutOf100: number;
+  candidateReadyToDeploy: boolean;
+  candidateBlockerCount: number;
+  postPromotionRequiredCount: number;
+  postPromotionMissingCount: number;
+  postPromotionChecks: FlowReleasePromotionPostCheck[];
+  summary: string;
+}
+
+export interface FlowReleasePromotionLedger {
+  ledgerId: string;
+  ledgerJson: string;
+  generatedAtUnixMs: string;
+  localOnly: boolean;
+  recordCount: number;
+  promotedCount: number;
+  heldCount: number;
+  rolledBackCount: number;
+  supersededCount: number;
+  abandonedCount: number;
+  postPromotionMissingCount: number;
+  activePromotionId: string | null;
+  activeCandidateId: string | null;
+  activeRollbackReference: string | null;
+  latestDecision: FlowReleasePromotionDecision | null;
+  latestDeploymentNote: string | null;
+  warnings: string[];
+  records: FlowReleasePromotionRecord[];
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -2043,6 +2107,144 @@ export function normalizeReleaseCandidateArchive(
   };
 }
 
+export function normalizeReleasePromotionLedger(
+  value: unknown,
+): FlowReleasePromotionLedger | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const ledger =
+    root.release_promotion_ledger && typeof root.release_promotion_ledger === "object"
+      ? (root.release_promotion_ledger as Record<string, unknown>)
+      : root.releasePromotionLedger && typeof root.releasePromotionLedger === "object"
+        ? (root.releasePromotionLedger as Record<string, unknown>)
+        : root;
+  const ledgerId = stringValue(ledger.ledger_id, ledger.ledgerId);
+  const records = arrayValue(ledger.records)
+    .map((item): FlowReleasePromotionRecord | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const promotionId = stringValue(record.promotion_id, record.promotionId);
+      const candidateId = stringValue(record.candidate_id, record.candidateId);
+      if (!promotionId || !candidateId) {
+        return null;
+      }
+      const target =
+        record.target && typeof record.target === "object"
+          ? (record.target as Record<string, unknown>)
+          : {};
+      const postPromotionChecks = arrayValue(
+        record.post_promotion_checks,
+        record.postPromotionChecks,
+      )
+        .map((check): FlowReleasePromotionPostCheck | null => {
+          if (!check || typeof check !== "object") {
+            return null;
+          }
+          const postCheck = check as Record<string, unknown>;
+          const id = stringValue(postCheck.id);
+          if (!id) {
+            return null;
+          }
+          return {
+            id,
+            label: stringValue(postCheck.label),
+            resultPath: stringValue(postCheck.result_path, postCheck.resultPath),
+            required: booleanValue(postCheck.required),
+            present: booleanValue(postCheck.present),
+            bytes: numberValue(postCheck.bytes),
+            summary: stringValue(postCheck.summary),
+            nextAction: stringValue(postCheck.next_action, postCheck.nextAction),
+          };
+        })
+        .filter((check): check is FlowReleasePromotionPostCheck => check !== null);
+
+      return {
+        promotionId,
+        candidateId,
+        archiveJson: stringValue(record.archive_json, record.archiveJson),
+        gateJson: stringValue(record.gate_json, record.gateJson),
+        exportKitJson: stringValue(record.export_kit_json, record.exportKitJson),
+        recordedAtUnixMs: stringValue(record.recorded_at_unix_ms, record.recordedAtUnixMs),
+        productName: stringValue(record.product_name, record.productName),
+        localOnly: booleanValue(record.local_only, record.localOnly),
+        decision: promotionDecision(stringValue(record.decision)),
+        operator: stringValue(record.operator),
+        reason: stringValue(record.reason),
+        deploymentNote: stringValue(record.deployment_note, record.deploymentNote),
+        target: releaseDeploymentTarget(target),
+        rollbackReference: stringValue(record.rollback_reference, record.rollbackReference),
+        candidateScoreOutOf100: numberValue(
+          record.candidate_score_out_of_100,
+          record.candidateScoreOutOf100,
+        ),
+        candidateReadyToDeploy: booleanValue(
+          record.candidate_ready_to_deploy,
+          record.candidateReadyToDeploy,
+        ),
+        candidateBlockerCount: numberValue(
+          record.candidate_blocker_count,
+          record.candidateBlockerCount,
+        ),
+        postPromotionRequiredCount: numberValue(
+          record.post_promotion_required_count,
+          record.postPromotionRequiredCount,
+        ),
+        postPromotionMissingCount: numberValue(
+          record.post_promotion_missing_count,
+          record.postPromotionMissingCount,
+        ),
+        postPromotionChecks,
+        summary: stringValue(record.summary),
+      };
+    })
+    .filter((record): record is FlowReleasePromotionRecord => record !== null);
+
+  if (!ledgerId && records.length === 0) {
+    return null;
+  }
+
+  return {
+    ledgerId,
+    ledgerJson: stringValue(ledger.ledger_json, ledger.ledgerJson),
+    generatedAtUnixMs: stringValue(ledger.generated_at_unix_ms, ledger.generatedAtUnixMs),
+    localOnly: booleanValue(ledger.local_only, ledger.localOnly),
+    recordCount: numberValue(ledger.record_count, ledger.recordCount),
+    promotedCount: numberValue(ledger.promoted_count, ledger.promotedCount),
+    heldCount: numberValue(ledger.held_count, ledger.heldCount),
+    rolledBackCount: numberValue(ledger.rolled_back_count, ledger.rolledBackCount),
+    supersededCount: numberValue(ledger.superseded_count, ledger.supersededCount),
+    abandonedCount: numberValue(ledger.abandoned_count, ledger.abandonedCount),
+    postPromotionMissingCount: numberValue(
+      ledger.post_promotion_missing_count,
+      ledger.postPromotionMissingCount,
+    ),
+    activePromotionId:
+      stringValue(ledger.active_promotion_id, ledger.activePromotionId) || null,
+    activeCandidateId:
+      stringValue(ledger.active_candidate_id, ledger.activeCandidateId) || null,
+    activeRollbackReference:
+      stringValue(ledger.active_rollback_reference, ledger.activeRollbackReference) || null,
+    latestDecision:
+      ledger.latest_decision == null && ledger.latestDecision == null
+        ? null
+        : promotionDecision(stringValue(ledger.latest_decision, ledger.latestDecision)),
+    latestDeploymentNote:
+      stringValue(ledger.latest_deployment_note, ledger.latestDeploymentNote) || null,
+    warnings: arrayValue(ledger.warnings)
+      .map((warning) => stringValue(warning))
+      .filter(Boolean),
+    records,
+    commands: arrayValue(ledger.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -2194,6 +2396,19 @@ function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {
     return value;
   }
   return "draft";
+}
+
+function promotionDecision(value: string): FlowReleasePromotionDecision {
+  if (
+    value === "promoted" ||
+    value === "held" ||
+    value === "rolled-back" ||
+    value === "superseded" ||
+    value === "abandoned"
+  ) {
+    return value;
+  }
+  return "held";
 }
 
 function releaseDeploymentTarget(target: Record<string, unknown>): FlowReleaseDeploymentTarget {

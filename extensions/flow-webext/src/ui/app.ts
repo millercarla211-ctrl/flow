@@ -6,6 +6,7 @@ import {
   normalizeReleaseDeploymentGate,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseOperatorChecklist,
+  normalizeReleasePromotionLedger,
   normalizeReleaseQaCommandCenter,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
@@ -33,6 +34,7 @@ import {
   type FlowReleaseDeploymentGateReport,
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseOperatorChecklistReport,
+  type FlowReleasePromotionLedger,
   type FlowReleaseQaCommandCenterReport,
 } from "../runtime/dashboard-actions";
 import { normalizeFridayDashboardBinding } from "../runtime/dashboard-binding";
@@ -82,6 +84,7 @@ type UiState = {
   dashboardReleaseExportKit: FlowReleaseEvidenceExportKitReport | null;
   dashboardReleaseDeploymentGate: FlowReleaseDeploymentGateReport | null;
   dashboardReleaseCandidateArchive: FlowReleaseCandidateArchive | null;
+  dashboardReleasePromotionLedger: FlowReleasePromotionLedger | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -1706,6 +1709,84 @@ function renderReleaseCandidateArchive(archive: FlowReleaseCandidateArchive | nu
   `;
 }
 
+function renderReleasePromotionLedger(ledger: FlowReleasePromotionLedger | null) {
+  if (!ledger) {
+    return "";
+  }
+
+  const latest = ledger.records[ledger.records.length - 1] ?? null;
+
+  return `
+    <article class="feature-card dashboard-release-promotion-ledger">
+      <div class="card-topline">
+        <span class="eyebrow">Release promotion ledger</span>
+        <span class="badge ${badgeTone(ledger.postPromotionMissingCount > 0 ? "warning" : "ready")}">
+          ${ledger.recordCount} records
+        </span>
+      </div>
+      <h3>${latest ? escapeHtml(latest.candidateId) : "No promotion decisions yet"}</h3>
+      <p>
+        ${latest
+          ? `Latest ${escapeHtml(latest.decision)} decision by ${escapeHtml(latest.operator)} with ${latest.postPromotionMissingCount} missing post-promotion check(s).`
+          : "Record held, promoted, rolled-back, superseded, or abandoned candidate decisions before major deploys."}
+      </p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${ledger.promotedCount}</strong><small>promoted</small></span>
+        <span><strong>${ledger.heldCount}</strong><small>held</small></span>
+        <span><strong>${ledger.rolledBackCount}</strong><small>rolled back</small></span>
+        <span><strong>${ledger.postPromotionMissingCount}</strong><small>missing</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Active rollback</strong> ${escapeHtml(ledger.activeRollbackReference ?? "not recorded")}</span>
+        <span><strong>Ledger</strong> ${escapeHtml(ledger.ledgerJson)}</span>
+        <span><strong>Latest note</strong> ${escapeHtml(ledger.latestDeploymentNote ?? "none")}</span>
+      </div>
+      <div class="runner-package-files">
+        ${ledger.records
+          .slice(-4)
+          .reverse()
+          .map(
+            (record) => `
+              <div class="runner-package-file ${
+                record.postPromotionMissingCount === 0 ? "present" : "missing"
+              }">
+                <strong>${escapeHtml(record.promotionId)}</strong>
+                <small>${escapeHtml(record.decision)} - ${record.candidateScoreOutOf100}/100</small>
+                <code>${escapeHtml(record.archiveJson)}</code>
+                <span>${escapeHtml(record.reason)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      ${
+        latest?.postPromotionChecks.length
+          ? `<div class="note-list">${latest.postPromotionChecks
+              .slice(0, 5)
+              .map(
+                (check) =>
+                  `<span>${escapeHtml(check.label)}: ${check.present ? "present" : "missing"} - ${escapeHtml(check.nextAction)}</span>`,
+              )
+              .join("")}</div>`
+          : ""
+      }
+      ${
+        ledger.warnings.length
+          ? `<div class="note-list">${ledger.warnings
+              .slice(0, 4)
+              .map((warning) => `<span>${escapeHtml(warning)}</span>`)
+              .join("")}</div>`
+          : ""
+      }
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-promotion-ledger-command">
+          Copy ledger command
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -1918,6 +1999,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseExportKit(state.dashboardReleaseExportKit)}
       ${renderReleaseDeploymentGate(state.dashboardReleaseDeploymentGate)}
       ${renderReleaseCandidateArchive(state.dashboardReleaseCandidateArchive)}
+      ${renderReleasePromotionLedger(state.dashboardReleasePromotionLedger)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2049,6 +2131,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseExportKit: null,
     dashboardReleaseDeploymentGate: null,
     dashboardReleaseCandidateArchive: null,
+    dashboardReleasePromotionLedger: null,
   };
 
   function render() {
@@ -2350,6 +2433,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseExportKit = normalizeReleaseEvidenceExportKit(parsed);
       const releaseDeploymentGate = normalizeReleaseDeploymentGate(parsed);
       const releaseCandidateArchive = normalizeReleaseCandidateArchive(parsed);
+      const releasePromotionLedger = normalizeReleasePromotionLedger(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2373,8 +2457,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseDeploymentGate ?? state.dashboardReleaseDeploymentGate;
       state.dashboardReleaseCandidateArchive =
         releaseCandidateArchive ?? state.dashboardReleaseCandidateArchive;
+      state.dashboardReleasePromotionLedger =
+        releasePromotionLedger ?? state.dashboardReleasePromotionLedger;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseCandidateArchive
+      state.status = releasePromotionLedger
+        ? `Imported release promotion ledger with ${releasePromotionLedger.recordCount} record(s) from ${file.name}.`
+        : releaseCandidateArchive
         ? `Imported release candidate archive with ${releaseCandidateArchive.candidateCount} candidate(s) from ${file.name}.`
         : releaseDeploymentGate
         ? `Imported deployment gate ${releaseDeploymentGate.decision} at ${releaseDeploymentGate.scoreOutOf100}/100 from ${file.name}.`
@@ -2688,6 +2776,22 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleasePromotionLedgerCommand() {
+    const command = state.dashboardReleasePromotionLedger?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release promotion ledger command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release promotion ledger command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -2862,6 +2966,12 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-candidate-archive-command']")
       ?.addEventListener("click", () => {
         void copyReleaseCandidateArchiveCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-promotion-ledger-command']")
+      ?.addEventListener("click", () => {
+        void copyReleasePromotionLedgerCommand();
       });
 
     mountRoot
