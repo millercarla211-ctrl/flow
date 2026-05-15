@@ -203,8 +203,10 @@ pub fn default_friday_ui_integration_plan() -> FridayUiIntegrationPlan {
             automations_route(),
         ],
         next_actions: vec![
-            "Use `flow --friday-browser-gate` before any browser-extension or web-surface release.".to_string(),
-            "Continue with Multimodal Local Core for OCR, VLM, image, audio, and video execution.".to_string(),
+            "Use `flow --friday-browser-gate` before any browser-extension or web-surface release."
+                .to_string(),
+            "Continue with Multimodal Local Core for OCR, VLM, image, audio, and video execution."
+                .to_string(),
         ],
     }
 }
@@ -778,7 +780,10 @@ fn states_for(area: FridayWorkspaceArea, empty_hint: &str) -> Vec<FridayUiState>
             format!("{route} is ready"),
             empty_hint,
             Some("Start".to_string()),
-            format!("No {} input, local records, or selected project scope exists yet.", route),
+            format!(
+                "No {} input, local records, or selected project scope exists yet.",
+                route
+            ),
             false,
             None,
         ),
@@ -788,7 +793,10 @@ fn states_for(area: FridayWorkspaceArea, empty_hint: &str) -> Vec<FridayUiState>
             format!("{route} is working"),
             "Show the current local model, metasearch stage, and source count while work is running.",
             None,
-            format!("A {} command is active and has not emitted a final result.", route),
+            format!(
+                "A {} command is active and has not emitted a final result.",
+                route
+            ),
             false,
             Some(recovery_command.clone()),
         ),
@@ -798,7 +806,10 @@ fn states_for(area: FridayWorkspaceArea, empty_hint: &str) -> Vec<FridayUiState>
             format!("{route} needs attention"),
             "Surface model, metasearch, permission, and file errors directly with a retry action.",
             Some("Retry".to_string()),
-            format!("The latest {} command returned a model, source, file, or runtime error.", route),
+            format!(
+                "The latest {} command returned a model, source, file, or runtime error.",
+                route
+            ),
             true,
             Some("flow --friday-local-checks".to_string()),
         ),
@@ -808,7 +819,10 @@ fn states_for(area: FridayWorkspaceArea, empty_hint: &str) -> Vec<FridayUiState>
             format!("{route} needs approval"),
             "Remote providers, broad file access, and background tools stay disabled until explicitly approved.",
             Some("Review access".to_string()),
-            format!("{} is asking for a provider, file, connector, automation, or tool permission.", route),
+            format!(
+                "{} is asking for a provider, file, connector, automation, or tool permission.",
+                route
+            ),
             true,
             Some("flow --friday-workspace-json [dir]".to_string()),
         ),
@@ -818,7 +832,10 @@ fn states_for(area: FridayWorkspaceArea, empty_hint: &str) -> Vec<FridayUiState>
             format!("{route} has results"),
             "Show cited answer content, source controls, and local save/export actions.",
             Some("Save".to_string()),
-            format!("{} has a result, saved local record, artifact, citation set, or action log.", route),
+            format!(
+                "{} has a result, saved local record, artifact, citation set, or action log.",
+                route
+            ),
             false,
             Some(recovery_command),
         ),
@@ -884,18 +901,28 @@ fn visual_requirement(
 
 fn multimodal_viewports() -> Vec<FridayUiVisualViewport> {
     vec![
-        viewport("desktop", 1440, 900, "sidebar + diagnostics grid + artifact rail"),
-        viewport("tablet", 820, 1180, "collapsed navigation + stacked diagnostic cards"),
-        viewport("mobile", 390, 844, "single-column route with sticky action bar"),
+        viewport(
+            "desktop",
+            1440,
+            900,
+            "sidebar + diagnostics grid + artifact rail",
+        ),
+        viewport(
+            "tablet",
+            820,
+            1180,
+            "collapsed navigation + stacked diagnostic cards",
+        ),
+        viewport(
+            "mobile",
+            390,
+            844,
+            "single-column route with sticky action bar",
+        ),
     ]
 }
 
-fn viewport(
-    id: &str,
-    width: u16,
-    height: u16,
-    expected_layout: &str,
-) -> FridayUiVisualViewport {
+fn viewport(id: &str, width: u16, height: u16, expected_layout: &str) -> FridayUiVisualViewport {
     FridayUiVisualViewport {
         id: id.to_string(),
         width,

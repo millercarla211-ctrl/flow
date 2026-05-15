@@ -109,10 +109,7 @@ pub fn browser_pack_reuse_smoke_report() -> BrowserPackReuseReport {
 pub fn browser_pack_reuse_smoke_report_for_catalog(
     catalog: &[BrowserPackManifest],
 ) -> BrowserPackReuseReport {
-    let targets = catalog
-        .iter()
-        .map(pack_reuse_target)
-        .collect::<Vec<_>>();
+    let targets = catalog.iter().map(pack_reuse_target).collect::<Vec<_>>();
     let score_out_of_100 = score_targets(&targets);
     let blocking = targets
         .iter()
@@ -176,17 +173,14 @@ fn pack_reuse_target(pack: &BrowserPackManifest) -> BrowserPackReuseTarget {
     let remote_allowed = false;
     let unsupported_reason: Option<String> = None;
     let offline_plan = local_only && !remote_allowed && unsupported_reason.is_none();
-    let status = if all_required_cached
-        && selected_pack_matches
-        && selected_model_matches
-        && offline_plan
-    {
-        BrowserPackReuseStatus::Passed
-    } else if all_required_cached && !remote_allowed {
-        BrowserPackReuseStatus::Warning
-    } else {
-        BrowserPackReuseStatus::Failed
-    };
+    let status =
+        if all_required_cached && selected_pack_matches && selected_model_matches && offline_plan {
+            BrowserPackReuseStatus::Passed
+        } else if all_required_cached && !remote_allowed {
+            BrowserPackReuseStatus::Warning
+        } else {
+            BrowserPackReuseStatus::Failed
+        };
 
     BrowserPackReuseTarget {
         pack_key: pack.pack_key.clone(),
@@ -244,7 +238,10 @@ fn score_targets(targets: &[BrowserPackReuseTarget]) -> u8 {
         return 0;
     }
 
-    let earned = targets.iter().map(|target| target.status.score()).sum::<f32>();
+    let earned = targets
+        .iter()
+        .map(|target| target.status.score())
+        .sum::<f32>();
     ((earned / targets.len() as f32) * 100.0)
         .round()
         .clamp(0.0, 100.0) as u8

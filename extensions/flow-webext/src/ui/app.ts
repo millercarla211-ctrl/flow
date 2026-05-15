@@ -1,8 +1,10 @@
 import { requestQuickContext, replaceSelection, toggleOverlay } from "../runtime/browser-api";
 import {
+  buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
+  normalizeTrustedHostRunnerCancellationUx,
   normalizeTrustedHostRunnerApprovalUi,
   normalizeTrustedHostRunnerResults,
   normalizeTrustedHostRunnerUx,
@@ -12,6 +14,8 @@ import {
   type FlowDashboardLiveRunnerState,
   type FlowDashboardRunnerApprovalControl,
   type FlowDashboardRunnerApprovalUiReport,
+  type FlowDashboardRunnerCancellationControl,
+  type FlowDashboardRunnerCancellationUxReport,
   type FlowDashboardRunnerUxReport,
   type FlowDashboardCommandStatus,
 } from "../runtime/dashboard-actions";
@@ -51,7 +55,39 @@ type UiState = {
   dashboardRunnerApprovalUi: FlowDashboardRunnerApprovalUiReport | null;
   dashboardRunnerApprovalReason: string;
   dashboardLiveRunnerState: FlowDashboardLiveRunnerState | null;
+  dashboardRunnerCancellationUx: FlowDashboardRunnerCancellationUxReport | null;
+  dashboardRunnerCancellationDrafts: Record<string, string>;
 };
+
+const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
+
+function readRunnerCancellationDrafts(): Record<string, string> {
+  try {
+    const raw = globalThis.localStorage?.getItem(RUNNER_CANCELLATION_DRAFT_KEY);
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writeRunnerCancellationDrafts(drafts: Record<string, string>) {
+  try {
+    globalThis.localStorage?.setItem(RUNNER_CANCELLATION_DRAFT_KEY, JSON.stringify(drafts));
+  } catch {
+    // Draft persistence is a dashboard convenience; trusted execution still requires local commands.
+  }
+}
 
 const TASK_OPTIONS: Array<{ task: FlowTask; label: string; detail: string }> = [
   {
@@ -1025,7 +1061,92 @@ function renderRunnerApprovalModal(
   `;
 }
 
-function renderLiveRunnerState(liveState: FlowDashboardLiveRunnerState | null) {
+function renderRunnerCancellationControls(
+  cancellationUx: FlowDashboardRunnerCancellationUxReport | null,
+  drafts: Record<string, string>,
+) {
+  if (!cancellationUx) {
+    return "";
+  }
+
+  return `
+    <div class="runner-cancellation-panel">
+      <div class="card-topline">
+        <span class="eyebrow">Cancellation and recovery</span>
+        <span class="badge ${badgeTone(cancellationUx.activeCount > 0 ? "pending" : cancellationUx.staleCount > 0 ? "blocked" : "ready")}">
+          ${cancellationUx.controls.length} control${cancellationUx.controls.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      <div class="meta-list">
+        <span><strong>${cancellationUx.activeCount}</strong> active</span>
+        <span><strong>${cancellationUx.staleCount}</strong> stale</span>
+        <span><strong>${cancellationUx.denialCount}</strong> denied</span>
+      </div>
+      <div class="note-list">
+        ${cancellationUx.guidance.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+      </div>
+      <p>${escapeHtml(cancellationUx.draft.autosaveHint)}</p>
+      <div class="runner-cancellation-controls">
+        ${cancellationUx.controls
+          .map((control) => {
+            const draft = drafts[control.id] ?? cancellationUx.draft.defaultReason;
+            return `
+              <div class="runner-cancellation-control">
+                <div>
+                  <strong>${escapeHtml(control.label)}</strong>
+                  <small>${escapeHtml(control.detail)}</small>
+                </div>
+                ${
+                  control.requiresReason
+                    ? `
+                      <textarea
+                        data-runner-cancellation-reason-id="${escapeHtml(control.id)}"
+                        aria-label="${escapeHtml(`${control.label} reason`)}"
+                        placeholder="Short operator reason"
+                      >${escapeHtml(draft)}</textarea>
+                    `
+                    : ""
+                }
+                <button
+                  type="button"
+                  class="secondary"
+                  data-action="dashboard-runner-cancellation-control"
+                  data-runner-cancellation-control-id="${escapeHtml(control.id)}"
+                  ${control.disabled ? "disabled" : ""}
+                  title="${escapeHtml(control.command)}"
+                >
+                  ${escapeHtml(controlLabel(control))}
+                </button>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function controlLabel(control: FlowDashboardRunnerCancellationControl) {
+  if (control.kind === "cleanup-stale") {
+    return "Copy cleanup";
+  }
+  if (control.kind === "retry") {
+    return "Copy retry";
+  }
+  if (control.kind === "denial-recovery") {
+    return "Copy recovery";
+  }
+  if (control.kind === "cancel") {
+    return "Copy cancel";
+  }
+  return "Copy command";
+}
+
+function renderLiveRunnerState(
+  liveState: FlowDashboardLiveRunnerState | null,
+  cancellationUx: FlowDashboardRunnerCancellationUxReport | null,
+  drafts: Record<string, string>,
+) {
   if (!liveState) {
     return "";
   }
@@ -1070,6 +1191,7 @@ function renderLiveRunnerState(liveState: FlowDashboardLiveRunnerState | null) {
           )
           .join("")}
       </div>
+      ${renderRunnerCancellationControls(cancellationUx, drafts)}
     </article>
   `;
 }
@@ -1270,7 +1392,11 @@ function renderDashboard(state: UiState) {
         state.dashboardRunnerApprovalUi,
         state.dashboardRunnerApprovalReason,
       )}
-      ${renderLiveRunnerState(state.dashboardLiveRunnerState)}
+      ${renderLiveRunnerState(
+        state.dashboardLiveRunnerState,
+        state.dashboardRunnerCancellationUx,
+        state.dashboardRunnerCancellationDrafts,
+      )}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1391,6 +1517,8 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardRunnerApprovalUi: null,
     dashboardRunnerApprovalReason: "",
     dashboardLiveRunnerState: null,
+    dashboardRunnerCancellationUx: null,
+    dashboardRunnerCancellationDrafts: readRunnerCancellationDrafts(),
   };
 
   function render() {
@@ -1684,11 +1812,18 @@ export async function mountFlowApp(surfaceInput: string) {
       const runnerUx = normalizeTrustedHostRunnerUx(parsed);
       const approvalUi = normalizeTrustedHostRunnerApprovalUi(parsed);
       const liveState = normalizeTrustedHostLiveRunnerState(parsed);
+      const cancellationUx =
+        normalizeTrustedHostRunnerCancellationUx(parsed) ??
+        (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
       state.dashboardRunnerUx = runnerUx ?? state.dashboardRunnerUx;
       state.dashboardRunnerApprovalUi = approvalUi ?? state.dashboardRunnerApprovalUi;
       state.dashboardLiveRunnerState = liveState ?? state.dashboardLiveRunnerState;
+      state.dashboardRunnerCancellationUx =
+        cancellationUx ?? state.dashboardRunnerCancellationUx;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = liveState
+      state.status = cancellationUx
+        ? `Imported trusted runner cancellation UX with ${cancellationUx.controls.length} control(s) from ${file.name}.`
+        : liveState
         ? `Imported live trusted runner state with ${liveState.recordCount} tracked record(s) from ${file.name}.`
         : approvalUi
         ? `Imported trusted runner approval UI with ${approvalUi.controls.length} control(s) from ${file.name}.`
@@ -1700,6 +1835,14 @@ export async function mountFlowApp(surfaceInput: string) {
     }
 
     render();
+  }
+
+  function updateRunnerCancellationDraft(controlId: string, reason: string) {
+    state.dashboardRunnerCancellationDrafts = {
+      ...state.dashboardRunnerCancellationDrafts,
+      [controlId]: reason,
+    };
+    writeRunnerCancellationDrafts(state.dashboardRunnerCancellationDrafts);
   }
 
   function runnerCommandWithReason(control: FlowDashboardRunnerApprovalControl) {
@@ -1778,6 +1921,60 @@ export async function mountFlowApp(surfaceInput: string) {
       }`;
     } catch {
       state.status = `${affordance.label}: ${affordance.command}`;
+    }
+    render();
+  }
+
+  function runnerCancellationCommandWithReason(control: FlowDashboardRunnerCancellationControl) {
+    if (!control.command.trim()) {
+      return "";
+    }
+    const fallback =
+      state.dashboardRunnerCancellationUx?.draft.defaultReason ??
+      "Operator reviewed live runner state";
+    const reason = (state.dashboardRunnerCancellationDrafts[control.id] ?? fallback).trim();
+    return control.command.replace(
+      /"<[^"]*reason>"/g,
+      `"${reason.replaceAll('"', "'")}"`,
+    );
+  }
+
+  async function copyRunnerCancellationControl(controlId: string) {
+    const control = state.dashboardRunnerCancellationUx?.controls.find(
+      (item) => item.id === controlId,
+    );
+    if (!control) {
+      return;
+    }
+    if (control.disabled) {
+      state.status = control.disabledReason ?? "This runner recovery control is unavailable.";
+      render();
+      return;
+    }
+
+    const reason = (
+      state.dashboardRunnerCancellationDrafts[control.id] ??
+      state.dashboardRunnerCancellationUx?.draft.defaultReason ??
+      ""
+    ).trim();
+    if (control.requiresReason && !reason) {
+      state.status = "Add a short operator reason before preparing this runner recovery command.";
+      render();
+      return;
+    }
+
+    const command = runnerCancellationCommandWithReason(control);
+    if (!command.trim()) {
+      state.status = control.detail;
+      render();
+      return;
+    }
+
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = `${control.label}: local recovery command copied.`;
+    } catch {
+      state.status = `${control.label}: ${command}`;
     }
     render();
   }
@@ -1868,6 +2065,28 @@ export async function mountFlowApp(surfaceInput: string) {
           const affordanceId = button.dataset.runnerAffordanceId;
           if (affordanceId) {
             void copyRunnerAffordance(affordanceId);
+          }
+        });
+      });
+
+    mountRoot
+      .querySelectorAll<HTMLTextAreaElement>("[data-runner-cancellation-reason-id]")
+      .forEach((textarea) => {
+        textarea.addEventListener("input", () => {
+          const controlId = textarea.dataset.runnerCancellationReasonId;
+          if (controlId) {
+            updateRunnerCancellationDraft(controlId, textarea.value);
+          }
+        });
+      });
+
+    mountRoot
+      .querySelectorAll<HTMLButtonElement>("[data-action='dashboard-runner-cancellation-control']")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          const controlId = button.dataset.runnerCancellationControlId;
+          if (controlId) {
+            void copyRunnerCancellationControl(controlId);
           }
         });
       });

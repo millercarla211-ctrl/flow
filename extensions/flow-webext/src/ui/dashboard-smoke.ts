@@ -3,9 +3,11 @@ import {
   normalizeFridayDashboardBinding,
 } from "../runtime/dashboard-binding";
 import {
+  buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
+  normalizeTrustedHostRunnerCancellationUx,
   normalizeTrustedHostRunnerApprovalUi,
   normalizeTrustedHostRunnerResults,
   normalizeTrustedHostRunnerUx,
@@ -387,6 +389,45 @@ export function dashboardSectionSmokeReport(
       },
     ],
   });
+  const trustedCancellationUx =
+    (trustedLiveRunnerState
+      ? buildTrustedHostRunnerCancellationUx(trustedLiveRunnerState)
+      : null) ??
+    normalizeTrustedHostRunnerCancellationUx({
+      state_json: "tmp/friday-dashboard/trusted-host-live-state.json",
+      record_count: 0,
+      active_count: 0,
+      stale_count: 0,
+      denial_count: 0,
+      controls: [],
+    });
+  const trustedDenialRecoveryUx = normalizeTrustedHostRunnerCancellationUx({
+    state_json: "tmp/friday-dashboard/trusted-host-live-state.json",
+    record_count: 1,
+    active_count: 0,
+    stale_count: 0,
+    denial_count: 1,
+    draft: {
+      storage_key: "flow.dashboard.runnerCancellationDrafts",
+      default_reason: "Operator corrected approval decision",
+      autosave_hint: "Denial recovery reasons are remembered locally.",
+    },
+    guidance: ["Recover denied runner records only with a clear audit reason."],
+    controls: [
+      {
+        id: "recover-denied-runner",
+        job_id: "runner-denied",
+        action_id: "host-denied",
+        kind: "denial-recovery",
+        label: "Recover denied host report",
+        command:
+          'flow --friday-trusted-host-bridge-runner tmp/friday-dashboard --action-id host-denied --approve --execute --reason "<denial recovery reason>"',
+        detail: "Approves and reruns the denied command.",
+        requires_reason: true,
+        disabled: false,
+      },
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -549,6 +590,34 @@ export function dashboardSectionSmokeReport(
       trustedLiveRunnerState?.staleRecoveryCopy.includes("Refresh") === true &&
         trustedLiveRunnerState.records.every((record) => record.cleanupCommand.trim().length > 0),
       trustedLiveRunnerState?.staleRecoveryCopy ?? "missing stale recovery copy",
+    ),
+    check(
+      "trusted-runner-cancellation-controls",
+      trustedCancellationUx?.controls.some(
+        (control) => control.kind === "cancel" && control.requiresReason,
+      ) === true &&
+        trustedCancellationUx.controls.some((control) => control.kind === "cleanup-stale") &&
+        trustedCancellationUx.controls.some(
+          (control) => control.kind === "retry" && control.command.includes("--approve --execute"),
+        ),
+      `${trustedCancellationUx?.controls.length ?? 0} cancellation control(s)`,
+    ),
+    check(
+      "trusted-runner-cancellation-drafts",
+      trustedCancellationUx?.draft.storageKey === "flow.dashboard.runnerCancellationDrafts" &&
+        trustedCancellationUx.draft.autosaveHint.includes("remembered"),
+      trustedCancellationUx?.draft.autosaveHint ?? "missing draft hint",
+    ),
+    check(
+      "trusted-runner-denial-recovery",
+      trustedDenialRecoveryUx?.denialCount === 1 &&
+        trustedDenialRecoveryUx.controls.some(
+          (control) =>
+            control.kind === "denial-recovery" &&
+            control.requiresReason &&
+            control.command.includes("denial recovery reason"),
+        ),
+      `${trustedDenialRecoveryUx?.controls.length ?? 0} denial recovery control(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

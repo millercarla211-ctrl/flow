@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "desktop-runner-bridge-interface",
-            "Desktop runner bridge interface",
+            "runner-visible-cancel-controls",
+            "Visible live runner cancellation controls",
             20,
             CompletionItemStatus::Done,
-            "`run_friday_trusted_host_command_bridge_with_executor` emits pending, running, and finished bridge events around trusted local execution",
-            "open the next desktop bridge cancellation UX set",
+            "`FridayTrustedHostRunnerCancellationUxReport` exposes cancel controls for pending and running live records, and the dashboard renders copyable cancel commands",
+            "open the next trusted runner operator review set",
         ),
         item(
-            "desktop-runner-state-emission",
-            "Live state writes during execution",
+            "runner-stale-cleanup-retry",
+            "Stale cleanup and retry guidance",
             20,
             CompletionItemStatus::Done,
-            "`run_friday_trusted_host_command_bridge_with_executor` writes live state before execution, during running, and after success, denial, timeout, cancellation, or failure",
-            "open the next desktop bridge cancellation UX set",
+            "stale live records now surface cleanup and retry commands linked to the imported bridge state file and runner history",
+            "open the next trusted runner operator review set",
         ),
         item(
-            "desktop-runner-cancellation-token",
-            "Cancellation token plumbing",
+            "runner-denial-recovery",
+            "Denial recovery copy",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostRunnerCancellationToken` blocks execution before the running event and records cancellation reason metadata",
-            "open the next desktop bridge cancellation UX set",
+            "denied live runner records produce an explicit denial-recovery command with a required operator reason placeholder",
+            "open the next trusted runner operator review set",
         ),
         item(
-            "desktop-runner-import-guidance",
-            "Live-state import guidance",
+            "runner-cancellation-drafts",
+            "Dashboard-side cancellation drafts",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostRunnerBridgeReport` and dashboard normalizers distinguish live-state imports from immutable runner history JSON",
-            "open the next desktop bridge cancellation UX set",
+            "the web dashboard persists per-control cancellation, retry, and denial-recovery reasons in local storage",
+            "open the next trusted runner operator review set",
         ),
         item(
-            "desktop-runner-bridge-tests",
-            "Bridge event and cancellation tests",
+            "runner-cancellation-tests",
+            "Cancellation and stale cleanup tests",
             20,
             CompletionItemStatus::Done,
-            "`cargo test friday_dashboard -- --nocapture` covers pending/running/finished bridge events and cancellation boundaries",
-            "open the next desktop bridge cancellation UX set",
+            "Rust integration coverage and browser-extension dashboard smoke checks verify cancellation, stale cleanup, retry, and denial recovery contracts",
+            "open the next trusted runner operator review set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Desktop Runner Bridge".to_string(),
+        name: "Friday Desktop Runner Cancellation UX".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Make the trusted desktop host produce live runner state updates during real approved command execution while keeping all host execution local-only, auditable, cancellable, and bounded.".to_string(),
+        loop_rule: "Make live trusted-runner cancellation and recovery obvious in the dashboard so operators can stop, clean up, retry, or recover denied work without guessing which JSON import is authoritative.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_desktop_runner_bridge_loop() {
+    fn active_set_tracks_friday_desktop_runner_cancellation_ux_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Desktop Runner Bridge");
+        assert_eq!(set.name, "Friday Desktop Runner Cancellation UX");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

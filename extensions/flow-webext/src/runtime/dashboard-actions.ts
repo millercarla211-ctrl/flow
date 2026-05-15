@@ -142,6 +142,36 @@ export interface FlowDashboardLiveRunnerState {
   staleRecoveryCopy: string;
 }
 
+export interface FlowDashboardRunnerCancellationControl {
+  id: string;
+  jobId: string;
+  actionId: string;
+  kind: string;
+  label: string;
+  command: string;
+  detail: string;
+  requiresReason: boolean;
+  disabled: boolean;
+  disabledReason: string | null;
+}
+
+export interface FlowDashboardRunnerCancellationDraft {
+  storageKey: string;
+  defaultReason: string;
+  autosaveHint: string;
+}
+
+export interface FlowDashboardRunnerCancellationUxReport {
+  stateJson: string;
+  recordCount: number;
+  activeCount: number;
+  staleCount: number;
+  denialCount: number;
+  controls: FlowDashboardRunnerCancellationControl[];
+  draft: FlowDashboardRunnerCancellationDraft;
+  guidance: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -619,6 +649,173 @@ export function normalizeTrustedHostLiveRunnerState(
     staleCount: numberValue(state.stale_count, state.staleCount),
     records,
     staleRecoveryCopy: stringValue(state.stale_recovery_copy, state.staleRecoveryCopy),
+  };
+}
+
+export function normalizeTrustedHostRunnerCancellationUx(
+  value: unknown,
+): FlowDashboardRunnerCancellationUxReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const report =
+    root.cancellation_ux && typeof root.cancellation_ux === "object"
+      ? (root.cancellation_ux as Record<string, unknown>)
+      : root.cancellationUx && typeof root.cancellationUx === "object"
+        ? (root.cancellationUx as Record<string, unknown>)
+        : root;
+  const controls = arrayValue(report.controls)
+    .map((item): FlowDashboardRunnerCancellationControl | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const control = item as Record<string, unknown>;
+      const id = stringValue(control.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        jobId: stringValue(control.job_id, control.jobId),
+        actionId: stringValue(control.action_id, control.actionId),
+        kind: stringValue(control.kind),
+        label: stringValue(control.label) || id,
+        command: stringValue(control.command),
+        detail: stringValue(control.detail),
+        requiresReason: booleanValue(control.requires_reason, control.requiresReason),
+        disabled: booleanValue(control.disabled),
+        disabledReason: stringValue(control.disabled_reason, control.disabledReason) || null,
+      };
+    })
+    .filter((item): item is FlowDashboardRunnerCancellationControl => item !== null);
+
+  if (controls.length === 0) {
+    return null;
+  }
+
+  const draftRecord =
+    report.draft && typeof report.draft === "object"
+      ? (report.draft as Record<string, unknown>)
+      : {};
+
+  return {
+    stateJson: stringValue(report.state_json, report.stateJson),
+    recordCount: numberValue(report.record_count, report.recordCount),
+    activeCount: numberValue(report.active_count, report.activeCount),
+    staleCount: numberValue(report.stale_count, report.staleCount),
+    denialCount: numberValue(report.denial_count, report.denialCount),
+    controls,
+    draft: {
+      storageKey:
+        stringValue(draftRecord.storage_key, draftRecord.storageKey) ||
+        "flow.dashboard.runnerCancellationDrafts",
+      defaultReason:
+        stringValue(draftRecord.default_reason, draftRecord.defaultReason) ||
+        "Operator reviewed live runner state",
+      autosaveHint:
+        stringValue(draftRecord.autosave_hint, draftRecord.autosaveHint) ||
+        "Cancellation and retry reasons are remembered locally in this browser only.",
+    },
+    guidance: arrayValue(report.guidance)
+      .map((item) => stringValue(item))
+      .filter(Boolean),
+  };
+}
+
+export function buildTrustedHostRunnerCancellationUx(
+  liveState: FlowDashboardLiveRunnerState,
+): FlowDashboardRunnerCancellationUxReport | null {
+  const inputDir = liveState.stateJson.replace(/[\\/][^\\/]*$/, "") || "tmp/friday-dashboard";
+  const controls = liveState.records.flatMap((record) => {
+    const historyJson = record.historyJson || `${inputDir}/trusted-host-runner-history.json`;
+    const bridgePrefix = `flow --friday-trusted-host-bridge-runner ${inputDir} --action-id ${record.actionId} --state ${liveState.stateJson} --history ${historyJson}`;
+    const recordControls: FlowDashboardRunnerCancellationControl[] = [];
+
+    if (record.status === "pending" || record.status === "running") {
+      recordControls.push({
+        id: `cancel-${record.jobId}`,
+        jobId: record.jobId,
+        actionId: record.actionId,
+        kind: "cancel",
+        label: `Cancel ${record.label}`,
+        command: `${bridgePrefix} --cancel --reason "<cancel reason>"`,
+        detail: "Stops this live trusted runner before another command is approved.",
+        requiresReason: true,
+        disabled: !record.localOnly,
+        disabledReason: record.localOnly
+          ? null
+          : "Only local trusted runner records can be cancelled here.",
+      });
+    }
+
+    if (record.status === "stale") {
+      recordControls.push({
+        id: `cleanup-${record.jobId}`,
+        jobId: record.jobId,
+        actionId: record.actionId,
+        kind: "cleanup-stale",
+        label: `Clean up ${record.label}`,
+        command: `flow --friday-trusted-host-live-state ${liveState.stateJson} --history ${historyJson}`,
+        detail: "Refreshes the live state file so stale runner records stop looking active.",
+        requiresReason: false,
+        disabled: false,
+        disabledReason: null,
+      });
+      recordControls.push({
+        id: `retry-stale-${record.jobId}`,
+        jobId: record.jobId,
+        actionId: record.actionId,
+        kind: "retry",
+        label: `Retry ${record.label}`,
+        command: `${bridgePrefix} --approve --execute --reason "<retry reason>"`,
+        detail: "Retries the action through the bridge after stale state has been reviewed.",
+        requiresReason: true,
+        disabled: false,
+        disabledReason: null,
+      });
+    }
+
+    if (record.status === "denied") {
+      recordControls.push({
+        id: `recover-denied-${record.jobId}`,
+        jobId: record.jobId,
+        actionId: record.actionId,
+        kind: "denial-recovery",
+        label: `Recover ${record.label}`,
+        command: `${bridgePrefix} --approve --execute --reason "<denial recovery reason>"`,
+        detail: "Approves and reruns this denied command with an explicit correction reason.",
+        requiresReason: true,
+        disabled: false,
+        disabledReason: null,
+      });
+    }
+
+    return recordControls;
+  });
+
+  if (controls.length === 0) {
+    return null;
+  }
+
+  return {
+    stateJson: liveState.stateJson,
+    recordCount: liveState.recordCount,
+    activeCount: liveState.pendingCount + liveState.runningCount,
+    staleCount: liveState.staleCount,
+    denialCount: liveState.records.filter((record) => record.status === "denied").length,
+    controls,
+    draft: {
+      storageKey: "flow.dashboard.runnerCancellationDrafts",
+      defaultReason: "Operator reviewed live runner state",
+      autosaveHint: "Cancellation and retry reasons are remembered locally in this browser only.",
+    },
+    guidance: [
+      "Cancel active live records before approving another command for the same action.",
+      "Clean up stale live records, then retry from a fresh bridge import if the action still matters.",
+      "Denial recovery always requires a short operator reason so the audit trail explains the correction.",
+    ],
   };
 }
 

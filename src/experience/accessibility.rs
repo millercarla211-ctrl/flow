@@ -138,8 +138,7 @@ impl FlowAccessibilityRuntime {
         }
         if !self.available {
             actions.push(
-                "Install or expose the native automation tools required for this host."
-                    .to_string(),
+                "Install or expose the native automation tools required for this host.".to_string(),
             );
         }
         if self.os.is_desktop() && !ready_for_selection_rewrite {
@@ -150,7 +149,8 @@ impl FlowAccessibilityRuntime {
         }
         if self.os.is_desktop() && !ready_for_shortcuts {
             actions.push(
-                "Fix shortcut dispatch support before enabling global command shortcuts.".to_string(),
+                "Fix shortcut dispatch support before enabling global command shortcuts."
+                    .to_string(),
             );
         }
         if self.os.is_desktop() && self.available && !self.is_full() {

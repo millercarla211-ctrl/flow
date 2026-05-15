@@ -445,7 +445,8 @@ pub fn friday_dashboard_panel_from_export(
         read_json_file(&manifest.execution_handoffs_json)?;
     let completion: CompletionSet = read_json_file(&manifest.completion_json)?;
     let screenshot_history = friday_dashboard_screenshot_history(&route_visuals);
-    let export_history = read_dashboard_export_history(&dashboard_history_path(&manifest, export_dir))?;
+    let export_history =
+        read_dashboard_export_history(&dashboard_history_path(&manifest, export_dir))?;
     let release_review = read_release_review_handoff(
         &release_review_path(&manifest, export_dir),
         &manifest,
@@ -517,7 +518,8 @@ pub fn friday_dashboard_release_review_from_export(
     let route_visuals: FridayRouteVisualReport = read_json_file(&manifest.route_visuals_json)?;
     let completion: CompletionSet = read_json_file(&manifest.completion_json)?;
     let screenshot_history = friday_dashboard_screenshot_history(&route_visuals);
-    let export_history = read_dashboard_export_history(&dashboard_history_path(&manifest, export_dir))?;
+    let export_history =
+        read_dashboard_export_history(&dashboard_history_path(&manifest, export_dir))?;
     read_release_review_handoff(
         &release_review_path(&manifest, export_dir),
         &manifest,
@@ -691,7 +693,10 @@ fn release_review_card(
         "Release Review",
         handoff.status,
         percentage(handoff.ready_count, handoff.total_count),
-        format!("{}/{} checks ready", handoff.ready_count, handoff.total_count),
+        format!(
+            "{}/{} checks ready",
+            handoff.ready_count, handoff.total_count
+        ),
         handoff.summary.clone(),
         &manifest.release_review_json,
         vec![action(
@@ -1033,7 +1038,10 @@ fn read_dashboard_export_history(history_path: &Path) -> Result<FridayDashboardE
     if history_path.exists() {
         read_json_file(history_path)
     } else {
-        Ok(dashboard_export_history_from_records(history_path, Vec::new()))
+        Ok(dashboard_export_history_from_records(
+            history_path,
+            Vec::new(),
+        ))
     }
 }
 
@@ -1058,10 +1066,7 @@ fn read_release_review_handoff(
     }
 }
 
-fn dashboard_history_path(
-    manifest: &FridayDashboardExportManifest,
-    export_dir: &Path,
-) -> PathBuf {
+fn dashboard_history_path(manifest: &FridayDashboardExportManifest, export_dir: &Path) -> PathBuf {
     if manifest.dashboard_history_json.trim().is_empty() {
         export_dir.join("dashboard-history.json")
     } else {
@@ -1069,10 +1074,7 @@ fn dashboard_history_path(
     }
 }
 
-fn release_review_path(
-    manifest: &FridayDashboardExportManifest,
-    export_dir: &Path,
-) -> PathBuf {
+fn release_review_path(manifest: &FridayDashboardExportManifest, export_dir: &Path) -> PathBuf {
     if manifest.release_review_json.trim().is_empty() {
         export_dir.join("release-review.json")
     } else {
@@ -1241,7 +1243,12 @@ fn release_review_links(
         release_review_link("summary", "Summary", "markdown", &manifest.summary_markdown),
         release_review_link("todo", "TODO", "markdown", "TODO.md"),
         release_review_link("changelog", "Changelog", "markdown", "CHANGELOG.md"),
-        release_review_link("completion", "Completion", "json", &manifest.completion_json),
+        release_review_link(
+            "completion",
+            "Completion",
+            "json",
+            &manifest.completion_json,
+        ),
         release_review_link(
             "route-visuals",
             "Route visuals",

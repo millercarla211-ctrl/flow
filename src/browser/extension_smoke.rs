@@ -167,7 +167,12 @@ pub fn browser_extension_launch_smoke_report(
     timeout_ms: u64,
 ) -> BrowserExtensionLaunchReport {
     let root = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    browser_extension_launch_smoke_report_for_root(root, &default_install_probes(), execute, timeout_ms)
+    browser_extension_launch_smoke_report_for_root(
+        root,
+        &default_install_probes(),
+        execute,
+        timeout_ms,
+    )
 }
 
 pub fn browser_extension_smoke_report_for_root(
@@ -446,8 +451,7 @@ fn target_specs() -> Vec<BrowserExtensionTargetSpec> {
                 || cfg!(target_os = "macos")
                 || cfg!(target_os = "linux"),
             candidates: chrome_candidates(),
-            launch_command_hint:
-                "chrome --user-data-dir <tmp-profile> --disable-extensions-except <dist/chromium> --load-extension <dist/chromium>",
+            launch_command_hint: "chrome --user-data-dir <tmp-profile> --disable-extensions-except <dist/chromium> --load-extension <dist/chromium>",
             next_action: "Install Chrome or point the smoke runner at chrome.exe, then run the packaged extension launch check.",
         },
         BrowserExtensionTargetSpec {
@@ -459,8 +463,7 @@ fn target_specs() -> Vec<BrowserExtensionTargetSpec> {
                 || cfg!(target_os = "macos")
                 || cfg!(target_os = "linux"),
             candidates: edge_candidates(),
-            launch_command_hint:
-                "msedge --user-data-dir <tmp-profile> --disable-extensions-except <dist/chromium> --load-extension <dist/chromium>",
+            launch_command_hint: "msedge --user-data-dir <tmp-profile> --disable-extensions-except <dist/chromium> --load-extension <dist/chromium>",
             next_action: "Install Edge or point the smoke runner at msedge.exe, then run the packaged extension launch check.",
         },
         BrowserExtensionTargetSpec {
@@ -482,8 +485,7 @@ fn target_specs() -> Vec<BrowserExtensionTargetSpec> {
             extension_target: "safari",
             platform_supported: cfg!(target_os = "macos"),
             candidates: safari_candidates(),
-            launch_command_hint:
-                "xcrun safari-web-extension-converter dist/safari --project-location <tmp>",
+            launch_command_hint: "xcrun safari-web-extension-converter dist/safari --project-location <tmp>",
             next_action: "Run the Safari smoke on macOS with Safari developer tools enabled.",
         },
     ]
@@ -629,10 +631,7 @@ fn smoke_target(
         format!("dist_ready={}", yes_no(dist_ready)),
         format!("package_ready={}", yes_no(package_ready)),
         format!("platform_supported={}", yes_no(platform_supported)),
-        format!(
-            "browser_detected={}",
-            yes_no(detected_executable.is_some())
-        ),
+        format!("browser_detected={}", yes_no(detected_executable.is_some())),
     ];
     evidence.extend(
         required_dist_files(spec.extension_target)
@@ -757,7 +756,11 @@ fn edge_candidates() -> Vec<String> {
 
 fn firefox_candidates() -> Vec<String> {
     let mut candidates = Vec::new();
-    push_env_path(&mut candidates, "PROGRAMFILES", "Mozilla Firefox/firefox.exe");
+    push_env_path(
+        &mut candidates,
+        "PROGRAMFILES",
+        "Mozilla Firefox/firefox.exe",
+    );
     push_env_path(
         &mut candidates,
         "PROGRAMFILES(X86)",

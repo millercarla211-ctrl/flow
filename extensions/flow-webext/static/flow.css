@@ -300,6 +300,44 @@ p {
   color: #ffc5bb;
 }
 
+.runner-cancellation-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.runner-cancellation-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.runner-cancellation-control {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+}
+
+.runner-cancellation-control small {
+  display: block;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.runner-cancellation-control textarea {
+  min-height: 58px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  padding: 10px;
+}
+
 .dashboard-rail {
   display: grid;
   gap: 14px;

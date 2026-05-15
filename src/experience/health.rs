@@ -86,9 +86,7 @@ impl FlowHealthReport {
                     "Host is snoozed and will resume in about {} ms.",
                     remaining_ms
                 ),
-                (None, None) => {
-                    "Host is paused and requires an explicit resume.".to_string()
-                }
+                (None, None) => "Host is paused and requires an explicit resume.".to_string(),
             };
             issues.push(FlowHealthIssue {
                 severity: FlowHealthSeverity::Info,

@@ -178,10 +178,7 @@ impl FlowReleaseSummary {
 
         lines.push(String::new());
         lines.push("## Active Completion Loop".to_string());
-        lines.push(format!(
-            "- set: `{}`",
-            self.active_completion_set
-        ));
+        lines.push(format!("- set: `{}`", self.active_completion_set));
         lines.push(format!(
             "- score: `{}/{}`",
             self.completion_score_out_of_100, self.completion_target_score_out_of_100

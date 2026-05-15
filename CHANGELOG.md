@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Desktop Runner Cancellation UX at 100/100 with typed cancellation/recovery controls, active cancel commands, stale cleanup/retry guidance, denial recovery copy, dashboard-side persisted operator reasons, CLI/JSON cancellation UX reports, and focused Rust/TypeScript coverage
+- opened Friday Trusted Runner Operator Review as the next set for filterable audit history, release-gate summaries, incident notes, and dashboard review controls
 - completed Friday Desktop Runner Bridge at 100/100 with pending/running/finished bridge events, live-state writes around execution, cancellation-token plumbing, bridge JSON import guidance, CLI/JSON bridge runner commands, and focused cancellation-boundary tests
 - opened Friday Desktop Runner Cancellation UX as the next set for visible cancellation, stale cleanup, retry, and denial recovery controls
 - completed Friday Live Runner State at 100/100 with typed pending/running/finished/stale live records, local state read/write commands, dashboard live-state rendering, stale recovery copy, and focused Rust/TypeScript coverage

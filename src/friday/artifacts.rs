@@ -296,15 +296,11 @@ impl FridayArtifactStore {
         &mut self,
         metadata: FridayMultimodalArtifactMetadata,
     ) -> bool {
-        if let Some(existing) = self
-            .multimodal_metadata
-            .iter_mut()
-            .find(|existing| {
-                existing.artifact_id == metadata.artifact_id
-                    && existing.request_kind == metadata.request_kind
-                    && existing.source_uri == metadata.source_uri
-            })
-        {
+        if let Some(existing) = self.multimodal_metadata.iter_mut().find(|existing| {
+            existing.artifact_id == metadata.artifact_id
+                && existing.request_kind == metadata.request_kind
+                && existing.source_uri == metadata.source_uri
+        }) {
             *existing = metadata;
             false
         } else {
@@ -655,7 +651,8 @@ mod tests {
         assert!(store.index_multimodal_metadata(metadata.clone()));
         assert!(!store.index_multimodal_metadata(metadata));
         assert_eq!(
-            store.multimodal_metadata_for_artifact("research-answer-draft")
+            store
+                .multimodal_metadata_for_artifact("research-answer-draft")
                 .len(),
             1
         );

@@ -28,7 +28,11 @@ use crate::experience::{
 };
 use crate::friday::{
     FridayArtifactStore, FridayFeatureStatus, FridayResearchReport, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
+    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
+    FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
+    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult, FridayTrustedHostRunnerUxReport,
+    FridayUiIntegrationStatus, FridayWorkspaceStore, append_friday_trusted_host_runner_history,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
     export_friday_dashboard_bundle, friday_answer_search_plan,
@@ -39,13 +43,11 @@ use crate::friday::{
     friday_operator_readiness_report, friday_research_search_plan, friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
+    friday_trusted_host_runner_cancellation_ux_report_from_state_file,
     friday_trusted_host_runner_ux_report_from_history_file, run_friday_ocr_smoke,
-    run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command, run_friday_vlm_contract,
-    append_friday_trusted_host_runner_history, write_friday_trusted_host_live_runner_state,
-    run_friday_trusted_host_command_bridge, FridayTrustedHostLiveRunnerState,
-    FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
-    FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerRequest,
-    FridayTrustedHostRunnerResult, FridayTrustedHostRunnerUxReport,
+    run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
+    run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
+    write_friday_trusted_host_live_runner_state,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -605,6 +607,20 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayTrustedHostRunnerCancellationUx { state_file } => {
+            let report = friday_trusted_host_runner_cancellation_ux_report_from_state_file(
+                resolve_repo_relative_path(&state_file),
+            )?;
+            print_friday_trusted_host_runner_cancellation_ux_report(&report);
+        }
+
+        Command::FridayTrustedHostRunnerCancellationUxJson { state_file } => {
+            let report = friday_trusted_host_runner_cancellation_ux_report_from_state_file(
+                resolve_repo_relative_path(&state_file),
+            )?;
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1072,13 +1088,21 @@ fn print_interactive_help() {
     println!("                           Show trusted runner approval modal contract");
     println!("  --friday-trusted-host-runner-approval-ui-json [history-file]");
     println!("                           Print trusted runner approval modal contract as JSON");
+    println!("  --friday-trusted-host-runner-cancellation-ux [state-file]");
+    println!("                           Show live runner cancellation and recovery controls");
+    println!("  --friday-trusted-host-runner-cancellation-ux-json [state-file]");
+    println!("                           Print live runner cancellation controls as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
     println!("                           Print trusted runner live state as JSON");
-    println!("  --friday-trusted-host-bridge-runner [dir] [--action-id id] [--approve] [--execute]");
+    println!(
+        "  --friday-trusted-host-bridge-runner [dir] [--action-id id] [--approve] [--execute]"
+    );
     println!("                           Run a trusted host command through the live-state bridge");
-    println!("  --friday-trusted-host-bridge-runner-json [dir] [--action-id id] [--approve] [--execute]");
+    println!(
+        "  --friday-trusted-host-bridge-runner-json [dir] [--action-id id] [--approve] [--execute]"
+    );
     println!("                           Print trusted host bridge runner events as JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
@@ -1871,7 +1895,10 @@ fn run_friday_trusted_host_runner_command(
         ..Default::default()
     };
     let result = run_friday_trusted_host_command(record, &request);
-    append_friday_trusted_host_runner_history(resolve_repo_relative_path(history_file), result.clone())?;
+    append_friday_trusted_host_runner_history(
+        resolve_repo_relative_path(history_file),
+        result.clone(),
+    )?;
     Ok(result)
 }
 
@@ -1885,12 +1912,14 @@ fn print_friday_trusted_host_runner_result(result: &FridayTrustedHostRunnerResul
     println!("Cancelled: {}", yes_no(result.cancelled));
     println!(
         "Reason: {}",
-        result
-            .operator_reason
-            .as_deref()
-            .unwrap_or("not recorded")
+        result.operator_reason.as_deref().unwrap_or("not recorded")
     );
-    println!("Exit code: {}", result.exit_code.map_or("n/a".to_string(), |code| code.to_string()));
+    println!(
+        "Exit code: {}",
+        result
+            .exit_code
+            .map_or("n/a".to_string(), |code| code.to_string())
+    );
     println!(
         "Duration: {}ms / timeout {}ms",
         result.duration_ms, result.timeout_ms
@@ -1898,12 +1927,20 @@ fn print_friday_trusted_host_runner_result(result: &FridayTrustedHostRunnerResul
     println!(
         "Stdout: {}{}",
         result.stdout_summary,
-        if result.stdout_truncated { " [truncated]" } else { "" }
+        if result.stdout_truncated {
+            " [truncated]"
+        } else {
+            ""
+        }
     );
     println!(
         "Stderr: {}{}",
         result.stderr_summary,
-        if result.stderr_truncated { " [truncated]" } else { "" }
+        if result.stderr_truncated {
+            " [truncated]"
+        } else {
+            ""
+        }
     );
 }
 
@@ -1998,13 +2035,48 @@ fn print_friday_trusted_host_runner_approval_ui_report(
     println!("Release review: {}", report.release_review_path);
 }
 
+fn print_friday_trusted_host_runner_cancellation_ux_report(
+    report: &FridayTrustedHostRunnerCancellationUxReport,
+) {
+    println!("Friday Runner Cancellation UX");
+    println!("=============================");
+    println!("State: {}", report.state_json);
+    println!(
+        "Records: {} | active: {} | stale: {} | denied: {}",
+        report.record_count, report.active_count, report.stale_count, report.denial_count
+    );
+    println!("Drafts: {}", report.draft.autosave_hint);
+    println!();
+    println!("Guidance:");
+    for item in &report.guidance {
+        println!("  - {}", item);
+    }
+    println!();
+    println!("Controls:");
+    for control in &report.controls {
+        println!(
+            "  - {} ({}, reason: {}, disabled: {})",
+            control.label,
+            control.kind,
+            yes_no(control.requires_reason),
+            yes_no(control.disabled)
+        );
+        println!("    command: {}", control.command);
+        println!("    {}", control.detail);
+        if let Some(reason) = &control.disabled_reason {
+            println!("    disabled: {}", reason);
+        }
+    }
+}
+
 fn run_friday_trusted_host_live_state_command(
     state_file: &str,
     history_file: &str,
 ) -> Result<FridayTrustedHostLiveRunnerState> {
     let state_path = resolve_repo_relative_path(state_file);
     let history_path = resolve_repo_relative_path(history_file);
-    let state = friday_trusted_host_live_runner_state_from_history_file(&history_path, &state_path)?;
+    let state =
+        friday_trusted_host_live_runner_state_from_history_file(&history_path, &state_path)?;
     write_friday_trusted_host_live_runner_state(&state_path, state.records.clone())
 }
 
@@ -2084,9 +2156,7 @@ fn run_friday_trusted_host_bridge_runner_command(
     )
 }
 
-fn print_friday_trusted_host_bridge_runner_report(
-    report: &FridayTrustedHostRunnerBridgeReport,
-) {
+fn print_friday_trusted_host_bridge_runner_report(report: &FridayTrustedHostRunnerBridgeReport) {
     println!("Friday Trusted Host Bridge Runner");
     println!("=================================");
     println!("State: {}", report.state_json);
@@ -2096,11 +2166,7 @@ fn print_friday_trusted_host_bridge_runner_report(
     println!("Guidance: {}", report.dashboard_import_guidance);
     println!();
     for event in &report.events {
-        println!(
-            "  - [{}] {}",
-            event.status.label(),
-            event.message
-        );
+        println!("  - [{}] {}", event.status.label(), event.message);
         println!("    state: {}", event.state_json);
         println!("    command: {}", event.record.command);
     }

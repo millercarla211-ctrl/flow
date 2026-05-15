@@ -165,16 +165,12 @@ mod tests {
         );
 
         assert!(execution.is_some());
-        assert!(
-            context.audit.entries().iter().any(|entry| {
-                entry.capability == ControlCapability::ReadSelection && entry.approved
-            })
-        );
-        assert!(
-            context.audit.entries().iter().any(|entry| {
-                entry.capability == ControlCapability::ReplaceSelection
-                    && entry.description == "Replace selection through automation bridge."
-            })
-        );
+        assert!(context.audit.entries().iter().any(|entry| {
+            entry.capability == ControlCapability::ReadSelection && entry.approved
+        }));
+        assert!(context.audit.entries().iter().any(|entry| {
+            entry.capability == ControlCapability::ReplaceSelection
+                && entry.description == "Replace selection through automation bridge."
+        }));
     }
 }

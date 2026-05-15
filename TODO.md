@@ -358,14 +358,32 @@ This set is complete. The next loop should open `Friday Desktop Runner Cancellat
 
 ## Next Set: Friday Desktop Runner Cancellation UX
 
-Status: 0/100
+Status: 100/100
 
 Goal: make live trusted-runner cancellation and recovery obvious in the dashboard so operators can stop, clean up, retry, or deny work without guessing which JSON import is authoritative.
 
+### Completed To Reach 100/100
+
+- [x] Add visible cancellation controls for active live runner records.
+- [x] Add stale cleanup and retry guidance linked to bridge events.
+- [x] Add denial recovery copy for approval mistakes.
+- [x] Persist dashboard-side cancellation draft state.
+- [x] Add focused smoke/tests for cancellation and stale cleanup UI.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Trusted Runner Operator Review` and make local command audit review, filtering, export, and release gating feel production-ready.
+
+## Next Set: Friday Trusted Runner Operator Review
+
+Status: 0/100
+
+Goal: make trusted runner audit review useful after many local commands by giving operators filterable history, export-ready incident notes, release-gate summaries, and clear escalation paths.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add visible cancellation controls for active live runner records.
-- [ ] Add stale cleanup and retry guidance linked to bridge events.
-- [ ] Add denial recovery copy for approval mistakes.
-- [ ] Persist dashboard-side cancellation draft state.
-- [ ] Add focused smoke/tests for cancellation and stale cleanup UI.
+- [ ] Add typed trusted-runner review filters for status, action, and time window.
+- [ ] Add release-gate summaries that highlight blocked, failed, timed-out, cancelled, denied, and stale runner work.
+- [ ] Add export-ready incident notes for failed or unsafe command attempts.
+- [ ] Add dashboard rendering for the review filters and release-gate summaries.
+- [ ] Add focused Rust/TypeScript coverage for trusted-runner review filtering and release-gate copy.

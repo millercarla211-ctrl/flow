@@ -20,37 +20,34 @@ use flow::experience::{
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
-    FridayDashboardActionKind, FridayDashboardHostApprovalState,
-    FridayDashboardHostCommandStatus, FridayDashboardPanelStatus, FridayDashboardScreenshotStatus,
-    FridayExecutionHandoffStatus,
-    FridayLiveUiBindingStatus, FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind,
-    FridayMultimodalRouteStatus, FridayMultimodalSurface, FridayOperatorReadinessStatus,
-    FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
-    FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor,
-    FridayTrustedHostCommandRawOutput, FridayTrustedHostLiveRunnerRecord,
-    FridayTrustedHostLiveRunnerStatus, FridayTrustedHostRunnerCancellationToken,
-    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
-    FridayUiStateKind, FridayUiStateTone,
+    FridayDashboardActionKind, FridayDashboardHostApprovalState, FridayDashboardHostCommandStatus,
+    FridayDashboardPanelStatus, FridayDashboardProductUiSmokeStatus,
+    FridayDashboardScreenshotStatus, FridayExecutionHandoffStatus, FridayLiveUiBindingStatus,
+    FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
+    FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
+    FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
+    FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
+    FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
+    FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerRequest,
+    FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
     FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
-    default_friday_browser_verification_report, default_friday_local_execution_checks,
-    default_friday_product_plan, default_friday_ui_integration_plan,
-    export_friday_dashboard_bundle, friday_dashboard_export_history_from_export,
-    friday_dashboard_host_command_bridge_from_export,
+    append_friday_trusted_host_runner_history, default_friday_browser_verification_report,
+    default_friday_local_execution_checks, default_friday_product_plan,
+    default_friday_ui_integration_plan, export_friday_dashboard_bundle,
+    friday_dashboard_export_history_from_export, friday_dashboard_host_command_bridge_from_export,
     friday_dashboard_host_command_record_from_action, friday_dashboard_panel_from_export,
-    friday_dashboard_product_ui_binding_from_export,
-    friday_dashboard_product_ui_smoke_from_export, FridayDashboardProductUiSmokeStatus,
+    friday_dashboard_product_ui_binding_from_export, friday_dashboard_product_ui_smoke_from_export,
     friday_dashboard_release_review_from_export, friday_dashboard_screenshot_history,
-    friday_execution_handoff_report,
-    friday_live_ui_route_binding_report,
-    friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
-    friday_multimodal_visual_check, friday_operator_readiness_report, friday_route_visual_report,
-    friday_route_visual_report_for_root, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    friday_trusted_host_live_runner_state_from_history,
-    friday_trusted_host_runner_approval_ui_report, friday_trusted_host_runner_ux_report,
-    run_friday_trusted_host_command_bridge_with_executor,
-    read_friday_trusted_host_live_runner_state, refresh_friday_trusted_host_live_runner_state,
+    friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
+    friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
+    friday_operator_readiness_report, friday_route_visual_report,
+    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
+    friday_trusted_host_runner_approval_ui_report,
+    friday_trusted_host_runner_cancellation_ux_report, friday_trusted_host_runner_ux_report,
+    read_friday_trusted_host_live_runner_state, read_friday_trusted_host_runner_history,
+    refresh_friday_trusted_host_live_runner_state, run_friday_ocr_smoke,
+    run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command_bridge_with_executor,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
-    append_friday_trusted_host_runner_history, read_friday_trusted_host_runner_history,
     write_friday_trusted_host_live_runner_state,
 };
 use flow::long_context::RlmBridge;
@@ -595,9 +592,11 @@ fn friday_ui_plan_wires_remaining_store_backed_routes() {
     }
 
     let multimodal = plan.route(flow::FridayWorkspaceArea::Multimodal).unwrap();
-    assert!(multimodal
-        .primary_command
-        .contains("--friday-multimodal-diagnostics"));
+    assert!(
+        multimodal
+            .primary_command
+            .contains("--friday-multimodal-diagnostics")
+    );
 }
 
 #[test]
@@ -636,8 +635,14 @@ fn friday_ocr_smoke_writes_artifact_record() {
     assert_eq!(report.artifact.current_checkpoint_id, report.checkpoint.id);
     assert_eq!(report.checkpoint.artifact_id, report.artifact.id);
     assert_eq!(report.metadata.artifact_id, report.artifact.id);
-    assert_eq!(report.metadata.request_kind, FridayMultimodalRequestKind::Ocr);
-    assert_eq!(report.artifact.preview_runner, FridayPreviewRunner::Markdown);
+    assert_eq!(
+        report.metadata.request_kind,
+        FridayMultimodalRequestKind::Ocr
+    );
+    assert_eq!(
+        report.artifact.preview_runner,
+        FridayPreviewRunner::Markdown
+    );
 
     let _ = fs::remove_dir_all(&root);
 }
@@ -659,8 +664,14 @@ fn friday_vlm_contract_writes_model_boundary_artifact() {
     assert_eq!(report.artifact.current_checkpoint_id, report.checkpoint.id);
     assert_eq!(report.checkpoint.artifact_id, report.artifact.id);
     assert_eq!(report.metadata.artifact_id, report.artifact.id);
-    assert_eq!(report.metadata.request_kind, FridayMultimodalRequestKind::Vlm);
-    assert_eq!(report.artifact.preview_runner, FridayPreviewRunner::Markdown);
+    assert_eq!(
+        report.metadata.request_kind,
+        FridayMultimodalRequestKind::Vlm
+    );
+    assert_eq!(
+        report.artifact.preview_runner,
+        FridayPreviewRunner::Markdown
+    );
 
     let _ = fs::remove_dir_all(&root);
 }
@@ -673,10 +684,12 @@ fn friday_multimodal_routes_keep_local_first_boundaries() {
     assert!(ocr.selected.unwrap().command.contains("--friday-ocr-smoke"));
 
     let audio = friday_multimodal_route(FridayMultimodalRequestKind::Audio, false);
-    assert!(audio
-        .fallbacks
-        .iter()
-        .any(|route| route.model_key == "kokoro-int8"));
+    assert!(
+        audio
+            .fallbacks
+            .iter()
+            .any(|route| route.model_key == "kokoro-int8")
+    );
 
     let image = friday_multimodal_route(FridayMultimodalRequestKind::Image, true);
     assert_eq!(image.status, FridayMultimodalRouteStatus::Planned);
@@ -691,19 +704,25 @@ fn friday_multimodal_diagnostics_connect_ocr_and_vlm_outputs() {
 
     assert_eq!(diagnostics.area, flow::FridayWorkspaceArea::Multimodal);
     assert!(diagnostics.score_out_of_100 >= 60);
-    assert!(diagnostics
-        .items
-        .iter()
-        .any(|item| item.command.contains("--friday-ocr-smoke")
-            && item.status == FridayMultimodalDiagnosticStatus::Ready));
-    assert!(diagnostics
-        .items
-        .iter()
-        .any(|item| item.command.contains("--friday-vlm-contract")));
-    assert!(diagnostics
-        .items
-        .iter()
-        .any(|item| item.artifact_output.contains("metadata")));
+    assert!(
+        diagnostics
+            .items
+            .iter()
+            .any(|item| item.command.contains("--friday-ocr-smoke")
+                && item.status == FridayMultimodalDiagnosticStatus::Ready)
+    );
+    assert!(
+        diagnostics
+            .items
+            .iter()
+            .any(|item| item.command.contains("--friday-vlm-contract"))
+    );
+    assert!(
+        diagnostics
+            .items
+            .iter()
+            .any(|item| item.artifact_output.contains("metadata"))
+    );
 }
 
 #[test]
@@ -731,15 +750,15 @@ fn friday_screenshot_vlm_handoff_accepts_local_image_file() {
 fn friday_media_affordances_include_image_and_video_paths() {
     let affordances = friday_media_affordances();
 
-    assert!(affordances
-        .iter()
-        .any(|item| item.request_kind == FridayMultimodalRequestKind::Image
-            && item.install_command.contains("--models image")));
-    assert!(affordances
-        .iter()
-        .any(|item| item.request_kind == FridayMultimodalRequestKind::Video
+    assert!(affordances.iter().any(
+        |item| item.request_kind == FridayMultimodalRequestKind::Image
+            && item.install_command.contains("--models image")
+    ));
+    assert!(affordances.iter().any(
+        |item| item.request_kind == FridayMultimodalRequestKind::Video
             && item.run_command.contains("--plan video")
-            && !item.resident));
+            && !item.resident
+    ));
 }
 
 #[test]
@@ -751,18 +770,24 @@ fn friday_multimodal_visual_check_targets_route_and_viewports() {
     assert_eq!(report.score_out_of_100, 100);
     assert_eq!(report.viewports.len(), 3);
     assert!(report.blocking_count() == 0);
-    assert!(report
-        .requirements
-        .iter()
-        .any(|requirement| requirement.id == "multimodal-diagnostic-cards"));
-    assert!(report
-        .requirements
-        .iter()
-        .any(|requirement| requirement.id == "multimodal-artifact-metadata"));
-    assert!(report
-        .requirements
-        .iter()
-        .all(|requirement| requirement.status == FridayUiVisualCheckStatus::Passed));
+    assert!(
+        report
+            .requirements
+            .iter()
+            .any(|requirement| requirement.id == "multimodal-diagnostic-cards")
+    );
+    assert!(
+        report
+            .requirements
+            .iter()
+            .any(|requirement| requirement.id == "multimodal-artifact-metadata")
+    );
+    assert!(
+        report
+            .requirements
+            .iter()
+            .all(|requirement| requirement.status == FridayUiVisualCheckStatus::Passed)
+    );
 }
 
 #[test]
@@ -804,27 +829,37 @@ fn friday_ui_routes_have_production_state_contracts() {
 fn friday_browser_gate_verifies_tracked_extension_surface() {
     let report = default_friday_browser_verification_report();
 
-    assert!(report
-        .targets
-        .iter()
-        .any(|target| target.id == "flow-webext-source"));
-    assert!(report
-        .targets
-        .iter()
-        .any(|target| target.id == "flow-webext-chromium-dist"));
-    assert!(report
-        .targets
-        .iter()
-        .any(|target| target.id == "flow-webext-firefox-artifact"));
-    assert!(report
-        .targets
-        .iter()
-        .all(|target| target.status == FridayVerificationStatus::Passed));
+    assert!(
+        report
+            .targets
+            .iter()
+            .any(|target| target.id == "flow-webext-source")
+    );
+    assert!(
+        report
+            .targets
+            .iter()
+            .any(|target| target.id == "flow-webext-chromium-dist")
+    );
+    assert!(
+        report
+            .targets
+            .iter()
+            .any(|target| target.id == "flow-webext-firefox-artifact")
+    );
+    assert!(
+        report
+            .targets
+            .iter()
+            .all(|target| target.status == FridayVerificationStatus::Passed)
+    );
     assert!(report.deploy_gate.deployment_allowed);
-    assert!(report
-        .deploy_gate
-        .required_verification_command
-        .contains("flow --friday-local-checks"));
+    assert!(
+        report
+            .deploy_gate
+            .required_verification_command
+            .contains("flow --friday-local-checks")
+    );
 }
 
 #[test]
@@ -872,9 +907,11 @@ fn friday_operator_readiness_rolls_up_live_surfaces() {
     assert!(report.items.iter().any(|item| {
         item.id == "local-execution" && item.command == "flow --friday-local-checks"
     }));
-    assert!(report.items.iter().any(|item| {
-        item.id == "browser-gate" && item.command == "flow --friday-browser-gate"
-    }));
+    assert!(
+        report.items.iter().any(|item| {
+            item.id == "browser-gate" && item.command == "flow --friday-browser-gate"
+        })
+    );
     assert!(report.items.iter().any(|item| {
         item.id == "desktop-host"
             && item
@@ -906,10 +943,7 @@ fn friday_route_visuals_cover_most_used_routes() {
             && target.source_file == "extensions/flow-webext/src/content/index.ts"
     }));
     assert!(report.targets.iter().any(|target| {
-        target.route == "/multimodal"
-            && target
-                .source_file
-                .contains("transformers-runtime.ts")
+        target.route == "/multimodal" && target.source_file.contains("transformers-runtime.ts")
     }));
 }
 
@@ -931,7 +965,9 @@ fn friday_execution_handoffs_bind_ui_actions_to_local_commands() {
         handoff.id == "voice-dictation"
             && handoff.command == "flow --dictate"
             && handoff.requires_user_gesture
-            && handoff.permission_scopes.contains(&"microphone".to_string())
+            && handoff
+                .permission_scopes
+                .contains(&"microphone".to_string())
     }));
     assert!(report.handoffs.iter().any(|handoff| {
         handoff.id == "research-report"
@@ -956,14 +992,14 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
 
     assert_eq!(
         bundle.completion.name,
-        "Friday Desktop Runner Bridge"
+        "Friday Desktop Runner Cancellation UX"
     );
     assert_eq!(bundle.completion.current_score_out_of_100, 100);
     assert_eq!(bundle.manifest.score_out_of_100, 100);
     assert_eq!(bundle.export_history.record_count, 1);
     assert_eq!(
         bundle.release_review.loop_name,
-        "Friday Desktop Runner Bridge"
+        "Friday Desktop Runner Cancellation UX"
     );
     assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
     assert!(PathBuf::from(&bundle.manifest.release_review_json).exists());
@@ -983,16 +1019,22 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
         file.path.ends_with("readiness.json") && file.kind == "operator-readiness" && file.bytes > 0
     }));
     assert!(bundle.manifest.files.iter().any(|file| {
-        file.path.ends_with("dashboard-history.json") && file.kind == "dashboard-history" && file.bytes > 0
+        file.path.ends_with("dashboard-history.json")
+            && file.kind == "dashboard-history"
+            && file.bytes > 0
     }));
     assert!(bundle.manifest.files.iter().any(|file| {
-        file.path.ends_with("release-review.json") && file.kind == "release-review" && file.bytes > 0
+        file.path.ends_with("release-review.json")
+            && file.kind == "release-review"
+            && file.bytes > 0
     }));
-    assert!(bundle
-        .manifest
-        .commands
-        .iter()
-        .any(|command| command.contains("--friday-dashboard-export")));
+    assert!(
+        bundle
+            .manifest
+            .commands
+            .iter()
+            .any(|command| command.contains("--friday-dashboard-export"))
+    );
 
     let _ = fs::remove_dir_all(&root);
 }
@@ -1003,72 +1045,77 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     export_friday_dashboard_bundle(&root).unwrap();
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
-    assert_eq!(panel.loop_name, "Friday Desktop Runner Bridge");
+    assert_eq!(panel.loop_name, "Friday Desktop Runner Cancellation UX");
     assert_eq!(panel.score_out_of_100, 100);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
     assert_eq!(panel.cards.len(), 8);
     assert!(panel.cards.iter().any(|card| {
         card.id == "completion-loop"
             && card.source_json.ends_with("completion.json")
-            && card
-                .actions
-                .iter()
-                .any(|action| action.kind == FridayDashboardActionKind::Open
+            && card.actions.iter().any(|action| {
+                action.kind == FridayDashboardActionKind::Open
                     && action.command == "flow --completion"
-                    && action.source == "completion-loop")
+                    && action.source == "completion-loop"
+            })
     }));
     assert!(panel.cards.iter().any(|card| {
         card.id == "operator-readiness"
             && card.primary_metric.contains("passed")
-            && card
-                .actions
-                .iter()
-                .any(|action| action.kind == FridayDashboardActionKind::RunCheck
-                    && action.command == "flow --friday-readiness")
-            && card
-                .actions
-                .iter()
-                .any(|action| action.kind == FridayDashboardActionKind::Recover
-                    && action.command == "flow --friday-media-affordances")
+            && card.actions.iter().any(|action| {
+                action.kind == FridayDashboardActionKind::RunCheck
+                    && action.command == "flow --friday-readiness"
+            })
+            && card.actions.iter().any(|action| {
+                action.kind == FridayDashboardActionKind::Recover
+                    && action.command == "flow --friday-media-affordances"
+            })
     }));
     assert!(panel.cards.iter().any(|card| {
         card.id == "screenshot-history"
             && card.primary_metric.contains("captures present")
-            && card
-                .actions
-                .iter()
-                .any(|action| action.kind == FridayDashboardActionKind::Capture
-                    && action.command == "flow --friday-route-visuals")
+            && card.actions.iter().any(|action| {
+                action.kind == FridayDashboardActionKind::Capture
+                    && action.command == "flow --friday-route-visuals"
+            })
     }));
     assert!(panel.cards.iter().any(|card| {
         card.id == "export-history"
             && card.source_json.ends_with("dashboard-history.json")
-            && card
-                .actions
-                .iter()
-                .any(|action| action.kind == FridayDashboardActionKind::RunCheck
-                    && action.command.contains("--friday-dashboard-export"))
+            && card.actions.iter().any(|action| {
+                action.kind == FridayDashboardActionKind::RunCheck
+                    && action.command.contains("--friday-dashboard-export")
+            })
     }));
     assert!(panel.cards.iter().any(|card| {
         card.id == "release-review"
             && card.source_json.ends_with("release-review.json")
-            && card
-                .actions
-                .iter()
-                .any(|action| action.kind == FridayDashboardActionKind::Open
-                    && action.command.contains("--friday-dashboard-panel"))
+            && card.actions.iter().any(|action| {
+                action.kind == FridayDashboardActionKind::Open
+                    && action.command.contains("--friday-dashboard-panel")
+            })
     }));
-    assert!(panel.cards.iter().flat_map(|card| &card.actions).all(|action| {
-        action.local_only && action.enabled && !action.destructive && !action.requires_confirmation
-    }));
+    assert!(
+        panel
+            .cards
+            .iter()
+            .flat_map(|card| &card.actions)
+            .all(|action| {
+                action.local_only
+                    && action.enabled
+                    && !action.destructive
+                    && !action.requires_confirmation
+            })
+    );
     assert_eq!(panel.screenshot_history.total_targets, 10);
     assert_eq!(panel.export_history.record_count, 1);
     assert_eq!(panel.export_history.score_delta_from_previous, 0);
-    assert!(panel
-        .release_review
-        .links
-        .iter()
-        .any(|link| link.path == "TODO.md"));
+    assert!(
+        panel
+            .release_review
+            .links
+            .iter()
+            .any(|link| link.path == "TODO.md")
+    );
     assert!(panel.screenshot_history.missing_count > 0);
     assert!(panel.screenshot_history.records.iter().any(|record| {
         record.status == FridayDashboardScreenshotStatus::Missing
@@ -1098,7 +1145,7 @@ fn friday_dashboard_export_history_tracks_checkpoints() {
     assert_eq!(history.score_delta_from_previous, 0);
     assert_eq!(history.readiness_delta_from_previous, 0);
     assert!(history.records.iter().all(|record| {
-        record.loop_name == "Friday Desktop Runner Bridge"
+        record.loop_name == "Friday Desktop Runner Cancellation UX"
             && record.manifest_json.ends_with("manifest.json")
     }));
 
@@ -1117,25 +1164,33 @@ fn friday_dashboard_release_review_links_release_artifacts() {
     export_friday_dashboard_bundle(&root).unwrap();
 
     let review = friday_dashboard_release_review_from_export(&root).unwrap();
-    assert_eq!(review.loop_name, "Friday Desktop Runner Bridge");
+    assert_eq!(review.loop_name, "Friday Desktop Runner Cancellation UX");
     assert_eq!(review.score_out_of_100, 100);
     assert!(review.total_count >= 6);
-    assert!(review
-        .checklist
-        .iter()
-        .any(|item| item.id == "completion-loop" && item.ready));
-    assert!(review
-        .links
-        .iter()
-        .any(|link| link.id == "changelog" && link.path == "CHANGELOG.md"));
-    assert!(review
-        .links
-        .iter()
-        .any(|link| link.id == "route-visuals" && link.path.ends_with("route-visuals.json")));
-    assert!(review
-        .commands
-        .iter()
-        .any(|command| command.contains("--friday-dashboard-panel")));
+    assert!(
+        review
+            .checklist
+            .iter()
+            .any(|item| item.id == "completion-loop" && item.ready)
+    );
+    assert!(
+        review
+            .links
+            .iter()
+            .any(|link| link.id == "changelog" && link.path == "CHANGELOG.md")
+    );
+    assert!(
+        review
+            .links
+            .iter()
+            .any(|link| link.id == "route-visuals" && link.path.ends_with("route-visuals.json"))
+    );
+    assert!(
+        review
+            .commands
+            .iter()
+            .any(|command| command.contains("--friday-dashboard-panel"))
+    );
 
     let _ = fs::remove_dir_all(&root);
 }
@@ -1151,29 +1206,40 @@ fn friday_dashboard_product_ui_binding_maps_panel_json_to_route() {
     assert_eq!(binding.score_out_of_100, 100);
     assert_eq!(binding.card_count, 8);
     assert_eq!(binding.bound_card_count, 8);
-    assert!(binding.panel_json_command.contains("--friday-dashboard-panel-json"));
+    assert!(
+        binding
+            .panel_json_command
+            .contains("--friday-dashboard-panel-json")
+    );
     assert!(binding.export_command.contains("--friday-dashboard-export"));
     assert!(binding.data_bindings.iter().any(|data_binding| {
         data_binding.id == "dashboard-panel-json"
             && data_binding.writes_to == "Friday dashboard route state"
             && data_binding.local_only
     }));
-    assert!(binding
-        .cards
-        .iter()
-        .any(|card| card.card_id == "release-review"));
+    assert!(
+        binding
+            .cards
+            .iter()
+            .any(|card| card.card_id == "release-review")
+    );
     assert_eq!(binding.history.record_count, 1);
     assert_eq!(binding.history.trend_label, "not-enough-history");
-    assert!(binding
-        .screenshot_prompts
-        .iter()
-        .any(|prompt| prompt.capture_command.contains("agent-browser screenshot")));
+    assert!(
+        binding
+            .screenshot_prompts
+            .iter()
+            .any(|prompt| prompt.capture_command.contains("agent-browser screenshot"))
+    );
     assert!(binding.release_links.iter().any(|link| {
         link.id == "changelog"
             && link.section == "release-notes"
             && link.path == "CHANGELOG.md"
             && !link.button_state.disabled
-            && link.button_state.aria_label.contains("Open dashboard action")
+            && link
+                .button_state
+                .aria_label
+                .contains("Open dashboard action")
     }));
     assert!(binding.release_links.iter().any(|link| {
         link.id == "route-visuals"
@@ -1195,7 +1261,9 @@ fn friday_dashboard_product_ui_binding_maps_panel_json_to_route() {
     }));
     assert!(binding.data_bindings.iter().any(|data_binding| {
         data_binding.id == "dashboard-host-command-bridge"
-            && data_binding.command.contains("--friday-dashboard-host-bridge-json")
+            && data_binding
+                .command
+                .contains("--friday-dashboard-host-bridge-json")
             && data_binding.local_only
     }));
 
@@ -1214,9 +1282,11 @@ fn friday_dashboard_host_command_bridge_requires_approval_and_blocks_unsafe_comm
     assert_eq!(report.awaiting_approval_count, 9);
     assert_eq!(report.blocked_count, 0);
     assert_eq!(report.audit_count, report.command_count);
-    assert!(report
-        .source_command
-        .contains("--friday-dashboard-product-ui-json"));
+    assert!(
+        report
+            .source_command
+            .contains("--friday-dashboard-product-ui-json")
+    );
     assert!(report.records.iter().all(|record| {
         record.status == FridayDashboardHostCommandStatus::AwaitingApproval
             && record.approval_state == FridayDashboardHostApprovalState::Required
@@ -1232,7 +1302,10 @@ fn friday_dashboard_host_command_bridge_requires_approval_and_blocks_unsafe_comm
     let mut remote = action.clone();
     remote.local_only = false;
     let remote_record = friday_dashboard_host_command_record_from_action(&remote, 1);
-    assert_eq!(remote_record.status, FridayDashboardHostCommandStatus::Blocked);
+    assert_eq!(
+        remote_record.status,
+        FridayDashboardHostCommandStatus::Blocked
+    );
     assert!(remote_record.blocked_reason.unwrap().contains("Remote"));
 
     let mut destructive = action.clone();
@@ -1242,10 +1315,12 @@ fn friday_dashboard_host_command_bridge_requires_approval_and_blocks_unsafe_comm
         destructive_record.approval_state,
         FridayDashboardHostApprovalState::Blocked
     );
-    assert!(destructive_record
-        .blocked_reason
-        .unwrap()
-        .contains("Destructive"));
+    assert!(
+        destructive_record
+            .blocked_reason
+            .unwrap()
+            .contains("Destructive")
+    );
 
     let mut disabled = action.clone();
     disabled.enabled = false;
@@ -1265,10 +1340,7 @@ fn friday_dashboard_host_command_bridge_requires_approval_and_blocks_unsafe_comm
         malformed_record.status,
         FridayDashboardHostCommandStatus::Blocked
     );
-    assert!(malformed_record
-        .blocked_reason
-        .unwrap()
-        .contains("empty"));
+    assert!(malformed_record.blocked_reason.unwrap().contains("empty"));
 
     let _ = fs::remove_dir_all(&root);
 }
@@ -1410,7 +1482,10 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
             output: Err("executor should not run".to_string()),
         },
     );
-    assert_eq!(malformed_denied.status, FridayTrustedHostRunnerStatus::Denied);
+    assert_eq!(
+        malformed_denied.status,
+        FridayTrustedHostRunnerStatus::Denied
+    );
     assert!(malformed_denied.stderr_summary.contains("metacharacters"));
 
     let history_path = root.join("trusted-host-runner-history.json");
@@ -1437,13 +1512,16 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert!(ux.affordances.iter().any(|affordance| {
         affordance.kind == "retry" && affordance.requires_approval && !affordance.command.is_empty()
     }));
-    assert!(ux.affordances.iter().any(|affordance| {
-        affordance.kind == "copy-command" && !affordance.disabled
-    }));
-    assert!(ux
-        .operator_notes
-        .iter()
-        .any(|note| note.release_review_path.ends_with("release-review.json")));
+    assert!(
+        ux.affordances
+            .iter()
+            .any(|affordance| { affordance.kind == "copy-command" && !affordance.disabled })
+    );
+    assert!(
+        ux.operator_notes
+            .iter()
+            .any(|note| note.release_review_path.ends_with("release-review.json"))
+    );
     let approval_ui =
         friday_trusted_host_runner_approval_ui_report(&loaded, root.join("release-review.json"));
     assert_eq!(approval_ui.modal_id, "trusted-runner-approval");
@@ -1463,17 +1541,23 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
             && !control.requires_approval
             && control.command.contains("--reason")
     }));
-    assert!(approval_ui
-        .controls
-        .iter()
-        .any(|control| control.kind == "snooze"));
-    assert!(approval_ui
-        .controls
-        .iter()
-        .any(|control| control.kind == "undo"));
-    assert!(approval_ui
-        .release_review_path
-        .ends_with("release-review.json"));
+    assert!(
+        approval_ui
+            .controls
+            .iter()
+            .any(|control| control.kind == "snooze")
+    );
+    assert!(
+        approval_ui
+            .controls
+            .iter()
+            .any(|control| control.kind == "undo")
+    );
+    assert!(
+        approval_ui
+            .release_review_path
+            .ends_with("release-review.json")
+    );
     let live_state_path = root.join("trusted-host-live-state.json");
     let live_from_history =
         friday_trusted_host_live_runner_state_from_history(&loaded, &live_state_path);
@@ -1484,7 +1568,17 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert!(live_from_history.records.iter().any(|record| {
         record.status == FridayTrustedHostLiveRunnerStatus::TimedOut
             && record.recovery_command.contains("--cancel")
-            && record.cleanup_command.contains("--friday-trusted-host-live-state")
+            && record
+                .cleanup_command
+                .contains("--friday-trusted-host-live-state")
+    }));
+    let history_cancellation_ux =
+        friday_trusted_host_runner_cancellation_ux_report(&live_from_history);
+    assert_eq!(history_cancellation_ux.denial_count, 1);
+    assert!(history_cancellation_ux.controls.iter().any(|control| {
+        control.kind == "denial-recovery"
+            && control.requires_reason
+            && control.command.contains("<denial recovery reason>")
     }));
 
     let pending = FridayTrustedHostLiveRunnerRecord {
@@ -1530,14 +1624,40 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert_eq!(live_written.pending_count, 1);
     assert_eq!(live_written.stale_count, 1);
     assert!(live_written.stale_recovery_copy.contains("Stale"));
+    let cancellation_ux = friday_trusted_host_runner_cancellation_ux_report(&live_written);
+    assert_eq!(cancellation_ux.active_count, 1);
+    assert_eq!(cancellation_ux.stale_count, 1);
+    assert!(
+        cancellation_ux
+            .draft
+            .storage_key
+            .contains("runnerCancellationDrafts")
+    );
+    assert!(cancellation_ux.controls.iter().any(|control| {
+        control.kind == "cancel"
+            && control.requires_reason
+            && control.command.contains("--cancel")
+            && control.command.contains("--state")
+    }));
+    assert!(cancellation_ux.controls.iter().any(|control| {
+        control.kind == "cleanup-stale"
+            && control.command.contains("--friday-trusted-host-live-state")
+    }));
+    assert!(cancellation_ux.controls.iter().any(|control| {
+        control.kind == "retry"
+            && control.requires_reason
+            && control.command.contains("--approve --execute")
+    }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);
     assert_eq!(live_refreshed.stale_count, 1);
-    assert!(live_refreshed
-        .records
-        .iter()
-        .any(|record| record.status == FridayTrustedHostLiveRunnerStatus::Stale));
+    assert!(
+        live_refreshed
+            .records
+            .iter()
+            .any(|record| record.status == FridayTrustedHostLiveRunnerStatus::Stale)
+    );
     let bridge_state_path = root.join("trusted-host-bridge-live-state.json");
     let bridge_history_path = root.join("trusted-host-bridge-history.json");
     let bridge_report = run_friday_trusted_host_command_bridge_with_executor(
@@ -1576,9 +1696,11 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     );
     assert_eq!(bridge_report.live_state.finished_count, 1);
     assert_eq!(bridge_report.history.result_count, 1);
-    assert!(bridge_report
-        .dashboard_import_guidance
-        .contains("live-state JSON"));
+    assert!(
+        bridge_report
+            .dashboard_import_guidance
+            .contains("live-state JSON")
+    );
 
     let cancelled_bridge = run_friday_trusted_host_command_bridge_with_executor(
         &bridge.records[0],
@@ -1600,10 +1722,12 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
         FridayTrustedHostRunnerStatus::Cancelled
     );
     assert_eq!(cancelled_bridge.event_count, 2);
-    assert!(cancelled_bridge
-        .events
-        .iter()
-        .all(|event| event.status != FridayTrustedHostLiveRunnerStatus::Running));
+    assert!(
+        cancelled_bridge
+            .events
+            .iter()
+            .all(|event| event.status != FridayTrustedHostLiveRunnerStatus::Running)
+    );
 
     let _ = fs::remove_dir_all(&root);
 }
@@ -1695,10 +1819,12 @@ fn browser_extension_smoke_report_scores_packaged_targets() {
     assert_eq!(report.blocking_count(), 0);
     assert!(report.local_only);
     assert!(!report.touches_network);
-    assert!(report
-        .targets
-        .iter()
-        .all(|target| target.status == BrowserExtensionSmokeStatus::Passed));
+    assert!(
+        report
+            .targets
+            .iter()
+            .all(|target| target.status == BrowserExtensionSmokeStatus::Passed)
+    );
 
     let _ = fs::remove_dir_all(&root);
 }
@@ -1723,22 +1849,26 @@ fn browser_extension_launch_smoke_plans_temporary_profiles() {
     assert_eq!(report.targets.len(), 4);
     assert!(report.local_only);
     assert!(!report.touches_network);
-    assert!(report
-        .targets
-        .iter()
-        .filter(|target| target.extension_target == "chromium")
-        .all(|target| target
-            .command_preview
-            .contains("--user-data-dir")));
-    assert!(report
-        .targets
-        .iter()
-        .filter(|target| target.extension_target == "chromium")
-        .all(|target| target.profile_dir.is_some()));
-    assert!(report
-        .targets
-        .iter()
-        .any(|target| target.status == BrowserExtensionSmokeStatus::Warning));
+    assert!(
+        report
+            .targets
+            .iter()
+            .filter(|target| target.extension_target == "chromium")
+            .all(|target| target.command_preview.contains("--user-data-dir"))
+    );
+    assert!(
+        report
+            .targets
+            .iter()
+            .filter(|target| target.extension_target == "chromium")
+            .all(|target| target.profile_dir.is_some())
+    );
+    assert!(
+        report
+            .targets
+            .iter()
+            .any(|target| target.status == BrowserExtensionSmokeStatus::Warning)
+    );
 
     let _ = fs::remove_dir_all(&root);
 }
@@ -1757,10 +1887,10 @@ fn browser_pack_reuse_smoke_proves_offline_cached_routing() {
             && target.local_only
             && !target.remote_allowed
             && target.files_cached == target.files_total
-            && target
-                .files
-                .iter()
-                .all(|file| file.local_url.starts_with("https://flow.browserpack.local/"))
+            && target.files.iter().all(|file| {
+                file.local_url
+                    .starts_with("https://flow.browserpack.local/")
+            })
     }));
 }
 

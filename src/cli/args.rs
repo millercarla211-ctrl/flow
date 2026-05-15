@@ -160,6 +160,10 @@ pub enum Command {
         history_file: String,
         release_review_file: String,
     },
+    /// Show trusted runner cancellation and recovery controls for live state
+    FridayTrustedHostRunnerCancellationUx { state_file: String },
+    /// Print trusted runner cancellation and recovery controls as JSON
+    FridayTrustedHostRunnerCancellationUxJson { state_file: String },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -732,6 +736,16 @@ impl Args {
                     release_review_file,
                 }
             }
+            "--friday-trusted-host-runner-cancellation-ux"
+            | "--friday-dashboard-trusted-runner-cancellation-ux" => {
+                let state_file = parse_friday_trusted_host_cancellation_ux_args(&args);
+                Command::FridayTrustedHostRunnerCancellationUx { state_file }
+            }
+            "--friday-trusted-host-runner-cancellation-ux-json"
+            | "--friday-dashboard-trusted-runner-cancellation-ux-json" => {
+                let state_file = parse_friday_trusted_host_cancellation_ux_args(&args);
+                Command::FridayTrustedHostRunnerCancellationUxJson { state_file }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -1156,7 +1170,15 @@ fn parse_friday_screenshot_vlm_args(args: &[String]) -> (String, String, Option<
 
 fn parse_friday_trusted_host_runner_args(
     args: &[String],
-) -> (String, Option<String>, bool, bool, bool, String, Option<String>) {
+) -> (
+    String,
+    Option<String>,
+    bool,
+    bool,
+    bool,
+    String,
+    Option<String>,
+) {
     let input_dir = args
         .get(2)
         .filter(|value| !value.starts_with("--"))
@@ -1182,7 +1204,11 @@ fn parse_friday_trusted_host_runner_args(
 
 fn parse_friday_trusted_host_runner_ux_args(args: &[String]) -> (String, String) {
     let history_file = flag_value(args, "--history")
-        .or_else(|| args.get(2).filter(|value| !value.starts_with("--")).cloned())
+        .or_else(|| {
+            args.get(2)
+                .filter(|value| !value.starts_with("--"))
+                .cloned()
+        })
         .unwrap_or_else(|| "tmp/friday-dashboard/trusted-host-runner-history.json".to_string());
     let release_review_file = flag_value(args, "--release-review")
         .unwrap_or_else(|| "tmp/friday-dashboard/release-review.json".to_string());
@@ -1199,6 +1225,14 @@ fn parse_friday_trusted_host_live_state_args(args: &[String]) -> (String, String
     let history_file = flag_value(args, "--history")
         .unwrap_or_else(|| "tmp/friday-dashboard/trusted-host-runner-history.json".to_string());
     (state_file, history_file)
+}
+
+fn parse_friday_trusted_host_cancellation_ux_args(args: &[String]) -> String {
+    args.get(2)
+        .filter(|value| !value.starts_with("--"))
+        .cloned()
+        .or_else(|| flag_value(args, "--state"))
+        .unwrap_or_else(|| "tmp/friday-dashboard/trusted-host-live-state.json".to_string())
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

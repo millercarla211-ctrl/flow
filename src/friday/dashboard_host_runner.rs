@@ -307,6 +307,45 @@ impl FridayTrustedHostLiveRunnerState {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerCancellationControl {
+    pub id: String,
+    pub job_id: String,
+    pub action_id: String,
+    pub kind: String,
+    pub label: String,
+    pub command: String,
+    pub detail: String,
+    pub requires_reason: bool,
+    pub disabled: bool,
+    pub disabled_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerCancellationDraft {
+    pub storage_key: String,
+    pub default_reason: String,
+    pub autosave_hint: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerCancellationUxReport {
+    pub state_json: String,
+    pub record_count: usize,
+    pub active_count: usize,
+    pub stale_count: usize,
+    pub denial_count: usize,
+    pub controls: Vec<FridayTrustedHostRunnerCancellationControl>,
+    pub draft: FridayTrustedHostRunnerCancellationDraft,
+    pub guidance: Vec<String>,
+}
+
+impl FridayTrustedHostRunnerCancellationUxReport {
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FridayTrustedHostRunnerCancellationToken {
     pub cancel_requested: bool,
     pub reason: Option<String>,
@@ -472,6 +511,62 @@ pub fn friday_trusted_host_runner_approval_ui_report_from_history_file(
     ))
 }
 
+pub fn friday_trusted_host_runner_cancellation_ux_report(
+    state: &FridayTrustedHostLiveRunnerState,
+) -> FridayTrustedHostRunnerCancellationUxReport {
+    let active_count = state
+        .records
+        .iter()
+        .filter(|record| record.status.is_active())
+        .count();
+    let stale_count = state
+        .records
+        .iter()
+        .filter(|record| record.status == FridayTrustedHostLiveRunnerStatus::Stale)
+        .count();
+    let denial_count = state
+        .records
+        .iter()
+        .filter(|record| record.status == FridayTrustedHostLiveRunnerStatus::Denied)
+        .count();
+    let controls = state
+        .records
+        .iter()
+        .flat_map(|record| runner_cancellation_controls(state, record))
+        .collect::<Vec<_>>();
+
+    FridayTrustedHostRunnerCancellationUxReport {
+        state_json: state.state_json.clone(),
+        record_count: state.record_count,
+        active_count,
+        stale_count,
+        denial_count,
+        controls,
+        draft: FridayTrustedHostRunnerCancellationDraft {
+            storage_key: "flow.dashboard.runnerCancellationDrafts".to_string(),
+            default_reason: "Operator reviewed live runner state".to_string(),
+            autosave_hint:
+                "Cancellation and retry reasons are remembered locally in this browser only."
+                    .to_string(),
+        },
+        guidance: vec![
+            "Cancel active live records before approving another command for the same action."
+                .to_string(),
+            "Clean up stale live records, then retry from a fresh bridge import if the action still matters."
+                .to_string(),
+            "Denial recovery always requires a short operator reason so the audit trail explains the correction."
+                .to_string(),
+        ],
+    }
+}
+
+pub fn friday_trusted_host_runner_cancellation_ux_report_from_state_file(
+    state_path: impl AsRef<Path>,
+) -> Result<FridayTrustedHostRunnerCancellationUxReport> {
+    let state = read_friday_trusted_host_live_runner_state(state_path)?;
+    Ok(friday_trusted_host_runner_cancellation_ux_report(&state))
+}
+
 pub fn read_friday_trusted_host_live_runner_state(
     state_path: impl AsRef<Path>,
 ) -> Result<FridayTrustedHostLiveRunnerState> {
@@ -486,12 +581,13 @@ pub fn read_friday_trusted_host_live_runner_state(
             state_path.display()
         )
     })?;
-    let state = serde_json::from_str::<FridayTrustedHostLiveRunnerState>(&text).with_context(|| {
-        format!(
-            "Could not parse trusted host live runner state {}",
-            state_path.display()
-        )
-    })?;
+    let state =
+        serde_json::from_str::<FridayTrustedHostLiveRunnerState>(&text).with_context(|| {
+            format!(
+                "Could not parse trusted host live runner state {}",
+                state_path.display()
+            )
+        })?;
     Ok(state)
 }
 
@@ -621,16 +717,20 @@ pub fn run_friday_trusted_host_command_bridge_with_executor(
             FridayTrustedHostLiveRunnerStatus::Running,
             "Trusted host runner is executing this bounded local command.",
         );
-        live_state = write_friday_trusted_host_live_runner_state(state_path, vec![running.clone()])?;
+        live_state =
+            write_friday_trusted_host_live_runner_state(state_path, vec![running.clone()])?;
         events.push(live_bridge_event("running", &live_state, running));
     }
 
     let result = run_friday_trusted_host_command_with_executor(record, &bridged_request, executor);
     let history = append_friday_trusted_host_runner_history(history_path, result.clone())?;
-    let finished =
-        live_record_from_result(&result, history.history_json.clone(), unix_ms());
+    let finished = live_record_from_result(&result, history.history_json.clone(), unix_ms());
     live_state = write_friday_trusted_host_live_runner_state(state_path, vec![finished.clone()])?;
-    events.push(live_bridge_event(result.status.label(), &live_state, finished));
+    events.push(live_bridge_event(
+        result.status.label(),
+        &live_state,
+        finished,
+    ));
 
     Ok(FridayTrustedHostRunnerBridgeReport {
         state_json: path_string(state_path),
@@ -757,10 +857,19 @@ pub fn read_friday_trusted_host_runner_history(
         return Ok(history_from_records(history_path, Vec::new()));
     }
 
-    let text = fs::read_to_string(history_path)
-        .with_context(|| format!("Could not read trusted host runner history {}", history_path.display()))?;
-    let history = serde_json::from_str::<FridayTrustedHostRunnerHistory>(&text)
-        .with_context(|| format!("Could not parse trusted host runner history {}", history_path.display()))?;
+    let text = fs::read_to_string(history_path).with_context(|| {
+        format!(
+            "Could not read trusted host runner history {}",
+            history_path.display()
+        )
+    })?;
+    let history =
+        serde_json::from_str::<FridayTrustedHostRunnerHistory>(&text).with_context(|| {
+            format!(
+                "Could not parse trusted host runner history {}",
+                history_path.display()
+            )
+        })?;
     Ok(history)
 }
 
@@ -883,12 +992,12 @@ fn live_record_from_bridge_record(
         local_only: record.local_only,
         approved: request.approved,
         timeout_ms: request.timeout_ms,
-        stale_after_ms: (request.timeout_ms as u128).saturating_mul(2).max(DEFAULT_STALE_AFTER_MS),
+        stale_after_ms: (request.timeout_ms as u128)
+            .saturating_mul(2)
+            .max(DEFAULT_STALE_AFTER_MS),
         created_at_unix_ms: now,
         updated_at_unix_ms: now,
-        finished_at_unix_ms: status
-            .is_finished()
-            .then_some(now),
+        finished_at_unix_ms: status.is_finished().then_some(now),
         history_json: None,
         recovery_command: live_recovery_command(&record.action_id),
         cleanup_command: live_cleanup_command(),
@@ -976,6 +1085,99 @@ fn live_cleanup_command() -> String {
         .to_string()
 }
 
+fn runner_cancellation_controls(
+    state: &FridayTrustedHostLiveRunnerState,
+    record: &FridayTrustedHostLiveRunnerRecord,
+) -> Vec<FridayTrustedHostRunnerCancellationControl> {
+    let mut controls = Vec::new();
+    let input_dir = live_runner_input_dir(&state.state_json);
+    let history_json = record
+        .history_json
+        .clone()
+        .unwrap_or_else(|| format!("{input_dir}/trusted-host-runner-history.json"));
+    let bridge_prefix = format!(
+        "flow --friday-trusted-host-bridge-runner {input_dir} --action-id {} --state {} --history {history_json}",
+        record.action_id, state.state_json
+    );
+
+    if record.status.is_active() {
+        controls.push(FridayTrustedHostRunnerCancellationControl {
+            id: format!("cancel-{}", record.job_id),
+            job_id: record.job_id.clone(),
+            action_id: record.action_id.clone(),
+            kind: "cancel".to_string(),
+            label: format!("Cancel {}", record.label),
+            command: format!("{bridge_prefix} --cancel --reason \"<cancel reason>\""),
+            detail: "Stops this live trusted runner before another command is approved."
+                .to_string(),
+            requires_reason: true,
+            disabled: !record.local_only,
+            disabled_reason: (!record.local_only)
+                .then_some("Only local trusted runner records can be cancelled here.".to_string()),
+        });
+    }
+
+    if record.status == FridayTrustedHostLiveRunnerStatus::Stale {
+        controls.push(FridayTrustedHostRunnerCancellationControl {
+            id: format!("cleanup-{}", record.job_id),
+            job_id: record.job_id.clone(),
+            action_id: record.action_id.clone(),
+            kind: "cleanup-stale".to_string(),
+            label: format!("Clean up {}", record.label),
+            command: format!(
+                "flow --friday-trusted-host-live-state {} --history {history_json}",
+                state.state_json
+            ),
+            detail: "Refreshes the live state file so stale runner records stop looking active."
+                .to_string(),
+            requires_reason: false,
+            disabled: false,
+            disabled_reason: None,
+        });
+        controls.push(FridayTrustedHostRunnerCancellationControl {
+            id: format!("retry-stale-{}", record.job_id),
+            job_id: record.job_id.clone(),
+            action_id: record.action_id.clone(),
+            kind: "retry".to_string(),
+            label: format!("Retry {}", record.label),
+            command: format!("{bridge_prefix} --approve --execute --reason \"<retry reason>\""),
+            detail: "Retries the action through the bridge after stale state has been reviewed."
+                .to_string(),
+            requires_reason: true,
+            disabled: false,
+            disabled_reason: None,
+        });
+    }
+
+    if record.status == FridayTrustedHostLiveRunnerStatus::Denied {
+        controls.push(FridayTrustedHostRunnerCancellationControl {
+            id: format!("recover-denied-{}", record.job_id),
+            job_id: record.job_id.clone(),
+            action_id: record.action_id.clone(),
+            kind: "denial-recovery".to_string(),
+            label: format!("Recover {}", record.label),
+            command: format!(
+                "{bridge_prefix} --approve --execute --reason \"<denial recovery reason>\""
+            ),
+            detail: "Approves and reruns this denied command with an explicit correction reason."
+                .to_string(),
+            requires_reason: true,
+            disabled: false,
+            disabled_reason: None,
+        });
+    }
+
+    controls
+}
+
+fn live_runner_input_dir(state_json: &str) -> String {
+    Path::new(state_json)
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .map(path_string)
+        .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+}
+
 fn runner_result(
     record: &FridayDashboardHostCommandRecord,
     request: &FridayTrustedHostRunnerRequest,
@@ -1028,7 +1230,11 @@ fn runner_approval_controls(
                 "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id {action_id} --approve --execute --reason \"<audit reason>\""
             ),
             "Approve this local command and run it through the trusted host runner.",
-            Some(("Ctrl+Enter", "Approve", "Approve and copy the approved runner command.")),
+            Some((
+                "Ctrl+Enter",
+                "Approve",
+                "Approve and copy the approved runner command.",
+            )),
             true,
             true,
             disabled,
@@ -1082,7 +1288,11 @@ fn runner_approval_controls(
                 "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id {action_id} --cancel --reason \"<cancel reason>\""
             ),
             "Cancel the pending runner action before execution.",
-            Some(("Ctrl+Backspace", "Cancel", "Cancel this pending runner action.")),
+            Some((
+                "Ctrl+Backspace",
+                "Cancel",
+                "Cancel this pending runner action.",
+            )),
             true,
             false,
             disabled,
@@ -1309,7 +1519,9 @@ fn command_allowlist_denial(command: &str) -> Option<String> {
     if !(first_arg.starts_with("--friday-")
         || matches!(first_arg, "--completion" | "--progress" | "--next-100"))
     {
-        return Some("Trusted host runner only accepts Friday dashboard or completion commands.".to_string());
+        return Some(
+            "Trusted host runner only accepts Friday dashboard or completion commands.".to_string(),
+        );
     }
     None
 }
@@ -1336,7 +1548,9 @@ fn execute_local_flow_command(
     loop {
         match child.try_wait().map_err(|error| error.to_string())? {
             Some(_) => {
-                let output = child.wait_with_output().map_err(|error| error.to_string())?;
+                let output = child
+                    .wait_with_output()
+                    .map_err(|error| error.to_string())?;
                 return Ok(FridayTrustedHostCommandRawOutput {
                     exit_code: output.status.code(),
                     stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
@@ -1347,7 +1561,9 @@ fn execute_local_flow_command(
             }
             None if started.elapsed() >= timeout => {
                 let _ = child.kill();
-                let output = child.wait_with_output().map_err(|error| error.to_string())?;
+                let output = child
+                    .wait_with_output()
+                    .map_err(|error| error.to_string())?;
                 return Ok(FridayTrustedHostCommandRawOutput {
                     exit_code: output.status.code(),
                     stdout: String::from_utf8_lossy(&output.stdout).into_owned(),

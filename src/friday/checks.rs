@@ -122,17 +122,21 @@ pub fn default_friday_local_execution_checks() -> FridayLocalExecutionReport {
 fn stt_check() -> FridayLocalExecutionCheck {
     let runtime = FridayRuntimeSurfaceStore::seed_local_first();
     let model_key = runtime.voice.stt_model_key;
-    let manifest = default_model_catalog()
-        .into_iter()
-        .find(|candidate| candidate.key == model_key && candidate.modality == Modality::SpeechToText);
+    let manifest = default_model_catalog().into_iter().find(|candidate| {
+        candidate.key == model_key && candidate.modality == Modality::SpeechToText
+    });
 
     let (status, mut evidence, next_action) = match manifest {
         Some(manifest) => {
-            let ready = LocalSttEngine::model_files_ready(&model_key, manifest.local_path.as_deref());
+            let ready =
+                LocalSttEngine::model_files_ready(&model_key, manifest.local_path.as_deref());
             let mut evidence = vec![
                 format!("model_key={model_key}"),
                 format!("runtime={:?}", manifest.preferred_runtime),
-                format!("path={}", manifest.local_path.as_deref().unwrap_or("<missing>")),
+                format!(
+                    "path={}",
+                    manifest.local_path.as_deref().unwrap_or("<missing>")
+                ),
                 format!("files={}", present_label(ready)),
             ];
             evidence.extend(path_evidence(manifest.local_path.as_deref().into_iter()));
@@ -147,13 +151,18 @@ fn stt_check() -> FridayLocalExecutionCheck {
                 (
                     FridayLocalCheckStatus::Failed,
                     evidence,
-                    format!("Install the default STT model with `flow --install-model {model_key}`."),
+                    format!(
+                        "Install the default STT model with `flow --install-model {model_key}`."
+                    ),
                 )
             }
         }
         None => (
             FridayLocalCheckStatus::Failed,
-            vec![format!("model_key={model_key}"), "catalog=missing".to_string()],
+            vec![
+                format!("model_key={model_key}"),
+                "catalog=missing".to_string(),
+            ],
             "Add the selected STT model to the runtime catalog.".to_string(),
         ),
     };
@@ -229,7 +238,8 @@ fn ocr_check() -> FridayLocalExecutionCheck {
         if ready {
             "Run a small screenshot OCR smoke test after frontend wiring changes.".to_string()
         } else {
-            "Place GLM-OCR GGUF and mmproj files under `models/ocr` on this G: workspace.".to_string()
+            "Place GLM-OCR GGUF and mmproj files under `models/ocr` on this G: workspace."
+                .to_string()
         },
     )
 }
@@ -255,9 +265,15 @@ fn metasearch_request_check() -> FridayLocalExecutionCheck {
             FridayLocalCheckStatus::Failed
         },
         vec![
-            format!("endpoint=http://{}:{}{}", server.host, server.port, api_path),
+            format!(
+                "endpoint=http://{}:{}{}",
+                server.host, server.port, api_path
+            ),
             format!("categories={categories}"),
-            format!("adjacent_metasearch={}", present_label(plan.use_adjacent_metasearch)),
+            format!(
+                "adjacent_metasearch={}",
+                present_label(plan.use_adjacent_metasearch)
+            ),
             "resource_policy=no network call in default check".to_string(),
         ],
         "Start the adjacent metasearch server only for a live search smoke test.".to_string(),
@@ -295,7 +311,8 @@ fn artifact_preview_check() -> FridayLocalExecutionCheck {
             format!("html_preview={}", present_label(has_html)),
             format!("findings={}", findings.len()),
         ],
-        "Keep every previewable artifact tied to a checkpoint and explicit preview runner.".to_string(),
+        "Keep every previewable artifact tied to a checkpoint and explicit preview runner."
+            .to_string(),
     )
 }
 
@@ -358,8 +375,7 @@ fn path_evidence<'a>(paths: impl IntoIterator<Item = &'a str>) -> Vec<String> {
     paths
         .into_iter()
         .map(|path| {
-            let present = Path::new(path)
-                .exists()
+            let present = Path::new(path).exists()
                 && fs::metadata(path)
                     .map(|metadata| metadata.len() > 0)
                     .unwrap_or(false);
@@ -372,8 +388,7 @@ fn pathbuf_evidence<'a>(paths: impl IntoIterator<Item = &'a std::path::PathBuf>)
     paths
         .into_iter()
         .map(|path| {
-            let present = path
-                .exists()
+            let present = path.exists()
                 && fs::metadata(path)
                     .map(|metadata| metadata.len() > 0)
                     .unwrap_or(false);

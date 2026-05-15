@@ -766,7 +766,12 @@ fn ocr_route() -> FridayMultimodalModelRoute {
             .enumerate()
             .map(|(index, path)| FridayMultimodalModelFile {
                 path: path.to_string_lossy().into_owned(),
-                purpose: if index == 0 { "ocr model" } else { "ocr projector" }.to_string(),
+                purpose: if index == 0 {
+                    "ocr model"
+                } else {
+                    "ocr projector"
+                }
+                .to_string(),
                 present: path.exists(),
             })
             .collect(),
@@ -895,8 +900,9 @@ pub fn run_friday_vlm_contract(
         id: checkpoint_id,
         artifact_id,
         reason: FridayCheckpointReason::Created,
-        summary: "VLM screenshot contract created with explicit local model and artifact boundaries."
-            .to_string(),
+        summary:
+            "VLM screenshot contract created with explicit local model and artifact boundaries."
+                .to_string(),
         content_hash: stable_hash(&summary),
         created_at_unix_ms: generated_at_unix_ms,
     };
@@ -965,7 +971,10 @@ pub fn run_friday_screenshot_vlm_handoff(
     let metadata = fs::metadata(screenshot_path)
         .with_context(|| format!("failed to read screenshot {}", screenshot_path.display()))?;
     if !metadata.is_file() {
-        anyhow::bail!("screenshot path is not a file: {}", screenshot_path.display());
+        anyhow::bail!(
+            "screenshot path is not a file: {}",
+            screenshot_path.display()
+        );
     }
 
     let mime = screenshot_mime(screenshot_path)
@@ -1067,9 +1076,15 @@ mod tests {
         assert_eq!(report.artifact.id, "ocr-smoke-output");
         assert_eq!(report.checkpoint.artifact_id, report.artifact.id);
         assert_eq!(report.metadata.artifact_id, report.artifact.id);
-        assert_eq!(report.metadata.request_kind, FridayMultimodalRequestKind::Ocr);
+        assert_eq!(
+            report.metadata.request_kind,
+            FridayMultimodalRequestKind::Ocr
+        );
         assert_eq!(report.artifact.current_checkpoint_id, report.checkpoint.id);
-        assert_eq!(report.artifact.preview_runner, FridayPreviewRunner::Markdown);
+        assert_eq!(
+            report.artifact.preview_runner,
+            FridayPreviewRunner::Markdown
+        );
 
         let _ = fs::remove_dir_all(&root);
     }
@@ -1094,8 +1109,14 @@ mod tests {
         assert!(PathBuf::from(&report.report_json).exists());
         assert_eq!(report.artifact.current_checkpoint_id, report.checkpoint.id);
         assert_eq!(report.metadata.artifact_id, report.artifact.id);
-        assert_eq!(report.metadata.request_kind, FridayMultimodalRequestKind::Vlm);
-        assert_eq!(report.artifact.preview_runner, FridayPreviewRunner::Markdown);
+        assert_eq!(
+            report.metadata.request_kind,
+            FridayMultimodalRequestKind::Vlm
+        );
+        assert_eq!(
+            report.artifact.preview_runner,
+            FridayPreviewRunner::Markdown
+        );
 
         let _ = fs::remove_dir_all(&root);
     }
@@ -1139,14 +1160,18 @@ mod tests {
         let diagnostics = friday_multimodal_ui_diagnostics();
         assert_eq!(diagnostics.area, FridayWorkspaceArea::Multimodal);
         assert!(diagnostics.score_out_of_100 >= 60);
-        assert!(diagnostics
-            .items
-            .iter()
-            .any(|item| item.command.contains("--friday-ocr-smoke")));
-        assert!(diagnostics
-            .items
-            .iter()
-            .any(|item| item.artifact_output.contains("metadata")));
+        assert!(
+            diagnostics
+                .items
+                .iter()
+                .any(|item| item.command.contains("--friday-ocr-smoke"))
+        );
+        assert!(
+            diagnostics
+                .items
+                .iter()
+                .any(|item| item.artifact_output.contains("metadata"))
+        );
     }
 
     #[test]
@@ -1162,16 +1187,16 @@ mod tests {
         fs::write(&screenshot, b"not-a-real-png-but-valid-handoff-fixture").unwrap();
         let out = root.join("out");
 
-        let report = run_friday_screenshot_vlm_handoff(
-            &out,
-            &screenshot,
-            Some("describe visible text"),
-        )
-        .unwrap();
+        let report =
+            run_friday_screenshot_vlm_handoff(&out, &screenshot, Some("describe visible text"))
+                .unwrap();
         assert_eq!(report.source.mime, "image/png");
         assert!(report.source.accepted);
         assert!(PathBuf::from(&report.source_json).exists());
-        assert_eq!(report.vlm_report.screenshot_source, screenshot.to_string_lossy());
+        assert_eq!(
+            report.vlm_report.screenshot_source,
+            screenshot.to_string_lossy()
+        );
         assert!(PathBuf::from(&report.vlm_report.report_json).exists());
 
         let _ = fs::remove_dir_all(&root);
@@ -1180,15 +1205,13 @@ mod tests {
     #[test]
     fn media_affordances_expose_explicit_install_and_run_commands() {
         let affordances = friday_media_affordances();
-        assert!(affordances
-            .iter()
-            .any(|item| item.request_kind == FridayMultimodalRequestKind::Image
-                && item.install_command.contains("--models image")
-                && item.run_command.contains("--plan image")));
-        assert!(affordances
-            .iter()
-            .any(|item| item.request_kind == FridayMultimodalRequestKind::Video
-                && item.local_only
-                && !item.resident));
+        assert!(affordances.iter().any(|item| item.request_kind
+            == FridayMultimodalRequestKind::Image
+            && item.install_command.contains("--models image")
+            && item.run_command.contains("--plan image")));
+        assert!(affordances.iter().any(|item| item.request_kind
+            == FridayMultimodalRequestKind::Video
+            && item.local_only
+            && !item.resident));
     }
 }

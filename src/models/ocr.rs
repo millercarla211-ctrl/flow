@@ -20,11 +20,16 @@ impl GlmOcr {
     }
 
     pub fn resolved_model_paths() -> [PathBuf; 2] {
-        [resolve_model_path(MODEL_FILE), resolve_model_path(MMPROJ_FILE)]
+        [
+            resolve_model_path(MODEL_FILE),
+            resolve_model_path(MMPROJ_FILE),
+        ]
     }
 
     pub fn is_available() -> bool {
-        Self::resolved_model_paths().iter().all(|path| path.exists())
+        Self::resolved_model_paths()
+            .iter()
+            .all(|path| path.exists())
     }
 
     pub fn new() -> Result<Self> {
