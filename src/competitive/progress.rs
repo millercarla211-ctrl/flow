@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-recovery-runbook-model",
-            "Typed recovery runbook model",
+            "release-incident-archive-model",
+            "Typed release incident archive model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseRecoveryRunbookReport` consumes stability board, rollback drill, promotion ledger, and post-promotion monitor reports",
-            "open the next release incident archive set",
+            "`FridayReleaseIncidentArchive` consumes recovery runbooks, stability boards, post-promotion monitors, rollback drills, and incident notes",
+            "open the next release prevention planner set",
         ),
         item(
-            "release-recovery-runbook-phases",
-            "Recovery runbook phases and approval gates",
+            "release-incident-archive-taxonomy",
+            "Incident severity, outcome, and follow-up taxonomy",
             20,
             CompletionItemStatus::Done,
-            "runbook phases cover pause, diagnose, rollback, verify, resume, and follow-up incident notes with explicit approval gates for risky steps",
-            "open the next release incident archive set",
+            "incident records classify info/watch/blocking/critical severity plus open/monitoring/resolved/rolled-back/prevented outcomes and prevention items",
+            "open the next release prevention planner set",
         ),
         item(
-            "release-recovery-runbook-cli",
-            "Recovery runbook CLI and JSON commands",
+            "release-incident-archive-cli",
+            "Incident archive append/list/export CLI",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-recovery-runbook` and JSON mode generate local-only operator guidance without executing recovery commands",
-            "open the next release incident archive set",
+            "`flow --friday-release-incident-archive`, JSON, list, and export commands preserve local incident history without executing recovery commands",
+            "open the next release prevention planner set",
         ),
         item(
-            "release-recovery-runbook-dashboard",
-            "Dashboard recovery runbook rendering",
+            "release-incident-archive-dashboard",
+            "Dashboard incident archive rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports recovery runbook JSON and renders phase order, approval gates, active risks, and copyable recovery commands",
-            "open the next release incident archive set",
+            "the visible dashboard imports incident archive JSON and renders counts, latest incident, severity, rollback reference, and copyable follow-up actions",
+            "open the next release prevention planner set",
         ),
         item(
-            "release-recovery-runbook-coverage",
-            "Recovery runbook Rust and TypeScript coverage",
+            "release-incident-archive-coverage",
+            "Incident archive Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify phase ordering, blocked-risk mapping, dry-run command safety, approval gates, and dashboard rendering",
-            "open the next release incident archive set",
+            "focused Rust integration coverage plus dashboard smoke checks verify archive append/list data, critical severity mapping, follow-ups, prevention items, and dashboard rendering",
+            "open the next release prevention planner set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Recovery Runbook".to_string(),
+        name: "Friday Release Incident Archive".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Turn Friday release stability risks, rollback drills, promotion state, and post-promotion evidence into one local-only recovery runbook.".to_string(),
+        loop_rule: "Preserve Friday recovery decisions as searchable local release history with severity, outcome, follow-up, and prevention metadata.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_recovery_runbook_loop() {
+    fn active_set_tracks_friday_release_incident_archive_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Recovery Runbook");
+        assert_eq!(set.name, "Friday Release Incident Archive");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

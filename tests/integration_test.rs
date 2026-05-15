@@ -27,14 +27,15 @@ use flow::friday::{
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayReleaseCandidateArchiveEntry, FridayReleaseChecklistSignoffDecision,
     FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget,
-    FridayReleasePromotionDecision, FridayReleasePromotionRecordRequest,
-    FridayReleaseQaCheckStatus, FridayResearchWorkflow, FridayRouteVisualStatus,
-    FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
-    FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
-    FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
-    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
-    FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus, FridayVerificationStatus,
-    FridayWorkspaceStore, append_friday_release_candidate_to_archive,
+    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity, FridayReleasePromotionDecision,
+    FridayReleasePromotionRecordRequest, FridayReleaseQaCheckStatus, FridayResearchWorkflow,
+    FridayRouteVisualStatus, FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor,
+    FridayTrustedHostCommandRawOutput, FridayTrustedHostLiveRunnerRecord,
+    FridayTrustedHostLiveRunnerStatus, FridayTrustedHostRunnerCancellationToken,
+    FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerRequest,
+    FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
+    FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
+    append_friday_release_candidate_to_archive, append_friday_release_incident_to_archive,
     append_friday_release_operator_signoff, append_friday_release_promotion_to_ledger,
     append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
@@ -49,7 +50,8 @@ use flow::friday::{
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_release_candidate_archive_report,
     friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
-    friday_release_evidence_export_kit_report, friday_release_operator_checklist_report,
+    friday_release_evidence_export_kit_report, friday_release_incident_archive_report,
+    friday_release_incident_entry_from_sources, friday_release_operator_checklist_report,
     friday_release_post_promotion_monitor_report, friday_release_qa_command_center_report,
     friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
     friday_release_stability_board_report, friday_route_visual_report,
@@ -2258,6 +2260,67 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
             .commands
             .iter()
             .any(|command| command.contains("--friday-release-recovery-runbook"))
+    );
+    let incident_archive_path = root.join("release-incident-archive.json");
+    let incident_entry = friday_release_incident_entry_from_sources(
+        &recovery_runbook_path,
+        &stability_board_path,
+        &rollback_drill_path,
+        &post_promotion_monitor_path,
+        vec![incident_note_path.to_string_lossy().replace('\\', "/")],
+        FridayReleaseIncidentOutcome::Open,
+    );
+    assert_eq!(
+        incident_entry.severity,
+        FridayReleaseIncidentSeverity::Critical
+    );
+    assert_eq!(incident_entry.outcome, FridayReleaseIncidentOutcome::Open);
+    assert_eq!(
+        incident_entry.active_rollback_reference.as_deref(),
+        Some("previous-stable-friday")
+    );
+    assert!(incident_entry.blocked_phase_count > 0);
+    assert!(
+        incident_entry
+            .follow_up_actions
+            .iter()
+            .any(|action| action.contains("Rollback"))
+    );
+    assert!(
+        incident_entry
+            .prevention_items
+            .iter()
+            .any(|item| item.contains("Prevent recurrence"))
+    );
+    let incident_archive =
+        friday_release_incident_archive_report(&incident_archive_path, vec![incident_entry]);
+    assert_eq!(incident_archive.incident_count, 1);
+    assert_eq!(incident_archive.open_count, 1);
+    assert_eq!(incident_archive.critical_count, 1);
+    assert!(incident_archive.follow_up_count > 0);
+    assert!(
+        incident_archive
+            .commands
+            .iter()
+            .any(|command| command.contains("--friday-release-incident-archive"))
+    );
+    let appended_incident_archive = append_friday_release_incident_to_archive(
+        &incident_archive_path,
+        &recovery_runbook_path,
+        &stability_board_path,
+        &rollback_drill_path,
+        &post_promotion_monitor_path,
+        vec![incident_note_path.to_string_lossy().replace('\\', "/")],
+        FridayReleaseIncidentOutcome::Monitoring,
+    )
+    .unwrap();
+    assert_eq!(appended_incident_archive.incident_count, 1);
+    assert_eq!(appended_incident_archive.monitoring_count, 1);
+    assert!(
+        appended_incident_archive
+            .entries
+            .iter()
+            .all(|entry| !entry.evidence_paths.is_empty())
     );
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);

@@ -611,16 +611,34 @@ Goal: convert the stability evidence board into a practical local-only recovery 
 
 This set is complete. The next loop should open `Friday Release Incident Archive` and preserve recovery runbooks, incident notes, stability snapshots, rollback drills, and operator outcomes as searchable local release history.
 
-## Next Set: Friday Release Incident Archive
+## Completed Set: Friday Release Incident Archive
 
-Status: 0/100
+Status: 100/100
 
 Goal: preserve Friday recovery decisions as searchable local release history that connects runbooks, incident notes, stability-board snapshots, rollback drills, and operator outcomes.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed incident archive model that consumes recovery runbooks, stability boards, post-promotion monitors, rollback drills, and incident-note files.
+- [x] Add severity, outcome, follow-up action, and prevention taxonomies for release incidents.
+- [x] Add CLI and JSON commands for append, list, and export workflows without executing recovery commands.
+- [x] Add dashboard import/rendering for incident history, severity, outcomes, follow-ups, and source evidence.
+- [x] Add focused Rust/TypeScript coverage for archive append/list behavior, severity mapping, stale evidence, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Prevention Planner` and turn incident history into concrete prevention work, owner-ready actions, and readiness gates for future release loops.
+
+## Next Set: Friday Release Prevention Planner
+
+Status: 0/100
+
+Goal: convert archived release incidents into a prevention plan that identifies recurring failure classes, assigns owner-ready follow-up actions, and blocks the next checkpoint until prevention evidence is attached.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed incident archive model that consumes recovery runbooks, stability boards, post-promotion monitors, rollback drills, and incident-note files.
-- [ ] Add severity, outcome, follow-up action, and prevention taxonomies for release incidents.
-- [ ] Add CLI and JSON commands for append, list, and export workflows without executing recovery commands.
-- [ ] Add dashboard import/rendering for incident history, severity, outcomes, follow-ups, and source evidence.
-- [ ] Add focused Rust/TypeScript coverage for archive append/list behavior, severity mapping, stale evidence, and dashboard rendering.
+- [ ] Add a typed prevention planner model that consumes the release incident archive and current stability board.
+- [ ] Add recurrence detection for repeated blocker categories, stale evidence, missing incident notes, and unresolved rollback gaps.
+- [ ] Add CLI and JSON commands for generating prevention plans without executing remediation commands.
+- [ ] Add dashboard import/rendering for prevention actions, owner-ready copy, blockers, and evidence links.
+- [ ] Add focused Rust/TypeScript coverage for recurrence scoring, blocked-plan states, command safety, and dashboard rendering.

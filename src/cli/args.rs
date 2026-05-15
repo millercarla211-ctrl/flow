@@ -439,6 +439,33 @@ pub enum Command {
         promotion_ledger_file: String,
         post_promotion_monitor_file: String,
     },
+    /// Append a Friday release incident archive entry
+    FridayReleaseIncidentArchive {
+        archive_file: String,
+        runbook_file: String,
+        stability_board_file: String,
+        rollback_drill_file: String,
+        post_promotion_monitor_file: String,
+        incident_note_files: Vec<String>,
+        outcome: String,
+    },
+    /// Print a Friday release incident archive preview as JSON
+    FridayReleaseIncidentArchiveJson {
+        archive_file: String,
+        runbook_file: String,
+        stability_board_file: String,
+        rollback_drill_file: String,
+        post_promotion_monitor_file: String,
+        incident_note_files: Vec<String>,
+        outcome: String,
+    },
+    /// List an existing Friday release incident archive
+    FridayReleaseIncidentArchiveList { archive_file: String },
+    /// Export an existing Friday release incident archive
+    FridayReleaseIncidentArchiveExport {
+        archive_file: String,
+        output_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1536,6 +1563,61 @@ impl Args {
                     post_promotion_monitor_file,
                 }
             }
+            "--friday-release-incident-archive" | "--friday-incident-archive" => {
+                let (
+                    archive_file,
+                    runbook_file,
+                    stability_board_file,
+                    rollback_drill_file,
+                    post_promotion_monitor_file,
+                    incident_note_files,
+                    outcome,
+                ) = parse_friday_release_incident_archive_args(&args);
+                Command::FridayReleaseIncidentArchive {
+                    archive_file,
+                    runbook_file,
+                    stability_board_file,
+                    rollback_drill_file,
+                    post_promotion_monitor_file,
+                    incident_note_files,
+                    outcome,
+                }
+            }
+            "--friday-release-incident-archive-json" | "--friday-incident-archive-json" => {
+                let (
+                    archive_file,
+                    runbook_file,
+                    stability_board_file,
+                    rollback_drill_file,
+                    post_promotion_monitor_file,
+                    incident_note_files,
+                    outcome,
+                ) = parse_friday_release_incident_archive_args(&args);
+                Command::FridayReleaseIncidentArchiveJson {
+                    archive_file,
+                    runbook_file,
+                    stability_board_file,
+                    rollback_drill_file,
+                    post_promotion_monitor_file,
+                    incident_note_files,
+                    outcome,
+                }
+            }
+            "--friday-release-incident-archive-list" | "--friday-incident-archive-list" => {
+                Command::FridayReleaseIncidentArchiveList {
+                    archive_file: parse_friday_release_incident_archive_file_arg(&args),
+                }
+            }
+            "--friday-release-incident-archive-export" | "--friday-incident-archive-export" => {
+                let archive_file = parse_friday_release_incident_archive_file_arg(&args);
+                let output_file = flag_value(&args, "--output").unwrap_or_else(|| {
+                    "tmp/friday-dashboard/release-incident-archive-export.json".to_string()
+                });
+                Command::FridayReleaseIncidentArchiveExport {
+                    archive_file,
+                    output_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -2577,6 +2659,59 @@ fn parse_friday_release_recovery_runbook_args(
         promotion_ledger_file,
         post_promotion_monitor_file,
     )
+}
+
+fn parse_friday_release_incident_archive_args(
+    args: &[String],
+) -> (String, String, String, String, String, Vec<String>, String) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let archive_file = flag_value(args, "--archive")
+        .or_else(|| flag_value(args, "--output"))
+        .unwrap_or_else(|| format!("{export_dir}/release-incident-archive.json"));
+    let runbook_file = flag_value(args, "--runbook")
+        .or_else(|| flag_value(args, "--recovery-runbook"))
+        .unwrap_or_else(|| format!("{export_dir}/release-recovery-runbook.json"));
+    let stability_board_file = flag_value(args, "--stability-board")
+        .or_else(|| flag_value(args, "--board"))
+        .unwrap_or_else(|| format!("{export_dir}/release-stability-board.json"));
+    let rollback_drill_file = flag_value(args, "--rollback-drill")
+        .or_else(|| flag_value(args, "--drill"))
+        .unwrap_or_else(|| format!("{export_dir}/release-rollback-drill.json"));
+    let post_promotion_monitor_file = flag_value(args, "--post-promotion-monitor")
+        .or_else(|| flag_value(args, "--monitor"))
+        .unwrap_or_else(|| format!("{export_dir}/release-post-promotion-monitor.json"));
+    let incident_note_files = repeated_flag_values(args, "--incident-note")
+        .into_iter()
+        .chain(repeated_flag_values(args, "--note"))
+        .collect::<Vec<_>>();
+    let outcome = flag_value(args, "--outcome").unwrap_or_else(|| "open".to_string());
+
+    (
+        archive_file,
+        runbook_file,
+        stability_board_file,
+        rollback_drill_file,
+        post_promotion_monitor_file,
+        incident_note_files,
+        outcome,
+    )
+}
+
+fn parse_friday_release_incident_archive_file_arg(args: &[String]) -> String {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    flag_value(args, "--archive")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-incident-archive.json"))
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

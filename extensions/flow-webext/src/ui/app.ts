@@ -5,6 +5,7 @@ import {
   normalizeReleaseCandidateArchive,
   normalizeReleaseDeploymentGate,
   normalizeReleaseEvidenceExportKit,
+  normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
   normalizeReleasePostPromotionMonitor,
   normalizeReleasePromotionLedger,
@@ -37,6 +38,7 @@ import {
   type FlowReleaseCandidateArchive,
   type FlowReleaseDeploymentGateReport,
   type FlowReleaseEvidenceExportKitReport,
+  type FlowReleaseIncidentArchive,
   type FlowReleaseOperatorChecklistReport,
   type FlowReleasePostPromotionMonitorReport,
   type FlowReleasePromotionLedger,
@@ -97,6 +99,7 @@ type UiState = {
   dashboardReleaseRollbackDrill: FlowReleaseRollbackDrillReport | null;
   dashboardReleaseStabilityBoard: FlowReleaseStabilityBoardReport | null;
   dashboardReleaseRecoveryRunbook: FlowReleaseRecoveryRunbookReport | null;
+  dashboardReleaseIncidentArchive: FlowReleaseIncidentArchive | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -2076,6 +2079,67 @@ function renderReleaseRecoveryRunbook(runbook: FlowReleaseRecoveryRunbookReport 
   `;
 }
 
+function renderReleaseIncidentArchive(archive: FlowReleaseIncidentArchive | null) {
+  if (!archive) {
+    return "";
+  }
+
+  const latest = archive.entries[archive.entries.length - 1] ?? null;
+
+  return `
+    <article class="feature-card dashboard-release-incident-archive">
+      <div class="card-topline">
+        <span class="eyebrow">Incident archive</span>
+        <span class="badge ${badgeTone(archive.blockingCount ? "blocked" : "ready")}">
+          ${archive.incidentCount} incident${archive.incidentCount === 1 ? "" : "s"}
+        </span>
+      </div>
+      <h3>${latest ? escapeHtml(latest.title) : "No incidents archived yet"}</h3>
+      <p>${latest ? escapeHtml(latest.summary) : "Local release recovery history is ready for the next incident record."}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${archive.openCount}</strong><small>open</small></span>
+        <span><strong>${archive.monitoringCount}</strong><small>monitoring</small></span>
+        <span><strong>${archive.resolvedCount}</strong><small>resolved</small></span>
+        <span><strong>${archive.followUpCount}</strong><small>follow-ups</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Critical</strong> ${archive.criticalCount}</span>
+        <span><strong>Blocking</strong> ${archive.blockingCount}</span>
+        <span><strong>Rollback</strong> ${escapeHtml(archive.latestRollbackReference ?? "not recorded")}</span>
+        <span><strong>Archive</strong> ${escapeHtml(archive.archiveJson)}</span>
+      </div>
+      <div class="runner-package-files">
+        ${archive.entries
+          .slice(-4)
+          .reverse()
+          .map(
+            (entry) => `
+              <div class="runner-package-file ${
+                entry.severity === "critical" || entry.severity === "blocking"
+                  ? "missing"
+                  : "present"
+              }">
+                <strong>${escapeHtml(entry.title)}</strong>
+                <small>${escapeHtml(entry.severity)} - ${escapeHtml(entry.outcome)}</small>
+                <code>${escapeHtml(entry.recoveryRunbookJson)}</code>
+                <span>${escapeHtml(entry.followUpActions[0] ?? entry.summary)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-incident-archive-command">
+          Copy archive command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-incident-archive-follow-up">
+          Copy latest follow-up
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2293,6 +2357,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseRollbackDrill(state.dashboardReleaseRollbackDrill)}
       ${renderReleaseStabilityBoard(state.dashboardReleaseStabilityBoard)}
       ${renderReleaseRecoveryRunbook(state.dashboardReleaseRecoveryRunbook)}
+      ${renderReleaseIncidentArchive(state.dashboardReleaseIncidentArchive)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2429,6 +2494,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseRollbackDrill: null,
     dashboardReleaseStabilityBoard: null,
     dashboardReleaseRecoveryRunbook: null,
+    dashboardReleaseIncidentArchive: null,
   };
 
   function render() {
@@ -2735,6 +2801,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseRollbackDrill = normalizeReleaseRollbackDrill(parsed);
       const releaseStabilityBoard = normalizeReleaseStabilityBoard(parsed);
       const releaseRecoveryRunbook = normalizeReleaseRecoveryRunbook(parsed);
+      const releaseIncidentArchive = normalizeReleaseIncidentArchive(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2768,8 +2835,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseStabilityBoard ?? state.dashboardReleaseStabilityBoard;
       state.dashboardReleaseRecoveryRunbook =
         releaseRecoveryRunbook ?? state.dashboardReleaseRecoveryRunbook;
+      state.dashboardReleaseIncidentArchive =
+        releaseIncidentArchive ?? state.dashboardReleaseIncidentArchive;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseRecoveryRunbook
+      state.status = releaseIncidentArchive
+        ? `Imported incident archive with ${releaseIncidentArchive.incidentCount} incident(s) from ${file.name}.`
+        : releaseRecoveryRunbook
         ? `Imported recovery runbook at ${releaseRecoveryRunbook.scoreOutOf100}/100 from ${file.name}.`
         : releaseStabilityBoard
         ? `Imported stability board at ${releaseStabilityBoard.scoreOutOf100}/100 from ${file.name}.`
@@ -3208,6 +3279,39 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseIncidentArchiveCommand() {
+    const command = state.dashboardReleaseIncidentArchive?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No incident archive command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Incident archive command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseIncidentArchiveFollowUp() {
+    const latest = state.dashboardReleaseIncidentArchive?.entries.slice(-1)[0];
+    const followUp = latest?.followUpActions[0] ?? "";
+    if (!followUp) {
+      state.status = "No incident follow-up action is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(followUp);
+      state.status = "Latest incident follow-up copied.";
+    } catch {
+      state.status = followUp;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -3424,6 +3528,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-recovery-runbook-phase']")
       ?.addEventListener("click", () => {
         void copyReleaseRecoveryRunbookFirstPhase();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-incident-archive-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseIncidentArchiveCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-incident-archive-follow-up']")
+      ?.addEventListener("click", () => {
+        void copyReleaseIncidentArchiveFollowUp();
       });
 
     mountRoot

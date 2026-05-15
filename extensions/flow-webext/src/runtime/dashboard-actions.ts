@@ -890,6 +890,71 @@ export interface FlowReleaseRecoveryRunbookReport {
   commands: string[];
 }
 
+export type FlowReleaseIncidentSeverity = "info" | "watch" | "blocking" | "critical";
+
+export type FlowReleaseIncidentOutcome =
+  | "open"
+  | "monitoring"
+  | "resolved"
+  | "rolled-back"
+  | "prevented";
+
+export interface FlowReleaseIncidentNote {
+  id: string;
+  path: string;
+  present: boolean;
+  bytes: number;
+  summary: string;
+}
+
+export interface FlowReleaseIncidentArchiveEntry {
+  incidentId: string;
+  recordedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  severity: FlowReleaseIncidentSeverity;
+  outcome: FlowReleaseIncidentOutcome;
+  title: string;
+  summary: string;
+  recoveryRunbookId: string | null;
+  recoveryRunbookJson: string;
+  stabilityBoardJson: string;
+  rollbackDrillJson: string;
+  postPromotionMonitorJson: string;
+  activeCandidateId: string | null;
+  activePromotionId: string | null;
+  activeRollbackReference: string | null;
+  blockedPhaseCount: number;
+  activeRiskCount: number;
+  incidentNotes: FlowReleaseIncidentNote[];
+  followUpActions: string[];
+  preventionItems: string[];
+  evidencePaths: string[];
+}
+
+export interface FlowReleaseIncidentArchive {
+  archiveId: string;
+  archiveJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  incidentCount: number;
+  openCount: number;
+  monitoringCount: number;
+  resolvedCount: number;
+  rolledBackCount: number;
+  preventedCount: number;
+  criticalCount: number;
+  blockingCount: number;
+  followUpCount: number;
+  latestIncidentId: string | null;
+  latestSeverity: FlowReleaseIncidentSeverity | null;
+  latestOutcome: FlowReleaseIncidentOutcome | null;
+  latestRollbackReference: string | null;
+  entries: FlowReleaseIncidentArchiveEntry[];
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -2971,6 +3036,128 @@ export function normalizeReleaseRecoveryRunbook(
   };
 }
 
+export function normalizeReleaseIncidentArchive(value: unknown): FlowReleaseIncidentArchive | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const archive =
+    root.release_incident_archive && typeof root.release_incident_archive === "object"
+      ? (root.release_incident_archive as Record<string, unknown>)
+      : root.releaseIncidentArchive && typeof root.releaseIncidentArchive === "object"
+        ? (root.releaseIncidentArchive as Record<string, unknown>)
+        : root;
+  const archiveId = stringValue(archive.archive_id, archive.archiveId);
+  const entries = arrayValue(archive.entries)
+    .map((item): FlowReleaseIncidentArchiveEntry | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const entry = item as Record<string, unknown>;
+      const incidentId = stringValue(entry.incident_id, entry.incidentId);
+      if (!incidentId) {
+        return null;
+      }
+      return {
+        incidentId,
+        recordedAtUnixMs: stringValue(entry.recorded_at_unix_ms, entry.recordedAtUnixMs),
+        productName: stringValue(entry.product_name, entry.productName),
+        localOnly: booleanValue(entry.local_only, entry.localOnly),
+        severity: releaseIncidentSeverity(stringValue(entry.severity)),
+        outcome: releaseIncidentOutcome(stringValue(entry.outcome)),
+        title: stringValue(entry.title),
+        summary: stringValue(entry.summary),
+        recoveryRunbookId:
+          stringValue(entry.recovery_runbook_id, entry.recoveryRunbookId) || null,
+        recoveryRunbookJson: stringValue(
+          entry.recovery_runbook_json,
+          entry.recoveryRunbookJson,
+        ),
+        stabilityBoardJson: stringValue(entry.stability_board_json, entry.stabilityBoardJson),
+        rollbackDrillJson: stringValue(entry.rollback_drill_json, entry.rollbackDrillJson),
+        postPromotionMonitorJson: stringValue(
+          entry.post_promotion_monitor_json,
+          entry.postPromotionMonitorJson,
+        ),
+        activeCandidateId:
+          stringValue(entry.active_candidate_id, entry.activeCandidateId) || null,
+        activePromotionId:
+          stringValue(entry.active_promotion_id, entry.activePromotionId) || null,
+        activeRollbackReference:
+          stringValue(entry.active_rollback_reference, entry.activeRollbackReference) || null,
+        blockedPhaseCount: numberValue(entry.blocked_phase_count, entry.blockedPhaseCount),
+        activeRiskCount: numberValue(entry.active_risk_count, entry.activeRiskCount),
+        incidentNotes: arrayValue(entry.incident_notes, entry.incidentNotes)
+          .map((note): FlowReleaseIncidentNote | null => {
+            if (!note || typeof note !== "object") {
+              return null;
+            }
+            const record = note as Record<string, unknown>;
+            const id = stringValue(record.id);
+            if (!id) {
+              return null;
+            }
+            return {
+              id,
+              path: stringValue(record.path),
+              present: booleanValue(record.present),
+              bytes: numberValue(record.bytes),
+              summary: stringValue(record.summary),
+            };
+          })
+          .filter((note): note is FlowReleaseIncidentNote => note !== null),
+        followUpActions: arrayValue(entry.follow_up_actions, entry.followUpActions)
+          .map((action) => stringValue(action))
+          .filter(Boolean),
+        preventionItems: arrayValue(entry.prevention_items, entry.preventionItems)
+          .map((item) => stringValue(item))
+          .filter(Boolean),
+        evidencePaths: arrayValue(entry.evidence_paths, entry.evidencePaths)
+          .map((path) => stringValue(path))
+          .filter(Boolean),
+      };
+    })
+    .filter((entry): entry is FlowReleaseIncidentArchiveEntry => entry !== null);
+
+  if (!archiveId && entries.length === 0) {
+    return null;
+  }
+
+  return {
+    archiveId,
+    archiveJson: stringValue(archive.archive_json, archive.archiveJson),
+    generatedAtUnixMs: stringValue(archive.generated_at_unix_ms, archive.generatedAtUnixMs),
+    productName: stringValue(archive.product_name, archive.productName),
+    localOnly: booleanValue(archive.local_only, archive.localOnly),
+    incidentCount: numberValue(archive.incident_count, archive.incidentCount),
+    openCount: numberValue(archive.open_count, archive.openCount),
+    monitoringCount: numberValue(archive.monitoring_count, archive.monitoringCount),
+    resolvedCount: numberValue(archive.resolved_count, archive.resolvedCount),
+    rolledBackCount: numberValue(archive.rolled_back_count, archive.rolledBackCount),
+    preventedCount: numberValue(archive.prevented_count, archive.preventedCount),
+    criticalCount: numberValue(archive.critical_count, archive.criticalCount),
+    blockingCount: numberValue(archive.blocking_count, archive.blockingCount),
+    followUpCount: numberValue(archive.follow_up_count, archive.followUpCount),
+    latestIncidentId:
+      stringValue(archive.latest_incident_id, archive.latestIncidentId) || null,
+    latestSeverity:
+      archive.latest_severity == null && archive.latestSeverity == null
+        ? null
+        : releaseIncidentSeverity(stringValue(archive.latest_severity, archive.latestSeverity)),
+    latestOutcome:
+      archive.latest_outcome == null && archive.latestOutcome == null
+        ? null
+        : releaseIncidentOutcome(stringValue(archive.latest_outcome, archive.latestOutcome)),
+    latestRollbackReference:
+      stringValue(archive.latest_rollback_reference, archive.latestRollbackReference) || null,
+    entries,
+    commands: arrayValue(archive.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -3189,6 +3376,26 @@ function recoveryRunbookPhaseStatus(value: string): FlowReleaseRecoveryRunbookPh
     return value;
   }
   return "blocked";
+}
+
+function releaseIncidentSeverity(value: string): FlowReleaseIncidentSeverity {
+  if (value === "info" || value === "watch" || value === "blocking" || value === "critical") {
+    return value;
+  }
+  return "watch";
+}
+
+function releaseIncidentOutcome(value: string): FlowReleaseIncidentOutcome {
+  if (
+    value === "open" ||
+    value === "monitoring" ||
+    value === "resolved" ||
+    value === "rolled-back" ||
+    value === "prevented"
+  ) {
+    return value;
+  }
+  return "open";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Incident Archive at 100/100 with typed local-only incident history, severity/outcome/follow-up/prevention taxonomies, append/list/export CLI commands, dashboard import/rendering, copyable follow-up actions, and focused Rust/TypeScript coverage
+- opened Friday Release Prevention Planner as the next set for turning incident history into recurrence detection, owner-ready prevention actions, and release-blocking evidence gates
 - completed Friday Release Recovery Runbook at 100/100 with typed local-only recovery reports, pause/diagnose/rollback/verify/resume/follow-up phases, explicit approval gates, non-executing CLI/JSON commands, dashboard import/rendering, copyable recovery commands, and focused Rust/TypeScript coverage
 - opened Friday Release Incident Archive as the next set for preserving recovery runbooks, incident notes, stability snapshots, rollback drills, and operator outcomes as searchable local release history
 - completed Friday Release Rollback Drill at 100/100 with typed local-only dry-run reports, rollback readiness checks, stale monitor and post-promotion blocker detection, CLI/JSON generation commands, dashboard rendering, dry-run command copy, and focused Rust/TypeScript coverage

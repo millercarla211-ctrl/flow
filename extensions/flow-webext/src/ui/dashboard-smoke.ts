@@ -8,6 +8,7 @@ import {
   normalizeReleaseCandidateArchive,
   normalizeReleaseDeploymentGate,
   normalizeReleaseEvidenceExportKit,
+  normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
   normalizeReleasePostPromotionMonitor,
   normalizeReleasePromotionLedger,
@@ -1475,6 +1476,78 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-recovery-runbook-json --output tmp/friday-dashboard/release-recovery-runbook.json",
     ],
   });
+  const releaseIncidentArchive = normalizeReleaseIncidentArchive({
+    archive_id: "friday-release-incident-archive-smoke",
+    archive_json: "tmp/friday-dashboard/release-incident-archive.json",
+    generated_at_unix_ms: 14,
+    product_name: "Friday",
+    local_only: true,
+    incident_count: 1,
+    open_count: 1,
+    monitoring_count: 0,
+    resolved_count: 0,
+    rolled_back_count: 0,
+    prevented_count: 0,
+    critical_count: 1,
+    blocking_count: 1,
+    follow_up_count: 2,
+    latest_incident_id: "friday-release-incident-smoke",
+    latest_severity: "critical",
+    latest_outcome: "open",
+    latest_rollback_reference: "candidate-initial",
+    entries: [
+      {
+        incident_id: "friday-release-incident-smoke",
+        recorded_at_unix_ms: 14,
+        product_name: "Friday",
+        local_only: true,
+        severity: "critical",
+        outcome: "open",
+        title: "Release recovery review for candidate-initial",
+        summary:
+          "Friday release incident is critical with outcome open; 2 blocked recovery phases, 1 active risk.",
+        recovery_runbook_id: "friday-release-recovery-runbook-smoke",
+        recovery_runbook_json: "tmp/friday-dashboard/release-recovery-runbook.json",
+        stability_board_json: "tmp/friday-dashboard/release-stability-board.json",
+        rollback_drill_json: "tmp/friday-dashboard/release-rollback-drill.json",
+        post_promotion_monitor_json: "tmp/friday-dashboard/release-post-promotion-monitor.json",
+        active_candidate_id: "candidate-promoted",
+        active_promotion_id: "promotion-candidate-promoted",
+        active_rollback_reference: "candidate-initial",
+        blocked_phase_count: 2,
+        active_risk_count: 1,
+        incident_notes: [
+          {
+            id: "voice-overlay-followup",
+            path: "tmp/friday-dashboard/incidents/voice-overlay-followup.md",
+            present: true,
+            bytes: 240,
+            summary: "Incident note evidence is present.",
+          },
+        ],
+        follow_up_actions: [
+          "Rollback dry run: Resolve rollback blockers.",
+          "Verify recovery state: Refresh post-promotion evidence.",
+        ],
+        prevention_items: [
+          "Prevent recurrence of: Rollback recovery: Rollback drill has 1 blocking issue.",
+        ],
+        evidence_paths: [
+          "tmp/friday-dashboard/release-recovery-runbook.json",
+          "tmp/friday-dashboard/release-stability-board.json",
+          "tmp/friday-dashboard/release-rollback-drill.json",
+          "tmp/friday-dashboard/release-post-promotion-monitor.json",
+          "tmp/friday-dashboard/incidents/voice-overlay-followup.md",
+        ],
+      },
+    ],
+    commands: [
+      "flow --friday-release-incident-archive --archive tmp/friday-dashboard/release-incident-archive.json --runbook <release-recovery-runbook.json> --incident-note <incident-note.md>",
+      "flow --friday-release-incident-archive-list --archive tmp/friday-dashboard/release-incident-archive.json",
+      "flow --friday-release-incident-archive-export --archive tmp/friday-dashboard/release-incident-archive.json --output tmp/friday-dashboard/release-incident-archive.json",
+      "flow --friday-release-incident-archive-json --archive tmp/friday-dashboard/release-incident-archive.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -1904,8 +1977,28 @@ export function dashboardSectionSmokeReport(
         releaseRecoveryRunbook.approvalGates.length === 3 &&
         releaseRecoveryRunbook.commands.some((command) =>
           command.includes("--friday-release-recovery-runbook"),
-        ),
+      ),
       `${releaseRecoveryRunbook?.approvalGates.length ?? 0} recovery approval gate(s)`,
+    ),
+    check(
+      "release-incident-archive-importable",
+      releaseIncidentArchive?.incidentCount === 1 &&
+        releaseIncidentArchive.latestSeverity === "critical" &&
+        releaseIncidentArchive.latestRollbackReference === "candidate-initial",
+      `${releaseIncidentArchive?.incidentCount ?? 0} archived incident(s)`,
+    ),
+    check(
+      "release-incident-archive-actions",
+      releaseIncidentArchive !== null &&
+        releaseIncidentArchive.entries.some(
+          (entry) =>
+            entry.followUpActions.length === 2 &&
+            entry.preventionItems.some((item) => item.includes("Prevent recurrence")),
+        ) &&
+        releaseIncidentArchive.commands.some((command) =>
+          command.includes("--friday-release-incident-archive"),
+        ),
+      `${releaseIncidentArchive?.followUpCount ?? 0} incident follow-up action(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",
