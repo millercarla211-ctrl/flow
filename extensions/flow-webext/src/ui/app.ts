@@ -10,6 +10,7 @@ import {
   normalizeReleasePromotionLedger,
   normalizeReleaseQaCommandCenter,
   normalizeReleaseRollbackDrill,
+  normalizeReleaseStabilityBoard,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
   normalizeTrustedHostRunnerCancellationUx,
@@ -40,6 +41,7 @@ import {
   type FlowReleasePromotionLedger,
   type FlowReleaseQaCommandCenterReport,
   type FlowReleaseRollbackDrillReport,
+  type FlowReleaseStabilityBoardReport,
 } from "../runtime/dashboard-actions";
 import { normalizeFridayDashboardBinding } from "../runtime/dashboard-binding";
 import { FlowBrowserEngine } from "../runtime/flow-engine";
@@ -91,6 +93,7 @@ type UiState = {
   dashboardReleasePromotionLedger: FlowReleasePromotionLedger | null;
   dashboardReleasePostPromotionMonitor: FlowReleasePostPromotionMonitorReport | null;
   dashboardReleaseRollbackDrill: FlowReleaseRollbackDrillReport | null;
+  dashboardReleaseStabilityBoard: FlowReleaseStabilityBoardReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -1928,6 +1931,74 @@ function renderReleaseRollbackDrill(drill: FlowReleaseRollbackDrillReport | null
   `;
 }
 
+function renderReleaseStabilityBoard(board: FlowReleaseStabilityBoardReport | null) {
+  if (!board) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-release-stability-board">
+      <div class="card-topline">
+        <span class="eyebrow">Stability board</span>
+        <span class="badge ${badgeTone(board.status)}">${board.scoreOutOf100} / 100</span>
+      </div>
+      <h3>${board.activeCandidateId ? escapeHtml(board.activeCandidateId) : "No active candidate"}</h3>
+      <p>${escapeHtml(board.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${board.blockingCount}</strong><small>blocking</small></span>
+        <span><strong>${board.warningCount}</strong><small>warnings</small></span>
+        <span><strong>${board.staleCount}</strong><small>stale</small></span>
+        <span><strong>${board.missingEvidenceCount}</strong><small>missing</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Checkpoint</strong> ${board.readyForCheckpoint ? "ready" : "blocked"}</span>
+        <span><strong>Deploy</strong> ${board.readyToDeploy ? "ready" : "blocked"}</span>
+        <span><strong>Stable</strong> ${board.stableAfterPromotion ? "ready" : "not ready"}</span>
+        <span><strong>Recoverable</strong> ${board.recoverable ? "ready" : "blocked"}</span>
+      </div>
+      <div class="runner-package-files">
+        ${board.checks
+          .slice(0, 6)
+          .map(
+            (check) => `
+              <div class="runner-package-file ${
+                check.status === "passed" ? "present" : "missing"
+              }">
+                <strong>${escapeHtml(check.label)}</strong>
+                <small>${escapeHtml(check.category)} - ${escapeHtml(check.status)}</small>
+                <code>${escapeHtml(check.sourcePath)}</code>
+                <span>${escapeHtml(check.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      ${
+        board.activeRisks.length
+          ? `<div class="note-list">${board.activeRisks
+              .slice(0, 5)
+              .map((risk) => `<span>${escapeHtml(risk)}</span>`)
+              .join("")}</div>`
+          : ""
+      }
+      <div class="note-list">
+        ${board.evidenceLinks
+          .slice(0, 6)
+          .map(
+            (link) =>
+              `<span>${escapeHtml(link.label)}: ${link.present ? "present" : "missing"} - ${escapeHtml(link.path)}</span>`,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-stability-board-command">
+          Copy board command
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2143,6 +2214,7 @@ function renderDashboard(state: UiState) {
       ${renderReleasePromotionLedger(state.dashboardReleasePromotionLedger)}
       ${renderReleasePostPromotionMonitor(state.dashboardReleasePostPromotionMonitor)}
       ${renderReleaseRollbackDrill(state.dashboardReleaseRollbackDrill)}
+      ${renderReleaseStabilityBoard(state.dashboardReleaseStabilityBoard)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2277,6 +2349,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleasePromotionLedger: null,
     dashboardReleasePostPromotionMonitor: null,
     dashboardReleaseRollbackDrill: null,
+    dashboardReleaseStabilityBoard: null,
   };
 
   function render() {
@@ -2581,6 +2654,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releasePromotionLedger = normalizeReleasePromotionLedger(parsed);
       const releasePostPromotionMonitor = normalizeReleasePostPromotionMonitor(parsed);
       const releaseRollbackDrill = normalizeReleaseRollbackDrill(parsed);
+      const releaseStabilityBoard = normalizeReleaseStabilityBoard(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2610,8 +2684,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releasePostPromotionMonitor ?? state.dashboardReleasePostPromotionMonitor;
       state.dashboardReleaseRollbackDrill =
         releaseRollbackDrill ?? state.dashboardReleaseRollbackDrill;
+      state.dashboardReleaseStabilityBoard =
+        releaseStabilityBoard ?? state.dashboardReleaseStabilityBoard;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseRollbackDrill
+      state.status = releaseStabilityBoard
+        ? `Imported stability board at ${releaseStabilityBoard.scoreOutOf100}/100 from ${file.name}.`
+        : releaseRollbackDrill
         ? `Imported rollback drill at ${releaseRollbackDrill.scoreOutOf100}/100 from ${file.name}.`
         : releasePostPromotionMonitor
         ? `Imported post-promotion monitor at ${releasePostPromotionMonitor.scoreOutOf100}/100 from ${file.name}.`
@@ -2995,6 +3073,22 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseStabilityBoardCommand() {
+    const command = state.dashboardReleaseStabilityBoard?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No stability board command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Stability board command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -3193,6 +3287,12 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-rollback-drill-dry-run']")
       ?.addEventListener("click", () => {
         void copyReleaseRollbackDryRunCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-stability-board-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseStabilityBoardCommand();
       });
 
     mountRoot

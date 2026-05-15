@@ -77,17 +77,17 @@ pub fn active_completion_set() -> CompletionSet {
             "release-stability-board-dashboard",
             "Dashboard stability board rendering",
             20,
-            CompletionItemStatus::Planned,
-            "dashboard rendering is not wired yet for the stability evidence board",
-            "add dashboard import/rendering for score, active risks, evidence links, and next operator actions",
+            CompletionItemStatus::Done,
+            "the visible dashboard imports stability board JSON and renders score, readiness, active risks, evidence links, and copyable board commands",
+            "open the next release recovery runbook set",
         ),
         item(
             "release-stability-board-coverage",
             "Stability board Rust and TypeScript coverage",
             20,
-            CompletionItemStatus::Planned,
-            "focused Rust coverage exists for the model path; TypeScript dashboard smoke coverage is still pending with the dashboard renderer",
-            "add dashboard smoke coverage after the visible board is imported and rendered",
+            CompletionItemStatus::Done,
+            "focused Rust integration coverage plus dashboard smoke checks verify board scoring, stale evidence, blocked categories, evidence links, and dashboard rendering",
+            "open the next release recovery runbook set",
         ),
     ];
 
@@ -140,11 +140,11 @@ mod tests {
     fn active_set_tracks_friday_release_stability_evidence_board_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Release Stability Evidence Board");
-        assert_eq!(set.current_score_out_of_100, 60);
+        assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items
                 .iter()
-                .any(|item| item.status == CompletionItemStatus::Planned)
+                .all(|item| item.status == CompletionItemStatus::Done)
         );
     }
 

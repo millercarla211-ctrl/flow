@@ -13,6 +13,7 @@ import {
   normalizeReleasePromotionLedger,
   normalizeReleaseQaCommandCenter,
   normalizeReleaseRollbackDrill,
+  normalizeReleaseStabilityBoard,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
   normalizeTrustedHostRunnerCancellationUx,
@@ -1216,6 +1217,100 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-rollback-drill-json --output tmp/friday-dashboard/release-rollback-drill.json",
     ],
   });
+  const releaseStabilityBoard = normalizeReleaseStabilityBoard({
+    board_id: "friday-release-stability-board-smoke",
+    board_json: "tmp/friday-dashboard/release-stability-board.json",
+    generated_at_unix_ms: 12,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    score_out_of_100: 58,
+    ready_for_checkpoint: false,
+    ready_to_deploy: false,
+    stable_after_promotion: false,
+    recoverable: false,
+    active_candidate_id: "candidate-promoted",
+    active_promotion_id: "promotion-candidate-promoted",
+    active_rollback_reference: "candidate-initial",
+    latest_promotion_decision: "promoted",
+    deployment_gate_decision: "no-go",
+    qa_json: "tmp/friday-dashboard/release-qa-command-center.json",
+    candidate_archive_json: "tmp/friday-dashboard/release-candidate-archive.json",
+    promotion_ledger_json: "tmp/friday-dashboard/release-promotion-ledger.json",
+    post_promotion_monitor_json: "tmp/friday-dashboard/release-post-promotion-monitor.json",
+    rollback_drill_json: "tmp/friday-dashboard/release-rollback-drill.json",
+    deployment_gate_json: "tmp/friday-dashboard/release-deployment-gate.json",
+    blocking_count: 3,
+    warning_count: 1,
+    stale_count: 1,
+    missing_evidence_count: 0,
+    checks: [
+      {
+        id: "deployment-gate",
+        label: "Deployment readiness",
+        category: "deployment-readiness",
+        source_path: "tmp/friday-dashboard/release-deployment-gate.json",
+        required: true,
+        present: true,
+        stale: false,
+        bytes: 1600,
+        status: "failed",
+        summary: "Deployment gate is no-go with 2 no-deploy reasons.",
+        next_action: "Resolve deployment gate blockers.",
+      },
+      {
+        id: "rollback-recovery",
+        label: "Rollback recovery",
+        category: "rollback-recovery",
+        source_path: "tmp/friday-dashboard/release-rollback-drill.json",
+        required: true,
+        present: true,
+        stale: false,
+        bytes: 1500,
+        status: "failed",
+        summary: "Rollback drill has 1 blocking issue.",
+        next_action: "Run a clean rollback drill.",
+      },
+      {
+        id: "post-promotion-freshness",
+        label: "Post-promotion freshness",
+        category: "post-promotion-freshness",
+        source_path: "tmp/friday-dashboard/release-post-promotion-monitor.json",
+        required: true,
+        present: true,
+        stale: true,
+        bytes: 1500,
+        status: "stale",
+        summary: "Post-promotion monitor has stale evidence.",
+        next_action: "Refresh post-promotion evidence.",
+      },
+    ],
+    evidence_links: [
+      {
+        id: "release-qa",
+        label: "Release QA",
+        path: "tmp/friday-dashboard/release-qa-command-center.json",
+        present: true,
+      },
+      {
+        id: "rollback-drill",
+        label: "Rollback drill",
+        path: "tmp/friday-dashboard/release-rollback-drill.json",
+        present: true,
+      },
+    ],
+    active_risks: [
+      "Deployment readiness: Deployment gate is no-go with 2 no-deploy reasons.",
+      "Rollback recovery: Rollback drill has 1 blocking issue.",
+    ],
+    next_actions: ["Resolve deployment gate blockers.", "Run a clean rollback drill."],
+    summary:
+      "Friday stability board is 58/100 with 3 blocking issues, 1 warning, and 1 stale check.",
+    commands: [
+      "flow --friday-release-stability-board --output tmp/friday-dashboard/release-stability-board.json",
+      "flow --friday-release-stability-board-json --output tmp/friday-dashboard/release-stability-board.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -1599,8 +1694,27 @@ export function dashboardSectionSmokeReport(
         ) &&
         releaseRollbackDrill.commands.some((command) =>
           command.includes("--friday-release-rollback-drill"),
-        ),
+      ),
       `${releaseRollbackDrill?.blockedReasons.length ?? 0} rollback drill blocker(s)`,
+    ),
+    check(
+      "release-stability-board-importable",
+      releaseStabilityBoard?.scoreOutOf100 === 58 &&
+        releaseStabilityBoard.readyForCheckpoint === false &&
+        releaseStabilityBoard.activeRollbackReference === "candidate-initial",
+      `${releaseStabilityBoard?.scoreOutOf100 ?? 0}/100 stability board score`,
+    ),
+    check(
+      "release-stability-board-risks",
+      releaseStabilityBoard?.activeRisks.length === 2 &&
+        releaseStabilityBoard.checks.some(
+          (item) => item.category === "rollback-recovery" && item.status === "failed",
+        ) &&
+        releaseStabilityBoard.evidenceLinks.some((link) => link.id === "rollback-drill") &&
+        releaseStabilityBoard.commands.some((command) =>
+          command.includes("--friday-release-stability-board"),
+        ),
+      `${releaseStabilityBoard?.activeRisks.length ?? 0} stability risk(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

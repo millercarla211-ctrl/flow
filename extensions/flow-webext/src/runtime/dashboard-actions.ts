@@ -750,6 +750,77 @@ export interface FlowReleaseRollbackDrillReport {
   commands: string[];
 }
 
+export type FlowReleaseStabilityBoardCategory =
+  | "deployment-readiness"
+  | "qa-health"
+  | "candidate-regression"
+  | "promotion-state"
+  | "post-promotion-freshness"
+  | "rollback-recovery";
+
+export type FlowReleaseStabilityBoardCheckStatus =
+  | "passed"
+  | "warning"
+  | "failed"
+  | "missing"
+  | "stale";
+
+export interface FlowReleaseStabilityBoardCheck {
+  id: string;
+  label: string;
+  category: FlowReleaseStabilityBoardCategory;
+  sourcePath: string;
+  required: boolean;
+  present: boolean;
+  stale: boolean;
+  bytes: number;
+  status: FlowReleaseStabilityBoardCheckStatus;
+  summary: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseStabilityBoardEvidenceLink {
+  id: string;
+  label: string;
+  path: string;
+  present: boolean;
+}
+
+export interface FlowReleaseStabilityBoardReport {
+  boardId: string;
+  boardJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  readyForCheckpoint: boolean;
+  readyToDeploy: boolean;
+  stableAfterPromotion: boolean;
+  recoverable: boolean;
+  activeCandidateId: string | null;
+  activePromotionId: string | null;
+  activeRollbackReference: string | null;
+  latestPromotionDecision: FlowReleasePromotionDecision | null;
+  deploymentGateDecision: FlowReleaseDeploymentGateDecision | null;
+  qaJson: string;
+  candidateArchiveJson: string;
+  promotionLedgerJson: string;
+  postPromotionMonitorJson: string;
+  rollbackDrillJson: string;
+  deploymentGateJson: string;
+  blockingCount: number;
+  warningCount: number;
+  staleCount: number;
+  missingEvidenceCount: number;
+  checks: FlowReleaseStabilityBoardCheck[];
+  evidenceLinks: FlowReleaseStabilityBoardEvidenceLink[];
+  activeRisks: string[];
+  nextActions: string[];
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -2568,6 +2639,134 @@ export function normalizeReleaseRollbackDrill(
   };
 }
 
+export function normalizeReleaseStabilityBoard(
+  value: unknown,
+): FlowReleaseStabilityBoardReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const board =
+    root.release_stability_board && typeof root.release_stability_board === "object"
+      ? (root.release_stability_board as Record<string, unknown>)
+      : root.releaseStabilityBoard && typeof root.releaseStabilityBoard === "object"
+        ? (root.releaseStabilityBoard as Record<string, unknown>)
+        : root;
+  const boardId = stringValue(board.board_id, board.boardId);
+  const checks = arrayValue(board.checks)
+    .map((item): FlowReleaseStabilityBoardCheck | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const check = item as Record<string, unknown>;
+      const id = stringValue(check.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        label: stringValue(check.label),
+        category: stabilityBoardCategory(stringValue(check.category)),
+        sourcePath: stringValue(check.source_path, check.sourcePath),
+        required: booleanValue(check.required),
+        present: booleanValue(check.present),
+        stale: booleanValue(check.stale),
+        bytes: numberValue(check.bytes),
+        status: stabilityBoardCheckStatus(stringValue(check.status)),
+        summary: stringValue(check.summary),
+        nextAction: stringValue(check.next_action, check.nextAction),
+      };
+    })
+    .filter((check): check is FlowReleaseStabilityBoardCheck => check !== null);
+  const evidenceLinks = arrayValue(board.evidence_links, board.evidenceLinks)
+    .map((item): FlowReleaseStabilityBoardEvidenceLink | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const link = item as Record<string, unknown>;
+      const id = stringValue(link.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        label: stringValue(link.label),
+        path: stringValue(link.path),
+        present: booleanValue(link.present),
+      };
+    })
+    .filter((link): link is FlowReleaseStabilityBoardEvidenceLink => link !== null);
+
+  if (!boardId && checks.length === 0 && evidenceLinks.length === 0) {
+    return null;
+  }
+
+  return {
+    boardId,
+    boardJson: stringValue(board.board_json, board.boardJson),
+    generatedAtUnixMs: stringValue(board.generated_at_unix_ms, board.generatedAtUnixMs),
+    productName: stringValue(board.product_name, board.productName),
+    localOnly: booleanValue(board.local_only, board.localOnly),
+    status: panelStatus(stringValue(board.status)),
+    scoreOutOf100: numberValue(board.score_out_of_100, board.scoreOutOf100),
+    readyForCheckpoint: booleanValue(
+      board.ready_for_checkpoint,
+      board.readyForCheckpoint,
+    ),
+    readyToDeploy: booleanValue(board.ready_to_deploy, board.readyToDeploy),
+    stableAfterPromotion: booleanValue(
+      board.stable_after_promotion,
+      board.stableAfterPromotion,
+    ),
+    recoverable: booleanValue(board.recoverable),
+    activeCandidateId: stringValue(board.active_candidate_id, board.activeCandidateId) || null,
+    activePromotionId: stringValue(board.active_promotion_id, board.activePromotionId) || null,
+    activeRollbackReference:
+      stringValue(board.active_rollback_reference, board.activeRollbackReference) || null,
+    latestPromotionDecision:
+      board.latest_promotion_decision == null && board.latestPromotionDecision == null
+        ? null
+        : promotionDecision(
+            stringValue(board.latest_promotion_decision, board.latestPromotionDecision),
+          ),
+    deploymentGateDecision:
+      board.deployment_gate_decision == null && board.deploymentGateDecision == null
+        ? null
+        : deploymentDecision(
+            stringValue(board.deployment_gate_decision, board.deploymentGateDecision),
+          ),
+    qaJson: stringValue(board.qa_json, board.qaJson),
+    candidateArchiveJson: stringValue(board.candidate_archive_json, board.candidateArchiveJson),
+    promotionLedgerJson: stringValue(board.promotion_ledger_json, board.promotionLedgerJson),
+    postPromotionMonitorJson: stringValue(
+      board.post_promotion_monitor_json,
+      board.postPromotionMonitorJson,
+    ),
+    rollbackDrillJson: stringValue(board.rollback_drill_json, board.rollbackDrillJson),
+    deploymentGateJson: stringValue(board.deployment_gate_json, board.deploymentGateJson),
+    blockingCount: numberValue(board.blocking_count, board.blockingCount),
+    warningCount: numberValue(board.warning_count, board.warningCount),
+    staleCount: numberValue(board.stale_count, board.staleCount),
+    missingEvidenceCount: numberValue(
+      board.missing_evidence_count,
+      board.missingEvidenceCount,
+    ),
+    checks,
+    evidenceLinks,
+    activeRisks: arrayValue(board.active_risks, board.activeRisks)
+      .map((risk) => stringValue(risk))
+      .filter(Boolean),
+    nextActions: arrayValue(board.next_actions, board.nextActions)
+      .map((action) => stringValue(action))
+      .filter(Boolean),
+    summary: stringValue(board.summary),
+    commands: arrayValue(board.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -2738,6 +2937,33 @@ function rollbackDrillCheckStatus(value: string): FlowReleaseRollbackDrillCheckS
     return value;
   }
   return "warning";
+}
+
+function stabilityBoardCheckStatus(value: string): FlowReleaseStabilityBoardCheckStatus {
+  if (
+    value === "passed" ||
+    value === "warning" ||
+    value === "failed" ||
+    value === "missing" ||
+    value === "stale"
+  ) {
+    return value;
+  }
+  return "warning";
+}
+
+function stabilityBoardCategory(value: string): FlowReleaseStabilityBoardCategory {
+  if (
+    value === "deployment-readiness" ||
+    value === "qa-health" ||
+    value === "candidate-regression" ||
+    value === "promotion-state" ||
+    value === "post-promotion-freshness" ||
+    value === "rollback-recovery"
+  ) {
+    return value;
+  }
+  return "deployment-readiness";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

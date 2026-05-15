@@ -575,9 +575,9 @@ Goal: make rollback readiness testable by turning active rollback references, pr
 
 This set is complete. The next loop should open `Friday Release Stability Evidence Board` and consolidate release QA, candidate archive, promotion ledger, post-promotion monitor, rollback drill, and deployment gate evidence into one operator-facing stability surface.
 
-## Next Set: Friday Release Stability Evidence Board
+## Completed Set: Friday Release Stability Evidence Board
 
-Status: 60/100
+Status: 100/100
 
 Goal: consolidate all major Friday release evidence into one local-first stability board that tells the operator whether the current candidate is deployable, stable, recoverable, and ready for the next major checkpoint.
 
@@ -586,8 +586,23 @@ Goal: consolidate all major Friday release evidence into one local-first stabili
 - [x] Add a typed stability evidence board model that consumes release QA, candidate archive, promotion ledger, post-promotion monitor, rollback drill, and deployment gate reports.
 - [x] Add stability score categories for deployment readiness, post-promotion freshness, rollback recovery, candidate regression, and QA health.
 - [x] Add CLI and JSON commands for generating the stability board without running builds, deployments, or rollback commands.
+- [x] Add dashboard import/rendering for stability score, active risks, evidence links, and next operator actions.
+- [x] Add focused TypeScript dashboard coverage for board import/rendering after the visible board is wired.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Recovery Runbook` and turn stability-board risks, rollback drill output, and release evidence links into a local-only operator runbook with explicit approval gates.
+
+## Next Set: Friday Release Recovery Runbook
+
+Status: 0/100
+
+Goal: convert the stability evidence board into a practical local-only recovery runbook that tells the operator exactly how to pause, investigate, rollback, verify, and resume Friday after a blocked release or failed promotion.
 
 ### Remaining To Reach 100/100
 
-- [ ] Add dashboard import/rendering for stability score, active risks, evidence links, and next operator actions.
-- [ ] Add focused TypeScript dashboard coverage for board import/rendering after the visible board is wired.
+- [ ] Add a typed recovery runbook model that consumes the stability board, rollback drill, promotion ledger, and post-promotion monitor.
+- [ ] Add runbook phases for pause, diagnose, rollback, verify, resume, and follow-up incident notes.
+- [ ] Add CLI and JSON commands for generating runbooks without executing recovery commands.
+- [ ] Add dashboard import/rendering for runbook phases, approval gates, and copyable recovery commands.
+- [ ] Add focused Rust/TypeScript coverage for blocked-risk mapping, command safety, phase ordering, and dashboard rendering.
