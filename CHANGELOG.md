@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Recovery Runbook at 100/100 with typed local-only recovery reports, pause/diagnose/rollback/verify/resume/follow-up phases, explicit approval gates, non-executing CLI/JSON commands, dashboard import/rendering, copyable recovery commands, and focused Rust/TypeScript coverage
+- opened Friday Release Incident Archive as the next set for preserving recovery runbooks, incident notes, stability snapshots, rollback drills, and operator outcomes as searchable local release history
 - completed Friday Release Rollback Drill at 100/100 with typed local-only dry-run reports, rollback readiness checks, stale monitor and post-promotion blocker detection, CLI/JSON generation commands, dashboard rendering, dry-run command copy, and focused Rust/TypeScript coverage
 - opened Friday Release Stability Evidence Board as the next set for consolidating release QA, candidate archive, promotion ledger, post-promotion monitor, rollback drill, and deployment gate evidence into one operator-facing stability surface
 - advanced Friday Release Stability Evidence Board to 60/100 with a typed consolidated stability board, deployment/QA/regression/promotion/freshness/recovery scoring categories, CLI/JSON generation commands, and focused Rust coverage

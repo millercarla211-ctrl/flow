@@ -33,9 +33,9 @@ use crate::friday::{
     FridayReleaseEvidenceExportKitReport, FridayReleaseOperatorChecklistReport,
     FridayReleasePostPromotionMonitorReport, FridayReleasePromotionDecision,
     FridayReleasePromotionLedger, FridayReleasePromotionRecordRequest,
-    FridayReleaseQaCommandCenterReport, FridayReleaseRollbackDrillReport,
-    FridayReleaseStabilityBoardReport, FridayResearchReport, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleaseQaCommandCenterReport, FridayReleaseRecoveryRunbookReport,
+    FridayReleaseRollbackDrillReport, FridayReleaseStabilityBoardReport, FridayResearchReport,
+    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
@@ -56,8 +56,9 @@ use crate::friday::{
     friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
     friday_release_evidence_export_kit_report, friday_release_operator_checklist_report,
     friday_release_post_promotion_monitor_report, friday_release_promotion_ledger_report,
-    friday_release_qa_command_center_report, friday_release_rollback_drill_report,
-    friday_release_stability_board_report, friday_research_search_plan, friday_route_visual_report,
+    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
+    friday_release_rollback_drill_report, friday_release_stability_board_report,
+    friday_research_search_plan, friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
@@ -69,9 +70,10 @@ use crate::friday::{
     run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
     write_friday_release_deployment_gate, write_friday_release_evidence_export_kit,
     write_friday_release_operator_checklist, write_friday_release_post_promotion_monitor_report,
-    write_friday_release_qa_command_center_report, write_friday_release_rollback_drill_report,
-    write_friday_release_stability_board_report, write_friday_trusted_host_live_runner_state,
-    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
+    write_friday_release_qa_command_center_report, write_friday_release_recovery_runbook_report,
+    write_friday_release_rollback_drill_report, write_friday_release_stability_board_report,
+    write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
+    write_friday_trusted_runner_release_timeline,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -1231,6 +1233,44 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayReleaseRecoveryRunbook {
+            runbook_file,
+            stability_board_file,
+            rollback_drill_file,
+            promotion_ledger_file,
+            post_promotion_monitor_file,
+        } => {
+            let report = friday_release_recovery_runbook_report(
+                resolve_repo_relative_path(&runbook_file),
+                resolve_repo_relative_path(&stability_board_file),
+                resolve_repo_relative_path(&rollback_drill_file),
+                resolve_repo_relative_path(&promotion_ledger_file),
+                resolve_repo_relative_path(&post_promotion_monitor_file),
+            );
+            write_friday_release_recovery_runbook_report(
+                resolve_repo_relative_path(&runbook_file),
+                &report,
+            )?;
+            print_friday_release_recovery_runbook(&report);
+        }
+
+        Command::FridayReleaseRecoveryRunbookJson {
+            runbook_file,
+            stability_board_file,
+            rollback_drill_file,
+            promotion_ledger_file,
+            post_promotion_monitor_file,
+        } => {
+            let report = friday_release_recovery_runbook_report(
+                resolve_repo_relative_path(&runbook_file),
+                resolve_repo_relative_path(&stability_board_file),
+                resolve_repo_relative_path(&rollback_drill_file),
+                resolve_repo_relative_path(&promotion_ledger_file),
+                resolve_repo_relative_path(&post_promotion_monitor_file),
+            );
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1758,6 +1798,10 @@ fn print_interactive_help() {
     println!("                           Write consolidated Friday release stability board JSON");
     println!("  --friday-release-stability-board-json [export-dir]");
     println!("                           Print release stability board as JSON");
+    println!("  --friday-release-recovery-runbook [export-dir]");
+    println!("                           Write local-only Friday release recovery runbook JSON");
+    println!("  --friday-release-recovery-runbook-json [export-dir]");
+    println!("                           Print release recovery runbook as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -3510,6 +3554,72 @@ fn print_friday_release_stability_board(report: &FridayReleaseStabilityBoardRepo
             link.label,
             if link.present { "present" } else { "missing" },
             link.path
+        );
+    }
+    println!();
+    println!("Commands:");
+    for command in &report.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_recovery_runbook(report: &FridayReleaseRecoveryRunbookReport) {
+    println!("Friday Release Recovery Runbook");
+    println!("===============================");
+    println!(
+        "Score: {} / 100 | status: {} | review ready: {} | executable: {}",
+        report.score_out_of_100,
+        report.status.label(),
+        yes_no(report.ready_for_operator_review),
+        yes_no(report.ready_to_execute_recovery)
+    );
+    println!(
+        "Phases: {} | blocked: {} | approvals: {} unsatisfied / {} total",
+        report.phase_count,
+        report.blocked_phase_count,
+        report.unsatisfied_approval_gate_count,
+        report.approval_gate_count
+    );
+    println!("Runbook: {}", report.runbook_json);
+    if let Some(candidate_id) = &report.active_candidate_id {
+        println!("Active candidate: {}", candidate_id);
+    }
+    if let Some(rollback) = &report.active_rollback_reference {
+        println!("Rollback reference: {}", rollback);
+    }
+    if !report.active_risks.is_empty() {
+        println!();
+        println!("Active risks:");
+        for risk in &report.active_risks {
+            println!("  - {risk}");
+        }
+    }
+    println!();
+    println!("Phases:");
+    for phase in &report.phases {
+        println!(
+            "  {}. {} [{}]",
+            phase.order,
+            phase.label,
+            phase.status.label()
+        );
+        println!("    objective: {}", phase.objective);
+        println!("    command: {}", phase.command);
+        println!("    verify: {}", phase.verification);
+        println!("    next: {}", phase.next_action);
+    }
+    println!();
+    println!("Approval gates:");
+    for gate in &report.approval_gates {
+        println!(
+            "  - {} [{}] {}",
+            gate.label,
+            if gate.satisfied {
+                "satisfied"
+            } else {
+                "pending"
+            },
+            gate.summary
         );
     }
     println!();

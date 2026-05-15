@@ -821,6 +821,75 @@ export interface FlowReleaseStabilityBoardReport {
   commands: string[];
 }
 
+export type FlowReleaseRecoveryRunbookPhaseKind =
+  | "pause"
+  | "diagnose"
+  | "rollback"
+  | "verify"
+  | "resume"
+  | "follow-up";
+
+export type FlowReleaseRecoveryRunbookPhaseStatus =
+  | "ready"
+  | "requires-approval"
+  | "blocked";
+
+export interface FlowReleaseRecoveryRunbookPhase {
+  kind: FlowReleaseRecoveryRunbookPhaseKind;
+  order: number;
+  label: string;
+  status: FlowReleaseRecoveryRunbookPhaseStatus;
+  approvalRequired: boolean;
+  sourcePath: string;
+  objective: string;
+  command: string;
+  verification: string;
+  risks: string[];
+  evidencePaths: string[];
+  nextAction: string;
+}
+
+export interface FlowReleaseRecoveryRunbookApprovalGate {
+  id: string;
+  label: string;
+  phase: FlowReleaseRecoveryRunbookPhaseKind;
+  required: boolean;
+  satisfied: boolean;
+  summary: string;
+  operatorAction: string;
+}
+
+export interface FlowReleaseRecoveryRunbookReport {
+  runbookId: string;
+  runbookJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  readyForOperatorReview: boolean;
+  readyToExecuteRecovery: boolean;
+  activeCandidateId: string | null;
+  activePromotionId: string | null;
+  activeRollbackReference: string | null;
+  latestPromotionDecision: FlowReleasePromotionDecision | null;
+  stabilityBoardJson: string;
+  rollbackDrillJson: string;
+  promotionLedgerJson: string;
+  postPromotionMonitorJson: string;
+  phaseCount: number;
+  blockedPhaseCount: number;
+  approvalGateCount: number;
+  unsatisfiedApprovalGateCount: number;
+  commandCount: number;
+  activeRisks: string[];
+  phases: FlowReleaseRecoveryRunbookPhase[];
+  approvalGates: FlowReleaseRecoveryRunbookApprovalGate[];
+  recoveryCommands: string[];
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -2767,6 +2836,141 @@ export function normalizeReleaseStabilityBoard(
   };
 }
 
+export function normalizeReleaseRecoveryRunbook(
+  value: unknown,
+): FlowReleaseRecoveryRunbookReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const runbook =
+    root.release_recovery_runbook && typeof root.release_recovery_runbook === "object"
+      ? (root.release_recovery_runbook as Record<string, unknown>)
+      : root.releaseRecoveryRunbook && typeof root.releaseRecoveryRunbook === "object"
+        ? (root.releaseRecoveryRunbook as Record<string, unknown>)
+        : root;
+  const runbookId = stringValue(runbook.runbook_id, runbook.runbookId);
+  const phases = arrayValue(runbook.phases)
+    .map((item): FlowReleaseRecoveryRunbookPhase | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const phase = item as Record<string, unknown>;
+      const label = stringValue(phase.label);
+      return {
+        kind: recoveryRunbookPhaseKind(stringValue(phase.kind)),
+        order: numberValue(phase.order),
+        label,
+        status: recoveryRunbookPhaseStatus(stringValue(phase.status)),
+        approvalRequired: booleanValue(phase.approval_required, phase.approvalRequired),
+        sourcePath: stringValue(phase.source_path, phase.sourcePath),
+        objective: stringValue(phase.objective),
+        command: stringValue(phase.command),
+        verification: stringValue(phase.verification),
+        risks: arrayValue(phase.risks)
+          .map((risk) => stringValue(risk))
+          .filter(Boolean),
+        evidencePaths: arrayValue(phase.evidence_paths, phase.evidencePaths)
+          .map((path) => stringValue(path))
+          .filter(Boolean),
+        nextAction: stringValue(phase.next_action, phase.nextAction),
+      };
+    })
+    .filter(
+      (phase): phase is FlowReleaseRecoveryRunbookPhase =>
+        phase !== null && phase.label.trim().length > 0,
+    );
+  const approvalGates = arrayValue(runbook.approval_gates, runbook.approvalGates)
+    .map((item): FlowReleaseRecoveryRunbookApprovalGate | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const gate = item as Record<string, unknown>;
+      const id = stringValue(gate.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        label: stringValue(gate.label),
+        phase: recoveryRunbookPhaseKind(stringValue(gate.phase)),
+        required: booleanValue(gate.required),
+        satisfied: booleanValue(gate.satisfied),
+        summary: stringValue(gate.summary),
+        operatorAction: stringValue(gate.operator_action, gate.operatorAction),
+      };
+    })
+    .filter((gate): gate is FlowReleaseRecoveryRunbookApprovalGate => gate !== null);
+
+  if (!runbookId && phases.length === 0 && approvalGates.length === 0) {
+    return null;
+  }
+
+  return {
+    runbookId,
+    runbookJson: stringValue(runbook.runbook_json, runbook.runbookJson),
+    generatedAtUnixMs: stringValue(runbook.generated_at_unix_ms, runbook.generatedAtUnixMs),
+    productName: stringValue(runbook.product_name, runbook.productName),
+    localOnly: booleanValue(runbook.local_only, runbook.localOnly),
+    status: panelStatus(stringValue(runbook.status)),
+    scoreOutOf100: numberValue(runbook.score_out_of_100, runbook.scoreOutOf100),
+    readyForOperatorReview: booleanValue(
+      runbook.ready_for_operator_review,
+      runbook.readyForOperatorReview,
+    ),
+    readyToExecuteRecovery: booleanValue(
+      runbook.ready_to_execute_recovery,
+      runbook.readyToExecuteRecovery,
+    ),
+    activeCandidateId:
+      stringValue(runbook.active_candidate_id, runbook.activeCandidateId) || null,
+    activePromotionId:
+      stringValue(runbook.active_promotion_id, runbook.activePromotionId) || null,
+    activeRollbackReference:
+      stringValue(runbook.active_rollback_reference, runbook.activeRollbackReference) || null,
+    latestPromotionDecision:
+      runbook.latest_promotion_decision == null && runbook.latestPromotionDecision == null
+        ? null
+        : promotionDecision(
+            stringValue(runbook.latest_promotion_decision, runbook.latestPromotionDecision),
+          ),
+    stabilityBoardJson: stringValue(
+      runbook.stability_board_json,
+      runbook.stabilityBoardJson,
+    ),
+    rollbackDrillJson: stringValue(runbook.rollback_drill_json, runbook.rollbackDrillJson),
+    promotionLedgerJson: stringValue(
+      runbook.promotion_ledger_json,
+      runbook.promotionLedgerJson,
+    ),
+    postPromotionMonitorJson: stringValue(
+      runbook.post_promotion_monitor_json,
+      runbook.postPromotionMonitorJson,
+    ),
+    phaseCount: numberValue(runbook.phase_count, runbook.phaseCount),
+    blockedPhaseCount: numberValue(runbook.blocked_phase_count, runbook.blockedPhaseCount),
+    approvalGateCount: numberValue(runbook.approval_gate_count, runbook.approvalGateCount),
+    unsatisfiedApprovalGateCount: numberValue(
+      runbook.unsatisfied_approval_gate_count,
+      runbook.unsatisfiedApprovalGateCount,
+    ),
+    commandCount: numberValue(runbook.command_count, runbook.commandCount),
+    activeRisks: arrayValue(runbook.active_risks, runbook.activeRisks)
+      .map((risk) => stringValue(risk))
+      .filter(Boolean),
+    phases,
+    approvalGates,
+    recoveryCommands: arrayValue(runbook.recovery_commands, runbook.recoveryCommands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+    summary: stringValue(runbook.summary),
+    commands: arrayValue(runbook.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -2964,6 +3168,27 @@ function stabilityBoardCategory(value: string): FlowReleaseStabilityBoardCategor
     return value;
   }
   return "deployment-readiness";
+}
+
+function recoveryRunbookPhaseKind(value: string): FlowReleaseRecoveryRunbookPhaseKind {
+  if (
+    value === "pause" ||
+    value === "diagnose" ||
+    value === "rollback" ||
+    value === "verify" ||
+    value === "resume" ||
+    value === "follow-up"
+  ) {
+    return value;
+  }
+  return "diagnose";
+}
+
+function recoveryRunbookPhaseStatus(value: string): FlowReleaseRecoveryRunbookPhaseStatus {
+  if (value === "ready" || value === "requires-approval" || value === "blocked") {
+    return value;
+  }
+  return "blocked";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

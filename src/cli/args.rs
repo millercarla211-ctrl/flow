@@ -423,6 +423,22 @@ pub enum Command {
         rollback_drill_file: String,
         deployment_gate_file: String,
     },
+    /// Write the Friday release recovery runbook
+    FridayReleaseRecoveryRunbook {
+        runbook_file: String,
+        stability_board_file: String,
+        rollback_drill_file: String,
+        promotion_ledger_file: String,
+        post_promotion_monitor_file: String,
+    },
+    /// Print the Friday release recovery runbook as JSON
+    FridayReleaseRecoveryRunbookJson {
+        runbook_file: String,
+        stability_board_file: String,
+        rollback_drill_file: String,
+        promotion_ledger_file: String,
+        post_promotion_monitor_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1488,6 +1504,38 @@ impl Args {
                     deployment_gate_file,
                 }
             }
+            "--friday-release-recovery-runbook" | "--friday-recovery-runbook" => {
+                let (
+                    runbook_file,
+                    stability_board_file,
+                    rollback_drill_file,
+                    promotion_ledger_file,
+                    post_promotion_monitor_file,
+                ) = parse_friday_release_recovery_runbook_args(&args);
+                Command::FridayReleaseRecoveryRunbook {
+                    runbook_file,
+                    stability_board_file,
+                    rollback_drill_file,
+                    promotion_ledger_file,
+                    post_promotion_monitor_file,
+                }
+            }
+            "--friday-release-recovery-runbook-json" | "--friday-recovery-runbook-json" => {
+                let (
+                    runbook_file,
+                    stability_board_file,
+                    rollback_drill_file,
+                    promotion_ledger_file,
+                    post_promotion_monitor_file,
+                ) = parse_friday_release_recovery_runbook_args(&args);
+                Command::FridayReleaseRecoveryRunbookJson {
+                    runbook_file,
+                    stability_board_file,
+                    rollback_drill_file,
+                    promotion_ledger_file,
+                    post_promotion_monitor_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -2494,6 +2542,40 @@ fn parse_friday_release_stability_board_args(
         post_promotion_monitor_file,
         rollback_drill_file,
         deployment_gate_file,
+    )
+}
+
+fn parse_friday_release_recovery_runbook_args(
+    args: &[String],
+) -> (String, String, String, String, String) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let runbook_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--runbook"))
+        .unwrap_or_else(|| format!("{export_dir}/release-recovery-runbook.json"));
+    let stability_board_file = flag_value(args, "--stability-board")
+        .or_else(|| flag_value(args, "--board"))
+        .unwrap_or_else(|| format!("{export_dir}/release-stability-board.json"));
+    let rollback_drill_file = flag_value(args, "--rollback-drill")
+        .or_else(|| flag_value(args, "--drill"))
+        .unwrap_or_else(|| format!("{export_dir}/release-rollback-drill.json"));
+    let promotion_ledger_file = flag_value(args, "--promotion-ledger")
+        .or_else(|| flag_value(args, "--ledger"))
+        .unwrap_or_else(|| format!("{export_dir}/release-promotion-ledger.json"));
+    let post_promotion_monitor_file = flag_value(args, "--post-promotion-monitor")
+        .or_else(|| flag_value(args, "--monitor"))
+        .unwrap_or_else(|| format!("{export_dir}/release-post-promotion-monitor.json"));
+
+    (
+        runbook_file,
+        stability_board_file,
+        rollback_drill_file,
+        promotion_ledger_file,
+        post_promotion_monitor_file,
     )
 }
 

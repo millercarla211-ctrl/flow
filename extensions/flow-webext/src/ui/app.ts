@@ -9,6 +9,7 @@ import {
   normalizeReleasePostPromotionMonitor,
   normalizeReleasePromotionLedger,
   normalizeReleaseQaCommandCenter,
+  normalizeReleaseRecoveryRunbook,
   normalizeReleaseRollbackDrill,
   normalizeReleaseStabilityBoard,
   normalizeDashboardHostCommandResults,
@@ -40,6 +41,7 @@ import {
   type FlowReleasePostPromotionMonitorReport,
   type FlowReleasePromotionLedger,
   type FlowReleaseQaCommandCenterReport,
+  type FlowReleaseRecoveryRunbookReport,
   type FlowReleaseRollbackDrillReport,
   type FlowReleaseStabilityBoardReport,
 } from "../runtime/dashboard-actions";
@@ -94,6 +96,7 @@ type UiState = {
   dashboardReleasePostPromotionMonitor: FlowReleasePostPromotionMonitorReport | null;
   dashboardReleaseRollbackDrill: FlowReleaseRollbackDrillReport | null;
   dashboardReleaseStabilityBoard: FlowReleaseStabilityBoardReport | null;
+  dashboardReleaseRecoveryRunbook: FlowReleaseRecoveryRunbookReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -1999,6 +2002,80 @@ function renderReleaseStabilityBoard(board: FlowReleaseStabilityBoardReport | nu
   `;
 }
 
+function renderReleaseRecoveryRunbook(runbook: FlowReleaseRecoveryRunbookReport | null) {
+  if (!runbook) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-release-recovery-runbook">
+      <div class="card-topline">
+        <span class="eyebrow">Recovery runbook</span>
+        <span class="badge ${badgeTone(runbook.status)}">${runbook.scoreOutOf100} / 100</span>
+      </div>
+      <h3>${runbook.activeRollbackReference ? escapeHtml(runbook.activeRollbackReference) : "Recovery needs approval"}</h3>
+      <p>${escapeHtml(runbook.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${runbook.phaseCount}</strong><small>phases</small></span>
+        <span><strong>${runbook.blockedPhaseCount}</strong><small>blocked</small></span>
+        <span><strong>${runbook.unsatisfiedApprovalGateCount}</strong><small>approvals</small></span>
+        <span><strong>${runbook.commandCount}</strong><small>commands</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Review</strong> ${runbook.readyForOperatorReview ? "ready" : "blocked"}</span>
+        <span><strong>Execute</strong> ${runbook.readyToExecuteRecovery ? "ready" : "blocked"}</span>
+        <span><strong>Candidate</strong> ${escapeHtml(runbook.activeCandidateId ?? "not recorded")}</span>
+        <span><strong>Promotion</strong> ${escapeHtml(runbook.latestPromotionDecision ?? "not recorded")}</span>
+      </div>
+      <div class="runner-package-files">
+        ${runbook.phases
+          .slice()
+          .sort((left, right) => left.order - right.order)
+          .map(
+            (phase) => `
+              <div class="runner-package-file ${
+                phase.status === "ready" ? "present" : "missing"
+              }">
+                <strong>${phase.order}. ${escapeHtml(phase.label)}</strong>
+                <small>${escapeHtml(phase.kind)} - ${escapeHtml(phase.status)}</small>
+                <code>${escapeHtml(phase.command)}</code>
+                <span>${escapeHtml(phase.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      ${
+        runbook.activeRisks.length
+          ? `<div class="note-list">${runbook.activeRisks
+              .slice(0, 5)
+              .map((risk) => `<span>${escapeHtml(risk)}</span>`)
+              .join("")}</div>`
+          : ""
+      }
+      ${
+        runbook.approvalGates.length
+          ? `<div class="note-list">${runbook.approvalGates
+              .slice(0, 4)
+              .map(
+                (gate) =>
+                  `<span>${escapeHtml(gate.label)}: ${gate.satisfied ? "satisfied" : "pending"} - ${escapeHtml(gate.summary)}</span>`,
+              )
+              .join("")}</div>`
+          : ""
+      }
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-recovery-runbook-command">
+          Copy runbook command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-recovery-runbook-phase">
+          Copy first phase
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2215,6 +2292,7 @@ function renderDashboard(state: UiState) {
       ${renderReleasePostPromotionMonitor(state.dashboardReleasePostPromotionMonitor)}
       ${renderReleaseRollbackDrill(state.dashboardReleaseRollbackDrill)}
       ${renderReleaseStabilityBoard(state.dashboardReleaseStabilityBoard)}
+      ${renderReleaseRecoveryRunbook(state.dashboardReleaseRecoveryRunbook)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2350,6 +2428,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleasePostPromotionMonitor: null,
     dashboardReleaseRollbackDrill: null,
     dashboardReleaseStabilityBoard: null,
+    dashboardReleaseRecoveryRunbook: null,
   };
 
   function render() {
@@ -2655,6 +2734,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releasePostPromotionMonitor = normalizeReleasePostPromotionMonitor(parsed);
       const releaseRollbackDrill = normalizeReleaseRollbackDrill(parsed);
       const releaseStabilityBoard = normalizeReleaseStabilityBoard(parsed);
+      const releaseRecoveryRunbook = normalizeReleaseRecoveryRunbook(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2686,8 +2766,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseRollbackDrill ?? state.dashboardReleaseRollbackDrill;
       state.dashboardReleaseStabilityBoard =
         releaseStabilityBoard ?? state.dashboardReleaseStabilityBoard;
+      state.dashboardReleaseRecoveryRunbook =
+        releaseRecoveryRunbook ?? state.dashboardReleaseRecoveryRunbook;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseStabilityBoard
+      state.status = releaseRecoveryRunbook
+        ? `Imported recovery runbook at ${releaseRecoveryRunbook.scoreOutOf100}/100 from ${file.name}.`
+        : releaseStabilityBoard
         ? `Imported stability board at ${releaseStabilityBoard.scoreOutOf100}/100 from ${file.name}.`
         : releaseRollbackDrill
         ? `Imported rollback drill at ${releaseRollbackDrill.scoreOutOf100}/100 from ${file.name}.`
@@ -3089,6 +3173,41 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseRecoveryRunbookCommand() {
+    const command = state.dashboardReleaseRecoveryRunbook?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No recovery runbook command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Recovery runbook command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseRecoveryRunbookFirstPhase() {
+    const phase = state.dashboardReleaseRecoveryRunbook?.phases
+      .slice()
+      .sort((left, right) => left.order - right.order)[0];
+    const command = phase?.command ?? "";
+    if (!command) {
+      state.status = "No recovery phase command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = `${phase?.label ?? "Recovery phase"} command copied.`;
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -3293,6 +3412,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-stability-board-command']")
       ?.addEventListener("click", () => {
         void copyReleaseStabilityBoardCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-recovery-runbook-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseRecoveryRunbookCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-recovery-runbook-phase']")
+      ?.addEventListener("click", () => {
+        void copyReleaseRecoveryRunbookFirstPhase();
       });
 
     mountRoot

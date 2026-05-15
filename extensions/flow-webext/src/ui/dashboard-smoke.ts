@@ -12,6 +12,7 @@ import {
   normalizeReleasePostPromotionMonitor,
   normalizeReleasePromotionLedger,
   normalizeReleaseQaCommandCenter,
+  normalizeReleaseRecoveryRunbook,
   normalizeReleaseRollbackDrill,
   normalizeReleaseStabilityBoard,
   normalizeDashboardHostCommandResults,
@@ -1311,6 +1312,169 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-stability-board-json --output tmp/friday-dashboard/release-stability-board.json",
     ],
   });
+  const releaseRecoveryRunbook = normalizeReleaseRecoveryRunbook({
+    runbook_id: "friday-release-recovery-runbook-smoke",
+    runbook_json: "tmp/friday-dashboard/release-recovery-runbook.json",
+    generated_at_unix_ms: 13,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    score_out_of_100: 63,
+    ready_for_operator_review: true,
+    ready_to_execute_recovery: false,
+    active_candidate_id: "candidate-promoted",
+    active_promotion_id: "promotion-candidate-promoted",
+    active_rollback_reference: "candidate-initial",
+    latest_promotion_decision: "promoted",
+    stability_board_json: "tmp/friday-dashboard/release-stability-board.json",
+    rollback_drill_json: "tmp/friday-dashboard/release-rollback-drill.json",
+    promotion_ledger_json: "tmp/friday-dashboard/release-promotion-ledger.json",
+    post_promotion_monitor_json: "tmp/friday-dashboard/release-post-promotion-monitor.json",
+    phase_count: 6,
+    blocked_phase_count: 2,
+    approval_gate_count: 3,
+    unsatisfied_approval_gate_count: 3,
+    command_count: 6,
+    active_risks: ["Rollback recovery: Rollback drill has 1 blocking issue."],
+    phases: [
+      {
+        kind: "pause",
+        order: 1,
+        label: "Pause Friday runtime",
+        status: "requires-approval",
+        approval_required: true,
+        source_path: "tmp/friday-dashboard/release-stability-board.json",
+        objective: "Pause live Friday automation.",
+        command:
+          "flow --friday-trusted-host-live-state tmp/friday-dashboard/trusted-host-live-state.json",
+        verification: "Confirm no unsafe active action.",
+        risks: ["Rollback recovery: Rollback drill has 1 blocking issue."],
+        evidence_paths: ["tmp/friday-dashboard/release-stability-board.json"],
+        next_action: "Get approval before pausing.",
+      },
+      {
+        kind: "diagnose",
+        order: 2,
+        label: "Diagnose release risk",
+        status: "ready",
+        approval_required: false,
+        source_path: "tmp/friday-dashboard/release-stability-board.json",
+        objective: "Review release risk before rollback.",
+        command:
+          "flow --friday-release-stability-board-json --output tmp/friday-dashboard/release-stability-board.json",
+        verification: "Stability board explains active risks.",
+        risks: ["Deployment readiness: Deployment gate is no-go."],
+        evidence_paths: ["tmp/friday-dashboard/release-stability-board.json"],
+        next_action: "Refresh stale evidence.",
+      },
+      {
+        kind: "rollback",
+        order: 3,
+        label: "Rollback dry run",
+        status: "blocked",
+        approval_required: true,
+        source_path: "tmp/friday-dashboard/release-rollback-drill.json",
+        objective: "Rehearse rollback locally.",
+        command:
+          "flow --friday-release-rollback-drill-json --output tmp/friday-dashboard/release-rollback-drill.json --dry-run",
+        verification: "Dry run must not deploy or destroy data.",
+        risks: ["Post-promotion monitor: Monitor has 1 blocking issue."],
+        evidence_paths: ["tmp/friday-dashboard/release-rollback-drill.json"],
+        next_action: "Resolve rollback blockers.",
+      },
+      {
+        kind: "verify",
+        order: 4,
+        label: "Verify recovery state",
+        status: "blocked",
+        approval_required: false,
+        source_path: "tmp/friday-dashboard/release-post-promotion-monitor.json",
+        objective: "Verify post-promotion checks.",
+        command:
+          "flow --friday-release-post-promotion-monitor-json --output tmp/friday-dashboard/release-post-promotion-monitor.json",
+        verification: "Monitor has no blocking, stale, or missing evidence.",
+        risks: ["Dashboard smoke is stale."],
+        evidence_paths: ["tmp/friday-dashboard/release-post-promotion-monitor.json"],
+        next_action: "Refresh post-promotion evidence.",
+      },
+      {
+        kind: "resume",
+        order: 5,
+        label: "Resume Friday runtime",
+        status: "requires-approval",
+        approval_required: true,
+        source_path: "tmp/friday-dashboard/release-stability-board.json",
+        objective: "Resume Friday only after recovery evidence is clean.",
+        command:
+          "flow --friday-trusted-host-live-state tmp/friday-dashboard/trusted-host-live-state.json --history tmp/friday-dashboard/trusted-host-runner-history.json",
+        verification: "No recovery phase remains blocked.",
+        risks: [],
+        evidence_paths: ["tmp/friday-dashboard/release-stability-board.json"],
+        next_action: "Get approval before resuming.",
+      },
+      {
+        kind: "follow-up",
+        order: 6,
+        label: "Follow-up incident notes",
+        status: "ready",
+        approval_required: false,
+        source_path: "tmp/friday-dashboard/release-promotion-ledger.json",
+        objective: "Capture incident notes and prevention work.",
+        command:
+          "flow --friday-release-post-promotion-monitor --output tmp/friday-dashboard/release-post-promotion-monitor.json --promotion-ledger tmp/friday-dashboard/release-promotion-ledger.json --incident-note <incident-note.md>",
+        verification: "Incident note explains trigger, action, verification, and prevention.",
+        risks: [],
+        evidence_paths: [
+          "tmp/friday-dashboard/release-promotion-ledger.json",
+          "tmp/friday-dashboard/release-post-promotion-monitor.json",
+        ],
+        next_action: "Attach an incident note.",
+      },
+    ],
+    approval_gates: [
+      {
+        id: "approve-pause",
+        label: "Approve Pause Friday runtime",
+        phase: "pause",
+        required: true,
+        satisfied: false,
+        summary: "Pause requires explicit approval.",
+        operator_action: "Review pause.",
+      },
+      {
+        id: "approve-rollback",
+        label: "Approve Rollback dry run",
+        phase: "rollback",
+        required: true,
+        satisfied: false,
+        summary: "Rollback reference `candidate-initial` requires explicit operator approval.",
+        operator_action: "Review rollback.",
+      },
+      {
+        id: "approve-resume",
+        label: "Approve Resume Friday runtime",
+        phase: "resume",
+        required: true,
+        satisfied: false,
+        summary: "Resume requires explicit approval.",
+        operator_action: "Review resume.",
+      },
+    ],
+    recovery_commands: [
+      "flow --friday-trusted-host-live-state tmp/friday-dashboard/trusted-host-live-state.json",
+      "flow --friday-release-stability-board-json --output tmp/friday-dashboard/release-stability-board.json",
+      "flow --friday-release-rollback-drill-json --output tmp/friday-dashboard/release-rollback-drill.json --dry-run",
+      "flow --friday-release-post-promotion-monitor-json --output tmp/friday-dashboard/release-post-promotion-monitor.json",
+      "flow --friday-trusted-host-live-state tmp/friday-dashboard/trusted-host-live-state.json --history tmp/friday-dashboard/trusted-host-runner-history.json",
+      "flow --friday-release-post-promotion-monitor --output tmp/friday-dashboard/release-post-promotion-monitor.json --promotion-ledger tmp/friday-dashboard/release-promotion-ledger.json --incident-note <incident-note.md>",
+    ],
+    summary:
+      "Friday recovery runbook is 63/100 with 2 blocked phases and 3 approval gates still unsatisfied.",
+    commands: [
+      "flow --friday-release-recovery-runbook --output tmp/friday-dashboard/release-recovery-runbook.json",
+      "flow --friday-release-recovery-runbook-json --output tmp/friday-dashboard/release-recovery-runbook.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -1713,8 +1877,35 @@ export function dashboardSectionSmokeReport(
         releaseStabilityBoard.evidenceLinks.some((link) => link.id === "rollback-drill") &&
         releaseStabilityBoard.commands.some((command) =>
           command.includes("--friday-release-stability-board"),
-        ),
+      ),
       `${releaseStabilityBoard?.activeRisks.length ?? 0} stability risk(s)`,
+    ),
+    check(
+      "release-recovery-runbook-importable",
+      releaseRecoveryRunbook?.scoreOutOf100 === 63 &&
+        releaseRecoveryRunbook.phaseCount === 6 &&
+        releaseRecoveryRunbook.activeRollbackReference === "candidate-initial",
+      `${releaseRecoveryRunbook?.scoreOutOf100 ?? 0}/100 recovery runbook score`,
+    ),
+    check(
+      "release-recovery-runbook-phases",
+      releaseRecoveryRunbook !== null &&
+        releaseRecoveryRunbook.phases
+          .slice()
+          .sort((left, right) => left.order - right.order)
+          .map((phase) => phase.kind)
+          .join(",") === "pause,diagnose,rollback,verify,resume,follow-up" &&
+        releaseRecoveryRunbook.phases.some(
+          (phase) =>
+            phase.kind === "rollback" &&
+            phase.status === "blocked" &&
+            phase.command.includes("--dry-run"),
+        ) &&
+        releaseRecoveryRunbook.approvalGates.length === 3 &&
+        releaseRecoveryRunbook.commands.some((command) =>
+          command.includes("--friday-release-recovery-runbook"),
+        ),
+      `${releaseRecoveryRunbook?.approvalGates.length ?? 0} recovery approval gate(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

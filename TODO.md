@@ -593,16 +593,34 @@ Goal: consolidate all major Friday release evidence into one local-first stabili
 
 This set is complete. The next loop should open `Friday Release Recovery Runbook` and turn stability-board risks, rollback drill output, and release evidence links into a local-only operator runbook with explicit approval gates.
 
-## Next Set: Friday Release Recovery Runbook
+## Completed Set: Friday Release Recovery Runbook
 
-Status: 0/100
+Status: 100/100
 
 Goal: convert the stability evidence board into a practical local-only recovery runbook that tells the operator exactly how to pause, investigate, rollback, verify, and resume Friday after a blocked release or failed promotion.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed recovery runbook model that consumes the stability board, rollback drill, promotion ledger, and post-promotion monitor.
+- [x] Add runbook phases for pause, diagnose, rollback, verify, resume, and follow-up incident notes.
+- [x] Add CLI and JSON commands for generating runbooks without executing recovery commands.
+- [x] Add dashboard import/rendering for runbook phases, approval gates, and copyable recovery commands.
+- [x] Add focused Rust/TypeScript coverage for blocked-risk mapping, command safety, phase ordering, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Incident Archive` and preserve recovery runbooks, incident notes, stability snapshots, rollback drills, and operator outcomes as searchable local release history.
+
+## Next Set: Friday Release Incident Archive
+
+Status: 0/100
+
+Goal: preserve Friday recovery decisions as searchable local release history that connects runbooks, incident notes, stability-board snapshots, rollback drills, and operator outcomes.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed recovery runbook model that consumes the stability board, rollback drill, promotion ledger, and post-promotion monitor.
-- [ ] Add runbook phases for pause, diagnose, rollback, verify, resume, and follow-up incident notes.
-- [ ] Add CLI and JSON commands for generating runbooks without executing recovery commands.
-- [ ] Add dashboard import/rendering for runbook phases, approval gates, and copyable recovery commands.
-- [ ] Add focused Rust/TypeScript coverage for blocked-risk mapping, command safety, phase ordering, and dashboard rendering.
+- [ ] Add a typed incident archive model that consumes recovery runbooks, stability boards, post-promotion monitors, rollback drills, and incident-note files.
+- [ ] Add severity, outcome, follow-up action, and prevention taxonomies for release incidents.
+- [ ] Add CLI and JSON commands for append, list, and export workflows without executing recovery commands.
+- [ ] Add dashboard import/rendering for incident history, severity, outcomes, follow-ups, and source evidence.
+- [ ] Add focused Rust/TypeScript coverage for archive append/list behavior, severity mapping, stale evidence, and dashboard rendering.

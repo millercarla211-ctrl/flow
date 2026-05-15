@@ -51,9 +51,9 @@ use flow::friday::{
     friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
     friday_release_evidence_export_kit_report, friday_release_operator_checklist_report,
     friday_release_post_promotion_monitor_report, friday_release_qa_command_center_report,
-    friday_release_rollback_drill_report, friday_release_stability_board_report,
-    friday_route_visual_report, friday_route_visual_report_for_root,
-    friday_trusted_host_live_runner_state_from_history,
+    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
+    friday_release_stability_board_report, friday_route_visual_report,
+    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -64,9 +64,10 @@ use flow::friday::{
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
     write_friday_release_deployment_gate, write_friday_release_evidence_export_kit,
     write_friday_release_operator_checklist, write_friday_release_post_promotion_monitor_report,
-    write_friday_release_qa_command_center_report, write_friday_release_rollback_drill_report,
-    write_friday_release_stability_board_report, write_friday_trusted_host_live_runner_state,
-    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
+    write_friday_release_qa_command_center_report, write_friday_release_recovery_runbook_report,
+    write_friday_release_rollback_drill_report, write_friday_release_stability_board_report,
+    write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
+    write_friday_trusted_runner_release_timeline,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -2217,6 +2218,46 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
             .commands
             .iter()
             .any(|command| command.contains("--friday-release-stability-board"))
+    );
+    let recovery_runbook_path = root.join("release-recovery-runbook.json");
+    let recovery_runbook = friday_release_recovery_runbook_report(
+        &recovery_runbook_path,
+        &stability_board_path,
+        &rollback_drill_path,
+        &promotion_ledger_path,
+        &post_promotion_monitor_path,
+    );
+    write_friday_release_recovery_runbook_report(&recovery_runbook_path, &recovery_runbook)
+        .unwrap();
+    assert_eq!(recovery_runbook.phase_count, 6);
+    assert_eq!(
+        recovery_runbook
+            .phases
+            .iter()
+            .map(|phase| phase.kind.label())
+            .collect::<Vec<_>>(),
+        vec![
+            "pause",
+            "diagnose",
+            "rollback",
+            "verify",
+            "resume",
+            "follow-up"
+        ]
+    );
+    assert!(recovery_runbook.blocked_phase_count > 0);
+    assert!(!recovery_runbook.ready_to_execute_recovery);
+    assert!(recovery_runbook.approval_gate_count >= 3);
+    assert!(
+        recovery_runbook.phases.iter().any(|phase| {
+            phase.kind.label() == "rollback" && phase.command.contains("--dry-run")
+        })
+    );
+    assert!(
+        recovery_runbook
+            .commands
+            .iter()
+            .any(|command| command.contains("--friday-release-recovery-runbook"))
     );
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);

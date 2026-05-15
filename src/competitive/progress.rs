@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-stability-board-model",
-            "Typed stability evidence board model",
+            "release-recovery-runbook-model",
+            "Typed recovery runbook model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseStabilityBoardReport` consumes release QA, candidate archive, promotion ledger, post-promotion monitor, rollback drill, and deployment gate reports",
-            "wire visible dashboard rendering for the stability board",
+            "`FridayReleaseRecoveryRunbookReport` consumes stability board, rollback drill, promotion ledger, and post-promotion monitor reports",
+            "open the next release incident archive set",
         ),
         item(
-            "release-stability-board-scoring",
-            "Stability score categories",
+            "release-recovery-runbook-phases",
+            "Recovery runbook phases and approval gates",
             20,
             CompletionItemStatus::Done,
-            "stability board checks classify deployment readiness, QA health, candidate regression, promotion state, post-promotion freshness, and rollback recovery",
-            "wire visible dashboard rendering for the stability board",
+            "runbook phases cover pause, diagnose, rollback, verify, resume, and follow-up incident notes with explicit approval gates for risky steps",
+            "open the next release incident archive set",
         ),
         item(
-            "release-stability-board-cli",
-            "Stability board CLI and JSON commands",
+            "release-recovery-runbook-cli",
+            "Recovery runbook CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-stability-board` and JSON mode generate the consolidated local-only evidence board without running builds, deployments, or rollback commands",
-            "wire visible dashboard rendering for the stability board",
+            "`flow --friday-release-recovery-runbook` and JSON mode generate local-only operator guidance without executing recovery commands",
+            "open the next release incident archive set",
         ),
         item(
-            "release-stability-board-dashboard",
-            "Dashboard stability board rendering",
+            "release-recovery-runbook-dashboard",
+            "Dashboard recovery runbook rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports stability board JSON and renders score, readiness, active risks, evidence links, and copyable board commands",
-            "open the next release recovery runbook set",
+            "the visible dashboard imports recovery runbook JSON and renders phase order, approval gates, active risks, and copyable recovery commands",
+            "open the next release incident archive set",
         ),
         item(
-            "release-stability-board-coverage",
-            "Stability board Rust and TypeScript coverage",
+            "release-recovery-runbook-coverage",
+            "Recovery runbook Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify board scoring, stale evidence, blocked categories, evidence links, and dashboard rendering",
-            "open the next release recovery runbook set",
+            "focused Rust integration coverage plus dashboard smoke checks verify phase ordering, blocked-risk mapping, dry-run command safety, approval gates, and dashboard rendering",
+            "open the next release incident archive set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Stability Evidence Board".to_string(),
+        name: "Friday Release Recovery Runbook".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Consolidate Friday release QA, candidate, promotion, post-promotion, rollback, and deployment evidence into one stability board.".to_string(),
+        loop_rule: "Turn Friday release stability risks, rollback drills, promotion state, and post-promotion evidence into one local-only recovery runbook.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_stability_evidence_board_loop() {
+    fn active_set_tracks_friday_release_recovery_runbook_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Stability Evidence Board");
+        assert_eq!(set.name, "Friday Release Recovery Runbook");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items
