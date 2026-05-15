@@ -9,6 +9,7 @@ import {
   normalizeReleaseDeploymentGate,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseOperatorChecklist,
+  normalizeReleasePostPromotionMonitor,
   normalizeReleasePromotionLedger,
   normalizeReleaseQaCommandCenter,
   normalizeDashboardHostCommandResults,
@@ -1060,6 +1061,82 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-promotion-ledger --ledger tmp/friday-dashboard/release-promotion-ledger.json --archive tmp/friday-dashboard/release-candidate-archive.json --decision held --reason \"<reason>\"",
     ],
   });
+  const releasePostPromotionMonitor = normalizeReleasePostPromotionMonitor({
+    monitor_id: "friday-release-post-promotion-monitor-smoke",
+    monitor_json: "tmp/friday-dashboard/release-post-promotion-monitor.json",
+    generated_at_unix_ms: 10,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    score_out_of_100: 72,
+    ready_for_stable: false,
+    promotion_ledger_json: "tmp/friday-dashboard/release-promotion-ledger.json",
+    qa_json: "tmp/friday-dashboard/release-qa-command-center.json",
+    dashboard_smoke_result_path: "tmp/friday-dashboard/dashboard-smoke.txt",
+    active_candidate_id: "candidate-promoted",
+    active_promotion_id: "promotion-candidate-promoted",
+    active_rollback_reference: "candidate-initial",
+    latest_decision: "promoted",
+    promoted_count: 1,
+    incident_note_count: 1,
+    missing_evidence_count: 1,
+    stale_count: 1,
+    warning_count: 1,
+    blocking_count: 1,
+    checks: [
+      {
+        id: "promotion-ledger",
+        label: "Release promotion ledger",
+        source_path: "tmp/friday-dashboard/release-promotion-ledger.json",
+        required: true,
+        present: true,
+        stale: false,
+        bytes: 900,
+        status: "passed",
+        summary: "Two promotion records with one promoted candidate.",
+        next_action: "Keep promotion ledger attached.",
+      },
+      {
+        id: "post-promotion-smoke",
+        label: "post promotion smoke",
+        source_path: "tmp/friday-dashboard/post-promotion-smoke.json",
+        required: true,
+        present: false,
+        stale: false,
+        bytes: 0,
+        status: "missing",
+        summary: "Post-promotion check evidence is missing.",
+        next_action: "Create the post-promotion smoke file.",
+      },
+      {
+        id: "dashboard-smoke",
+        label: "Dashboard smoke result",
+        source_path: "tmp/friday-dashboard/dashboard-smoke.txt",
+        required: true,
+        present: true,
+        stale: true,
+        bytes: 1400,
+        status: "stale",
+        summary: "Dashboard smoke is stale.",
+        next_action: "Refresh dashboard smoke.",
+      },
+    ],
+    incident_notes: [
+      {
+        id: "voice-overlay-followup",
+        path: "tmp/friday-dashboard/incidents/voice-overlay-followup.md",
+        present: true,
+        bytes: 240,
+        summary: "Incident note evidence is present.",
+      },
+    ],
+    warnings: ["1 post-promotion evidence item(s) are missing."],
+    summary:
+      "Friday post-promotion monitor is 72/100 with 1 blocking issue, 1 warning, and 1 stale check.",
+    commands: [
+      "flow --friday-release-post-promotion-monitor --output tmp/friday-dashboard/release-post-promotion-monitor.json --promotion-ledger tmp/friday-dashboard/release-promotion-ledger.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -1407,8 +1484,26 @@ export function dashboardSectionSmokeReport(
         ) &&
         releasePromotionLedger.commands.some((command) =>
           command.includes("--friday-release-promotion-ledger"),
-        ),
+      ),
       `${releasePromotionLedger?.postPromotionMissingCount ?? 0} missing promotion check(s)`,
+    ),
+    check(
+      "release-post-promotion-monitor-importable",
+      releasePostPromotionMonitor?.scoreOutOf100 === 72 &&
+        releasePostPromotionMonitor.blockingCount === 1 &&
+        releasePostPromotionMonitor.activeRollbackReference === "candidate-initial",
+      `${releasePostPromotionMonitor?.scoreOutOf100 ?? 0}/100 post-promotion monitor score`,
+    ),
+    check(
+      "release-post-promotion-monitor-evidence",
+      releasePostPromotionMonitor?.checks.some(
+        (item) => item.status === "missing" && item.id === "post-promotion-smoke",
+      ) === true &&
+        releasePostPromotionMonitor.incidentNotes.some((note) => note.present) &&
+        releasePostPromotionMonitor.commands.some((command) =>
+          command.includes("--friday-release-post-promotion-monitor"),
+        ),
+      `${releasePostPromotionMonitor?.incidentNoteCount ?? 0} incident note(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

@@ -6,6 +6,7 @@ import {
   normalizeReleaseDeploymentGate,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseOperatorChecklist,
+  normalizeReleasePostPromotionMonitor,
   normalizeReleasePromotionLedger,
   normalizeReleaseQaCommandCenter,
   normalizeDashboardHostCommandResults,
@@ -34,6 +35,7 @@ import {
   type FlowReleaseDeploymentGateReport,
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseOperatorChecklistReport,
+  type FlowReleasePostPromotionMonitorReport,
   type FlowReleasePromotionLedger,
   type FlowReleaseQaCommandCenterReport,
 } from "../runtime/dashboard-actions";
@@ -85,6 +87,7 @@ type UiState = {
   dashboardReleaseDeploymentGate: FlowReleaseDeploymentGateReport | null;
   dashboardReleaseCandidateArchive: FlowReleaseCandidateArchive | null;
   dashboardReleasePromotionLedger: FlowReleasePromotionLedger | null;
+  dashboardReleasePostPromotionMonitor: FlowReleasePostPromotionMonitorReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -1787,6 +1790,78 @@ function renderReleasePromotionLedger(ledger: FlowReleasePromotionLedger | null)
   `;
 }
 
+function renderReleasePostPromotionMonitor(
+  monitor: FlowReleasePostPromotionMonitorReport | null,
+) {
+  if (!monitor) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-release-post-promotion-monitor">
+      <div class="card-topline">
+        <span class="eyebrow">Post-promotion monitor</span>
+        <span class="badge ${badgeTone(monitor.status)}">${monitor.scoreOutOf100} / 100</span>
+      </div>
+      <h3>${monitor.activeCandidateId ? escapeHtml(monitor.activeCandidateId) : "No promoted candidate"}</h3>
+      <p>${escapeHtml(monitor.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${monitor.blockingCount}</strong><small>blocking</small></span>
+        <span><strong>${monitor.warningCount}</strong><small>warnings</small></span>
+        <span><strong>${monitor.staleCount}</strong><small>stale</small></span>
+        <span><strong>${monitor.incidentNoteCount}</strong><small>incidents</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Stable</strong> ${monitor.readyForStable ? "ready" : "not ready"}</span>
+        <span><strong>Rollback</strong> ${escapeHtml(monitor.activeRollbackReference ?? "not recorded")}</span>
+        <span><strong>Monitor</strong> ${escapeHtml(monitor.monitorJson)}</span>
+        <span><strong>QA</strong> ${escapeHtml(monitor.qaJson)}</span>
+      </div>
+      <div class="runner-package-files">
+        ${monitor.checks
+          .slice(0, 6)
+          .map(
+            (check) => `
+              <div class="runner-package-file ${
+                check.status === "passed" ? "present" : "missing"
+              }">
+                <strong>${escapeHtml(check.label)}</strong>
+                <small>${escapeHtml(check.status)} - ${check.required ? "required" : "optional"}</small>
+                <code>${escapeHtml(check.sourcePath)}</code>
+                <span>${escapeHtml(check.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      ${
+        monitor.incidentNotes.length
+          ? `<div class="note-list">${monitor.incidentNotes
+              .slice(0, 4)
+              .map(
+                (note) =>
+                  `<span>${escapeHtml(note.id)}: ${note.present ? "present" : "missing"} - ${escapeHtml(note.path)}</span>`,
+              )
+              .join("")}</div>`
+          : ""
+      }
+      ${
+        monitor.warnings.length
+          ? `<div class="note-list">${monitor.warnings
+              .slice(0, 4)
+              .map((warning) => `<span>${escapeHtml(warning)}</span>`)
+              .join("")}</div>`
+          : ""
+      }
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-post-promotion-monitor-command">
+          Copy monitor command
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2000,6 +2075,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseDeploymentGate(state.dashboardReleaseDeploymentGate)}
       ${renderReleaseCandidateArchive(state.dashboardReleaseCandidateArchive)}
       ${renderReleasePromotionLedger(state.dashboardReleasePromotionLedger)}
+      ${renderReleasePostPromotionMonitor(state.dashboardReleasePostPromotionMonitor)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2132,6 +2208,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseDeploymentGate: null,
     dashboardReleaseCandidateArchive: null,
     dashboardReleasePromotionLedger: null,
+    dashboardReleasePostPromotionMonitor: null,
   };
 
   function render() {
@@ -2434,6 +2511,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseDeploymentGate = normalizeReleaseDeploymentGate(parsed);
       const releaseCandidateArchive = normalizeReleaseCandidateArchive(parsed);
       const releasePromotionLedger = normalizeReleasePromotionLedger(parsed);
+      const releasePostPromotionMonitor = normalizeReleasePostPromotionMonitor(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2459,8 +2537,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseCandidateArchive ?? state.dashboardReleaseCandidateArchive;
       state.dashboardReleasePromotionLedger =
         releasePromotionLedger ?? state.dashboardReleasePromotionLedger;
+      state.dashboardReleasePostPromotionMonitor =
+        releasePostPromotionMonitor ?? state.dashboardReleasePostPromotionMonitor;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releasePromotionLedger
+      state.status = releasePostPromotionMonitor
+        ? `Imported post-promotion monitor at ${releasePostPromotionMonitor.scoreOutOf100}/100 from ${file.name}.`
+        : releasePromotionLedger
         ? `Imported release promotion ledger with ${releasePromotionLedger.recordCount} record(s) from ${file.name}.`
         : releaseCandidateArchive
         ? `Imported release candidate archive with ${releaseCandidateArchive.candidateCount} candidate(s) from ${file.name}.`
@@ -2792,6 +2874,22 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleasePostPromotionMonitorCommand() {
+    const command = state.dashboardReleasePostPromotionMonitor?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No post-promotion monitor command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Post-promotion monitor command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -2972,6 +3070,12 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-promotion-ledger-command']")
       ?.addEventListener("click", () => {
         void copyReleasePromotionLedgerCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-post-promotion-monitor-command']")
+      ?.addEventListener("click", () => {
+        void copyReleasePostPromotionMonitorCommand();
       });
 
     mountRoot

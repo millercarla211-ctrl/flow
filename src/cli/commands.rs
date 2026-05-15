@@ -31,9 +31,10 @@ use crate::friday::{
     FridayReleaseChecklistSignoff, FridayReleaseChecklistSignoffDecision,
     FridayReleaseDeploymentGateReport, FridayReleaseDeploymentTarget,
     FridayReleaseEvidenceExportKitReport, FridayReleaseOperatorChecklistReport,
-    FridayReleasePromotionDecision, FridayReleasePromotionLedger,
-    FridayReleasePromotionRecordRequest, FridayReleaseQaCommandCenterReport, FridayResearchReport,
-    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleasePostPromotionMonitorReport, FridayReleasePromotionDecision,
+    FridayReleasePromotionLedger, FridayReleasePromotionRecordRequest,
+    FridayReleaseQaCommandCenterReport, FridayResearchReport, FridayResearchWorkflow,
+    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
@@ -53,9 +54,9 @@ use crate::friday::{
     friday_operator_readiness_report, friday_release_candidate_archive_report,
     friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
     friday_release_evidence_export_kit_report, friday_release_operator_checklist_report,
-    friday_release_promotion_ledger_report, friday_release_qa_command_center_report,
-    friday_research_search_plan, friday_route_visual_report,
-    friday_trusted_host_live_runner_state_from_history_file,
+    friday_release_post_promotion_monitor_report, friday_release_promotion_ledger_report,
+    friday_release_qa_command_center_report, friday_research_search_plan,
+    friday_route_visual_report, friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
     friday_trusted_host_runner_operator_review_report_from_history_file,
@@ -65,9 +66,9 @@ use crate::friday::{
     run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
     run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
     write_friday_release_deployment_gate, write_friday_release_evidence_export_kit,
-    write_friday_release_operator_checklist, write_friday_release_qa_command_center_report,
-    write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
-    write_friday_trusted_runner_release_timeline,
+    write_friday_release_operator_checklist, write_friday_release_post_promotion_monitor_report,
+    write_friday_release_qa_command_center_report, write_friday_trusted_host_live_runner_state,
+    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -1093,6 +1094,44 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", ledger.to_pretty_json()?);
         }
 
+        Command::FridayReleasePostPromotionMonitor {
+            monitor_file,
+            promotion_ledger_file,
+            qa_file,
+            dashboard_smoke_result_file,
+            incident_note_files,
+        } => {
+            let report = friday_release_post_promotion_monitor_report(
+                resolve_repo_relative_path(&monitor_file),
+                resolve_repo_relative_path(&promotion_ledger_file),
+                resolve_repo_relative_path(&qa_file),
+                resolve_repo_relative_path(&dashboard_smoke_result_file),
+                incident_note_files,
+            );
+            write_friday_release_post_promotion_monitor_report(
+                resolve_repo_relative_path(&monitor_file),
+                &report,
+            )?;
+            print_friday_release_post_promotion_monitor(&report);
+        }
+
+        Command::FridayReleasePostPromotionMonitorJson {
+            monitor_file,
+            promotion_ledger_file,
+            qa_file,
+            dashboard_smoke_result_file,
+            incident_note_files,
+        } => {
+            let report = friday_release_post_promotion_monitor_report(
+                resolve_repo_relative_path(&monitor_file),
+                resolve_repo_relative_path(&promotion_ledger_file),
+                resolve_repo_relative_path(&qa_file),
+                resolve_repo_relative_path(&dashboard_smoke_result_file),
+                incident_note_files,
+            );
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1608,6 +1647,10 @@ fn print_interactive_help() {
     );
     println!("  --friday-release-promotion-ledger-json [ledger-file] [--archive file]");
     println!("                           Record a promotion decision and print ledger JSON");
+    println!("  --friday-release-post-promotion-monitor [export-dir] [--incident-note file]");
+    println!("                           Write post-promotion readiness and incident monitor JSON");
+    println!("  --friday-release-post-promotion-monitor-json [export-dir]");
+    println!("                           Print post-promotion monitor as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -3185,6 +3228,67 @@ fn print_friday_release_promotion_ledger(ledger: &FridayReleasePromotionLedger) 
     println!();
     println!("Commands:");
     for command in &ledger.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_post_promotion_monitor(report: &FridayReleasePostPromotionMonitorReport) {
+    println!("Friday Release Post-Promotion Monitor");
+    println!("=====================================");
+    println!(
+        "Score: {} / 100 | status: {} | stable: {}",
+        report.score_out_of_100,
+        report.status.label(),
+        yes_no(report.ready_for_stable)
+    );
+    println!(
+        "Blocking: {} | warnings: {} | stale: {} | missing evidence: {}",
+        report.blocking_count,
+        report.warning_count,
+        report.stale_count,
+        report.missing_evidence_count
+    );
+    println!("Monitor: {}", report.monitor_json);
+    if let Some(candidate_id) = &report.active_candidate_id {
+        println!("Active candidate: {}", candidate_id);
+    }
+    if let Some(rollback) = &report.active_rollback_reference {
+        println!("Rollback: {}", rollback);
+    }
+    if !report.warnings.is_empty() {
+        println!();
+        println!("Warnings:");
+        for warning in &report.warnings {
+            println!("  - {warning}");
+        }
+    }
+    println!();
+    println!("Checks:");
+    for check in &report.checks {
+        println!(
+            "  - {} [{}] {}",
+            check.label,
+            check.status.label(),
+            check.summary
+        );
+        println!("    source: {}", check.source_path);
+        println!("    next: {}", check.next_action);
+    }
+    if !report.incident_notes.is_empty() {
+        println!();
+        println!("Incident notes:");
+        for note in &report.incident_notes {
+            println!(
+                "  - {} ({}) {}",
+                note.id,
+                if note.present { "present" } else { "missing" },
+                note.path
+            );
+        }
+    }
+    println!();
+    println!("Commands:");
+    for command in &report.commands {
         println!("  - {command}");
     }
 }

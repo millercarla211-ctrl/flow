@@ -365,6 +365,22 @@ pub enum Command {
         rollback_reference: String,
         post_check_files: Vec<String>,
     },
+    /// Write the Friday post-promotion monitor report
+    FridayReleasePostPromotionMonitor {
+        monitor_file: String,
+        promotion_ledger_file: String,
+        qa_file: String,
+        dashboard_smoke_result_file: String,
+        incident_note_files: Vec<String>,
+    },
+    /// Print the Friday post-promotion monitor report as JSON
+    FridayReleasePostPromotionMonitorJson {
+        monitor_file: String,
+        promotion_ledger_file: String,
+        qa_file: String,
+        dashboard_smoke_result_file: String,
+        incident_note_files: Vec<String>,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1313,6 +1329,39 @@ impl Args {
                     post_check_files,
                 }
             }
+            "--friday-release-post-promotion-monitor" | "--friday-post-promotion-monitor" => {
+                let (
+                    monitor_file,
+                    promotion_ledger_file,
+                    qa_file,
+                    dashboard_smoke_result_file,
+                    incident_note_files,
+                ) = parse_friday_release_post_promotion_monitor_args(&args);
+                Command::FridayReleasePostPromotionMonitor {
+                    monitor_file,
+                    promotion_ledger_file,
+                    qa_file,
+                    dashboard_smoke_result_file,
+                    incident_note_files,
+                }
+            }
+            "--friday-release-post-promotion-monitor-json"
+            | "--friday-post-promotion-monitor-json" => {
+                let (
+                    monitor_file,
+                    promotion_ledger_file,
+                    qa_file,
+                    dashboard_smoke_result_file,
+                    incident_note_files,
+                ) = parse_friday_release_post_promotion_monitor_args(&args);
+                Command::FridayReleasePostPromotionMonitorJson {
+                    monitor_file,
+                    promotion_ledger_file,
+                    qa_file,
+                    dashboard_smoke_result_file,
+                    incident_note_files,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -2181,6 +2230,40 @@ fn parse_friday_release_promotion_ledger_args(
         deployment_note,
         rollback_reference,
         post_check_files,
+    )
+}
+
+fn parse_friday_release_post_promotion_monitor_args(
+    args: &[String],
+) -> (String, String, String, String, Vec<String>) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let monitor_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--monitor"))
+        .unwrap_or_else(|| format!("{export_dir}/release-post-promotion-monitor.json"));
+    let promotion_ledger_file = flag_value(args, "--promotion-ledger")
+        .or_else(|| flag_value(args, "--ledger"))
+        .unwrap_or_else(|| format!("{export_dir}/release-promotion-ledger.json"));
+    let qa_file = flag_value(args, "--qa")
+        .or_else(|| flag_value(args, "--release-qa"))
+        .unwrap_or_else(|| format!("{export_dir}/release-qa-command-center.json"));
+    let dashboard_smoke_result_file = flag_value(args, "--dashboard-smoke-result")
+        .unwrap_or_else(|| format!("{export_dir}/dashboard-smoke.txt"));
+    let incident_note_files = repeated_flag_values(args, "--incident-note")
+        .into_iter()
+        .chain(repeated_flag_values(args, "--incident"))
+        .collect();
+
+    (
+        monitor_file,
+        promotion_ledger_file,
+        qa_file,
+        dashboard_smoke_result_file,
+        incident_note_files,
     )
 }
 

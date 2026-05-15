@@ -9,6 +9,8 @@
 - opened Friday Release Promotion Ledger as the next set for auditable candidate promotion, deployment notes, rollback references, and post-promotion checks
 - completed Friday Release Promotion Ledger at 100/100 with typed promotion records, promoted/held/rolled-back/superseded/abandoned decisions, local CLI/JSON recording commands, dashboard ledger rendering, active rollback copy, post-promotion checks, and focused Rust/TypeScript coverage
 - opened Friday Release Post-Promotion Monitor as the next set for verification freshness, incident notes, rollback readiness, and follow-up checks after candidate promotion
+- completed Friday Release Post-Promotion Monitor at 100/100 with typed monitor reports, stale/missing post-promotion evidence warnings, local CLI/JSON generation commands, dashboard monitor rendering, incident-note evidence, rollback readiness copy, and focused Rust/TypeScript coverage
+- opened Friday Release Rollback Drill as the next set for local-only rollback readiness reports, blocked rollback reasons, dry-run commands, and dashboard rollback drill rendering
 - completed Friday Release Evidence Export Kit at 100/100 with local-only evidence manifests, SHA-256 checksums, stale/missing warnings, export-kit CLI/JSON commands, dashboard import/rendering, operator attachment copy, and focused Rust/TypeScript coverage
 - opened Friday Release Deployment Gate as the next set for an explicit local-first go/no-go surface before major Friday checkpoints
 - completed Friday Release QA Command Center at 100/100 with dashboard QA import/rendering, stale-result badges, copyable lightweight-check commands, and TypeScript smoke coverage

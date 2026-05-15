@@ -539,16 +539,34 @@ Goal: track which candidate was promoted, why it was promoted, what deployment n
 
 This set is complete. The next loop should open `Friday Release Post-Promotion Monitor` and track post-promotion verification evidence, stale checks, rollback readiness, and incident notes after a candidate is promoted.
 
-## Next Set: Friday Release Post-Promotion Monitor
+## Completed Set: Friday Release Post-Promotion Monitor
 
-Status: 0/100
+Status: 100/100
 
 Goal: make Friday's post-promotion state visible after a candidate is promoted, including verification freshness, incident notes, rollback readiness, and follow-up checks.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed post-promotion monitor model that consumes the promotion ledger, QA command center, dashboard smoke, and incident-note evidence.
+- [x] Add stale-check and missing-evidence warnings for promoted candidates.
+- [x] Add CLI and JSON commands for generating monitor reports without running deployments.
+- [x] Add dashboard import/rendering for post-promotion status, rollback readiness, and incident notes.
+- [x] Add focused Rust/TypeScript coverage for monitor scoring, stale warnings, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Rollback Drill` and prove that rollback references can produce a local-only drill report before any promoted candidate is treated as stable.
+
+## Next Set: Friday Release Rollback Drill
+
+Status: 0/100
+
+Goal: make rollback readiness testable by turning active rollback references, promotion records, deployment gates, and post-promotion monitor evidence into a dry-run drill report.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed post-promotion monitor model that consumes the promotion ledger, QA command center, dashboard smoke, and incident-note evidence.
-- [ ] Add stale-check and missing-evidence warnings for promoted candidates.
-- [ ] Add CLI and JSON commands for generating monitor reports without running deployments.
-- [ ] Add dashboard import/rendering for post-promotion status, rollback readiness, and incident notes.
-- [ ] Add focused Rust/TypeScript coverage for monitor scoring, stale warnings, and dashboard rendering.
+- [ ] Add a typed rollback drill model that consumes the post-promotion monitor, promotion ledger, candidate archive, and deployment gate.
+- [ ] Add rollback readiness checks for missing rollback references, stale monitor evidence, and unresolved post-promotion blockers.
+- [ ] Add CLI and JSON commands for generating rollback drill reports without executing rollback commands.
+- [ ] Add dashboard import/rendering for rollback drill status, dry-run commands, and blocked rollback reasons.
+- [ ] Add focused Rust/TypeScript coverage for rollback drill scoring, blocked reasons, and dashboard rendering.

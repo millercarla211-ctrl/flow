@@ -640,6 +640,63 @@ export interface FlowReleasePromotionLedger {
   commands: string[];
 }
 
+export type FlowReleasePostPromotionCheckStatus =
+  | "passed"
+  | "warning"
+  | "failed"
+  | "missing"
+  | "stale";
+
+export interface FlowReleasePostPromotionCheck {
+  id: string;
+  label: string;
+  sourcePath: string;
+  required: boolean;
+  present: boolean;
+  stale: boolean;
+  bytes: number;
+  status: FlowReleasePostPromotionCheckStatus;
+  summary: string;
+  nextAction: string;
+}
+
+export interface FlowReleasePostPromotionIncidentNote {
+  id: string;
+  path: string;
+  present: boolean;
+  bytes: number;
+  summary: string;
+}
+
+export interface FlowReleasePostPromotionMonitorReport {
+  monitorId: string;
+  monitorJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  readyForStable: boolean;
+  promotionLedgerJson: string;
+  qaJson: string;
+  dashboardSmokeResultPath: string;
+  activeCandidateId: string | null;
+  activePromotionId: string | null;
+  activeRollbackReference: string | null;
+  latestDecision: FlowReleasePromotionDecision | null;
+  promotedCount: number;
+  incidentNoteCount: number;
+  missingEvidenceCount: number;
+  staleCount: number;
+  warningCount: number;
+  blockingCount: number;
+  checks: FlowReleasePostPromotionCheck[];
+  incidentNotes: FlowReleasePostPromotionIncidentNote[];
+  warnings: string[];
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -2245,6 +2302,120 @@ export function normalizeReleasePromotionLedger(
   };
 }
 
+export function normalizeReleasePostPromotionMonitor(
+  value: unknown,
+): FlowReleasePostPromotionMonitorReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const monitor =
+    root.release_post_promotion_monitor &&
+    typeof root.release_post_promotion_monitor === "object"
+      ? (root.release_post_promotion_monitor as Record<string, unknown>)
+      : root.releasePostPromotionMonitor &&
+          typeof root.releasePostPromotionMonitor === "object"
+        ? (root.releasePostPromotionMonitor as Record<string, unknown>)
+        : root;
+  const monitorId = stringValue(monitor.monitor_id, monitor.monitorId);
+  const checks = arrayValue(monitor.checks)
+    .map((item): FlowReleasePostPromotionCheck | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const check = item as Record<string, unknown>;
+      const id = stringValue(check.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        label: stringValue(check.label),
+        sourcePath: stringValue(check.source_path, check.sourcePath),
+        required: booleanValue(check.required),
+        present: booleanValue(check.present),
+        stale: booleanValue(check.stale),
+        bytes: numberValue(check.bytes),
+        status: postPromotionCheckStatus(stringValue(check.status)),
+        summary: stringValue(check.summary),
+        nextAction: stringValue(check.next_action, check.nextAction),
+      };
+    })
+    .filter((check): check is FlowReleasePostPromotionCheck => check !== null);
+  const incidentNotes = arrayValue(monitor.incident_notes, monitor.incidentNotes)
+    .map((item): FlowReleasePostPromotionIncidentNote | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const note = item as Record<string, unknown>;
+      const id = stringValue(note.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        path: stringValue(note.path),
+        present: booleanValue(note.present),
+        bytes: numberValue(note.bytes),
+        summary: stringValue(note.summary),
+      };
+    })
+    .filter((note): note is FlowReleasePostPromotionIncidentNote => note !== null);
+
+  if (!monitorId && checks.length === 0 && incidentNotes.length === 0) {
+    return null;
+  }
+
+  return {
+    monitorId,
+    monitorJson: stringValue(monitor.monitor_json, monitor.monitorJson),
+    generatedAtUnixMs: stringValue(monitor.generated_at_unix_ms, monitor.generatedAtUnixMs),
+    productName: stringValue(monitor.product_name, monitor.productName),
+    localOnly: booleanValue(monitor.local_only, monitor.localOnly),
+    status: panelStatus(stringValue(monitor.status)),
+    scoreOutOf100: numberValue(monitor.score_out_of_100, monitor.scoreOutOf100),
+    readyForStable: booleanValue(monitor.ready_for_stable, monitor.readyForStable),
+    promotionLedgerJson: stringValue(
+      monitor.promotion_ledger_json,
+      monitor.promotionLedgerJson,
+    ),
+    qaJson: stringValue(monitor.qa_json, monitor.qaJson),
+    dashboardSmokeResultPath: stringValue(
+      monitor.dashboard_smoke_result_path,
+      monitor.dashboardSmokeResultPath,
+    ),
+    activeCandidateId:
+      stringValue(monitor.active_candidate_id, monitor.activeCandidateId) || null,
+    activePromotionId:
+      stringValue(monitor.active_promotion_id, monitor.activePromotionId) || null,
+    activeRollbackReference:
+      stringValue(monitor.active_rollback_reference, monitor.activeRollbackReference) || null,
+    latestDecision:
+      monitor.latest_decision == null && monitor.latestDecision == null
+        ? null
+        : promotionDecision(stringValue(monitor.latest_decision, monitor.latestDecision)),
+    promotedCount: numberValue(monitor.promoted_count, monitor.promotedCount),
+    incidentNoteCount: numberValue(monitor.incident_note_count, monitor.incidentNoteCount),
+    missingEvidenceCount: numberValue(
+      monitor.missing_evidence_count,
+      monitor.missingEvidenceCount,
+    ),
+    staleCount: numberValue(monitor.stale_count, monitor.staleCount),
+    warningCount: numberValue(monitor.warning_count, monitor.warningCount),
+    blockingCount: numberValue(monitor.blocking_count, monitor.blockingCount),
+    checks,
+    incidentNotes,
+    warnings: arrayValue(monitor.warnings)
+      .map((warning) => stringValue(warning))
+      .filter(Boolean),
+    summary: stringValue(monitor.summary),
+    commands: arrayValue(monitor.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -2379,6 +2550,19 @@ function signoffDecision(value: string): FlowReleaseChecklistSignoff["decision"]
 }
 
 function qaCheckStatus(value: string): FlowReleaseQaCheckStatus {
+  if (
+    value === "passed" ||
+    value === "warning" ||
+    value === "failed" ||
+    value === "missing" ||
+    value === "stale"
+  ) {
+    return value;
+  }
+  return "warning";
+}
+
+function postPromotionCheckStatus(value: string): FlowReleasePostPromotionCheckStatus {
   if (
     value === "passed" ||
     value === "warning" ||

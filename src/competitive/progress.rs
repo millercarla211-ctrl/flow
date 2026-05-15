@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-promotion-ledger-model",
-            "Typed release promotion ledger model",
+            "release-post-promotion-monitor-model",
+            "Typed post-promotion monitor model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleasePromotionLedger` links release candidates to operator decisions, deployment notes, targets, rollback references, and post-promotion checks",
-            "open the next release monitor set",
+            "`FridayReleasePostPromotionMonitorReport` consumes the promotion ledger, release QA, dashboard smoke output, and incident-note evidence",
+            "open the next rollback drill set",
         ),
         item(
-            "release-promotion-ledger-decisions",
-            "Promotion decision categories",
+            "release-post-promotion-monitor-warnings",
+            "Post-promotion stale and missing evidence warnings",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleasePromotionDecision` covers promoted, held, rolled-back, superseded, and abandoned candidate states",
-            "open the next release monitor set",
+            "monitor checks classify passed, warning, failed, missing, and stale evidence while preserving active rollback references",
+            "open the next rollback drill set",
         ),
         item(
-            "release-promotion-ledger-cli",
-            "Promotion ledger CLI and JSON commands",
+            "release-post-promotion-monitor-cli",
+            "Post-promotion monitor CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-promotion-ledger` and JSON mode record local promotion decisions without running deployments",
-            "open the next release monitor set",
+            "`flow --friday-release-post-promotion-monitor` and JSON mode generate local-only monitor reports without running deployments",
+            "open the next rollback drill set",
         ),
         item(
-            "release-promotion-ledger-dashboard",
-            "Dashboard promotion ledger rendering",
+            "release-post-promotion-monitor-dashboard",
+            "Dashboard post-promotion monitor rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports promotion ledger JSON and renders promotion history, active rollback reference, warnings, post-promotion checks, and copyable ledger command",
-            "open the next release monitor set",
+            "the visible dashboard imports monitor JSON and renders stability status, rollback readiness, incident notes, stale checks, and copyable monitor command",
+            "open the next rollback drill set",
         ),
         item(
-            "release-promotion-ledger-coverage",
-            "Promotion ledger Rust and TypeScript coverage",
+            "release-post-promotion-monitor-coverage",
+            "Post-promotion monitor Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify ledger writes, rollback references, post-promotion checks, command copy, and visible dashboard import/rendering",
-            "open the next release monitor set",
+            "focused Rust integration coverage plus dashboard smoke checks verify monitor scoring, stale warnings, incident-note evidence, command copy, and visible dashboard import/rendering",
+            "open the next rollback drill set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Promotion Ledger".to_string(),
+        name: "Friday Release Post-Promotion Monitor".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Track every Friday candidate promotion decision with deployment notes, rollback references, operator reasons, and post-promotion verification evidence.".to_string(),
+        loop_rule: "Make Friday's post-promotion status visible with verification freshness, rollback readiness, incident notes, and follow-up evidence.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_promotion_ledger_loop() {
+    fn active_set_tracks_friday_release_post_promotion_monitor_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Promotion Ledger");
+        assert_eq!(set.name, "Friday Release Post-Promotion Monitor");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items
