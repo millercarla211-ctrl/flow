@@ -500,9 +500,9 @@ Goal: make Friday's major-checkpoint deployment decision explicit by consuming t
 
 This set is complete. The next loop should open `Friday Release Candidate Archive` and preserve deployment gates, evidence kits, target metadata, and rollback notes as comparable candidate records before any major deploy.
 
-## Next Set: Friday Release Candidate Archive
+## Completed Set: Friday Release Candidate Archive
 
-Status: 60/100
+Status: 100/100
 
 Goal: preserve every Friday major-checkpoint candidate as a comparable local record so operators can see deployment gates, evidence kits, targets, rollback notes, and promotion history without digging through loose JSON files.
 
@@ -514,5 +514,23 @@ Goal: preserve every Friday major-checkpoint candidate as a comparable local rec
 
 ### Remaining To Reach 100/100
 
-- [ ] Add dashboard import/rendering for candidate history, latest-candidate status, and compare-to-previous guidance.
-- [ ] Add focused Rust/TypeScript coverage for candidate archive writes, diff warnings, and dashboard rendering.
+- [x] Add dashboard import/rendering for candidate history, latest-candidate status, and compare-to-previous guidance.
+- [x] Add focused Rust/TypeScript coverage for candidate archive writes, diff warnings, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Promotion Ledger` and make go/no-go candidate promotion, deployment notes, rollback references, and post-promotion verification auditable before any major deploy.
+
+## Next Set: Friday Release Promotion Ledger
+
+Status: 0/100
+
+Goal: track which candidate was promoted, why it was promoted, what deployment note was attached, which rollback reference is active, and what post-promotion checks still need evidence.
+
+### Remaining To Reach 100/100
+
+- [ ] Add a typed promotion ledger model that links a release candidate to an operator decision, deployment note, target, and rollback reference.
+- [ ] Add promotion decision categories for promoted, held, rolled back, superseded, and abandoned candidates.
+- [ ] Add CLI and JSON commands for recording promotions without running deployments.
+- [ ] Add dashboard import/rendering for promotion history, active rollback reference, and post-promotion checks.
+- [ ] Add focused Rust/TypeScript coverage for promotion writes, rollback references, and dashboard rendering.

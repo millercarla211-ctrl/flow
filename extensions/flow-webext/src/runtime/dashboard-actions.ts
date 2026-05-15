@@ -526,6 +526,56 @@ export interface FlowReleaseDeploymentGateReport {
   commands: string[];
 }
 
+export interface FlowReleaseCandidateArchiveEntry {
+  candidateId: string;
+  gateId: string;
+  gateJson: string;
+  exportKitJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  decision: FlowReleaseDeploymentGateDecision;
+  scoreOutOf100: number;
+  readyToDeploy: boolean;
+  target: FlowReleaseDeploymentTarget;
+  noDeployReasonCount: number;
+  warningCount: number;
+  reasonIds: string[];
+  exportKitManifestSha256: string | null;
+  rollbackNote: string;
+  summary: string;
+}
+
+export interface FlowReleaseCandidateArchiveDiff {
+  fromCandidateId: string;
+  toCandidateId: string;
+  scoreDelta: number;
+  decisionChanged: boolean;
+  targetChanged: boolean;
+  evidenceChecksumChanged: boolean;
+  newBlockerIds: string[];
+  resolvedBlockerIds: string[];
+  regression: boolean;
+  summary: string;
+}
+
+export interface FlowReleaseCandidateArchive {
+  archiveId: string;
+  archiveJson: string;
+  generatedAtUnixMs: string;
+  localOnly: boolean;
+  candidateCount: number;
+  latestCandidateId: string | null;
+  latestDecision: FlowReleaseDeploymentGateDecision | null;
+  latestScoreOutOf100: number | null;
+  goCount: number;
+  noGoCount: number;
+  draftCount: number;
+  regressionCount: number;
+  entries: FlowReleaseCandidateArchiveEntry[];
+  diffs: FlowReleaseCandidateArchiveDiff[];
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -1873,6 +1923,126 @@ export function normalizeReleaseDeploymentGate(
   };
 }
 
+export function normalizeReleaseCandidateArchive(
+  value: unknown,
+): FlowReleaseCandidateArchive | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const archive =
+    root.release_candidate_archive && typeof root.release_candidate_archive === "object"
+      ? (root.release_candidate_archive as Record<string, unknown>)
+      : root.releaseCandidateArchive && typeof root.releaseCandidateArchive === "object"
+        ? (root.releaseCandidateArchive as Record<string, unknown>)
+        : root;
+  const archiveId = stringValue(archive.archive_id, archive.archiveId);
+  const entries = arrayValue(archive.entries)
+    .map((item): FlowReleaseCandidateArchiveEntry | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const entry = item as Record<string, unknown>;
+      const candidateId = stringValue(entry.candidate_id, entry.candidateId);
+      if (!candidateId) {
+        return null;
+      }
+      const target =
+        entry.target && typeof entry.target === "object"
+          ? (entry.target as Record<string, unknown>)
+          : {};
+      return {
+        candidateId,
+        gateId: stringValue(entry.gate_id, entry.gateId),
+        gateJson: stringValue(entry.gate_json, entry.gateJson),
+        exportKitJson: stringValue(entry.export_kit_json, entry.exportKitJson),
+        generatedAtUnixMs: stringValue(entry.generated_at_unix_ms, entry.generatedAtUnixMs),
+        productName: stringValue(entry.product_name, entry.productName),
+        decision: deploymentDecision(stringValue(entry.decision)),
+        scoreOutOf100: numberValue(entry.score_out_of_100, entry.scoreOutOf100),
+        readyToDeploy: booleanValue(entry.ready_to_deploy, entry.readyToDeploy),
+        target: releaseDeploymentTarget(target),
+        noDeployReasonCount: numberValue(
+          entry.no_deploy_reason_count,
+          entry.noDeployReasonCount,
+        ),
+        warningCount: numberValue(entry.warning_count, entry.warningCount),
+        reasonIds: arrayValue(entry.reason_ids, entry.reasonIds)
+          .map((id) => stringValue(id))
+          .filter(Boolean),
+        exportKitManifestSha256:
+          stringValue(entry.export_kit_manifest_sha256, entry.exportKitManifestSha256) || null,
+        rollbackNote: stringValue(entry.rollback_note, entry.rollbackNote),
+        summary: stringValue(entry.summary),
+      };
+    })
+    .filter((item): item is FlowReleaseCandidateArchiveEntry => item !== null);
+  const diffs = arrayValue(archive.diffs)
+    .map((item): FlowReleaseCandidateArchiveDiff | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const diff = item as Record<string, unknown>;
+      const fromCandidateId = stringValue(diff.from_candidate_id, diff.fromCandidateId);
+      const toCandidateId = stringValue(diff.to_candidate_id, diff.toCandidateId);
+      if (!fromCandidateId || !toCandidateId) {
+        return null;
+      }
+      return {
+        fromCandidateId,
+        toCandidateId,
+        scoreDelta: numberValue(diff.score_delta, diff.scoreDelta),
+        decisionChanged: booleanValue(diff.decision_changed, diff.decisionChanged),
+        targetChanged: booleanValue(diff.target_changed, diff.targetChanged),
+        evidenceChecksumChanged: booleanValue(
+          diff.evidence_checksum_changed,
+          diff.evidenceChecksumChanged,
+        ),
+        newBlockerIds: arrayValue(diff.new_blocker_ids, diff.newBlockerIds)
+          .map((id) => stringValue(id))
+          .filter(Boolean),
+        resolvedBlockerIds: arrayValue(diff.resolved_blocker_ids, diff.resolvedBlockerIds)
+          .map((id) => stringValue(id))
+          .filter(Boolean),
+        regression: booleanValue(diff.regression),
+        summary: stringValue(diff.summary),
+      };
+    })
+    .filter((item): item is FlowReleaseCandidateArchiveDiff => item !== null);
+
+  if (!archiveId && entries.length === 0 && diffs.length === 0) {
+    return null;
+  }
+
+  return {
+    archiveId,
+    archiveJson: stringValue(archive.archive_json, archive.archiveJson),
+    generatedAtUnixMs: stringValue(archive.generated_at_unix_ms, archive.generatedAtUnixMs),
+    localOnly: booleanValue(archive.local_only, archive.localOnly),
+    candidateCount: numberValue(archive.candidate_count, archive.candidateCount),
+    latestCandidateId:
+      stringValue(archive.latest_candidate_id, archive.latestCandidateId) || null,
+    latestDecision:
+      archive.latest_decision == null && archive.latestDecision == null
+        ? null
+        : deploymentDecision(stringValue(archive.latest_decision, archive.latestDecision)),
+    latestScoreOutOf100: nullableNumber(
+      archive.latest_score_out_of_100,
+      archive.latestScoreOutOf100,
+    ),
+    goCount: numberValue(archive.go_count, archive.goCount),
+    noGoCount: numberValue(archive.no_go_count, archive.noGoCount),
+    draftCount: numberValue(archive.draft_count, archive.draftCount),
+    regressionCount: numberValue(archive.regression_count, archive.regressionCount),
+    entries,
+    diffs,
+    commands: arrayValue(archive.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -2024,6 +2194,20 @@ function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {
     return value;
   }
   return "draft";
+}
+
+function releaseDeploymentTarget(target: Record<string, unknown>): FlowReleaseDeploymentTarget {
+  return {
+    id: stringValue(target.id),
+    label: stringValue(target.label),
+    environment: stringValue(target.environment),
+    provider: stringValue(target.provider),
+    url: stringValue(target.url) || null,
+    localOnlyRequired: booleanValue(target.local_only_required, target.localOnlyRequired),
+    requiresVercel: booleanValue(target.requires_vercel, target.requiresVercel),
+    expectedProductName: stringValue(target.expected_product_name, target.expectedProductName),
+    rollbackNote: stringValue(target.rollback_note, target.rollbackNote),
+  };
 }
 
 function deploymentReasonCategory(value: string): FlowReleaseDeploymentGateReasonCategory {

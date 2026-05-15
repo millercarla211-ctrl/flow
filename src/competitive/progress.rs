@@ -77,17 +77,17 @@ pub fn active_completion_set() -> CompletionSet {
             "release-candidate-archive-dashboard",
             "Dashboard candidate archive rendering",
             20,
-            CompletionItemStatus::Planned,
-            "not wired yet; candidate archives need visible latest-candidate, history, and compare-to-previous controls",
-            "render candidate archives in the dashboard import flow",
+            CompletionItemStatus::Done,
+            "the visible dashboard imports candidate archive JSON and renders latest candidate, go/no-go counts, regressions, candidate cards, diff summaries, and copyable archive command",
+            "open the next release promotion ledger set",
         ),
         item(
             "release-candidate-archive-coverage",
             "Candidate archive Rust and TypeScript coverage",
             20,
-            CompletionItemStatus::Planned,
-            "Rust integration coverage exists for archive/diff behavior; dashboard normalization and smoke coverage are still needed",
-            "add TypeScript normalization and dashboard smoke coverage",
+            CompletionItemStatus::Done,
+            "focused Rust integration coverage plus dashboard smoke checks verify archive writes, diff warnings, command copy, and visible dashboard import/rendering",
+            "open the next release promotion ledger set",
         ),
     ];
 
@@ -140,11 +140,11 @@ mod tests {
     fn active_set_tracks_friday_release_candidate_archive_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Release Candidate Archive");
-        assert_eq!(set.current_score_out_of_100, 60);
+        assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items
                 .iter()
-                .any(|item| item.status == CompletionItemStatus::Planned)
+                .all(|item| item.status == CompletionItemStatus::Done)
         );
     }
 

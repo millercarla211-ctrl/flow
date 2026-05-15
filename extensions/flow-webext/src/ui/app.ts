@@ -2,6 +2,7 @@ import { requestQuickContext, replaceSelection, toggleOverlay } from "../runtime
 import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
+  normalizeReleaseCandidateArchive,
   normalizeReleaseDeploymentGate,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseOperatorChecklist,
@@ -28,6 +29,7 @@ import {
   type FlowDashboardRunnerReleaseTimeline,
   type FlowDashboardRunnerUxReport,
   type FlowDashboardCommandStatus,
+  type FlowReleaseCandidateArchive,
   type FlowReleaseDeploymentGateReport,
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseOperatorChecklistReport,
@@ -79,6 +81,7 @@ type UiState = {
   dashboardReleaseQa: FlowReleaseQaCommandCenterReport | null;
   dashboardReleaseExportKit: FlowReleaseEvidenceExportKitReport | null;
   dashboardReleaseDeploymentGate: FlowReleaseDeploymentGateReport | null;
+  dashboardReleaseCandidateArchive: FlowReleaseCandidateArchive | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -1642,6 +1645,67 @@ function renderReleaseDeploymentGate(gate: FlowReleaseDeploymentGateReport | nul
   `;
 }
 
+function renderReleaseCandidateArchive(archive: FlowReleaseCandidateArchive | null) {
+  if (!archive) {
+    return "";
+  }
+
+  const latest = archive.entries[archive.entries.length - 1] ?? null;
+
+  return `
+    <article class="feature-card dashboard-release-candidate-archive">
+      <div class="card-topline">
+        <span class="eyebrow">Release candidate archive</span>
+        <span class="badge ${badgeTone(archive.regressionCount > 0 ? "warning" : "ready")}">
+          ${archive.candidateCount} candidates
+        </span>
+      </div>
+      <h3>${latest ? escapeHtml(latest.target.label) : "No candidates yet"}</h3>
+      <p>
+        ${latest
+          ? `Latest ${escapeHtml(latest.decision)} at ${latest.scoreOutOf100}/100 with ${latest.noDeployReasonCount} blocker(s).`
+          : "Append deployment gates to preserve release history before major checkpoints."}
+      </p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${archive.goCount}</strong><small>go</small></span>
+        <span><strong>${archive.noGoCount}</strong><small>no-go</small></span>
+        <span><strong>${archive.draftCount}</strong><small>draft</small></span>
+        <span><strong>${archive.regressionCount}</strong><small>regressions</small></span>
+      </div>
+      <div class="runner-package-files">
+        ${archive.entries
+          .slice(-4)
+          .reverse()
+          .map(
+            (entry) => `
+              <div class="runner-package-file ${entry.readyToDeploy ? "present" : "missing"}">
+                <strong>${escapeHtml(entry.candidateId)}</strong>
+                <small>${escapeHtml(entry.decision)} - ${entry.scoreOutOf100}/100</small>
+                <code>${escapeHtml(entry.gateJson)}</code>
+                <span>${escapeHtml(entry.rollbackNote)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      ${
+        archive.diffs.length
+          ? `<div class="note-list">${archive.diffs
+              .slice(-3)
+              .reverse()
+              .map((diff) => `<span>${escapeHtml(diff.summary)}</span>`)
+              .join("")}</div>`
+          : ""
+      }
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-candidate-archive-command">
+          Copy archive command
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -1853,6 +1917,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseQa(state.dashboardReleaseQa)}
       ${renderReleaseExportKit(state.dashboardReleaseExportKit)}
       ${renderReleaseDeploymentGate(state.dashboardReleaseDeploymentGate)}
+      ${renderReleaseCandidateArchive(state.dashboardReleaseCandidateArchive)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1983,6 +2048,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseQa: null,
     dashboardReleaseExportKit: null,
     dashboardReleaseDeploymentGate: null,
+    dashboardReleaseCandidateArchive: null,
   };
 
   function render() {
@@ -2283,6 +2349,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseQa = normalizeReleaseQaCommandCenter(parsed);
       const releaseExportKit = normalizeReleaseEvidenceExportKit(parsed);
       const releaseDeploymentGate = normalizeReleaseDeploymentGate(parsed);
+      const releaseCandidateArchive = normalizeReleaseCandidateArchive(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2304,8 +2371,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseExportKit ?? state.dashboardReleaseExportKit;
       state.dashboardReleaseDeploymentGate =
         releaseDeploymentGate ?? state.dashboardReleaseDeploymentGate;
+      state.dashboardReleaseCandidateArchive =
+        releaseCandidateArchive ?? state.dashboardReleaseCandidateArchive;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseDeploymentGate
+      state.status = releaseCandidateArchive
+        ? `Imported release candidate archive with ${releaseCandidateArchive.candidateCount} candidate(s) from ${file.name}.`
+        : releaseDeploymentGate
         ? `Imported deployment gate ${releaseDeploymentGate.decision} at ${releaseDeploymentGate.scoreOutOf100}/100 from ${file.name}.`
         : releaseExportKit
         ? `Imported release evidence export kit with ${releaseExportKit.manifest.fileCount} file(s) from ${file.name}.`
@@ -2601,6 +2672,22 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseCandidateArchiveCommand() {
+    const command = state.dashboardReleaseCandidateArchive?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release candidate archive command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release candidate archive command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -2769,6 +2856,12 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-deployment-gate-command']")
       ?.addEventListener("click", () => {
         void copyReleaseDeploymentGateCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-candidate-archive-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseCandidateArchiveCommand();
       });
 
     mountRoot

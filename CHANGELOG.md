@@ -5,6 +5,8 @@
 - completed Friday Release Deployment Gate at 100/100 with typed local-first go/no-go reports, no-deploy reason categories, target policy checks, CLI/JSON generation commands, dashboard import/rendering, rollback/deploy checklist copy, and focused Rust/TypeScript coverage
 - opened Friday Release Candidate Archive as the next set for preserving comparable deployment gates, evidence kits, target metadata, and rollback notes across major checkpoints
 - advanced Friday Release Candidate Archive to 60/100 with typed candidate archive records, deployment-gate/evidence-kit preservation, candidate diff summaries, and CLI/JSON append/preview commands
+- completed Friday Release Candidate Archive at 100/100 with dashboard archive import/rendering, latest-candidate status, regression summaries, archive command copy, and TypeScript smoke coverage
+- opened Friday Release Promotion Ledger as the next set for auditable candidate promotion, deployment notes, rollback references, and post-promotion checks
 - completed Friday Release Evidence Export Kit at 100/100 with local-only evidence manifests, SHA-256 checksums, stale/missing warnings, export-kit CLI/JSON commands, dashboard import/rendering, operator attachment copy, and focused Rust/TypeScript coverage
 - opened Friday Release Deployment Gate as the next set for an explicit local-first go/no-go surface before major Friday checkpoints
 - completed Friday Release QA Command Center at 100/100 with dashboard QA import/rendering, stale-result badges, copyable lightweight-check commands, and TypeScript smoke coverage

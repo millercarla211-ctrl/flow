@@ -5,6 +5,7 @@ import {
 import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
+  normalizeReleaseCandidateArchive,
   normalizeReleaseDeploymentGate,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseOperatorChecklist,
@@ -847,6 +848,95 @@ export function dashboardSectionSmokeReport(
       "Friday deployment gate: no-go\nScore: 71 / 100\nTarget: Local Friday checkpoint",
     commands: ["flow --friday-release-deployment-gate tmp/friday-dashboard"],
   });
+  const releaseCandidateArchive = normalizeReleaseCandidateArchive({
+    archive_id: "friday-release-candidate-archive-smoke",
+    archive_json: "tmp/friday-dashboard/release-candidate-archive.json",
+    generated_at_unix_ms: 8,
+    local_only: true,
+    candidate_count: 2,
+    latest_candidate_id: "candidate-regressed",
+    latest_decision: "no-go",
+    latest_score_out_of_100: 71,
+    go_count: 0,
+    no_go_count: 2,
+    draft_count: 0,
+    regression_count: 1,
+    entries: [
+      {
+        candidate_id: "candidate-initial",
+        gate_id: "gate-initial",
+        gate_json: "tmp/friday-dashboard/release-deployment-gate-1.json",
+        export_kit_json: "tmp/friday-dashboard/release-evidence-export-kit.json",
+        generated_at_unix_ms: 7,
+        product_name: "Friday",
+        decision: "no-go",
+        score_out_of_100: 81,
+        ready_to_deploy: false,
+        target: {
+          id: "local-friday-checkpoint",
+          label: "Local Friday checkpoint",
+          environment: "local",
+          provider: "local",
+          url: null,
+          local_only_required: true,
+          requires_vercel: false,
+          expected_product_name: "Friday",
+          rollback_note: "Keep previous evidence attached.",
+        },
+        no_deploy_reason_count: 1,
+        warning_count: 1,
+        reason_ids: ["qa-not-ready"],
+        export_kit_manifest_sha256: "kit-sha",
+        rollback_note: "Keep previous evidence attached.",
+        summary: "Initial no-go candidate.",
+      },
+      {
+        candidate_id: "candidate-regressed",
+        gate_id: "gate-regressed",
+        gate_json: "tmp/friday-dashboard/release-deployment-gate-2.json",
+        export_kit_json: "tmp/friday-dashboard/release-evidence-export-kit.json",
+        generated_at_unix_ms: 8,
+        product_name: "Friday",
+        decision: "no-go",
+        score_out_of_100: 71,
+        ready_to_deploy: false,
+        target: {
+          id: "local-friday-checkpoint",
+          label: "Local Friday checkpoint",
+          environment: "local",
+          provider: "local",
+          url: null,
+          local_only_required: true,
+          requires_vercel: false,
+          expected_product_name: "Friday",
+          rollback_note: "Keep previous evidence attached.",
+        },
+        no_deploy_reason_count: 2,
+        warning_count: 1,
+        reason_ids: ["qa-not-ready", "new-deploy-blocker"],
+        export_kit_manifest_sha256: "kit-sha-2",
+        rollback_note: "Keep previous evidence attached.",
+        summary: "Regressed no-go candidate.",
+      },
+    ],
+    diffs: [
+      {
+        from_candidate_id: "candidate-initial",
+        to_candidate_id: "candidate-regressed",
+        score_delta: -10,
+        decision_changed: false,
+        target_changed: false,
+        evidence_checksum_changed: true,
+        new_blocker_ids: ["new-deploy-blocker"],
+        resolved_blocker_ids: [],
+        regression: true,
+        summary: "Candidate score changed by -10.",
+      },
+    ],
+    commands: [
+      "flow --friday-release-candidate-archive --archive tmp/friday-dashboard/release-candidate-archive.json --gate <deployment-gate.json>",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -1155,6 +1245,26 @@ export function dashboardSectionSmokeReport(
           command.includes("--friday-release-deployment-gate"),
         ),
       `${releaseDeploymentGate?.commands.length ?? 0} deployment gate command(s)`,
+    ),
+    check(
+      "release-candidate-archive-importable",
+      releaseCandidateArchive?.candidateCount === 2 &&
+        releaseCandidateArchive.latestDecision === "no-go" &&
+        releaseCandidateArchive.entries.some(
+          (entry) => entry.exportKitManifestSha256 === "kit-sha-2",
+        ),
+      `${releaseCandidateArchive?.candidateCount ?? 0} release candidate(s)`,
+    ),
+    check(
+      "release-candidate-archive-regression",
+      releaseCandidateArchive?.regressionCount === 1 &&
+        releaseCandidateArchive.diffs.some(
+          (diff) => diff.regression && diff.newBlockerIds.includes("new-deploy-blocker"),
+        ) &&
+        releaseCandidateArchive.commands.some((command) =>
+          command.includes("--friday-release-candidate-archive"),
+        ),
+      `${releaseCandidateArchive?.regressionCount ?? 0} candidate archive regression(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",
