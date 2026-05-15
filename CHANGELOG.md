@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Trusted Runner Release Package at 100/100 with a signed local-only evidence manifest, history/live-state/release-review merging, incident markdown, CLI/JSON generation commands, dashboard package import rendering, and focused Rust/TypeScript coverage
+- opened Friday Trusted Runner Evidence Timeline as the next set for package history, diff warnings, archive commands, dashboard comparison, and freshness review
 - completed Friday Trusted Runner Operator Review at 100/100 with typed status/action/time-window filters, release-gate summaries, export-ready incident notes, dashboard review rendering, CLI/JSON review commands, and focused Rust/TypeScript coverage
 - opened Friday Trusted Runner Release Package as the next set for signed local release handoffs, manifest checksums, package rendering, and stale evidence warnings
 - completed Friday Desktop Runner Cancellation UX at 100/100 with typed cancellation/recovery controls, active cancel commands, stale cleanup/retry guidance, denial recovery copy, dashboard-side persisted operator reasons, CLI/JSON cancellation UX reports, and focused Rust/TypeScript coverage

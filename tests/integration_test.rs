@@ -46,11 +46,12 @@ use flow::friday::{
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
-    read_friday_trusted_host_live_runner_state, read_friday_trusted_host_runner_history,
-    refresh_friday_trusted_host_live_runner_state, run_friday_ocr_smoke,
-    run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command_bridge_with_executor,
+    friday_trusted_runner_release_package_report, read_friday_trusted_host_live_runner_state,
+    read_friday_trusted_host_runner_history, refresh_friday_trusted_host_live_runner_state,
+    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
+    run_friday_trusted_host_command_bridge_with_executor,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
-    write_friday_trusted_host_live_runner_state,
+    write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -1701,6 +1702,52 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
             && control.requires_reason
             && control.command.contains("--approve --execute")
     }));
+    let package_path = root.join("trusted-runner-release-package.json");
+    let release_package = friday_trusted_runner_release_package_report(
+        &root,
+        &history_path,
+        &live_state_path,
+        &package_path,
+    );
+    assert_eq!(
+        release_package.manifest.history_json,
+        history_path.to_string_lossy().replace('\\', "/")
+    );
+    assert_eq!(release_package.manifest.missing_count, 0);
+    assert!(!release_package.ready_to_ship);
+    assert!(release_package
+        .manifest
+        .files
+        .iter()
+        .any(|file| file.id == "runner-history" && file.sha256.is_some()));
+    assert!(release_package
+        .manifest
+        .files
+        .iter()
+        .any(|file| file.id == "runner-live-state" && file.present));
+    assert!(release_package
+        .manifest
+        .files
+        .iter()
+        .any(|file| file.id == "incident-notes" && file.sha256.is_some()));
+    assert!(release_package
+        .warnings
+        .iter()
+        .any(|warning| warning.contains("stale live runner")));
+    assert!(release_package.incident_markdown.contains("### Failed"));
+    write_friday_trusted_runner_release_package(&package_path, &release_package).unwrap();
+    assert!(package_path.exists());
+    let missing_package = friday_trusted_runner_release_package_report(
+        root.join("missing-dashboard"),
+        root.join("missing-history.json"),
+        root.join("missing-live-state.json"),
+        root.join("missing-package.json"),
+    );
+    assert!(missing_package.manifest.missing_count >= 4);
+    assert!(missing_package
+        .warnings
+        .iter()
+        .any(|warning| warning.contains("missing")));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

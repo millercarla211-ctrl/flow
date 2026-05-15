@@ -370,6 +370,34 @@ p {
   padding: 10px;
 }
 
+.runner-package-files {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.runner-package-file {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+}
+
+.runner-package-file.missing {
+  border-color: rgba(255, 142, 128, 0.34);
+}
+
+.runner-package-file small {
+  color: var(--muted);
+}
+
+.runner-package-file code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .dashboard-rail {
   display: grid;
   gap: 14px;

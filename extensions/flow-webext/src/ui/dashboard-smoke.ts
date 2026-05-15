@@ -12,6 +12,7 @@ import {
   normalizeTrustedHostRunnerApprovalUi,
   normalizeTrustedHostRunnerResults,
   normalizeTrustedHostRunnerUx,
+  normalizeTrustedRunnerReleasePackage,
 } from "../runtime/dashboard-actions";
 import type { FlowDashboardProductUiBinding } from "../runtime/protocol";
 
@@ -500,6 +501,67 @@ export function dashboardSectionSmokeReport(
       },
     ],
   });
+  const trustedReleasePackage = normalizeTrustedRunnerReleasePackage({
+    summary: "Trusted runner release package needs review.",
+    ready_to_ship: false,
+    warnings: ["1 trusted runner record still blocks release review."],
+    manifest: {
+      package_id: "trusted-runner-release-smoke",
+      generated_at_unix_ms: 1,
+      product_name: "Friday",
+      local_only: true,
+      package_json: "tmp/friday-dashboard/trusted-runner-release-package.json",
+      dashboard_export_dir: "tmp/friday-dashboard",
+      history_json: "tmp/friday-dashboard/trusted-host-runner-history.json",
+      live_state_json: "tmp/friday-dashboard/trusted-host-live-state.json",
+      release_review_json: "tmp/friday-dashboard/release-review.json",
+      dashboard_index_json: "tmp/friday-dashboard/dashboard-index.json",
+      evidence_count: 3,
+      missing_count: 1,
+      warning_count: 1,
+      package_signature: "abc123signature",
+      commands: ["flow --friday-trusted-host-runner-release-package tmp/friday-dashboard"],
+      files: [
+        {
+          id: "runner-history",
+          label: "Trusted runner history",
+          kind: "runner-history-json",
+          path: "tmp/friday-dashboard/trusted-host-runner-history.json",
+          required: true,
+          present: true,
+          bytes: 120,
+          sha256: "sha-history",
+          warning: null,
+        },
+        {
+          id: "runner-live-state",
+          label: "Trusted runner live state",
+          kind: "runner-live-state-json",
+          path: "tmp/friday-dashboard/trusted-host-live-state.json",
+          required: true,
+          present: false,
+          bytes: 0,
+          sha256: null,
+          warning: "Required evidence is missing.",
+        },
+        {
+          id: "incident-notes",
+          label: "Trusted runner incident notes",
+          kind: "incident-markdown",
+          path: "trusted-runner-incidents.md",
+          required: false,
+          present: true,
+          bytes: 64,
+          sha256: "sha-incidents",
+          warning: null,
+        },
+      ],
+    },
+    operator_review: trustedOperatorReview,
+    cancellation_ux: trustedCancellationUx,
+    live_state: trustedLiveRunnerState,
+    incident_markdown: "### Failed: Run host report",
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -716,6 +778,24 @@ export function dashboardSectionSmokeReport(
           note.exportMarkdown.includes("Failed: Run host report"),
       ) === true,
       `${trustedOperatorReview?.incidentNotes.length ?? 0} incident note(s)`,
+    ),
+    check(
+      "trusted-runner-release-package-evidence",
+      trustedReleasePackage?.manifest.localOnly === true &&
+        trustedReleasePackage.manifest.files.some(
+          (file) => file.id === "runner-history" && file.sha256 === "sha-history",
+        ) &&
+        trustedReleasePackage.manifest.files.some(
+          (file) => file.id === "runner-live-state" && !file.present,
+        ),
+      `${trustedReleasePackage?.manifest.evidenceCount ?? 0} release evidence item(s)`,
+    ),
+    check(
+      "trusted-runner-release-package-warnings",
+      trustedReleasePackage?.readyToShip === false &&
+        trustedReleasePackage.manifest.missingCount === 1 &&
+        trustedReleasePackage.warnings.some((warning) => warning.includes("blocks release")),
+      `${trustedReleasePackage?.manifest.warningCount ?? 0} release package warning(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

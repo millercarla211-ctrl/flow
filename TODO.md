@@ -392,16 +392,34 @@ Goal: make trusted runner audit review useful after many local commands by givin
 
 This set is complete. The next loop should open `Friday Trusted Runner Release Package` and turn runner review evidence into a single exportable release handoff that operators can attach to shipped builds.
 
-## Next Set: Friday Trusted Runner Release Package
+## Completed Set: Friday Trusted Runner Release Package
 
-Status: 0/100
+Status: 100/100
 
 Goal: package trusted-runner evidence into one signed, reviewable, local-only release handoff with manifest links, incident markdown, live-state freshness, and CLI/browser import guidance.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed trusted-runner release package report that merges history review, cancellation UX, live state, and release review links.
+- [x] Add a local-only package manifest with checksums for runner history, live state, incident notes, and dashboard JSON.
+- [x] Add CLI and JSON commands for generating the release package without running new host commands.
+- [x] Add dashboard import/rendering for the package summary and missing-evidence warnings.
+- [x] Add focused Rust/TypeScript coverage for package completeness, checksum copy, and stale evidence warnings.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Trusted Runner Evidence Timeline` and make release packages comparable over time with diff warnings, archive commands, and visible package-history review.
+
+## Next Set: Friday Trusted Runner Evidence Timeline
+
+Status: 0/100
+
+Goal: make trusted-runner release packages comparable over time so operators can spot regressions, stale evidence, missing artifacts, and recurring command failures before shipping.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed trusted-runner release package report that merges history review, cancellation UX, live state, and release review links.
-- [ ] Add a local-only package manifest with checksums for runner history, live state, incident notes, and dashboard JSON.
-- [ ] Add CLI and JSON commands for generating the release package without running new host commands.
-- [ ] Add dashboard import/rendering for the package summary and missing-evidence warnings.
-- [ ] Add focused Rust/TypeScript coverage for package completeness, checksum copy, and stale evidence warnings.
+- [ ] Add a typed trusted-runner package timeline/history model that can load multiple release package JSON files.
+- [ ] Add package-to-package diff summaries for missing evidence, warning count changes, stale runner changes, and signature changes.
+- [ ] Add CLI and JSON archive commands for appending release packages to a local evidence timeline without running host commands.
+- [ ] Add dashboard timeline rendering with compare controls, regression warnings, and latest-package freshness copy.
+- [ ] Add focused Rust/TypeScript coverage for timeline loading, diff warnings, archive writes, and dashboard rendering.

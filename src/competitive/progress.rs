@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "runner-review-filters",
-            "Typed trusted runner review filters",
+            "runner-release-package-report",
+            "Typed trusted runner release package report",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostRunnerOperatorReviewFilter` supports status, action, time-window, and limit filters over persisted runner history",
-            "open the next trusted runner release packaging set",
+            "`FridayTrustedRunnerReleasePackageReport` merges runner history review, cancellation UX, live state, release-review links, and incident markdown",
+            "open the next trusted runner evidence timeline set",
         ),
         item(
-            "runner-release-gate-summaries",
-            "Release-gate summaries",
+            "runner-release-package-manifest",
+            "Local-only manifest with checksums",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostRunnerOperatorReviewReport` groups succeeded, failed, timed-out, cancelled, denied, and stale-live-state review gates",
-            "open the next trusted runner release packaging set",
+            "the release package manifest records local-only evidence paths, byte sizes, SHA-256 checksums, missing counts, warning counts, and a package signature",
+            "open the next trusted runner evidence timeline set",
         ),
         item(
-            "runner-incident-notes",
-            "Export-ready incident notes",
+            "runner-release-package-cli",
+            "CLI and JSON package commands",
             20,
             CompletionItemStatus::Done,
-            "failed, timed-out, cancelled, and denied runner records now produce Markdown incident notes for release review handoff",
-            "open the next trusted runner release packaging set",
+            "`flow --friday-trusted-host-runner-release-package` writes the package and `--friday-trusted-host-runner-release-package-json` previews it without running host commands",
+            "open the next trusted runner evidence timeline set",
         ),
         item(
-            "runner-review-dashboard",
-            "Dashboard operator review rendering",
+            "runner-release-package-dashboard",
+            "Dashboard package import rendering",
             20,
             CompletionItemStatus::Done,
-            "the dashboard imports and renders operator review filters, release-gate cards, and copyable incident notes",
-            "open the next trusted runner release packaging set",
+            "the visible dashboard imports release packages, renders readiness, warnings, and evidence-file checksum rows",
+            "open the next trusted runner evidence timeline set",
         ),
         item(
-            "runner-review-tests",
-            "Review filter and gate tests",
+            "runner-release-package-tests",
+            "Package completeness coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage and browser-extension smoke checks verify review filtering, release-gate copy, and incident exports",
-            "open the next trusted runner release packaging set",
+            "focused Rust integration coverage and dashboard smoke checks verify package completeness, checksum presence, missing evidence, and stale warnings",
+            "open the next trusted runner evidence timeline set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Trusted Runner Operator Review".to_string(),
+        name: "Friday Trusted Runner Release Package".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Make trusted runner audit review useful after many local commands by giving operators filterable history, export-ready incident notes, release-gate summaries, and clear escalation paths.".to_string(),
+        loop_rule: "Package trusted-runner evidence into one signed, reviewable, local-only release handoff with manifest links, incident markdown, live-state freshness, and CLI/browser import guidance.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_trusted_runner_operator_review_loop() {
+    fn active_set_tracks_friday_trusted_runner_release_package_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Trusted Runner Operator Review");
+        assert_eq!(set.name, "Friday Trusted Runner Release Package");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

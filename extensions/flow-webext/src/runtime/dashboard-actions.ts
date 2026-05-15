@@ -230,6 +230,48 @@ export interface FlowDashboardRunnerOperatorReviewReport {
   records: FlowDashboardRunnerReviewRecord[];
 }
 
+export interface FlowDashboardRunnerReleaseEvidenceFile {
+  id: string;
+  label: string;
+  kind: string;
+  path: string;
+  required: boolean;
+  present: boolean;
+  bytes: number;
+  sha256: string | null;
+  warning: string | null;
+}
+
+export interface FlowDashboardRunnerReleasePackageManifest {
+  packageId: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  packageJson: string;
+  dashboardExportDir: string;
+  historyJson: string;
+  liveStateJson: string;
+  releaseReviewJson: string;
+  dashboardIndexJson: string;
+  evidenceCount: number;
+  missingCount: number;
+  warningCount: number;
+  packageSignature: string;
+  commands: string[];
+  files: FlowDashboardRunnerReleaseEvidenceFile[];
+}
+
+export interface FlowDashboardRunnerReleasePackageReport {
+  summary: string;
+  readyToShip: boolean;
+  warnings: string[];
+  manifest: FlowDashboardRunnerReleasePackageManifest;
+  operatorReview: FlowDashboardRunnerOperatorReviewReport | null;
+  cancellationUx: FlowDashboardRunnerCancellationUxReport | null;
+  liveState: FlowDashboardLiveRunnerState | null;
+  incidentMarkdown: string;
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -992,6 +1034,103 @@ export function normalizeTrustedHostRunnerOperatorReview(
     releaseGateSummaries: summaries,
     incidentNotes,
     records,
+  };
+}
+
+export function normalizeTrustedRunnerReleasePackage(
+  value: unknown,
+): FlowDashboardRunnerReleasePackageReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const report =
+    root.release_package && typeof root.release_package === "object"
+      ? (root.release_package as Record<string, unknown>)
+      : root.releasePackage && typeof root.releasePackage === "object"
+        ? (root.releasePackage as Record<string, unknown>)
+        : root;
+  const manifestRecord =
+    report.manifest && typeof report.manifest === "object"
+      ? (report.manifest as Record<string, unknown>)
+      : null;
+  if (!manifestRecord) {
+    return null;
+  }
+  const files = arrayValue(manifestRecord.files)
+    .map((item): FlowDashboardRunnerReleaseEvidenceFile | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const file = item as Record<string, unknown>;
+      const id = stringValue(file.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        label: stringValue(file.label) || id,
+        kind: stringValue(file.kind),
+        path: stringValue(file.path),
+        required: booleanValue(file.required),
+        present: booleanValue(file.present),
+        bytes: numberValue(file.bytes),
+        sha256: stringValue(file.sha256) || null,
+        warning: stringValue(file.warning) || null,
+      };
+    })
+    .filter((item): item is FlowDashboardRunnerReleaseEvidenceFile => item !== null);
+
+  if (files.length === 0) {
+    return null;
+  }
+
+  return {
+    summary: stringValue(report.summary),
+    readyToShip: booleanValue(report.ready_to_ship, report.readyToShip),
+    warnings: arrayValue(report.warnings)
+      .map((item) => stringValue(item))
+      .filter(Boolean),
+    manifest: {
+      packageId: stringValue(manifestRecord.package_id, manifestRecord.packageId),
+      generatedAtUnixMs: stringValue(
+        manifestRecord.generated_at_unix_ms,
+        manifestRecord.generatedAtUnixMs,
+      ),
+      productName: stringValue(manifestRecord.product_name, manifestRecord.productName),
+      localOnly: booleanValue(manifestRecord.local_only, manifestRecord.localOnly),
+      packageJson: stringValue(manifestRecord.package_json, manifestRecord.packageJson),
+      dashboardExportDir: stringValue(
+        manifestRecord.dashboard_export_dir,
+        manifestRecord.dashboardExportDir,
+      ),
+      historyJson: stringValue(manifestRecord.history_json, manifestRecord.historyJson),
+      liveStateJson: stringValue(manifestRecord.live_state_json, manifestRecord.liveStateJson),
+      releaseReviewJson: stringValue(
+        manifestRecord.release_review_json,
+        manifestRecord.releaseReviewJson,
+      ),
+      dashboardIndexJson: stringValue(
+        manifestRecord.dashboard_index_json,
+        manifestRecord.dashboardIndexJson,
+      ),
+      evidenceCount: numberValue(manifestRecord.evidence_count, manifestRecord.evidenceCount),
+      missingCount: numberValue(manifestRecord.missing_count, manifestRecord.missingCount),
+      warningCount: numberValue(manifestRecord.warning_count, manifestRecord.warningCount),
+      packageSignature: stringValue(
+        manifestRecord.package_signature,
+        manifestRecord.packageSignature,
+      ),
+      commands: arrayValue(manifestRecord.commands)
+        .map((item) => stringValue(item))
+        .filter(Boolean),
+      files,
+    },
+    operatorReview: normalizeTrustedHostRunnerOperatorReview(report.operator_review ?? report.operatorReview),
+    cancellationUx: normalizeTrustedHostRunnerCancellationUx(report.cancellation_ux ?? report.cancellationUx),
+    liveState: normalizeTrustedHostLiveRunnerState(report.live_state ?? report.liveState),
+    incidentMarkdown: stringValue(report.incident_markdown, report.incidentMarkdown),
   };
 }
 

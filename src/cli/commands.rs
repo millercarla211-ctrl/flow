@@ -33,8 +33,9 @@ use crate::friday::{
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult, FridayTrustedHostRunnerStatus,
-    FridayTrustedHostRunnerUxReport, FridayUiIntegrationStatus, FridayWorkspaceStore,
-    append_friday_trusted_host_runner_history, default_friday_browser_verification_report,
+    FridayTrustedHostRunnerUxReport, FridayTrustedRunnerReleasePackageReport,
+    FridayUiIntegrationStatus, FridayWorkspaceStore, append_friday_trusted_host_runner_history,
+    default_friday_browser_verification_report,
     default_friday_local_execution_checks, default_friday_product_plan,
     default_friday_ui_integration_plan, export_friday_dashboard_bundle, friday_answer_search_plan,
     friday_dashboard_host_command_bridge_from_export, friday_dashboard_panel_from_export,
@@ -46,9 +47,11 @@ use crate::friday::{
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
     friday_trusted_host_runner_operator_review_report_from_history_file,
-    friday_trusted_host_runner_ux_report_from_history_file, run_friday_ocr_smoke,
+    friday_trusted_host_runner_ux_report_from_history_file,
+    friday_trusted_runner_release_package_report, run_friday_ocr_smoke,
     run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
     run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
+    write_friday_trusted_runner_release_package,
     write_friday_trusted_host_live_runner_state,
 };
 use crate::models::{
@@ -659,6 +662,40 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayTrustedHostRunnerReleasePackage {
+            export_dir,
+            history_file,
+            state_file,
+            output_file,
+        } => {
+            let report = friday_trusted_runner_release_package_report(
+                resolve_repo_relative_path(&export_dir),
+                resolve_repo_relative_path(&history_file),
+                resolve_repo_relative_path(&state_file),
+                resolve_repo_relative_path(&output_file),
+            );
+            write_friday_trusted_runner_release_package(
+                resolve_repo_relative_path(&output_file),
+                &report,
+            )?;
+            print_friday_trusted_runner_release_package_report(&report);
+        }
+
+        Command::FridayTrustedHostRunnerReleasePackageJson {
+            export_dir,
+            history_file,
+            state_file,
+            output_file,
+        } => {
+            let report = friday_trusted_runner_release_package_report(
+                resolve_repo_relative_path(&export_dir),
+                resolve_repo_relative_path(&history_file),
+                resolve_repo_relative_path(&state_file),
+                resolve_repo_relative_path(&output_file),
+            );
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1134,6 +1171,10 @@ fn print_interactive_help() {
     println!("                           Show trusted runner operator review and release gates");
     println!("  --friday-trusted-host-runner-review-json [history-file] [--status status]");
     println!("                           Print trusted runner operator review as JSON");
+    println!("  --friday-trusted-host-runner-release-package [export-dir] [--output file]");
+    println!("                           Write trusted runner release package JSON");
+    println!("  --friday-trusted-host-runner-release-package-json [export-dir]");
+    println!("                           Print trusted runner release package as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -2208,6 +2249,43 @@ fn print_friday_trusted_host_runner_operator_review_report(
     for note in &report.incident_notes {
         println!("  - {} [{}]", note.title, note.severity);
         println!("    {}", note.body);
+    }
+}
+
+fn print_friday_trusted_runner_release_package_report(
+    report: &FridayTrustedRunnerReleasePackageReport,
+) {
+    println!("Friday Trusted Runner Release Package");
+    println!("=====================================");
+    println!("{}", report.summary);
+    println!("Ready to ship: {}", yes_no(report.ready_to_ship));
+    println!("Package: {}", report.manifest.package_json);
+    println!("Signature: {}", report.manifest.package_signature);
+    println!(
+        "Evidence: {} file(s), missing: {}, warnings: {}",
+        report.manifest.evidence_count, report.manifest.missing_count, report.manifest.warning_count
+    );
+    println!();
+    println!("Warnings:");
+    if report.warnings.is_empty() {
+        println!("  - none");
+    } else {
+        for warning in &report.warnings {
+            println!("  - {}", warning);
+        }
+    }
+    println!();
+    println!("Evidence files:");
+    for file in &report.manifest.files {
+        println!(
+            "  - {} [{}] present={} bytes={} sha256={}",
+            file.label,
+            file.kind,
+            yes_no(file.present),
+            file.bytes,
+            file.sha256.as_deref().unwrap_or("missing")
+        );
+        println!("    {}", file.path);
     }
 }
 

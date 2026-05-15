@@ -9,6 +9,7 @@ import {
   normalizeTrustedHostRunnerApprovalUi,
   normalizeTrustedHostRunnerResults,
   normalizeTrustedHostRunnerUx,
+  normalizeTrustedRunnerReleasePackage,
   persistDashboardCommandResult,
   readDashboardCommandResults,
   type FlowDashboardCommandResult,
@@ -18,6 +19,7 @@ import {
   type FlowDashboardRunnerCancellationControl,
   type FlowDashboardRunnerCancellationUxReport,
   type FlowDashboardRunnerOperatorReviewReport,
+  type FlowDashboardRunnerReleasePackageReport,
   type FlowDashboardRunnerUxReport,
   type FlowDashboardCommandStatus,
 } from "../runtime/dashboard-actions";
@@ -60,6 +62,7 @@ type UiState = {
   dashboardRunnerCancellationUx: FlowDashboardRunnerCancellationUxReport | null;
   dashboardRunnerCancellationDrafts: Record<string, string>;
   dashboardRunnerOperatorReview: FlowDashboardRunnerOperatorReviewReport | null;
+  dashboardRunnerReleasePackage: FlowDashboardRunnerReleasePackageReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -1273,6 +1276,55 @@ function renderRunnerOperatorReview(review: FlowDashboardRunnerOperatorReviewRep
   `;
 }
 
+function renderRunnerReleasePackage(pkg: FlowDashboardRunnerReleasePackageReport | null) {
+  if (!pkg) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-runner-package">
+      <div class="card-topline">
+        <span class="eyebrow">Trusted runner release package</span>
+        <span class="badge ${badgeTone(pkg.readyToShip ? "ready" : "blocked")}">
+          ${pkg.readyToShip ? "ready" : "review"}
+        </span>
+      </div>
+      <p>${escapeHtml(pkg.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${pkg.manifest.evidenceCount}</strong><small>evidence</small></span>
+        <span><strong>${pkg.manifest.missingCount}</strong><small>missing</small></span>
+        <span><strong>${pkg.manifest.warningCount}</strong><small>warnings</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Package</strong> ${escapeHtml(pkg.manifest.packageJson)}</span>
+        <span><strong>Signature</strong> ${escapeHtml(pkg.manifest.packageSignature.slice(0, 16))}</span>
+        <span><strong>Local</strong> ${pkg.manifest.localOnly ? "yes" : "no"}</span>
+      </div>
+      ${
+        pkg.warnings.length
+          ? `<div class="note-list">${pkg.warnings
+              .map((warning) => `<span>${escapeHtml(warning)}</span>`)
+              .join("")}</div>`
+          : "<p>No missing evidence or stale runner warnings in this package.</p>"
+      }
+      <div class="runner-package-files">
+        ${pkg.manifest.files
+          .map(
+            (file) => `
+              <div class="runner-package-file ${file.present ? "present" : "missing"}">
+                <strong>${escapeHtml(file.label)}</strong>
+                <small>${escapeHtml(file.kind)} - ${file.bytes} bytes</small>
+                <code>${escapeHtml(file.path)}</code>
+                <code>${escapeHtml(file.sha256 ?? "missing checksum")}</code>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -1475,6 +1527,7 @@ function renderDashboard(state: UiState) {
         state.dashboardRunnerCancellationDrafts,
       )}
       ${renderRunnerOperatorReview(state.dashboardRunnerOperatorReview)}
+      ${renderRunnerReleasePackage(state.dashboardRunnerReleasePackage)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1598,6 +1651,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardRunnerCancellationUx: null,
     dashboardRunnerCancellationDrafts: readRunnerCancellationDrafts(),
     dashboardRunnerOperatorReview: null,
+    dashboardRunnerReleasePackage: null,
   };
 
   function render() {
@@ -1892,6 +1946,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const approvalUi = normalizeTrustedHostRunnerApprovalUi(parsed);
       const liveState = normalizeTrustedHostLiveRunnerState(parsed);
       const operatorReview = normalizeTrustedHostRunnerOperatorReview(parsed);
+      const releasePackage = normalizeTrustedRunnerReleasePackage(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -1902,8 +1957,12 @@ export async function mountFlowApp(surfaceInput: string) {
         cancellationUx ?? state.dashboardRunnerCancellationUx;
       state.dashboardRunnerOperatorReview =
         operatorReview ?? state.dashboardRunnerOperatorReview;
+      state.dashboardRunnerReleasePackage =
+        releasePackage ?? state.dashboardRunnerReleasePackage;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = operatorReview
+      state.status = releasePackage
+        ? `Imported trusted runner release package with ${releasePackage.manifest.evidenceCount} evidence item(s) from ${file.name}.`
+        : operatorReview
         ? `Imported trusted runner operator review with ${operatorReview.matchedCount} matched record(s) from ${file.name}.`
         : cancellationUx
         ? `Imported trusted runner cancellation UX with ${cancellationUx.controls.length} control(s) from ${file.name}.`

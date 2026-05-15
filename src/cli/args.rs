@@ -182,6 +182,20 @@ pub enum Command {
         until_ms: Option<String>,
         limit: usize,
     },
+    /// Generate a trusted runner release package without executing host commands
+    FridayTrustedHostRunnerReleasePackage {
+        export_dir: String,
+        history_file: String,
+        state_file: String,
+        output_file: String,
+    },
+    /// Print a trusted runner release package as JSON without writing it
+    FridayTrustedHostRunnerReleasePackageJson {
+        export_dir: String,
+        history_file: String,
+        state_file: String,
+        output_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -789,6 +803,28 @@ impl Args {
                     limit,
                 }
             }
+            "--friday-trusted-host-runner-release-package"
+            | "--friday-dashboard-trusted-runner-release-package" => {
+                let (export_dir, history_file, state_file, output_file) =
+                    parse_friday_trusted_host_runner_release_package_args(&args);
+                Command::FridayTrustedHostRunnerReleasePackage {
+                    export_dir,
+                    history_file,
+                    state_file,
+                    output_file,
+                }
+            }
+            "--friday-trusted-host-runner-release-package-json"
+            | "--friday-dashboard-trusted-runner-release-package-json" => {
+                let (export_dir, history_file, state_file, output_file) =
+                    parse_friday_trusted_host_runner_release_package_args(&args);
+                Command::FridayTrustedHostRunnerReleasePackageJson {
+                    export_dir,
+                    history_file,
+                    state_file,
+                    output_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -1302,6 +1338,24 @@ fn parse_friday_trusted_host_runner_review_args(
         .and_then(|value| value.parse::<usize>().ok())
         .unwrap_or(50);
     (history_file, status, action_id, since_ms, until_ms, limit)
+}
+
+fn parse_friday_trusted_host_runner_release_package_args(
+    args: &[String],
+) -> (String, String, String, String) {
+    let export_dir = args
+        .get(2)
+        .filter(|value| !value.starts_with("--"))
+        .cloned()
+        .or_else(|| flag_value(args, "--export-dir"))
+        .unwrap_or_else(|| "tmp/friday-dashboard".to_string());
+    let history_file = flag_value(args, "--history")
+        .unwrap_or_else(|| format!("{export_dir}/trusted-host-runner-history.json"));
+    let state_file = flag_value(args, "--state")
+        .unwrap_or_else(|| format!("{export_dir}/trusted-host-live-state.json"));
+    let output_file = flag_value(args, "--output")
+        .unwrap_or_else(|| format!("{export_dir}/trusted-runner-release-package.json"));
+    (export_dir, history_file, state_file, output_file)
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {
