@@ -6,6 +6,7 @@ import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
   normalizeReleaseCandidateArchive,
+  normalizeReleaseCheckpointReview,
   normalizeReleaseDeploymentGate,
   normalizeReleaseEscalationLedger,
   normalizeReleaseEvidenceSlaMonitor,
@@ -1954,6 +1955,102 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-escalation-ledger-list --ledger tmp/friday-dashboard/release-escalation-ledger.json",
     ],
   });
+  const releaseCheckpointReview = normalizeReleaseCheckpointReview({
+    review_id: "friday-release-checkpoint-review-smoke",
+    review_json: "tmp/friday-dashboard/release-checkpoint-review.json",
+    generated_at_unix_ms: 19,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    score_out_of_100: 0,
+    decision: "hold",
+    ready_for_checkpoint: false,
+    item_count: 3,
+    owner_count: 1,
+    hold_count: 3,
+    carryover_count: 1,
+    review_required_count: 0,
+    acknowledgement_required_count: 3,
+    acknowledgement_blocker_count: 3,
+    active_escalation_count: 2,
+    release_gate_blocking_count: 3,
+    escalation_ledger_json: "tmp/friday-dashboard/release-escalation-ledger.json",
+    sla_monitor_json: "tmp/friday-dashboard/release-evidence-sla-monitor.json",
+    owner_followup_board_json: "tmp/friday-dashboard/release-owner-followup-board.json",
+    prevention_plan_json: "tmp/friday-dashboard/release-prevention-plan.json",
+    stability_board_json: "tmp/friday-dashboard/release-stability-board.json",
+    owner_groups: [
+      {
+        owner: "release-operator",
+        item_count: 3,
+        hold_count: 3,
+        carryover_count: 1,
+        review_required_count: 0,
+        acknowledgement_blocker_count: 3,
+        release_gate_blocking_count: 3,
+        items: [
+          "checkpoint-ledger-friday-release-escalation-sla-followup-prevent-rollback-recovery-gap-18",
+          "checkpoint-sla-sla-followup-prevent-rollback-recovery-gap",
+          "checkpoint-owner-owner-followup-prevent-rollback-recovery-gap",
+        ],
+      },
+    ],
+    items: [
+      {
+        id: "checkpoint-ledger-friday-release-escalation-sla-followup-prevent-rollback-recovery-gap-18",
+        source: "escalation-ledger",
+        owner: "release-operator",
+        title: "Harden rollback drill evidence",
+        state: "hold",
+        decision: "hold",
+        acknowledgement_required: true,
+        acknowledged: false,
+        active_carryover: true,
+        release_gate_blocking: true,
+        evidence_path: "tmp/friday-dashboard/release-rollback-drill.json",
+        summary: "Owner response is pending and gate outcome is carry-over.",
+        next_action: "Collect @release-operator acknowledgement or hold the checkpoint.",
+      },
+      {
+        id: "checkpoint-sla-sla-followup-prevent-rollback-recovery-gap",
+        source: "sla-monitor",
+        owner: "release-operator",
+        title: "Harden rollback drill evidence",
+        state: "hold",
+        decision: "hold",
+        acknowledgement_required: true,
+        acknowledged: false,
+        active_carryover: false,
+        release_gate_blocking: true,
+        evidence_path: "tmp/friday-dashboard/release-rollback-drill.json",
+        summary: "SLA state is overdue with escalation level checkpoint.",
+        next_action: "Escalate this overdue owner evidence before the next checkpoint.",
+      },
+      {
+        id: "checkpoint-owner-owner-followup-prevent-rollback-recovery-gap",
+        source: "owner-follow-up",
+        owner: "release-operator",
+        title: "Harden rollback drill evidence",
+        state: "hold",
+        decision: "hold",
+        acknowledgement_required: true,
+        acknowledged: false,
+        active_carryover: true,
+        release_gate_blocking: true,
+        evidence_path: "tmp/friday-dashboard/release-rollback-drill.json",
+        summary: "Owner follow-up is overdue with evidence request.",
+        next_action: "Run a clean rollback drill and attach the result.",
+      },
+    ],
+    review_notes_copy:
+      "Friday release checkpoint review: hold\n- @release-operator [escalation-ledger / hold] Harden rollback drill evidence -> Collect @release-operator acknowledgement or hold the checkpoint.",
+    summary:
+      "Friday checkpoint review is hold at 0/100 with 3 review items, 3 holds, 1 carryover, and 3 acknowledgement blockers.",
+    commands: [
+      "flow --friday-release-checkpoint-review --output tmp/friday-dashboard/release-checkpoint-review.json --ledger tmp/friday-dashboard/release-escalation-ledger.json --monitor tmp/friday-dashboard/release-evidence-sla-monitor.json --owner-followup-board tmp/friday-dashboard/release-owner-followup-board.json --prevention-plan tmp/friday-dashboard/release-prevention-plan.json --stability-board tmp/friday-dashboard/release-stability-board.json",
+      "flow --friday-release-checkpoint-review-json --output tmp/friday-dashboard/release-checkpoint-review.json --ledger tmp/friday-dashboard/release-escalation-ledger.json --monitor tmp/friday-dashboard/release-evidence-sla-monitor.json --owner-followup-board tmp/friday-dashboard/release-owner-followup-board.json --prevention-plan tmp/friday-dashboard/release-prevention-plan.json --stability-board tmp/friday-dashboard/release-stability-board.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -2508,6 +2605,35 @@ export function dashboardSectionSmokeReport(
           command.includes("--friday-release-escalation-ledger"),
         ),
       `${releaseEscalationLedger?.carryoverCount ?? 0} escalation carryover(s)`,
+    ),
+    check(
+      "release-checkpoint-review-importable",
+      releaseCheckpointReview?.decision === "hold" &&
+        releaseCheckpointReview.scoreOutOf100 === 0 &&
+        releaseCheckpointReview.acknowledgementBlockerCount === 3,
+      `${releaseCheckpointReview?.itemCount ?? 0} checkpoint review item(s)`,
+    ),
+    check(
+      "release-checkpoint-review-gates",
+      releaseCheckpointReview !== null &&
+        releaseCheckpointReview.ownerGroups.some(
+          (group) =>
+            group.owner === "release-operator" &&
+            group.releaseGateBlockingCount === 3,
+        ) &&
+        releaseCheckpointReview.items.some(
+          (item) =>
+            item.source === "escalation-ledger" &&
+            item.state === "hold" &&
+            item.nextAction.includes("@release-operator"),
+        ) &&
+        releaseCheckpointReview.reviewNotesCopy.includes(
+          "Friday release checkpoint review",
+        ) &&
+        releaseCheckpointReview.commands.some((command) =>
+          command.includes("--friday-release-checkpoint-review"),
+        ),
+      `${releaseCheckpointReview?.releaseGateBlockingCount ?? 0} checkpoint gate blocker(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

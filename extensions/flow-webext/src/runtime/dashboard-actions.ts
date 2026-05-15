@@ -1264,6 +1264,84 @@ export interface FlowReleaseEscalationLedger {
   commands: string[];
 }
 
+export type FlowReleaseCheckpointDecision =
+  | "ready"
+  | "hold"
+  | "carry-over"
+  | "needs-review";
+
+export type FlowReleaseCheckpointReviewState =
+  | "ready"
+  | "hold"
+  | "carry-over"
+  | "review-required";
+
+export type FlowReleaseCheckpointReviewSource =
+  | "escalation-ledger"
+  | "sla-monitor"
+  | "owner-follow-up"
+  | "prevention-plan"
+  | "stability-board"
+  | "missing-evidence";
+
+export interface FlowReleaseCheckpointReviewItem {
+  id: string;
+  source: FlowReleaseCheckpointReviewSource;
+  owner: string;
+  title: string;
+  state: FlowReleaseCheckpointReviewState;
+  decision: FlowReleaseCheckpointDecision;
+  acknowledgementRequired: boolean;
+  acknowledged: boolean;
+  activeCarryover: boolean;
+  releaseGateBlocking: boolean;
+  evidencePath: string;
+  summary: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseCheckpointReviewOwnerGroup {
+  owner: string;
+  itemCount: number;
+  holdCount: number;
+  carryoverCount: number;
+  reviewRequiredCount: number;
+  acknowledgementBlockerCount: number;
+  releaseGateBlockingCount: number;
+  items: string[];
+}
+
+export interface FlowReleaseCheckpointReviewBoardReport {
+  reviewId: string;
+  reviewJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  decision: FlowReleaseCheckpointDecision;
+  readyForCheckpoint: boolean;
+  itemCount: number;
+  ownerCount: number;
+  holdCount: number;
+  carryoverCount: number;
+  reviewRequiredCount: number;
+  acknowledgementRequiredCount: number;
+  acknowledgementBlockerCount: number;
+  activeEscalationCount: number;
+  releaseGateBlockingCount: number;
+  escalationLedgerJson: string;
+  slaMonitorJson: string;
+  ownerFollowupBoardJson: string;
+  preventionPlanJson: string;
+  stabilityBoardJson: string;
+  ownerGroups: FlowReleaseCheckpointReviewOwnerGroup[];
+  items: FlowReleaseCheckpointReviewItem[];
+  reviewNotesCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -3974,6 +4052,141 @@ export function normalizeReleaseEscalationLedger(
   };
 }
 
+export function normalizeReleaseCheckpointReview(
+  value: unknown,
+): FlowReleaseCheckpointReviewBoardReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const review =
+    root.release_checkpoint_review && typeof root.release_checkpoint_review === "object"
+      ? (root.release_checkpoint_review as Record<string, unknown>)
+      : root.releaseCheckpointReview && typeof root.releaseCheckpointReview === "object"
+        ? (root.releaseCheckpointReview as Record<string, unknown>)
+        : root;
+  const reviewId = stringValue(review.review_id, review.reviewId);
+  const items = arrayValue(review.items)
+    .map((item): FlowReleaseCheckpointReviewItem | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const id = stringValue(record.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        source: releaseCheckpointReviewSource(stringValue(record.source)),
+        owner: stringValue(record.owner),
+        title: stringValue(record.title),
+        state: releaseCheckpointReviewState(stringValue(record.state)),
+        decision: releaseCheckpointDecision(stringValue(record.decision)),
+        acknowledgementRequired: booleanValue(
+          record.acknowledgement_required,
+          record.acknowledgementRequired,
+        ),
+        acknowledged: booleanValue(record.acknowledged),
+        activeCarryover: booleanValue(record.active_carryover, record.activeCarryover),
+        releaseGateBlocking: booleanValue(record.release_gate_blocking, record.releaseGateBlocking),
+        evidencePath: stringValue(record.evidence_path, record.evidencePath),
+        summary: stringValue(record.summary),
+        nextAction: stringValue(record.next_action, record.nextAction),
+      };
+    })
+    .filter((item): item is FlowReleaseCheckpointReviewItem => item !== null);
+  const ownerGroups = arrayValue(review.owner_groups, review.ownerGroups)
+    .map((item): FlowReleaseCheckpointReviewOwnerGroup | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const group = item as Record<string, unknown>;
+      const owner = stringValue(group.owner);
+      if (!owner) {
+        return null;
+      }
+      return {
+        owner,
+        itemCount: numberValue(group.item_count, group.itemCount),
+        holdCount: numberValue(group.hold_count, group.holdCount),
+        carryoverCount: numberValue(group.carryover_count, group.carryoverCount),
+        reviewRequiredCount: numberValue(
+          group.review_required_count,
+          group.reviewRequiredCount,
+        ),
+        acknowledgementBlockerCount: numberValue(
+          group.acknowledgement_blocker_count,
+          group.acknowledgementBlockerCount,
+        ),
+        releaseGateBlockingCount: numberValue(
+          group.release_gate_blocking_count,
+          group.releaseGateBlockingCount,
+        ),
+        items: arrayValue(group.items)
+          .map((entry) => stringValue(entry))
+          .filter(Boolean),
+      };
+    })
+    .filter((group): group is FlowReleaseCheckpointReviewOwnerGroup => group !== null);
+
+  if (!reviewId && items.length === 0) {
+    return null;
+  }
+
+  return {
+    reviewId,
+    reviewJson: stringValue(review.review_json, review.reviewJson),
+    generatedAtUnixMs: stringValue(review.generated_at_unix_ms, review.generatedAtUnixMs),
+    productName: stringValue(review.product_name, review.productName),
+    localOnly: booleanValue(review.local_only, review.localOnly),
+    status: panelStatus(stringValue(review.status)),
+    scoreOutOf100: numberValue(review.score_out_of_100, review.scoreOutOf100),
+    decision: releaseCheckpointDecision(stringValue(review.decision)),
+    readyForCheckpoint: booleanValue(review.ready_for_checkpoint, review.readyForCheckpoint),
+    itemCount: numberValue(review.item_count, review.itemCount),
+    ownerCount: numberValue(review.owner_count, review.ownerCount),
+    holdCount: numberValue(review.hold_count, review.holdCount),
+    carryoverCount: numberValue(review.carryover_count, review.carryoverCount),
+    reviewRequiredCount: numberValue(review.review_required_count, review.reviewRequiredCount),
+    acknowledgementRequiredCount: numberValue(
+      review.acknowledgement_required_count,
+      review.acknowledgementRequiredCount,
+    ),
+    acknowledgementBlockerCount: numberValue(
+      review.acknowledgement_blocker_count,
+      review.acknowledgementBlockerCount,
+    ),
+    activeEscalationCount: numberValue(
+      review.active_escalation_count,
+      review.activeEscalationCount,
+    ),
+    releaseGateBlockingCount: numberValue(
+      review.release_gate_blocking_count,
+      review.releaseGateBlockingCount,
+    ),
+    escalationLedgerJson: stringValue(
+      review.escalation_ledger_json,
+      review.escalationLedgerJson,
+    ),
+    slaMonitorJson: stringValue(review.sla_monitor_json, review.slaMonitorJson),
+    ownerFollowupBoardJson: stringValue(
+      review.owner_followup_board_json,
+      review.ownerFollowupBoardJson,
+    ),
+    preventionPlanJson: stringValue(review.prevention_plan_json, review.preventionPlanJson),
+    stabilityBoardJson: stringValue(review.stability_board_json, review.stabilityBoardJson),
+    ownerGroups,
+    items,
+    reviewNotesCopy: stringValue(review.review_notes_copy, review.reviewNotesCopy),
+    summary: stringValue(review.summary),
+    commands: arrayValue(review.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -4331,6 +4544,44 @@ function releaseEscalationGateOutcome(value: string): FlowReleaseEscalationGateO
     return value;
   }
   return "carry-over";
+}
+
+function releaseCheckpointDecision(value: string): FlowReleaseCheckpointDecision {
+  if (
+    value === "ready" ||
+    value === "hold" ||
+    value === "carry-over" ||
+    value === "needs-review"
+  ) {
+    return value;
+  }
+  return "needs-review";
+}
+
+function releaseCheckpointReviewState(value: string): FlowReleaseCheckpointReviewState {
+  if (
+    value === "ready" ||
+    value === "hold" ||
+    value === "carry-over" ||
+    value === "review-required"
+  ) {
+    return value;
+  }
+  return "review-required";
+}
+
+function releaseCheckpointReviewSource(value: string): FlowReleaseCheckpointReviewSource {
+  if (
+    value === "escalation-ledger" ||
+    value === "sla-monitor" ||
+    value === "owner-follow-up" ||
+    value === "prevention-plan" ||
+    value === "stability-board" ||
+    value === "missing-evidence"
+  ) {
+    return value;
+  }
+  return "missing-evidence";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

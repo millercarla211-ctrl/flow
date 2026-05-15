@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-escalation-ledger-model",
-            "Typed release escalation ledger model",
+            "release-checkpoint-review-model",
+            "Typed release checkpoint review board model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseEscalationLedger` consumes release evidence SLA monitor reports and preserves escalation history",
-            "open the next release checkpoint review board set",
+            "`FridayReleaseCheckpointReviewBoardReport` consumes escalation ledgers, SLA monitors, owner follow-ups, prevention plans, and stability evidence",
+            "open the next release checkpoint signoff set",
         ),
         item(
-            "release-escalation-ledger-states",
-            "Owner response, acknowledgement, gate, and carryover states",
+            "release-checkpoint-review-states",
+            "Readiness, hold, carryover, and review-decision states",
             20,
             CompletionItemStatus::Done,
-            "entries classify pending, acknowledged, resolved, rejected, carried-over, blocked, carry-over, cleared, and monitoring states",
-            "open the next release checkpoint review board set",
+            "checkpoint review items classify ready, hold, carry-over, and review-required states with explicit acknowledgement requirements",
+            "open the next release checkpoint signoff set",
         ),
         item(
-            "release-escalation-ledger-cli",
-            "Escalation ledger append, list, export, and JSON commands",
+            "release-checkpoint-review-cli",
+            "Checkpoint review CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-escalation-ledger` appends owner responses and gate outcomes without running remediation commands",
-            "open the next release checkpoint review board set",
+            "`flow --friday-release-checkpoint-review` and JSON mode generate checkpoint boards without running builds, deployments, or remediation commands",
+            "open the next release checkpoint signoff set",
         ),
         item(
-            "release-escalation-ledger-dashboard",
-            "Dashboard escalation history rendering",
+            "release-checkpoint-review-dashboard",
+            "Dashboard checkpoint decision rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports escalation ledgers and renders active carryovers, acknowledgement blockers, gate blockers, and copyable owner response text",
-            "open the next release checkpoint review board set",
+            "the visible dashboard imports checkpoint reviews and renders decisions, active escalations, carryover blockers, acknowledgement blockers, and copyable review notes",
+            "open the next release checkpoint signoff set",
         ),
         item(
-            "release-escalation-ledger-coverage",
-            "Escalation ledger Rust and TypeScript coverage",
+            "release-checkpoint-review-coverage",
+            "Checkpoint review Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify append/list behavior, acknowledgement scoring, carryover gates, command safety, and dashboard rendering",
-            "open the next release checkpoint review board set",
+            "focused Rust integration coverage plus dashboard smoke checks verify decision scoring, carryover blockers, command safety, and dashboard rendering",
+            "open the next release checkpoint signoff set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Escalation Ledger".to_string(),
+        name: "Friday Release Checkpoint Review Board".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Preserve Friday SLA escalations, owner responses, acknowledgement decisions, release-gate outcomes, and next-checkpoint carryover as auditable local release-control history.".to_string(),
+        loop_rule: "Consolidate Friday release escalations, SLA state, owner follow-ups, prevention evidence, and stability artifacts into one signed checkpoint decision surface.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_escalation_ledger_loop() {
+    fn active_set_tracks_friday_release_checkpoint_review_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Escalation Ledger");
+        assert_eq!(set.name, "Friday Release Checkpoint Review Board");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

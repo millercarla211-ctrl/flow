@@ -701,16 +701,34 @@ Goal: turn SLA monitor escalations into auditable release-control history with o
 
 This set is complete. The next loop should open `Friday Release Checkpoint Review Board` and consolidate escalation ledgers, SLA monitors, owner follow-ups, prevention evidence, and stability evidence into a signed checkpoint decision surface.
 
-## Next Set: Friday Release Checkpoint Review Board
+## Completed Set: Friday Release Checkpoint Review Board
 
-Status: 0/100
+Status: 100/100
 
 Goal: consolidate release escalations, SLA state, owner follow-ups, prevention evidence, and stability artifacts into one signed checkpoint review board that decides whether Friday can move forward.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed checkpoint review board model that consumes escalation ledgers, SLA monitors, owner follow-up boards, prevention plans, and stability evidence.
+- [x] Add readiness, hold, carryover, and review-decision states with explicit owner acknowledgement requirements.
+- [x] Add CLI and JSON commands for generating checkpoint review boards without running deployments, builds, or remediation commands.
+- [x] Add dashboard import/rendering for checkpoint decisions, active escalations, carryover blockers, and copyable review notes.
+- [x] Add focused Rust/TypeScript coverage for decision scoring, carryover blockers, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Checkpoint Signoff Ledger` and preserve checkpoint decisions, operator signoffs, acknowledgement evidence, and carryover commitments as searchable local release history.
+
+## Next Set: Friday Release Checkpoint Signoff Ledger
+
+Status: 0/100
+
+Goal: turn checkpoint review decisions into auditable signoff records that capture who approved, held, or carried over the release checkpoint and which acknowledgement evidence was attached.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed checkpoint review board model that consumes escalation ledgers, SLA monitors, owner follow-up boards, prevention plans, and stability evidence.
-- [ ] Add readiness, hold, carryover, and review-decision states with explicit owner acknowledgement requirements.
-- [ ] Add CLI and JSON commands for generating checkpoint review boards without running deployments, builds, or remediation commands.
-- [ ] Add dashboard import/rendering for checkpoint decisions, active escalations, carryover blockers, and copyable review notes.
-- [ ] Add focused Rust/TypeScript coverage for decision scoring, carryover blockers, command safety, and dashboard rendering.
+- [ ] Add a typed checkpoint signoff ledger model that consumes checkpoint review boards.
+- [ ] Add signed-off, held, carried-over, superseded, and revoked decision states with operator reason capture.
+- [ ] Add append/list/export CLI and JSON commands without running deployments, builds, or remediation commands.
+- [ ] Add dashboard import/rendering for signoff history, active holds, carryover commitments, and copyable release notes.
+- [ ] Add focused Rust/TypeScript coverage for signoff writes, decision history, carryover commitments, command safety, and dashboard rendering.

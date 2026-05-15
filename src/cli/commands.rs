@@ -29,17 +29,18 @@ use crate::experience::{
 use crate::friday::{
     FridayArtifactStore, FridayFeatureStatus, FridayReleaseCandidateArchive,
     FridayReleaseChecklistSignoff, FridayReleaseChecklistSignoffDecision,
-    FridayReleaseDeploymentGateReport, FridayReleaseDeploymentTarget,
-    FridayReleaseEscalationGateOutcome, FridayReleaseEscalationLedger,
-    FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceExportKitReport,
-    FridayReleaseEvidenceSlaMonitorReport, FridayReleaseIncidentArchive,
-    FridayReleaseIncidentOutcome, FridayReleaseOperatorChecklistReport,
-    FridayReleaseOwnerFollowUpBoardReport, FridayReleasePostPromotionMonitorReport,
-    FridayReleasePreventionPlanReport, FridayReleasePromotionDecision,
-    FridayReleasePromotionLedger, FridayReleasePromotionRecordRequest,
-    FridayReleaseQaCommandCenterReport, FridayReleaseRecoveryRunbookReport,
-    FridayReleaseRollbackDrillReport, FridayReleaseStabilityBoardReport, FridayResearchReport,
-    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleaseCheckpointReviewBoardReport, FridayReleaseDeploymentGateReport,
+    FridayReleaseDeploymentTarget, FridayReleaseEscalationGateOutcome,
+    FridayReleaseEscalationLedger, FridayReleaseEscalationOwnerResponse,
+    FridayReleaseEvidenceExportKitReport, FridayReleaseEvidenceSlaMonitorReport,
+    FridayReleaseIncidentArchive, FridayReleaseIncidentOutcome,
+    FridayReleaseOperatorChecklistReport, FridayReleaseOwnerFollowUpBoardReport,
+    FridayReleasePostPromotionMonitorReport, FridayReleasePreventionPlanReport,
+    FridayReleasePromotionDecision, FridayReleasePromotionLedger,
+    FridayReleasePromotionRecordRequest, FridayReleaseQaCommandCenterReport,
+    FridayReleaseRecoveryRunbookReport, FridayReleaseRollbackDrillReport,
+    FridayReleaseStabilityBoardReport, FridayResearchReport, FridayResearchWorkflow,
+    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
@@ -58,15 +59,16 @@ use crate::friday::{
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_release_candidate_archive_report,
-    friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
-    friday_release_escalation_entries_from_monitor, friday_release_escalation_ledger_report,
-    friday_release_evidence_export_kit_report, friday_release_evidence_sla_monitor_report,
-    friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
-    friday_release_operator_checklist_report, friday_release_owner_followup_board_report,
-    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
-    friday_release_promotion_ledger_report, friday_release_qa_command_center_report,
-    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
-    friday_release_stability_board_report, friday_research_search_plan, friday_route_visual_report,
+    friday_release_candidate_entry_from_gate, friday_release_checkpoint_review_board_report,
+    friday_release_deployment_gate_report, friday_release_escalation_entries_from_monitor,
+    friday_release_escalation_ledger_report, friday_release_evidence_export_kit_report,
+    friday_release_evidence_sla_monitor_report, friday_release_incident_archive_report,
+    friday_release_incident_entry_from_sources, friday_release_operator_checklist_report,
+    friday_release_owner_followup_board_report, friday_release_post_promotion_monitor_report,
+    friday_release_prevention_plan_report, friday_release_promotion_ledger_report,
+    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
+    friday_release_rollback_drill_report, friday_release_stability_board_report,
+    friday_research_search_plan, friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
@@ -77,10 +79,10 @@ use crate::friday::{
     read_friday_release_incident_archive, read_friday_release_promotion_ledger,
     run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
     run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
-    write_friday_release_deployment_gate, write_friday_release_escalation_ledger,
-    write_friday_release_evidence_export_kit, write_friday_release_evidence_sla_monitor_report,
-    write_friday_release_incident_archive, write_friday_release_operator_checklist,
-    write_friday_release_owner_followup_board_report,
+    write_friday_release_checkpoint_review_board_report, write_friday_release_deployment_gate,
+    write_friday_release_escalation_ledger, write_friday_release_evidence_export_kit,
+    write_friday_release_evidence_sla_monitor_report, write_friday_release_incident_archive,
+    write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_qa_command_center_report,
     write_friday_release_recovery_runbook_report, write_friday_release_rollback_drill_report,
@@ -1495,6 +1497,48 @@ pub async fn execute(command: Command) -> Result<()> {
             print_friday_release_escalation_ledger(&ledger);
         }
 
+        Command::FridayReleaseCheckpointReview {
+            review_file,
+            escalation_ledger_file,
+            sla_monitor_file,
+            owner_followup_board_file,
+            prevention_plan_file,
+            stability_board_file,
+        } => {
+            let report = friday_release_checkpoint_review_board_report(
+                resolve_repo_relative_path(&review_file),
+                resolve_repo_relative_path(&escalation_ledger_file),
+                resolve_repo_relative_path(&sla_monitor_file),
+                resolve_repo_relative_path(&owner_followup_board_file),
+                resolve_repo_relative_path(&prevention_plan_file),
+                resolve_repo_relative_path(&stability_board_file),
+            );
+            write_friday_release_checkpoint_review_board_report(
+                resolve_repo_relative_path(&review_file),
+                &report,
+            )?;
+            print_friday_release_checkpoint_review_board(&report);
+        }
+
+        Command::FridayReleaseCheckpointReviewJson {
+            review_file,
+            escalation_ledger_file,
+            sla_monitor_file,
+            owner_followup_board_file,
+            prevention_plan_file,
+            stability_board_file,
+        } => {
+            let report = friday_release_checkpoint_review_board_report(
+                resolve_repo_relative_path(&review_file),
+                resolve_repo_relative_path(&escalation_ledger_file),
+                resolve_repo_relative_path(&sla_monitor_file),
+                resolve_repo_relative_path(&owner_followup_board_file),
+                resolve_repo_relative_path(&prevention_plan_file),
+                resolve_repo_relative_path(&stability_board_file),
+            );
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -2054,6 +2098,12 @@ fn print_interactive_help() {
     println!("                           List an existing release escalation ledger");
     println!("  --friday-release-escalation-ledger-export [--ledger file] [--output file]");
     println!("                           Export an existing release escalation ledger JSON");
+    println!("  --friday-release-checkpoint-review [export-dir]");
+    println!(
+        "                           Write release checkpoint review JSON without running commands"
+    );
+    println!("  --friday-release-checkpoint-review-json [export-dir]");
+    println!("                           Print release checkpoint review as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -4116,6 +4166,56 @@ fn print_friday_release_escalation_ledger(ledger: &FridayReleaseEscalationLedger
     println!();
     println!("Commands:");
     for command in &ledger.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_checkpoint_review_board(report: &FridayReleaseCheckpointReviewBoardReport) {
+    println!("Friday Release Checkpoint Review");
+    println!("================================");
+    println!(
+        "Decision: {} | score: {} / 100 | ready for checkpoint: {}",
+        report.decision.label(),
+        report.score_out_of_100,
+        yes_no(report.ready_for_checkpoint)
+    );
+    println!(
+        "Items: {} | hold: {} | carryover: {} | acknowledgement blockers: {} | gate blocks: {}",
+        report.item_count,
+        report.hold_count,
+        report.carryover_count,
+        report.acknowledgement_blocker_count,
+        report.release_gate_blocking_count
+    );
+    println!("Review: {}", report.review_json);
+    println!();
+    println!("Owner groups:");
+    for group in &report.owner_groups {
+        println!(
+            "  - @{}: {} item(s), {} hold, {} carryover, {} acknowledgement blocker(s)",
+            group.owner,
+            group.item_count,
+            group.hold_count,
+            group.carryover_count,
+            group.acknowledgement_blocker_count
+        );
+    }
+    println!();
+    println!("Review items:");
+    for item in &report.items {
+        println!(
+            "  - @{} {} [{} / {}]",
+            item.owner,
+            item.title,
+            item.source.label(),
+            item.state.label()
+        );
+        println!("    evidence: {}", item.evidence_path);
+        println!("    next: {}", item.next_action);
+    }
+    println!();
+    println!("Commands:");
+    for command in &report.commands {
         println!("  - {command}");
     }
 }

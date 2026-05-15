@@ -523,6 +523,24 @@ pub enum Command {
         ledger_file: String,
         output_file: String,
     },
+    /// Write a Friday release checkpoint review board
+    FridayReleaseCheckpointReview {
+        review_file: String,
+        escalation_ledger_file: String,
+        sla_monitor_file: String,
+        owner_followup_board_file: String,
+        prevention_plan_file: String,
+        stability_board_file: String,
+    },
+    /// Print a Friday release checkpoint review board as JSON
+    FridayReleaseCheckpointReviewJson {
+        review_file: String,
+        escalation_ledger_file: String,
+        sla_monitor_file: String,
+        owner_followup_board_file: String,
+        prevention_plan_file: String,
+        stability_board_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1772,6 +1790,42 @@ impl Args {
                     output_file,
                 }
             }
+            "--friday-release-checkpoint-review" | "--friday-checkpoint-review" => {
+                let (
+                    review_file,
+                    escalation_ledger_file,
+                    sla_monitor_file,
+                    owner_followup_board_file,
+                    prevention_plan_file,
+                    stability_board_file,
+                ) = parse_friday_release_checkpoint_review_args(&args);
+                Command::FridayReleaseCheckpointReview {
+                    review_file,
+                    escalation_ledger_file,
+                    sla_monitor_file,
+                    owner_followup_board_file,
+                    prevention_plan_file,
+                    stability_board_file,
+                }
+            }
+            "--friday-release-checkpoint-review-json" | "--friday-checkpoint-review-json" => {
+                let (
+                    review_file,
+                    escalation_ledger_file,
+                    sla_monitor_file,
+                    owner_followup_board_file,
+                    prevention_plan_file,
+                    stability_board_file,
+                ) = parse_friday_release_checkpoint_review_args(&args);
+                Command::FridayReleaseCheckpointReviewJson {
+                    review_file,
+                    escalation_ledger_file,
+                    sla_monitor_file,
+                    owner_followup_board_file,
+                    prevention_plan_file,
+                    stability_board_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -2966,6 +3020,44 @@ fn parse_friday_release_escalation_ledger_file_arg(args: &[String]) -> String {
     flag_value(args, "--ledger")
         .or_else(|| flag_value(args, "--input"))
         .unwrap_or_else(|| format!("{export_dir}/release-escalation-ledger.json"))
+}
+
+fn parse_friday_release_checkpoint_review_args(
+    args: &[String],
+) -> (String, String, String, String, String, String) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let review_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--review"))
+        .unwrap_or_else(|| format!("{export_dir}/release-checkpoint-review.json"));
+    let escalation_ledger_file = flag_value(args, "--ledger")
+        .or_else(|| flag_value(args, "--escalation-ledger"))
+        .unwrap_or_else(|| format!("{export_dir}/release-escalation-ledger.json"));
+    let sla_monitor_file = flag_value(args, "--monitor")
+        .or_else(|| flag_value(args, "--sla-monitor"))
+        .unwrap_or_else(|| format!("{export_dir}/release-evidence-sla-monitor.json"));
+    let owner_followup_board_file = flag_value(args, "--owner-followup-board")
+        .or_else(|| flag_value(args, "--owner-board"))
+        .unwrap_or_else(|| format!("{export_dir}/release-owner-followup-board.json"));
+    let prevention_plan_file = flag_value(args, "--prevention-plan")
+        .or_else(|| flag_value(args, "--plan"))
+        .unwrap_or_else(|| format!("{export_dir}/release-prevention-plan.json"));
+    let stability_board_file = flag_value(args, "--stability-board")
+        .or_else(|| flag_value(args, "--board"))
+        .unwrap_or_else(|| format!("{export_dir}/release-stability-board.json"));
+
+    (
+        review_file,
+        escalation_ledger_file,
+        sla_monitor_file,
+        owner_followup_board_file,
+        prevention_plan_file,
+        stability_board_file,
+    )
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

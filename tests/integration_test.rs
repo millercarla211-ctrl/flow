@@ -26,10 +26,10 @@ use flow::friday::{
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayReleaseCandidateArchiveEntry, FridayReleaseChecklistSignoffDecision,
-    FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget,
-    FridayReleaseEscalationGateOutcome, FridayReleaseEscalationOwnerResponse,
-    FridayReleaseEvidenceEscalationLevel, FridayReleaseEvidenceSlaState,
-    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
+    FridayReleaseCheckpointDecision, FridayReleaseDeploymentGateDecision,
+    FridayReleaseDeploymentTarget, FridayReleaseEscalationGateOutcome,
+    FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceEscalationLevel,
+    FridayReleaseEvidenceSlaState, FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
     FridayReleaseOwnerFollowUpCompletionState, FridayReleasePreventionActionKind,
     FridayReleasePreventionFindingKind, FridayReleasePromotionDecision,
     FridayReleasePromotionRecordRequest, FridayReleaseQaCheckStatus, FridayResearchWorkflow,
@@ -53,15 +53,15 @@ use flow::friday::{
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_release_candidate_archive_report,
-    friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
-    friday_release_evidence_export_kit_report, friday_release_evidence_sla_monitor_report_at,
-    friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
-    friday_release_operator_checklist_report, friday_release_owner_followup_board_report_at,
-    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
-    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
-    friday_release_rollback_drill_report, friday_release_stability_board_report,
-    friday_route_visual_report, friday_route_visual_report_for_root,
-    friday_trusted_host_live_runner_state_from_history,
+    friday_release_candidate_entry_from_gate, friday_release_checkpoint_review_board_report,
+    friday_release_deployment_gate_report, friday_release_evidence_export_kit_report,
+    friday_release_evidence_sla_monitor_report_at, friday_release_incident_archive_report,
+    friday_release_incident_entry_from_sources, friday_release_operator_checklist_report,
+    friday_release_owner_followup_board_report_at, friday_release_post_promotion_monitor_report,
+    friday_release_prevention_plan_report, friday_release_qa_command_center_report,
+    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
+    friday_release_stability_board_report, friday_route_visual_report,
+    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -70,9 +70,9 @@ use flow::friday::{
     refresh_friday_trusted_host_live_runner_state, run_friday_ocr_smoke,
     run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command_bridge_with_executor,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
-    write_friday_release_deployment_gate, write_friday_release_evidence_export_kit,
-    write_friday_release_evidence_sla_monitor_report, write_friday_release_operator_checklist,
-    write_friday_release_owner_followup_board_report,
+    write_friday_release_checkpoint_review_board_report, write_friday_release_deployment_gate,
+    write_friday_release_evidence_export_kit, write_friday_release_evidence_sla_monitor_report,
+    write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_qa_command_center_report,
     write_friday_release_recovery_runbook_report, write_friday_release_rollback_drill_report,
@@ -2469,6 +2469,45 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     );
     assert!(escalation_ledger.commands.iter().any(|command| {
         command.contains("--friday-release-escalation-ledger") && command.contains("--monitor")
+    }));
+    let checkpoint_review_path = root.join("release-checkpoint-review.json");
+    let checkpoint_review = friday_release_checkpoint_review_board_report(
+        &checkpoint_review_path,
+        &escalation_ledger_path,
+        &evidence_sla_monitor_path,
+        &owner_followup_board_path,
+        &prevention_plan_path,
+        &stability_board_path,
+    );
+    write_friday_release_checkpoint_review_board_report(
+        &checkpoint_review_path,
+        &checkpoint_review,
+    )
+    .unwrap();
+    assert_eq!(
+        checkpoint_review.decision,
+        FridayReleaseCheckpointDecision::Hold
+    );
+    assert!(!checkpoint_review.ready_for_checkpoint);
+    assert!(checkpoint_review.item_count > 0);
+    assert!(checkpoint_review.hold_count > 0);
+    assert!(checkpoint_review.acknowledgement_blocker_count > 0);
+    assert!(checkpoint_review.release_gate_blocking_count > 0);
+    assert!(checkpoint_review.owner_groups.iter().any(|group| {
+        group.owner == "release-operator" && group.release_gate_blocking_count > 0
+    }));
+    assert!(checkpoint_review.items.iter().any(|item| {
+        item.active_carryover
+            && item.release_gate_blocking
+            && item.next_action.contains("@release-operator")
+    }));
+    assert!(
+        checkpoint_review
+            .review_notes_copy
+            .contains("Friday release checkpoint review")
+    );
+    assert!(checkpoint_review.commands.iter().any(|command| {
+        command.contains("--friday-release-checkpoint-review") && command.contains("--ledger")
     }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
