@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Desktop Runner Bridge at 100/100 with pending/running/finished bridge events, live-state writes around execution, cancellation-token plumbing, bridge JSON import guidance, CLI/JSON bridge runner commands, and focused cancellation-boundary tests
+- opened Friday Desktop Runner Cancellation UX as the next set for visible cancellation, stale cleanup, retry, and denial recovery controls
 - completed Friday Live Runner State at 100/100 with typed pending/running/finished/stale live records, local state read/write commands, dashboard live-state rendering, stale recovery copy, and focused Rust/TypeScript coverage
 - opened Friday Desktop Runner Bridge as the next set for real desktop-host state emission during approved local command execution
 - completed Friday Runner Approval UI at 100/100 with a typed approval modal contract, keyboard-accessible approve/deny/copy/retry/cancel/snooze/undo controls, persisted operator audit reasons, visible dashboard approval handling, smoke coverage, and release-review links

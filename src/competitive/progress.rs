@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "live-runner-state-record",
-            "Typed live runner state record",
+            "desktop-runner-bridge-interface",
+            "Desktop runner bridge interface",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostLiveRunnerRecord` separates pending/running/stale live state from immutable trusted runner history",
-            "open the next desktop-host bridge set",
+            "`run_friday_trusted_host_command_bridge_with_executor` emits pending, running, and finished bridge events around trusted local execution",
+            "open the next desktop bridge cancellation UX set",
         ),
         item(
-            "live-runner-state-store",
-            "Local live state reader and writer",
+            "desktop-runner-state-emission",
+            "Live state writes during execution",
             20,
             CompletionItemStatus::Done,
-            "`read_friday_trusted_host_live_runner_state` and `write_friday_trusted_host_live_runner_state` persist local-only pending, running, finished, and stale records",
-            "open the next desktop-host bridge set",
+            "`run_friday_trusted_host_command_bridge_with_executor` writes live state before execution, during running, and after success, denial, timeout, cancellation, or failure",
+            "open the next desktop bridge cancellation UX set",
         ),
         item(
-            "live-runner-dashboard-rendering",
-            "Dashboard live progress rendering",
+            "desktop-runner-cancellation-token",
+            "Cancellation token plumbing",
             20,
             CompletionItemStatus::Done,
-            "`extensions/flow-webext/src/ui/app.ts` imports and renders live runner state separately from history and approval imports",
-            "open the next desktop-host bridge set",
+            "`FridayTrustedHostRunnerCancellationToken` blocks execution before the running event and records cancellation reason metadata",
+            "open the next desktop bridge cancellation UX set",
         ),
         item(
-            "live-runner-stale-recovery",
-            "Stale-state recovery copy",
+            "desktop-runner-import-guidance",
+            "Live-state import guidance",
             20,
             CompletionItemStatus::Done,
-            "`refresh_friday_trusted_host_live_runner_state` marks old active records stale and exposes recovery and cleanup commands",
-            "open the next desktop-host bridge set",
+            "`FridayTrustedHostRunnerBridgeReport` and dashboard normalizers distinguish live-state imports from immutable runner history JSON",
+            "open the next desktop bridge cancellation UX set",
         ),
         item(
-            "live-runner-state-tests",
-            "Live state transition tests",
+            "desktop-runner-bridge-tests",
+            "Bridge event and cancellation tests",
             20,
             CompletionItemStatus::Done,
-            "`cargo test friday_dashboard -- --nocapture` and `npm run smoke:dashboard` cover live runner state normalization, stale handling, and dashboard rendering",
-            "open the next desktop-host bridge set",
+            "`cargo test friday_dashboard -- --nocapture` covers pending/running/finished bridge events and cancellation boundaries",
+            "open the next desktop bridge cancellation UX set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Live Runner State".to_string(),
+        name: "Friday Desktop Runner Bridge".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Connect trusted runner approval and history UX to live state transitions so the dashboard can show pending, running, completed, failed, timed-out, cancelled, and denied work without confusing stale imports for live execution.".to_string(),
+        loop_rule: "Make the trusted desktop host produce live runner state updates during real approved command execution while keeping all host execution local-only, auditable, cancellable, and bounded.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_live_runner_state_loop() {
+    fn active_set_tracks_friday_desktop_runner_bridge_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Live Runner State");
+        assert_eq!(set.name, "Friday Desktop Runner Bridge");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

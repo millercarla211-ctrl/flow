@@ -28,8 +28,9 @@ use flow::friday::{
     FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
     FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor,
     FridayTrustedHostCommandRawOutput, FridayTrustedHostLiveRunnerRecord,
-    FridayTrustedHostLiveRunnerStatus, FridayTrustedHostRunnerRequest,
-    FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
+    FridayTrustedHostLiveRunnerStatus, FridayTrustedHostRunnerCancellationToken,
+    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
+    FridayUiStateKind, FridayUiStateTone,
     FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -46,6 +47,7 @@ use flow::friday::{
     friday_route_visual_report_for_root, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
     friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report, friday_trusted_host_runner_ux_report,
+    run_friday_trusted_host_command_bridge_with_executor,
     read_friday_trusted_host_live_runner_state, refresh_friday_trusted_host_live_runner_state,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
     append_friday_trusted_host_runner_history, read_friday_trusted_host_runner_history,
@@ -954,14 +956,14 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
 
     assert_eq!(
         bundle.completion.name,
-        "Friday Live Runner State"
+        "Friday Desktop Runner Bridge"
     );
     assert_eq!(bundle.completion.current_score_out_of_100, 100);
     assert_eq!(bundle.manifest.score_out_of_100, 100);
     assert_eq!(bundle.export_history.record_count, 1);
     assert_eq!(
         bundle.release_review.loop_name,
-        "Friday Live Runner State"
+        "Friday Desktop Runner Bridge"
     );
     assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
     assert!(PathBuf::from(&bundle.manifest.release_review_json).exists());
@@ -1001,7 +1003,7 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     export_friday_dashboard_bundle(&root).unwrap();
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
-    assert_eq!(panel.loop_name, "Friday Live Runner State");
+    assert_eq!(panel.loop_name, "Friday Desktop Runner Bridge");
     assert_eq!(panel.score_out_of_100, 100);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
     assert_eq!(panel.cards.len(), 8);
@@ -1096,7 +1098,7 @@ fn friday_dashboard_export_history_tracks_checkpoints() {
     assert_eq!(history.score_delta_from_previous, 0);
     assert_eq!(history.readiness_delta_from_previous, 0);
     assert!(history.records.iter().all(|record| {
-        record.loop_name == "Friday Live Runner State"
+        record.loop_name == "Friday Desktop Runner Bridge"
             && record.manifest_json.ends_with("manifest.json")
     }));
 
@@ -1115,7 +1117,7 @@ fn friday_dashboard_release_review_links_release_artifacts() {
     export_friday_dashboard_bundle(&root).unwrap();
 
     let review = friday_dashboard_release_review_from_export(&root).unwrap();
-    assert_eq!(review.loop_name, "Friday Live Runner State");
+    assert_eq!(review.loop_name, "Friday Desktop Runner Bridge");
     assert_eq!(review.score_out_of_100, 100);
     assert!(review.total_count >= 6);
     assert!(review
@@ -1536,6 +1538,72 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
         .records
         .iter()
         .any(|record| record.status == FridayTrustedHostLiveRunnerStatus::Stale));
+    let bridge_state_path = root.join("trusted-host-bridge-live-state.json");
+    let bridge_history_path = root.join("trusted-host-bridge-history.json");
+    let bridge_report = run_friday_trusted_host_command_bridge_with_executor(
+        &bridge.records[0],
+        &approved,
+        &StubTrustedHostExecutor {
+            output: Ok(FridayTrustedHostCommandRawOutput {
+                exit_code: Some(0),
+                stdout: "bridge ok".to_string(),
+                stderr: String::new(),
+                duration_ms: 7,
+                timed_out: false,
+            }),
+        },
+        &bridge_state_path,
+        &bridge_history_path,
+        &FridayTrustedHostRunnerCancellationToken::none(),
+    )
+    .unwrap();
+    assert_eq!(
+        bridge_report.result.status,
+        FridayTrustedHostRunnerStatus::Succeeded
+    );
+    assert_eq!(bridge_report.event_count, 3);
+    assert_eq!(
+        bridge_report.events[0].status,
+        FridayTrustedHostLiveRunnerStatus::Pending
+    );
+    assert_eq!(
+        bridge_report.events[1].status,
+        FridayTrustedHostLiveRunnerStatus::Running
+    );
+    assert_eq!(
+        bridge_report.events[2].status,
+        FridayTrustedHostLiveRunnerStatus::Succeeded
+    );
+    assert_eq!(bridge_report.live_state.finished_count, 1);
+    assert_eq!(bridge_report.history.result_count, 1);
+    assert!(bridge_report
+        .dashboard_import_guidance
+        .contains("live-state JSON"));
+
+    let cancelled_bridge = run_friday_trusted_host_command_bridge_with_executor(
+        &bridge.records[0],
+        &FridayTrustedHostRunnerRequest {
+            approved: true,
+            operator_reason: Some("cancel from bridge test".to_string()),
+            ..Default::default()
+        },
+        &StubTrustedHostExecutor {
+            output: Err("executor should not run".to_string()),
+        },
+        root.join("cancel-live-state.json"),
+        root.join("cancel-history.json"),
+        &FridayTrustedHostRunnerCancellationToken::requested("cancel from bridge test"),
+    )
+    .unwrap();
+    assert_eq!(
+        cancelled_bridge.result.status,
+        FridayTrustedHostRunnerStatus::Cancelled
+    );
+    assert_eq!(cancelled_bridge.event_count, 2);
+    assert!(cancelled_bridge
+        .events
+        .iter()
+        .all(|event| event.status != FridayTrustedHostLiveRunnerStatus::Running));
 
     let _ = fs::remove_dir_all(&root);
 }

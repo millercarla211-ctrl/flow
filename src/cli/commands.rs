@@ -42,8 +42,10 @@ use crate::friday::{
     friday_trusted_host_runner_ux_report_from_history_file, run_friday_ocr_smoke,
     run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command, run_friday_vlm_contract,
     append_friday_trusted_host_runner_history, write_friday_trusted_host_live_runner_state,
-    FridayTrustedHostLiveRunnerState, FridayTrustedHostRunnerApprovalUiReport,
-    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult, FridayTrustedHostRunnerUxReport,
+    run_friday_trusted_host_command_bridge, FridayTrustedHostLiveRunnerState,
+    FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
+    FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerRequest,
+    FridayTrustedHostRunnerResult, FridayTrustedHostRunnerUxReport,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -619,6 +621,52 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", state.to_pretty_json()?);
         }
 
+        Command::FridayTrustedHostBridgeRunner {
+            input_dir,
+            action_id,
+            approve,
+            execute,
+            cancel,
+            history_file,
+            state_file,
+            reason,
+        } => {
+            let report = run_friday_trusted_host_bridge_runner_command(
+                &input_dir,
+                action_id.as_deref(),
+                approve,
+                execute,
+                cancel,
+                &history_file,
+                &state_file,
+                reason.as_deref(),
+            )?;
+            print_friday_trusted_host_bridge_runner_report(&report);
+        }
+
+        Command::FridayTrustedHostBridgeRunnerJson {
+            input_dir,
+            action_id,
+            approve,
+            execute,
+            cancel,
+            history_file,
+            state_file,
+            reason,
+        } => {
+            let report = run_friday_trusted_host_bridge_runner_command(
+                &input_dir,
+                action_id.as_deref(),
+                approve,
+                execute,
+                cancel,
+                &history_file,
+                &state_file,
+                reason.as_deref(),
+            )?;
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayLocalChecks => {
             print_friday_local_execution_checks();
         }
@@ -1028,6 +1076,10 @@ fn print_interactive_help() {
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
     println!("                           Print trusted runner live state as JSON");
+    println!("  --friday-trusted-host-bridge-runner [dir] [--action-id id] [--approve] [--execute]");
+    println!("                           Run a trusted host command through the live-state bridge");
+    println!("  --friday-trusted-host-bridge-runner-json [dir] [--action-id id] [--approve] [--execute]");
+    println!("                           Print trusted host bridge runner events as JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
@@ -1983,6 +2035,74 @@ fn print_friday_trusted_host_live_runner_state(state: &FridayTrustedHostLiveRunn
         println!("    command: {}", record.command);
         println!("    recover: {}", record.recovery_command);
         println!("    cleanup: {}", record.cleanup_command);
+    }
+}
+
+fn run_friday_trusted_host_bridge_runner_command(
+    input_dir: &str,
+    action_id: Option<&str>,
+    approve: bool,
+    execute: bool,
+    cancel: bool,
+    history_file: &str,
+    state_file: &str,
+    reason: Option<&str>,
+) -> Result<FridayTrustedHostRunnerBridgeReport> {
+    let bridge =
+        friday_dashboard_host_command_bridge_from_export(resolve_repo_relative_path(input_dir))?;
+    let record = if let Some(action_id) = action_id {
+        bridge
+            .records
+            .iter()
+            .find(|record| record.action_id == action_id)
+            .with_context(|| format!("No trusted host command record found for `{action_id}`"))?
+    } else {
+        bridge
+            .records
+            .first()
+            .context("No trusted host command records are available")?
+    };
+    let request = FridayTrustedHostRunnerRequest {
+        approved: approve && execute,
+        cancel_requested: cancel,
+        operator_reason: reason.map(str::to_string),
+        ..Default::default()
+    };
+    let cancellation = if cancel {
+        FridayTrustedHostRunnerCancellationToken::requested(
+            reason.unwrap_or("operator requested cancellation"),
+        )
+    } else {
+        FridayTrustedHostRunnerCancellationToken::none()
+    };
+    run_friday_trusted_host_command_bridge(
+        record,
+        &request,
+        resolve_repo_relative_path(state_file),
+        resolve_repo_relative_path(history_file),
+        &cancellation,
+    )
+}
+
+fn print_friday_trusted_host_bridge_runner_report(
+    report: &FridayTrustedHostRunnerBridgeReport,
+) {
+    println!("Friday Trusted Host Bridge Runner");
+    println!("=================================");
+    println!("State: {}", report.state_json);
+    println!("History: {}", report.history_json);
+    println!("Result: {}", report.result.status.label());
+    println!("Events: {}", report.event_count);
+    println!("Guidance: {}", report.dashboard_import_guidance);
+    println!();
+    for event in &report.events {
+        println!(
+            "  - [{}] {}",
+            event.status.label(),
+            event.message
+        );
+        println!("    state: {}", event.state_json);
+        println!("    command: {}", event.record.command);
     }
 }
 

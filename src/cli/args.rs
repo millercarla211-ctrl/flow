@@ -170,6 +170,28 @@ pub enum Command {
         state_file: String,
         history_file: String,
     },
+    /// Run or dry-run a trusted host command through the desktop bridge state writer
+    FridayTrustedHostBridgeRunner {
+        input_dir: String,
+        action_id: Option<String>,
+        approve: bool,
+        execute: bool,
+        cancel: bool,
+        history_file: String,
+        state_file: String,
+        reason: Option<String>,
+    },
+    /// Run or dry-run a trusted host bridge command and print bridge events as JSON
+    FridayTrustedHostBridgeRunnerJson {
+        input_dir: String,
+        action_id: Option<String>,
+        approve: bool,
+        execute: bool,
+        cancel: bool,
+        history_file: String,
+        state_file: String,
+        reason: Option<String>,
+    },
     /// Run low-resource Friday local execution readiness checks
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
@@ -725,6 +747,35 @@ impl Args {
                     history_file,
                 }
             }
+            "--friday-trusted-host-bridge-runner" | "--friday-dashboard-trusted-bridge-runner" => {
+                let (input_dir, action_id, approve, execute, cancel, history_file, reason) =
+                    parse_friday_trusted_host_runner_args(&args);
+                Command::FridayTrustedHostBridgeRunner {
+                    state_file: trusted_host_state_file_arg(&args, &input_dir),
+                    input_dir,
+                    action_id,
+                    approve,
+                    execute,
+                    cancel,
+                    history_file,
+                    reason,
+                }
+            }
+            "--friday-trusted-host-bridge-runner-json"
+            | "--friday-dashboard-trusted-bridge-runner-json" => {
+                let (input_dir, action_id, approve, execute, cancel, history_file, reason) =
+                    parse_friday_trusted_host_runner_args(&args);
+                Command::FridayTrustedHostBridgeRunnerJson {
+                    state_file: trusted_host_state_file_arg(&args, &input_dir),
+                    input_dir,
+                    action_id,
+                    approve,
+                    execute,
+                    cancel,
+                    history_file,
+                    reason,
+                }
+            }
             "--friday-local-checks" | "--friday-execution-checks" => Command::FridayLocalChecks,
             "--friday-local-checks-json" | "--friday-execution-checks-json" => {
                 Command::FridayLocalChecksJson
@@ -1148,6 +1199,11 @@ fn parse_friday_trusted_host_live_state_args(args: &[String]) -> (String, String
     let history_file = flag_value(args, "--history")
         .unwrap_or_else(|| "tmp/friday-dashboard/trusted-host-runner-history.json".to_string());
     (state_file, history_file)
+}
+
+fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {
+    flag_value(args, "--state")
+        .unwrap_or_else(|| format!("{input_dir}/trusted-host-live-state.json"))
 }
 
 fn flag_value(args: &[String], flag: &str) -> Option<String> {

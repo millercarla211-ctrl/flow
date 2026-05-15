@@ -565,7 +565,13 @@ export function normalizeTrustedHostLiveRunnerState(
     return null;
   }
 
-  const state = value as Record<string, unknown>;
+  const root = value as Record<string, unknown>;
+  const state =
+    root.live_state && typeof root.live_state === "object"
+      ? (root.live_state as Record<string, unknown>)
+      : root.liveState && typeof root.liveState === "object"
+        ? (root.liveState as Record<string, unknown>)
+        : root;
   const records = arrayValue(state.records)
     .map((item): FlowDashboardLiveRunnerRecord | null => {
       if (!item || typeof item !== "object") {

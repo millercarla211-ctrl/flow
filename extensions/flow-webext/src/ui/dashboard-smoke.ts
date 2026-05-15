@@ -387,6 +387,42 @@ export function dashboardSectionSmokeReport(
       },
     ],
   });
+  const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
+    dashboard_import_guidance:
+      "Import live-state JSON for current work; import runner history JSON only for audit history.",
+    live_state: {
+      state_json: "tmp/friday-dashboard/trusted-host-live-state.json",
+      generated_at_unix_ms: 2,
+      record_count: 1,
+      pending_count: 0,
+      running_count: 0,
+      finished_count: 1,
+      stale_count: 0,
+      stale_recovery_copy: "No stale records.",
+      records: [
+        {
+          job_id: "runner-finished",
+          action_id: "host-open",
+          label: "Open host report",
+          command: "flow --completion",
+          status: "succeeded",
+          message: "Completed.",
+          local_only: true,
+          approved: true,
+          timeout_ms: 30000,
+          stale_after_ms: 120000,
+          created_at_unix_ms: 2,
+          updated_at_unix_ms: 2,
+          finished_at_unix_ms: 2,
+          history_json: "tmp/friday-dashboard/trusted-host-runner-history.json",
+          recovery_command:
+            "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id host-open --cancel",
+          cleanup_command:
+            "flow --friday-trusted-host-live-state tmp/friday-dashboard/trusted-host-live-state.json",
+        },
+      ],
+    },
+  });
   const checks = [
     check(
       "local-fallback-labelled",
@@ -513,6 +549,14 @@ export function dashboardSectionSmokeReport(
       trustedLiveRunnerState?.staleRecoveryCopy.includes("Refresh") === true &&
         trustedLiveRunnerState.records.every((record) => record.cleanupCommand.trim().length > 0),
       trustedLiveRunnerState?.staleRecoveryCopy ?? "missing stale recovery copy",
+    ),
+    check(
+      "trusted-bridge-live-runner-importable",
+      trustedBridgeLiveRunnerState?.finishedCount === 1 &&
+        trustedBridgeLiveRunnerState.records[0]?.historyJson?.endsWith(
+          "trusted-host-runner-history.json",
+        ) === true,
+      `${trustedBridgeLiveRunnerState?.recordCount ?? 0} bridge live state record(s)`,
     ),
     check(
       "history-rail-renderable",

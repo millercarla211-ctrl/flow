@@ -338,16 +338,34 @@ Goal: connect trusted runner approval and history UX to live state transitions s
 
 This set is complete. The next loop should open `Friday Desktop Runner Bridge` and connect live runner state updates to the trusted desktop host process instead of only projected/imported JSON.
 
-## Next Set: Friday Desktop Runner Bridge
+## Completed Set: Friday Desktop Runner Bridge
 
-Status: 0/100
+Status: 100/100
 
 Goal: make the trusted desktop host produce live runner state updates during real approved command execution while keeping all host execution local-only, auditable, cancellable, and bounded.
 
+### Done
+
+- [x] Add a desktop-host runner bridge interface that emits pending, running, and finished state updates.
+- [x] Write live state before execution starts and after completion, denial, timeout, or cancellation.
+- [x] Add cancellation token plumbing for live host commands.
+- [x] Add dashboard import guidance that distinguishes live host state from static history exports.
+- [x] Add focused tests for bridge state emission and cancellation boundaries.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Desktop Runner Cancellation UX` and make cancellation, stale cleanup, retry, and denial recovery feel excellent from the visible dashboard.
+
+## Next Set: Friday Desktop Runner Cancellation UX
+
+Status: 0/100
+
+Goal: make live trusted-runner cancellation and recovery obvious in the dashboard so operators can stop, clean up, retry, or deny work without guessing which JSON import is authoritative.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a desktop-host runner bridge interface that emits pending, running, and finished state updates.
-- [ ] Write live state before execution starts and after completion, denial, timeout, or cancellation.
-- [ ] Add cancellation token plumbing for live host commands.
-- [ ] Add dashboard import guidance that distinguishes live host state from static history exports.
-- [ ] Add focused tests for bridge state emission and cancellation boundaries.
+- [ ] Add visible cancellation controls for active live runner records.
+- [ ] Add stale cleanup and retry guidance linked to bridge events.
+- [ ] Add denial recovery copy for approval mistakes.
+- [ ] Persist dashboard-side cancellation draft state.
+- [ ] Add focused smoke/tests for cancellation and stale cleanup UI.

@@ -306,6 +306,55 @@ impl FridayTrustedHostLiveRunnerState {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerCancellationToken {
+    pub cancel_requested: bool,
+    pub reason: Option<String>,
+}
+
+impl FridayTrustedHostRunnerCancellationToken {
+    pub fn none() -> Self {
+        Self {
+            cancel_requested: false,
+            reason: None,
+        }
+    }
+
+    pub fn requested(reason: impl Into<String>) -> Self {
+        Self {
+            cancel_requested: true,
+            reason: Some(reason.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerBridgeEvent {
+    pub event_id: String,
+    pub status: FridayTrustedHostLiveRunnerStatus,
+    pub message: String,
+    pub state_json: String,
+    pub record: FridayTrustedHostLiveRunnerRecord,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerBridgeReport {
+    pub state_json: String,
+    pub history_json: String,
+    pub event_count: usize,
+    pub dashboard_import_guidance: String,
+    pub events: Vec<FridayTrustedHostRunnerBridgeEvent>,
+    pub live_state: FridayTrustedHostLiveRunnerState,
+    pub history: FridayTrustedHostRunnerHistory,
+    pub result: FridayTrustedHostRunnerResult,
+}
+
+impl FridayTrustedHostRunnerBridgeReport {
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
 pub fn friday_trusted_host_runner_ux_report(
     history: &FridayTrustedHostRunnerHistory,
     release_review_path: impl AsRef<Path>,
@@ -516,6 +565,84 @@ pub fn run_friday_trusted_host_command(
         request,
         &FridayProcessTrustedHostCommandExecutor,
     )
+}
+
+pub fn run_friday_trusted_host_command_bridge(
+    record: &FridayDashboardHostCommandRecord,
+    request: &FridayTrustedHostRunnerRequest,
+    state_path: impl AsRef<Path>,
+    history_path: impl AsRef<Path>,
+    cancellation: &FridayTrustedHostRunnerCancellationToken,
+) -> Result<FridayTrustedHostRunnerBridgeReport> {
+    run_friday_trusted_host_command_bridge_with_executor(
+        record,
+        request,
+        &FridayProcessTrustedHostCommandExecutor,
+        state_path,
+        history_path,
+        cancellation,
+    )
+}
+
+pub fn run_friday_trusted_host_command_bridge_with_executor(
+    record: &FridayDashboardHostCommandRecord,
+    request: &FridayTrustedHostRunnerRequest,
+    executor: &impl FridayTrustedHostCommandExecutor,
+    state_path: impl AsRef<Path>,
+    history_path: impl AsRef<Path>,
+    cancellation: &FridayTrustedHostRunnerCancellationToken,
+) -> Result<FridayTrustedHostRunnerBridgeReport> {
+    let state_path = state_path.as_ref();
+    let history_path = history_path.as_ref();
+    let mut events = Vec::new();
+
+    let pending = live_record_from_bridge_record(
+        record,
+        request,
+        FridayTrustedHostLiveRunnerStatus::Pending,
+        "Waiting for explicit trusted host approval.",
+    );
+    let mut live_state =
+        write_friday_trusted_host_live_runner_state(state_path, vec![pending.clone()])?;
+    events.push(live_bridge_event("pending", &live_state, pending));
+
+    let mut bridged_request = request.clone();
+    if cancellation.cancel_requested {
+        bridged_request.cancel_requested = true;
+        if bridged_request.operator_reason.is_none() {
+            bridged_request.operator_reason = cancellation.reason.clone();
+        }
+    }
+
+    if bridged_request.approved && !bridged_request.cancel_requested {
+        let running = live_record_from_bridge_record(
+            record,
+            &bridged_request,
+            FridayTrustedHostLiveRunnerStatus::Running,
+            "Trusted host runner is executing this bounded local command.",
+        );
+        live_state = write_friday_trusted_host_live_runner_state(state_path, vec![running.clone()])?;
+        events.push(live_bridge_event("running", &live_state, running));
+    }
+
+    let result = run_friday_trusted_host_command_with_executor(record, &bridged_request, executor);
+    let history = append_friday_trusted_host_runner_history(history_path, result.clone())?;
+    let finished =
+        live_record_from_result(&result, history.history_json.clone(), unix_ms());
+    live_state = write_friday_trusted_host_live_runner_state(state_path, vec![finished.clone()])?;
+    events.push(live_bridge_event(result.status.label(), &live_state, finished));
+
+    Ok(FridayTrustedHostRunnerBridgeReport {
+        state_json: path_string(state_path),
+        history_json: path_string(history_path),
+        event_count: events.len(),
+        dashboard_import_guidance: "Import live-state JSON for current pending/running work; import runner history JSON only for immutable audit history."
+            .to_string(),
+        events,
+        live_state,
+        history,
+        result,
+    })
 }
 
 pub fn run_friday_trusted_host_command_with_executor(
@@ -736,6 +863,49 @@ fn live_record_from_result(
         history_json: Some(history_json),
         recovery_command: live_recovery_command(&result.action_id),
         cleanup_command: live_cleanup_command(),
+    }
+}
+
+fn live_record_from_bridge_record(
+    record: &FridayDashboardHostCommandRecord,
+    request: &FridayTrustedHostRunnerRequest,
+    status: FridayTrustedHostLiveRunnerStatus,
+    message: &str,
+) -> FridayTrustedHostLiveRunnerRecord {
+    let now = unix_ms();
+    FridayTrustedHostLiveRunnerRecord {
+        job_id: format!("runner-{}-{now}", record.action_id),
+        action_id: record.action_id.clone(),
+        label: record.label.clone(),
+        command: record.command.clone(),
+        status,
+        message: message.to_string(),
+        local_only: record.local_only,
+        approved: request.approved,
+        timeout_ms: request.timeout_ms,
+        stale_after_ms: (request.timeout_ms as u128).saturating_mul(2).max(DEFAULT_STALE_AFTER_MS),
+        created_at_unix_ms: now,
+        updated_at_unix_ms: now,
+        finished_at_unix_ms: status
+            .is_finished()
+            .then_some(now),
+        history_json: None,
+        recovery_command: live_recovery_command(&record.action_id),
+        cleanup_command: live_cleanup_command(),
+    }
+}
+
+fn live_bridge_event(
+    stage: &str,
+    state: &FridayTrustedHostLiveRunnerState,
+    record: FridayTrustedHostLiveRunnerRecord,
+) -> FridayTrustedHostRunnerBridgeEvent {
+    FridayTrustedHostRunnerBridgeEvent {
+        event_id: format!("{}-{}", stage, record.job_id),
+        status: record.status,
+        message: record.message.clone(),
+        state_json: state.state_json.clone(),
+        record,
     }
 }
 
