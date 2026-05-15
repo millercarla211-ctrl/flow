@@ -26,7 +26,8 @@ use flow::friday::{
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayReleaseCandidateArchiveEntry, FridayReleaseChecklistSignoffDecision,
-    FridayReleaseCheckpointDecision, FridayReleaseDeploymentGateDecision,
+    FridayReleaseCheckpointDecision, FridayReleaseCheckpointSignoffDecision,
+    FridayReleaseCheckpointSignoffRequest, FridayReleaseDeploymentGateDecision,
     FridayReleaseDeploymentTarget, FridayReleaseEscalationGateOutcome,
     FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceEscalationLevel,
     FridayReleaseEvidenceSlaState, FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
@@ -39,9 +40,10 @@ use flow::friday::{
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerRequest,
     FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
     FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
-    append_friday_release_candidate_to_archive, append_friday_release_escalation_to_ledger,
-    append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
-    append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
+    append_friday_release_candidate_to_archive, append_friday_release_checkpoint_signoff_to_ledger,
+    append_friday_release_escalation_to_ledger, append_friday_release_incident_to_archive,
+    append_friday_release_operator_signoff, append_friday_release_promotion_to_ledger,
+    append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -2508,6 +2510,44 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     );
     assert!(checkpoint_review.commands.iter().any(|command| {
         command.contains("--friday-release-checkpoint-review") && command.contains("--ledger")
+    }));
+    let checkpoint_signoff_ledger_path = root.join("release-checkpoint-signoff-ledger.json");
+    let checkpoint_signoff_ledger = append_friday_release_checkpoint_signoff_to_ledger(
+        &checkpoint_signoff_ledger_path,
+        &checkpoint_review_path,
+        FridayReleaseCheckpointSignoffRequest {
+            decision: FridayReleaseCheckpointSignoffDecision::Held,
+            operator: "release-operator".to_string(),
+            reason: "Hold checkpoint until acknowledgement blockers are cleared.".to_string(),
+            acknowledgement_evidence_path: String::new(),
+            carryover_commitment:
+                "Carry rollback and prevention acknowledgement evidence into the next loop."
+                    .to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(checkpoint_signoff_ledger.record_count, 1);
+    assert_eq!(checkpoint_signoff_ledger.held_count, 1);
+    assert_eq!(
+        checkpoint_signoff_ledger.active_decision,
+        Some(FridayReleaseCheckpointSignoffDecision::Held)
+    );
+    assert!(checkpoint_signoff_ledger.active_hold_count > 0);
+    assert!(checkpoint_signoff_ledger.active_carryover_count > 0);
+    assert!(checkpoint_signoff_ledger.release_gate_blocking_count > 0);
+    assert!(checkpoint_signoff_ledger.records.iter().any(|record| {
+        record.operator == "release-operator"
+            && record.active_hold
+            && record.active_carryover
+            && record.reason.contains("acknowledgement blockers")
+    }));
+    assert!(
+        checkpoint_signoff_ledger
+            .release_notes_copy
+            .contains("Friday checkpoint signoff ledger")
+    );
+    assert!(checkpoint_signoff_ledger.commands.iter().any(|command| {
+        command.contains("--friday-release-checkpoint-signoff") && command.contains("--review")
     }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);

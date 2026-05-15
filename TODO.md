@@ -719,16 +719,34 @@ Goal: consolidate release escalations, SLA state, owner follow-ups, prevention e
 
 This set is complete. The next loop should open `Friday Release Checkpoint Signoff Ledger` and preserve checkpoint decisions, operator signoffs, acknowledgement evidence, and carryover commitments as searchable local release history.
 
-## Next Set: Friday Release Checkpoint Signoff Ledger
+## Completed Set: Friday Release Checkpoint Signoff Ledger
 
-Status: 0/100
+Status: 100/100
 
 Goal: turn checkpoint review decisions into auditable signoff records that capture who approved, held, or carried over the release checkpoint and which acknowledgement evidence was attached.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed checkpoint signoff ledger model that consumes checkpoint review boards.
+- [x] Add signed-off, held, carried-over, superseded, and revoked decision states with operator reason capture.
+- [x] Add append/list/export CLI and JSON commands without running deployments, builds, or remediation commands.
+- [x] Add dashboard import/rendering for signoff history, active holds, carryover commitments, and copyable release notes.
+- [x] Add focused Rust/TypeScript coverage for signoff writes, decision history, carryover commitments, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Checkpoint Evidence Vault` and package checkpoint reviews, signoff ledgers, acknowledgement evidence, carryover commitments, and release notes into one local evidence bundle.
+
+## Next Set: Friday Release Checkpoint Evidence Vault
+
+Status: 0/100
+
+Goal: package checkpoint review and signoff evidence into a durable local vault so every release-control decision has attached evidence, checksums, and operator-ready export notes.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed checkpoint signoff ledger model that consumes checkpoint review boards.
-- [ ] Add signed-off, held, carried-over, superseded, and revoked decision states with operator reason capture.
-- [ ] Add append/list/export CLI and JSON commands without running deployments, builds, or remediation commands.
-- [ ] Add dashboard import/rendering for signoff history, active holds, carryover commitments, and copyable release notes.
-- [ ] Add focused Rust/TypeScript coverage for signoff writes, decision history, carryover commitments, command safety, and dashboard rendering.
+- [ ] Add a typed checkpoint evidence vault model that consumes checkpoint reviews and signoff ledgers.
+- [ ] Add manifest entries for review JSON, signoff ledger JSON, acknowledgement evidence files, carryover commitments, and release notes.
+- [ ] Add CLI and JSON commands for generating vault bundles without running deployments, builds, or remediation commands.
+- [ ] Add dashboard import/rendering for vault completeness, missing evidence, checksums, and copyable attachment notes.
+- [ ] Add focused Rust/TypeScript coverage for vault completeness, checksum copy, missing-evidence warnings, command safety, and dashboard rendering.

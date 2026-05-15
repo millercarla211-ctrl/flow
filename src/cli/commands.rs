@@ -29,27 +29,29 @@ use crate::experience::{
 use crate::friday::{
     FridayArtifactStore, FridayFeatureStatus, FridayReleaseCandidateArchive,
     FridayReleaseChecklistSignoff, FridayReleaseChecklistSignoffDecision,
-    FridayReleaseCheckpointReviewBoardReport, FridayReleaseDeploymentGateReport,
-    FridayReleaseDeploymentTarget, FridayReleaseEscalationGateOutcome,
-    FridayReleaseEscalationLedger, FridayReleaseEscalationOwnerResponse,
-    FridayReleaseEvidenceExportKitReport, FridayReleaseEvidenceSlaMonitorReport,
-    FridayReleaseIncidentArchive, FridayReleaseIncidentOutcome,
-    FridayReleaseOperatorChecklistReport, FridayReleaseOwnerFollowUpBoardReport,
-    FridayReleasePostPromotionMonitorReport, FridayReleasePreventionPlanReport,
-    FridayReleasePromotionDecision, FridayReleasePromotionLedger,
-    FridayReleasePromotionRecordRequest, FridayReleaseQaCommandCenterReport,
-    FridayReleaseRecoveryRunbookReport, FridayReleaseRollbackDrillReport,
-    FridayReleaseStabilityBoardReport, FridayResearchReport, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleaseCheckpointReviewBoardReport, FridayReleaseCheckpointSignoffDecision,
+    FridayReleaseCheckpointSignoffLedger, FridayReleaseCheckpointSignoffRequest,
+    FridayReleaseDeploymentGateReport, FridayReleaseDeploymentTarget,
+    FridayReleaseEscalationGateOutcome, FridayReleaseEscalationLedger,
+    FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceExportKitReport,
+    FridayReleaseEvidenceSlaMonitorReport, FridayReleaseIncidentArchive,
+    FridayReleaseIncidentOutcome, FridayReleaseOperatorChecklistReport,
+    FridayReleaseOwnerFollowUpBoardReport, FridayReleasePostPromotionMonitorReport,
+    FridayReleasePreventionPlanReport, FridayReleasePromotionDecision,
+    FridayReleasePromotionLedger, FridayReleasePromotionRecordRequest,
+    FridayReleaseQaCommandCenterReport, FridayReleaseRecoveryRunbookReport,
+    FridayReleaseRollbackDrillReport, FridayReleaseStabilityBoardReport, FridayResearchReport,
+    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult, FridayTrustedHostRunnerStatus,
     FridayTrustedHostRunnerUxReport, FridayTrustedRunnerReleasePackageReport,
     FridayTrustedRunnerReleaseTimeline, FridayUiIntegrationStatus, FridayWorkspaceStore,
-    append_friday_release_candidate_to_archive, append_friday_release_escalation_to_ledger,
-    append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
-    append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
+    append_friday_release_candidate_to_archive, append_friday_release_checkpoint_signoff_to_ledger,
+    append_friday_release_escalation_to_ledger, append_friday_release_incident_to_archive,
+    append_friday_release_operator_signoff, append_friday_release_promotion_to_ledger,
+    append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -60,26 +62,28 @@ use crate::friday::{
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_release_candidate_archive_report,
     friday_release_candidate_entry_from_gate, friday_release_checkpoint_review_board_report,
-    friday_release_deployment_gate_report, friday_release_escalation_entries_from_monitor,
-    friday_release_escalation_ledger_report, friday_release_evidence_export_kit_report,
-    friday_release_evidence_sla_monitor_report, friday_release_incident_archive_report,
-    friday_release_incident_entry_from_sources, friday_release_operator_checklist_report,
-    friday_release_owner_followup_board_report, friday_release_post_promotion_monitor_report,
-    friday_release_prevention_plan_report, friday_release_promotion_ledger_report,
-    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
-    friday_release_rollback_drill_report, friday_release_stability_board_report,
-    friday_research_search_plan, friday_route_visual_report,
+    friday_release_checkpoint_signoff_ledger_report,
+    friday_release_checkpoint_signoff_record_from_review, friday_release_deployment_gate_report,
+    friday_release_escalation_entries_from_monitor, friday_release_escalation_ledger_report,
+    friday_release_evidence_export_kit_report, friday_release_evidence_sla_monitor_report,
+    friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
+    friday_release_operator_checklist_report, friday_release_owner_followup_board_report,
+    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
+    friday_release_promotion_ledger_report, friday_release_qa_command_center_report,
+    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
+    friday_release_stability_board_report, friday_research_search_plan, friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
     friday_trusted_host_runner_operator_review_report_from_history_file,
     friday_trusted_host_runner_ux_report_from_history_file,
     friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
-    read_friday_release_candidate_archive, read_friday_release_escalation_ledger,
-    read_friday_release_incident_archive, read_friday_release_promotion_ledger,
-    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
-    run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
-    write_friday_release_checkpoint_review_board_report, write_friday_release_deployment_gate,
+    read_friday_release_candidate_archive, read_friday_release_checkpoint_signoff_ledger,
+    read_friday_release_escalation_ledger, read_friday_release_incident_archive,
+    read_friday_release_promotion_ledger, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
+    run_friday_trusted_host_command, run_friday_trusted_host_command_bridge,
+    run_friday_vlm_contract, write_friday_release_checkpoint_review_board_report,
+    write_friday_release_checkpoint_signoff_ledger, write_friday_release_deployment_gate,
     write_friday_release_escalation_ledger, write_friday_release_evidence_export_kit,
     write_friday_release_evidence_sla_monitor_report, write_friday_release_incident_archive,
     write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
@@ -1539,6 +1543,78 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayReleaseCheckpointSignoff {
+            ledger_file,
+            review_file,
+            decision,
+            operator,
+            reason,
+            acknowledgement_evidence_file,
+            carryover_commitment,
+        } => {
+            let ledger = append_friday_release_checkpoint_signoff_to_ledger(
+                resolve_repo_relative_path(&ledger_file),
+                resolve_repo_relative_path(&review_file),
+                FridayReleaseCheckpointSignoffRequest {
+                    decision: FridayReleaseCheckpointSignoffDecision::parse(&decision)?,
+                    operator,
+                    reason,
+                    acknowledgement_evidence_path: acknowledgement_evidence_file,
+                    carryover_commitment,
+                },
+            )?;
+            print_friday_release_checkpoint_signoff_ledger(&ledger);
+        }
+
+        Command::FridayReleaseCheckpointSignoffJson {
+            ledger_file,
+            review_file,
+            decision,
+            operator,
+            reason,
+            acknowledgement_evidence_file,
+            carryover_commitment,
+        } => {
+            let ledger_path = resolve_repo_relative_path(&ledger_file);
+            let review_path = resolve_repo_relative_path(&review_file);
+            let mut records = read_friday_release_checkpoint_signoff_ledger(&ledger_path)
+                .map(|ledger| ledger.records)
+                .unwrap_or_default();
+            records.push(friday_release_checkpoint_signoff_record_from_review(
+                &review_path,
+                FridayReleaseCheckpointSignoffRequest {
+                    decision: FridayReleaseCheckpointSignoffDecision::parse(&decision)?,
+                    operator,
+                    reason,
+                    acknowledgement_evidence_path: acknowledgement_evidence_file,
+                    carryover_commitment,
+                },
+            )?);
+            let ledger = friday_release_checkpoint_signoff_ledger_report(&ledger_path, records);
+            println!("{}", ledger.to_pretty_json()?);
+        }
+
+        Command::FridayReleaseCheckpointSignoffList { ledger_file } => {
+            let ledger = read_friday_release_checkpoint_signoff_ledger(
+                resolve_repo_relative_path(&ledger_file),
+            )?;
+            print_friday_release_checkpoint_signoff_ledger(&ledger);
+        }
+
+        Command::FridayReleaseCheckpointSignoffExport {
+            ledger_file,
+            output_file,
+        } => {
+            let ledger = read_friday_release_checkpoint_signoff_ledger(
+                resolve_repo_relative_path(&ledger_file),
+            )?;
+            write_friday_release_checkpoint_signoff_ledger(
+                resolve_repo_relative_path(&output_file),
+                &ledger,
+            )?;
+            print_friday_release_checkpoint_signoff_ledger(&ledger);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -2104,6 +2180,14 @@ fn print_interactive_help() {
     );
     println!("  --friday-release-checkpoint-review-json [export-dir]");
     println!("                           Print release checkpoint review as JSON");
+    println!("  --friday-release-checkpoint-signoff [--ledger file] [--review file]");
+    println!("                           Append checkpoint signoff to a local release ledger");
+    println!("  --friday-release-checkpoint-signoff-json [--ledger file] [--review file]");
+    println!("                           Print checkpoint signoff ledger preview as JSON");
+    println!("  --friday-release-checkpoint-signoff-list [--ledger file]");
+    println!("                           List an existing checkpoint signoff ledger");
+    println!("  --friday-release-checkpoint-signoff-export [--ledger file] [--output file]");
+    println!("                           Export an existing checkpoint signoff ledger JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -4216,6 +4300,44 @@ fn print_friday_release_checkpoint_review_board(report: &FridayReleaseCheckpoint
     println!();
     println!("Commands:");
     for command in &report.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_checkpoint_signoff_ledger(ledger: &FridayReleaseCheckpointSignoffLedger) {
+    println!("Friday Release Checkpoint Signoff Ledger");
+    println!("========================================");
+    println!(
+        "Records: {} | signed off: {} | held: {} | carried over: {} | missing acknowledgement evidence: {}",
+        ledger.record_count,
+        ledger.signed_off_count,
+        ledger.held_count,
+        ledger.carried_over_count,
+        ledger.acknowledgement_evidence_missing_count
+    );
+    if let Some(decision) = ledger.active_decision {
+        println!("Active decision: {}", decision.label());
+    }
+    println!("Ledger: {}", ledger.ledger_json);
+    println!();
+    println!("Signoffs:");
+    for record in &ledger.records {
+        println!(
+            "  - {} {} [{}]",
+            record.operator,
+            record.review_id,
+            record.decision.label()
+        );
+        println!("    reason: {}", record.reason);
+        println!("    carryover: {}", record.carryover_commitment);
+        println!(
+            "    acknowledgement evidence: {}",
+            record.acknowledgement_evidence_path
+        );
+    }
+    println!();
+    println!("Commands:");
+    for command in &ledger.commands {
         println!("  - {command}");
     }
 }

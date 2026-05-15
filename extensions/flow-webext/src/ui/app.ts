@@ -4,6 +4,7 @@ import {
   dispatchDashboardCommand,
   normalizeReleaseCandidateArchive,
   normalizeReleaseCheckpointReview,
+  normalizeReleaseCheckpointSignoffLedger,
   normalizeReleaseDeploymentGate,
   normalizeReleaseEscalationLedger,
   normalizeReleaseEvidenceSlaMonitor,
@@ -42,6 +43,7 @@ import {
   type FlowDashboardCommandStatus,
   type FlowReleaseCandidateArchive,
   type FlowReleaseCheckpointReviewBoardReport,
+  type FlowReleaseCheckpointSignoffLedger,
   type FlowReleaseDeploymentGateReport,
   type FlowReleaseEscalationLedger,
   type FlowReleaseEvidenceExportKitReport,
@@ -115,6 +117,7 @@ type UiState = {
   dashboardReleaseEvidenceSlaMonitor: FlowReleaseEvidenceSlaMonitorReport | null;
   dashboardReleaseEscalationLedger: FlowReleaseEscalationLedger | null;
   dashboardReleaseCheckpointReview: FlowReleaseCheckpointReviewBoardReport | null;
+  dashboardReleaseCheckpointSignoffLedger: FlowReleaseCheckpointSignoffLedger | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -2478,6 +2481,72 @@ function renderReleaseCheckpointReview(review: FlowReleaseCheckpointReviewBoardR
   `;
 }
 
+function renderReleaseCheckpointSignoffLedger(
+  ledger: FlowReleaseCheckpointSignoffLedger | null,
+) {
+  if (!ledger) {
+    return "";
+  }
+
+  const status =
+    ledger.activeHoldCount > 0 ||
+    ledger.acknowledgementEvidenceMissingCount > 0 ||
+    ledger.releaseGateBlockingCount > 0
+      ? "blocked"
+      : ledger.activeCarryoverCount > 0
+        ? "warning"
+        : "ready";
+
+  return `
+    <article class="feature-card dashboard-release-checkpoint-signoff">
+      <div class="card-topline">
+        <span class="eyebrow">Checkpoint signoff</span>
+        <span class="badge ${badgeTone(status)}">${escapeHtml(ledger.activeDecision ?? "none")}</span>
+      </div>
+      <h3>${ledger.activeHoldCount > 0 ? "Checkpoint signoff is holding release" : "Checkpoint signoffs are recorded"}</h3>
+      <p>${escapeHtml(ledger.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${ledger.recordCount}</strong><small>records</small></span>
+        <span><strong>${ledger.signedOffCount}</strong><small>signed off</small></span>
+        <span><strong>${ledger.heldCount}</strong><small>held</small></span>
+        <span><strong>${ledger.carriedOverCount}</strong><small>carryovers</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Missing ack evidence</strong> ${ledger.acknowledgementEvidenceMissingCount}</span>
+        <span><strong>Gate blocks</strong> ${ledger.releaseGateBlockingCount}</span>
+        <span><strong>Active review</strong> ${escapeHtml(ledger.activeReviewId ?? "none")}</span>
+        <span><strong>Ledger</strong> ${escapeHtml(ledger.ledgerJson)}</span>
+      </div>
+      <div class="runner-package-files">
+        ${ledger.records
+          .slice(-6)
+          .reverse()
+          .map(
+            (record) => `
+              <div class="runner-package-file ${
+                record.activeHold || record.activeCarryover ? "missing" : "present"
+              }">
+                <strong>${escapeHtml(record.operator)} - ${escapeHtml(record.reviewId)}</strong>
+                <small>${escapeHtml(record.decision)} - ${record.reviewScoreOutOf100}/100</small>
+                <code>${escapeHtml(record.acknowledgementEvidencePath || record.reviewJson)}</code>
+                <span>${escapeHtml(record.reason)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-checkpoint-signoff-command">
+          Copy signoff command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-checkpoint-signoff-notes">
+          Copy release notes
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2701,6 +2770,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseEvidenceSlaMonitor(state.dashboardReleaseEvidenceSlaMonitor)}
       ${renderReleaseEscalationLedger(state.dashboardReleaseEscalationLedger)}
       ${renderReleaseCheckpointReview(state.dashboardReleaseCheckpointReview)}
+      ${renderReleaseCheckpointSignoffLedger(state.dashboardReleaseCheckpointSignoffLedger)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2843,6 +2913,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseEvidenceSlaMonitor: null,
     dashboardReleaseEscalationLedger: null,
     dashboardReleaseCheckpointReview: null,
+    dashboardReleaseCheckpointSignoffLedger: null,
   };
 
   function render() {
@@ -3155,6 +3226,8 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseEvidenceSlaMonitor = normalizeReleaseEvidenceSlaMonitor(parsed);
       const releaseEscalationLedger = normalizeReleaseEscalationLedger(parsed);
       const releaseCheckpointReview = normalizeReleaseCheckpointReview(parsed);
+      const releaseCheckpointSignoffLedger =
+        normalizeReleaseCheckpointSignoffLedger(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -3200,8 +3273,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseEscalationLedger ?? state.dashboardReleaseEscalationLedger;
       state.dashboardReleaseCheckpointReview =
         releaseCheckpointReview ?? state.dashboardReleaseCheckpointReview;
+      state.dashboardReleaseCheckpointSignoffLedger =
+        releaseCheckpointSignoffLedger ?? state.dashboardReleaseCheckpointSignoffLedger;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseCheckpointReview
+      state.status = releaseCheckpointSignoffLedger
+        ? `Imported checkpoint signoff ledger with ${releaseCheckpointSignoffLedger.recordCount} record(s) from ${file.name}.`
+        : releaseCheckpointReview
         ? `Imported release checkpoint review ${releaseCheckpointReview.decision} at ${releaseCheckpointReview.scoreOutOf100}/100 from ${file.name}.`
         : releaseEscalationLedger
         ? `Imported release escalation ledger with ${releaseEscalationLedger.entryCount} record(s) from ${file.name}.`
@@ -3845,6 +3922,38 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseCheckpointSignoffCommand() {
+    const command = state.dashboardReleaseCheckpointSignoffLedger?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release checkpoint signoff command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release checkpoint signoff command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseCheckpointSignoffNotes() {
+    const copy = state.dashboardReleaseCheckpointSignoffLedger?.releaseNotesCopy ?? "";
+    if (!copy) {
+      state.status = "No release checkpoint signoff notes are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release checkpoint signoff notes copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -4133,6 +4242,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-checkpoint-review-notes']")
       ?.addEventListener("click", () => {
         void copyReleaseCheckpointReviewNotes();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-checkpoint-signoff-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseCheckpointSignoffCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-checkpoint-signoff-notes']")
+      ?.addEventListener("click", () => {
+        void copyReleaseCheckpointSignoffNotes();
       });
 
     mountRoot

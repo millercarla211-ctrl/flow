@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-checkpoint-review-model",
-            "Typed release checkpoint review board model",
+            "release-checkpoint-signoff-model",
+            "Typed release checkpoint signoff ledger model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseCheckpointReviewBoardReport` consumes escalation ledgers, SLA monitors, owner follow-ups, prevention plans, and stability evidence",
-            "open the next release checkpoint signoff set",
+            "`FridayReleaseCheckpointSignoffLedger` consumes checkpoint review boards and preserves signoff history",
+            "open the next release checkpoint evidence vault set",
         ),
         item(
-            "release-checkpoint-review-states",
-            "Readiness, hold, carryover, and review-decision states",
+            "release-checkpoint-signoff-states",
+            "Signed-off, held, carried-over, superseded, and revoked states",
             20,
             CompletionItemStatus::Done,
-            "checkpoint review items classify ready, hold, carry-over, and review-required states with explicit acknowledgement requirements",
-            "open the next release checkpoint signoff set",
+            "signoff records capture operator, reason, acknowledgement evidence, active holds, and carryover commitments",
+            "open the next release checkpoint evidence vault set",
         ),
         item(
-            "release-checkpoint-review-cli",
-            "Checkpoint review CLI and JSON commands",
+            "release-checkpoint-signoff-cli",
+            "Checkpoint signoff append, list, export, and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-checkpoint-review` and JSON mode generate checkpoint boards without running builds, deployments, or remediation commands",
-            "open the next release checkpoint signoff set",
+            "`flow --friday-release-checkpoint-signoff` appends audit records without running builds, deployments, or remediation commands",
+            "open the next release checkpoint evidence vault set",
         ),
         item(
-            "release-checkpoint-review-dashboard",
-            "Dashboard checkpoint decision rendering",
+            "release-checkpoint-signoff-dashboard",
+            "Dashboard signoff history rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports checkpoint reviews and renders decisions, active escalations, carryover blockers, acknowledgement blockers, and copyable review notes",
-            "open the next release checkpoint signoff set",
+            "the visible dashboard imports checkpoint signoff ledgers and renders signoff history, active holds, carryover commitments, and copyable release notes",
+            "open the next release checkpoint evidence vault set",
         ),
         item(
-            "release-checkpoint-review-coverage",
-            "Checkpoint review Rust and TypeScript coverage",
+            "release-checkpoint-signoff-coverage",
+            "Checkpoint signoff Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify decision scoring, carryover blockers, command safety, and dashboard rendering",
-            "open the next release checkpoint signoff set",
+            "focused Rust integration coverage plus dashboard smoke checks verify signoff writes, decision history, carryover commitments, command safety, and dashboard rendering",
+            "open the next release checkpoint evidence vault set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Checkpoint Review Board".to_string(),
+        name: "Friday Release Checkpoint Signoff Ledger".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Consolidate Friday release escalations, SLA state, owner follow-ups, prevention evidence, and stability artifacts into one signed checkpoint decision surface.".to_string(),
+        loop_rule: "Preserve Friday checkpoint decisions, operator signoffs, acknowledgement evidence, and carryover commitments as searchable local release history.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_checkpoint_review_loop() {
+    fn active_set_tracks_friday_release_checkpoint_signoff_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Checkpoint Review Board");
+        assert_eq!(set.name, "Friday Release Checkpoint Signoff Ledger");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Checkpoint Signoff Ledger at 100/100 with typed local-only signoff history, signed-off/held/carried-over/superseded/revoked states, operator reason capture, non-executing append/list/export CLI commands, dashboard import/rendering, copyable release notes, and focused Rust/TypeScript coverage
+- opened Friday Release Checkpoint Evidence Vault as the next set for packaging checkpoint reviews, signoff ledgers, acknowledgement evidence, carryover commitments, and release notes into one local evidence bundle
 - completed Friday Release Checkpoint Review Board at 100/100 with typed local-only checkpoint decisions, readiness/hold/carryover/review states, non-executing CLI/JSON commands, dashboard import/rendering, copyable review notes, and focused Rust/TypeScript coverage
 - opened Friday Release Checkpoint Signoff Ledger as the next set for preserving checkpoint decisions, operator signoffs, acknowledgement evidence, and carryover commitments
 - completed Friday Release Escalation Ledger at 100/100 with typed local-only escalation history, owner responses, acknowledgement and release-gate outcomes, append/list/export CLI commands, dashboard import/rendering, copyable owner response text, and focused Rust/TypeScript coverage

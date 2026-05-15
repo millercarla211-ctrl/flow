@@ -1342,6 +1342,65 @@ export interface FlowReleaseCheckpointReviewBoardReport {
   commands: string[];
 }
 
+export type FlowReleaseCheckpointSignoffDecision =
+  | "signed-off"
+  | "held"
+  | "carried-over"
+  | "superseded"
+  | "revoked";
+
+export interface FlowReleaseCheckpointSignoffRecord {
+  signoffId: string;
+  reviewId: string;
+  reviewJson: string;
+  recordedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  decision: FlowReleaseCheckpointSignoffDecision;
+  operator: string;
+  reason: string;
+  acknowledgementEvidencePath: string;
+  acknowledgementEvidencePresent: boolean;
+  acknowledgementEvidenceBytes: number;
+  carryoverCommitment: string;
+  reviewDecision: FlowReleaseCheckpointDecision;
+  reviewScoreOutOf100: number;
+  reviewReadyForCheckpoint: boolean;
+  reviewHoldCount: number;
+  reviewCarryoverCount: number;
+  reviewAcknowledgementBlockerCount: number;
+  releaseGateBlockingCount: number;
+  activeHold: boolean;
+  activeCarryover: boolean;
+  releaseNotes: string;
+  summary: string;
+}
+
+export interface FlowReleaseCheckpointSignoffLedger {
+  ledgerId: string;
+  ledgerJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  recordCount: number;
+  signedOffCount: number;
+  heldCount: number;
+  carriedOverCount: number;
+  supersededCount: number;
+  revokedCount: number;
+  activeSignoffId: string | null;
+  activeReviewId: string | null;
+  activeDecision: FlowReleaseCheckpointSignoffDecision | null;
+  activeHoldCount: number;
+  activeCarryoverCount: number;
+  acknowledgementEvidenceMissingCount: number;
+  releaseGateBlockingCount: number;
+  records: FlowReleaseCheckpointSignoffRecord[];
+  releaseNotesCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -4187,6 +4246,137 @@ export function normalizeReleaseCheckpointReview(
   };
 }
 
+export function normalizeReleaseCheckpointSignoffLedger(
+  value: unknown,
+): FlowReleaseCheckpointSignoffLedger | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const ledger =
+    root.release_checkpoint_signoff_ledger &&
+    typeof root.release_checkpoint_signoff_ledger === "object"
+      ? (root.release_checkpoint_signoff_ledger as Record<string, unknown>)
+      : root.releaseCheckpointSignoffLedger &&
+          typeof root.releaseCheckpointSignoffLedger === "object"
+        ? (root.releaseCheckpointSignoffLedger as Record<string, unknown>)
+        : root;
+  const ledgerId = stringValue(ledger.ledger_id, ledger.ledgerId);
+  const records = arrayValue(ledger.records)
+    .map((item): FlowReleaseCheckpointSignoffRecord | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const signoffId = stringValue(record.signoff_id, record.signoffId);
+      if (!signoffId) {
+        return null;
+      }
+      return {
+        signoffId,
+        reviewId: stringValue(record.review_id, record.reviewId),
+        reviewJson: stringValue(record.review_json, record.reviewJson),
+        recordedAtUnixMs: stringValue(record.recorded_at_unix_ms, record.recordedAtUnixMs),
+        productName: stringValue(record.product_name, record.productName),
+        localOnly: booleanValue(record.local_only, record.localOnly),
+        decision: releaseCheckpointSignoffDecision(stringValue(record.decision)),
+        operator: stringValue(record.operator),
+        reason: stringValue(record.reason),
+        acknowledgementEvidencePath: stringValue(
+          record.acknowledgement_evidence_path,
+          record.acknowledgementEvidencePath,
+        ),
+        acknowledgementEvidencePresent: booleanValue(
+          record.acknowledgement_evidence_present,
+          record.acknowledgementEvidencePresent,
+        ),
+        acknowledgementEvidenceBytes: numberValue(
+          record.acknowledgement_evidence_bytes,
+          record.acknowledgementEvidenceBytes,
+        ),
+        carryoverCommitment: stringValue(
+          record.carryover_commitment,
+          record.carryoverCommitment,
+        ),
+        reviewDecision: releaseCheckpointDecision(
+          stringValue(record.review_decision, record.reviewDecision),
+        ),
+        reviewScoreOutOf100: numberValue(
+          record.review_score_out_of_100,
+          record.reviewScoreOutOf100,
+        ),
+        reviewReadyForCheckpoint: booleanValue(
+          record.review_ready_for_checkpoint,
+          record.reviewReadyForCheckpoint,
+        ),
+        reviewHoldCount: numberValue(record.review_hold_count, record.reviewHoldCount),
+        reviewCarryoverCount: numberValue(
+          record.review_carryover_count,
+          record.reviewCarryoverCount,
+        ),
+        reviewAcknowledgementBlockerCount: numberValue(
+          record.review_acknowledgement_blocker_count,
+          record.reviewAcknowledgementBlockerCount,
+        ),
+        releaseGateBlockingCount: numberValue(
+          record.release_gate_blocking_count,
+          record.releaseGateBlockingCount,
+        ),
+        activeHold: booleanValue(record.active_hold, record.activeHold),
+        activeCarryover: booleanValue(record.active_carryover, record.activeCarryover),
+        releaseNotes: stringValue(record.release_notes, record.releaseNotes),
+        summary: stringValue(record.summary),
+      };
+    })
+    .filter((record): record is FlowReleaseCheckpointSignoffRecord => record !== null);
+
+  if (!ledgerId && records.length === 0) {
+    return null;
+  }
+
+  return {
+    ledgerId,
+    ledgerJson: stringValue(ledger.ledger_json, ledger.ledgerJson),
+    generatedAtUnixMs: stringValue(ledger.generated_at_unix_ms, ledger.generatedAtUnixMs),
+    productName: stringValue(ledger.product_name, ledger.productName),
+    localOnly: booleanValue(ledger.local_only, ledger.localOnly),
+    recordCount: numberValue(ledger.record_count, ledger.recordCount),
+    signedOffCount: numberValue(ledger.signed_off_count, ledger.signedOffCount),
+    heldCount: numberValue(ledger.held_count, ledger.heldCount),
+    carriedOverCount: numberValue(ledger.carried_over_count, ledger.carriedOverCount),
+    supersededCount: numberValue(ledger.superseded_count, ledger.supersededCount),
+    revokedCount: numberValue(ledger.revoked_count, ledger.revokedCount),
+    activeSignoffId: stringValue(ledger.active_signoff_id, ledger.activeSignoffId) || null,
+    activeReviewId: stringValue(ledger.active_review_id, ledger.activeReviewId) || null,
+    activeDecision:
+      ledger.active_decision == null && ledger.activeDecision == null
+        ? null
+        : releaseCheckpointSignoffDecision(
+            stringValue(ledger.active_decision, ledger.activeDecision),
+          ),
+    activeHoldCount: numberValue(ledger.active_hold_count, ledger.activeHoldCount),
+    activeCarryoverCount: numberValue(
+      ledger.active_carryover_count,
+      ledger.activeCarryoverCount,
+    ),
+    acknowledgementEvidenceMissingCount: numberValue(
+      ledger.acknowledgement_evidence_missing_count,
+      ledger.acknowledgementEvidenceMissingCount,
+    ),
+    releaseGateBlockingCount: numberValue(
+      ledger.release_gate_blocking_count,
+      ledger.releaseGateBlockingCount,
+    ),
+    records,
+    releaseNotesCopy: stringValue(ledger.release_notes_copy, ledger.releaseNotesCopy),
+    summary: stringValue(ledger.summary),
+    commands: arrayValue(ledger.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -4582,6 +4772,21 @@ function releaseCheckpointReviewSource(value: string): FlowReleaseCheckpointRevi
     return value;
   }
   return "missing-evidence";
+}
+
+function releaseCheckpointSignoffDecision(
+  value: string,
+): FlowReleaseCheckpointSignoffDecision {
+  if (
+    value === "signed-off" ||
+    value === "held" ||
+    value === "carried-over" ||
+    value === "superseded" ||
+    value === "revoked"
+  ) {
+    return value;
+  }
+  return "held";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

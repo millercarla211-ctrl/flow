@@ -7,6 +7,7 @@ import {
   dispatchDashboardCommand,
   normalizeReleaseCandidateArchive,
   normalizeReleaseCheckpointReview,
+  normalizeReleaseCheckpointSignoffLedger,
   normalizeReleaseDeploymentGate,
   normalizeReleaseEscalationLedger,
   normalizeReleaseEvidenceSlaMonitor,
@@ -2051,6 +2052,65 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-checkpoint-review-json --output tmp/friday-dashboard/release-checkpoint-review.json --ledger tmp/friday-dashboard/release-escalation-ledger.json --monitor tmp/friday-dashboard/release-evidence-sla-monitor.json --owner-followup-board tmp/friday-dashboard/release-owner-followup-board.json --prevention-plan tmp/friday-dashboard/release-prevention-plan.json --stability-board tmp/friday-dashboard/release-stability-board.json",
     ],
   });
+  const releaseCheckpointSignoffLedger = normalizeReleaseCheckpointSignoffLedger({
+    ledger_id: "friday-release-checkpoint-signoff-ledger-smoke",
+    ledger_json: "tmp/friday-dashboard/release-checkpoint-signoff-ledger.json",
+    generated_at_unix_ms: 20,
+    product_name: "Friday",
+    local_only: true,
+    record_count: 1,
+    signed_off_count: 0,
+    held_count: 1,
+    carried_over_count: 0,
+    superseded_count: 0,
+    revoked_count: 0,
+    active_signoff_id: "friday-release-checkpoint-signoff-friday-release-checkpoint-review-smoke-20",
+    active_review_id: "friday-release-checkpoint-review-smoke",
+    active_decision: "held",
+    active_hold_count: 1,
+    active_carryover_count: 1,
+    acknowledgement_evidence_missing_count: 0,
+    release_gate_blocking_count: 1,
+    records: [
+      {
+        signoff_id: "friday-release-checkpoint-signoff-friday-release-checkpoint-review-smoke-20",
+        review_id: "friday-release-checkpoint-review-smoke",
+        review_json: "tmp/friday-dashboard/release-checkpoint-review.json",
+        recorded_at_unix_ms: 20,
+        product_name: "Friday",
+        local_only: true,
+        decision: "held",
+        operator: "release-operator",
+        reason: "Hold checkpoint until acknowledgement blockers are cleared.",
+        acknowledgement_evidence_path: "",
+        acknowledgement_evidence_present: false,
+        acknowledgement_evidence_bytes: 0,
+        carryover_commitment:
+          "Carry rollback evidence and prevention acknowledgement into the next release loop.",
+        review_decision: "hold",
+        review_score_out_of_100: 0,
+        review_ready_for_checkpoint: false,
+        review_hold_count: 3,
+        review_carryover_count: 1,
+        review_acknowledgement_blocker_count: 3,
+        release_gate_blocking_count: 3,
+        active_hold: true,
+        active_carryover: true,
+        release_notes:
+          "Friday checkpoint signoff: held\nOperator: release-operator\nReason: Hold checkpoint until acknowledgement blockers are cleared.",
+        summary:
+          "release-operator held checkpoint friday-release-checkpoint-review-smoke with 3 hold(s), 1 carryover(s), and 3 acknowledgement blocker(s).",
+      },
+    ],
+    release_notes_copy:
+      "Friday checkpoint signoff ledger\n- release-operator [held] friday-release-checkpoint-review-smoke -> Hold checkpoint until acknowledgement blockers are cleared.",
+    summary:
+      "Friday checkpoint signoff ledger has 1 record, 0 signed off, 1 held, 0 carried over, and 0 missing acknowledgement evidence item(s).",
+    commands: [
+      "flow --friday-release-checkpoint-signoff --ledger tmp/friday-dashboard/release-checkpoint-signoff-ledger.json --review tmp/friday-dashboard/release-checkpoint-review.json --decision held --operator release-operator --reason \"Hold checkpoint until acknowledgement blockers are cleared.\"",
+      "flow --friday-release-checkpoint-signoff-list --ledger tmp/friday-dashboard/release-checkpoint-signoff-ledger.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -2634,6 +2694,31 @@ export function dashboardSectionSmokeReport(
           command.includes("--friday-release-checkpoint-review"),
         ),
       `${releaseCheckpointReview?.releaseGateBlockingCount ?? 0} checkpoint gate blocker(s)`,
+    ),
+    check(
+      "release-checkpoint-signoff-importable",
+      releaseCheckpointSignoffLedger?.recordCount === 1 &&
+        releaseCheckpointSignoffLedger.heldCount === 1 &&
+        releaseCheckpointSignoffLedger.activeDecision === "held",
+      `${releaseCheckpointSignoffLedger?.recordCount ?? 0} checkpoint signoff record(s)`,
+    ),
+    check(
+      "release-checkpoint-signoff-history",
+      releaseCheckpointSignoffLedger !== null &&
+        releaseCheckpointSignoffLedger.records.some(
+          (record) =>
+            record.operator === "release-operator" &&
+            record.activeHold &&
+            record.activeCarryover &&
+            record.reason.includes("acknowledgement blockers"),
+        ) &&
+        releaseCheckpointSignoffLedger.releaseNotesCopy.includes(
+          "Friday checkpoint signoff ledger",
+        ) &&
+        releaseCheckpointSignoffLedger.commands.some((command) =>
+          command.includes("--friday-release-checkpoint-signoff"),
+        ),
+      `${releaseCheckpointSignoffLedger?.activeHoldCount ?? 0} active signoff hold(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

@@ -541,6 +541,33 @@ pub enum Command {
         prevention_plan_file: String,
         stability_board_file: String,
     },
+    /// Append a Friday release checkpoint signoff record
+    FridayReleaseCheckpointSignoff {
+        ledger_file: String,
+        review_file: String,
+        decision: String,
+        operator: String,
+        reason: String,
+        acknowledgement_evidence_file: String,
+        carryover_commitment: String,
+    },
+    /// Print a Friday release checkpoint signoff preview as JSON
+    FridayReleaseCheckpointSignoffJson {
+        ledger_file: String,
+        review_file: String,
+        decision: String,
+        operator: String,
+        reason: String,
+        acknowledgement_evidence_file: String,
+        carryover_commitment: String,
+    },
+    /// List an existing Friday release checkpoint signoff ledger
+    FridayReleaseCheckpointSignoffList { ledger_file: String },
+    /// Export an existing Friday release checkpoint signoff ledger
+    FridayReleaseCheckpointSignoffExport {
+        ledger_file: String,
+        output_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1826,6 +1853,61 @@ impl Args {
                     stability_board_file,
                 }
             }
+            "--friday-release-checkpoint-signoff" | "--friday-checkpoint-signoff" => {
+                let (
+                    ledger_file,
+                    review_file,
+                    decision,
+                    operator,
+                    reason,
+                    acknowledgement_evidence_file,
+                    carryover_commitment,
+                ) = parse_friday_release_checkpoint_signoff_args(&args);
+                Command::FridayReleaseCheckpointSignoff {
+                    ledger_file,
+                    review_file,
+                    decision,
+                    operator,
+                    reason,
+                    acknowledgement_evidence_file,
+                    carryover_commitment,
+                }
+            }
+            "--friday-release-checkpoint-signoff-json" | "--friday-checkpoint-signoff-json" => {
+                let (
+                    ledger_file,
+                    review_file,
+                    decision,
+                    operator,
+                    reason,
+                    acknowledgement_evidence_file,
+                    carryover_commitment,
+                ) = parse_friday_release_checkpoint_signoff_args(&args);
+                Command::FridayReleaseCheckpointSignoffJson {
+                    ledger_file,
+                    review_file,
+                    decision,
+                    operator,
+                    reason,
+                    acknowledgement_evidence_file,
+                    carryover_commitment,
+                }
+            }
+            "--friday-release-checkpoint-signoff-list" | "--friday-checkpoint-signoff-list" => {
+                Command::FridayReleaseCheckpointSignoffList {
+                    ledger_file: parse_friday_release_checkpoint_signoff_ledger_file_arg(&args),
+                }
+            }
+            "--friday-release-checkpoint-signoff-export" | "--friday-checkpoint-signoff-export" => {
+                let ledger_file = parse_friday_release_checkpoint_signoff_ledger_file_arg(&args);
+                let output_file = flag_value(&args, "--output").unwrap_or_else(|| {
+                    "tmp/friday-dashboard/release-checkpoint-signoff-ledger-export.json".to_string()
+                });
+                Command::FridayReleaseCheckpointSignoffExport {
+                    ledger_file,
+                    output_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -3058,6 +3140,58 @@ fn parse_friday_release_checkpoint_review_args(
         prevention_plan_file,
         stability_board_file,
     )
+}
+
+fn parse_friday_release_checkpoint_signoff_args(
+    args: &[String],
+) -> (String, String, String, String, String, String, String) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let ledger_file = flag_value(args, "--ledger")
+        .or_else(|| flag_value(args, "--output"))
+        .unwrap_or_else(|| format!("{export_dir}/release-checkpoint-signoff-ledger.json"));
+    let review_file = flag_value(args, "--review")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-checkpoint-review.json"));
+    let decision = flag_value(args, "--decision").unwrap_or_else(|| "held".to_string());
+    let operator = flag_value(args, "--operator").unwrap_or_else(|| "operator".to_string());
+    let reason = flag_value(args, "--reason").unwrap_or_else(|| {
+        "Reviewed checkpoint evidence and kept the release local-only.".to_string()
+    });
+    let acknowledgement_evidence_file = flag_value(args, "--acknowledgement-evidence")
+        .or_else(|| flag_value(args, "--ack-evidence"))
+        .unwrap_or_default();
+    let carryover_commitment = flag_value(args, "--carryover")
+        .or_else(|| flag_value(args, "--carryover-commitment"))
+        .unwrap_or_else(|| {
+            "Carry unresolved checkpoint work into the next release loop.".to_string()
+        });
+
+    (
+        ledger_file,
+        review_file,
+        decision,
+        operator,
+        reason,
+        acknowledgement_evidence_file,
+        carryover_commitment,
+    )
+}
+
+fn parse_friday_release_checkpoint_signoff_ledger_file_arg(args: &[String]) -> String {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    flag_value(args, "--ledger")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-checkpoint-signoff-ledger.json"))
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {
