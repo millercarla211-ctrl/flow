@@ -7,6 +7,7 @@ import {
   dispatchDashboardCommand,
   normalizeReleaseCandidateArchive,
   normalizeReleaseDeploymentGate,
+  normalizeReleaseEscalationLedger,
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseIncidentArchive,
@@ -1857,6 +1858,102 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-evidence-sla-monitor-json --output tmp/friday-dashboard/release-evidence-sla-monitor.json --owner-followup-board tmp/friday-dashboard/release-owner-followup-board.json --prevention-plan tmp/friday-dashboard/release-prevention-plan.json --stability-board tmp/friday-dashboard/release-stability-board.json",
     ],
   });
+  const releaseEscalationLedger = normalizeReleaseEscalationLedger({
+    ledger_id: "friday-release-escalation-ledger-smoke",
+    ledger_json: "tmp/friday-dashboard/release-escalation-ledger.json",
+    generated_at_unix_ms: 18,
+    product_name: "Friday",
+    local_only: true,
+    entry_count: 2,
+    active_count: 2,
+    acknowledged_count: 0,
+    response_pending_count: 2,
+    rejected_count: 0,
+    resolved_count: 0,
+    carryover_count: 2,
+    release_gate_blocking_count: 2,
+    acknowledgement_blocker_count: 2,
+    owner_count: 1,
+    latest_escalation_id: "friday-release-escalation-sla-prevention-missing-prevention-evidence-18",
+    latest_gate_outcome: "carry-over",
+    owner_groups: [
+      {
+        owner: "release-operator",
+        entry_count: 2,
+        active_count: 2,
+        acknowledged_count: 0,
+        acknowledgement_blocker_count: 2,
+        carryover_count: 2,
+        release_gate_blocking_count: 2,
+        entries: [
+          "friday-release-escalation-sla-followup-prevent-rollback-recovery-gap-18",
+          "friday-release-escalation-sla-prevention-missing-prevention-evidence-18",
+        ],
+      },
+    ],
+    entries: [
+      {
+        escalation_id: "friday-release-escalation-sla-followup-prevent-rollback-recovery-gap-18",
+        recorded_at_unix_ms: 18,
+        product_name: "Friday",
+        local_only: true,
+        monitor_id: "friday-release-evidence-sla-monitor-smoke",
+        monitor_json: "tmp/friday-dashboard/release-evidence-sla-monitor.json",
+        requirement_id: "sla-followup-prevent-rollback-recovery-gap",
+        source: "owner-follow-up",
+        owner: "release-operator",
+        title: "Harden rollback drill evidence",
+        sla_state: "overdue",
+        escalation_level: "checkpoint",
+        owner_response: "pending",
+        gate_outcome: "carry-over",
+        acknowledgement_required: true,
+        acknowledged: false,
+        active_carryover: true,
+        release_gate_blocking: true,
+        evidence_path: "tmp/friday-dashboard/release-rollback-drill.json",
+        escalation_copy:
+          "@release-operator - Harden rollback drill evidence\nSLA: overdue\nEscalation: checkpoint",
+        owner_response_copy:
+          "@release-operator - Harden rollback drill evidence\nResponse: pending\nGate: carry-over",
+        next_action: "Escalate this overdue owner evidence before the next checkpoint.",
+      },
+      {
+        escalation_id: "friday-release-escalation-sla-prevention-missing-prevention-evidence-18",
+        recorded_at_unix_ms: 18,
+        product_name: "Friday",
+        local_only: true,
+        monitor_id: "friday-release-evidence-sla-monitor-smoke",
+        monitor_json: "tmp/friday-dashboard/release-evidence-sla-monitor.json",
+        requirement_id: "sla-prevention-missing-prevention-evidence",
+        source: "prevention-plan",
+        owner: "release-operator",
+        title: "Attach prevention evidence: Missing prevention evidence",
+        sla_state: "missing",
+        escalation_level: "release-gate",
+        owner_response: "pending",
+        gate_outcome: "carry-over",
+        acknowledgement_required: true,
+        acknowledged: false,
+        active_carryover: true,
+        release_gate_blocking: true,
+        evidence_path: "tmp/friday-dashboard/missing-prevention-evidence.json",
+        escalation_copy:
+          "@release-operator - Attach prevention evidence\nSLA: missing\nEscalation: release-gate",
+        owner_response_copy:
+          "@release-operator - Attach prevention evidence: Missing prevention evidence\nResponse: pending\nGate: carry-over",
+        next_action: "Attach the missing prevention evidence before checkpoint review.",
+      },
+    ],
+    owner_response_copy:
+      "Friday release escalation ledger\n- @release-operator [pending / carry-over] Harden rollback drill evidence -> Escalate this overdue owner evidence before the next checkpoint.\n- @release-operator [pending / carry-over] Attach prevention evidence: Missing prevention evidence -> Attach the missing prevention evidence before checkpoint review.",
+    summary:
+      "Friday release escalation ledger has 2 records, 2 active carryovers, 2 acknowledgement blockers, and 2 release-gate blockers.",
+    commands: [
+      "flow --friday-release-escalation-ledger --ledger tmp/friday-dashboard/release-escalation-ledger.json --monitor tmp/friday-dashboard/release-evidence-sla-monitor.json --response pending --outcome carry-over",
+      "flow --friday-release-escalation-ledger-list --ledger tmp/friday-dashboard/release-escalation-ledger.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -2382,6 +2479,35 @@ export function dashboardSectionSmokeReport(
           command.includes("--friday-release-evidence-sla-monitor"),
         ),
       `${releaseEvidenceSlaMonitor?.gateBlockingCount ?? 0} SLA gate blocker(s)`,
+    ),
+    check(
+      "release-escalation-ledger-importable",
+      releaseEscalationLedger?.entryCount === 2 &&
+        releaseEscalationLedger.activeCount === 2 &&
+        releaseEscalationLedger.acknowledgementBlockerCount === 2,
+      `${releaseEscalationLedger?.entryCount ?? 0} escalation record(s)`,
+    ),
+    check(
+      "release-escalation-ledger-carryovers",
+      releaseEscalationLedger !== null &&
+        releaseEscalationLedger.ownerGroups.some(
+          (group) =>
+            group.owner === "release-operator" &&
+            group.releaseGateBlockingCount === 2,
+        ) &&
+        releaseEscalationLedger.entries.some(
+          (entry) =>
+            entry.activeCarryover &&
+            entry.ownerResponse === "pending" &&
+            entry.ownerResponseCopy.includes("Harden rollback drill evidence"),
+        ) &&
+        releaseEscalationLedger.ownerResponseCopy.includes(
+          "Friday release escalation ledger",
+        ) &&
+        releaseEscalationLedger.commands.some((command) =>
+          command.includes("--friday-release-escalation-ledger"),
+        ),
+      `${releaseEscalationLedger?.carryoverCount ?? 0} escalation carryover(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

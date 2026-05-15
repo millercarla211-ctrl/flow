@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-evidence-sla-monitor-model",
-            "Typed release evidence SLA monitor model",
+            "release-escalation-ledger-model",
+            "Typed release escalation ledger model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseEvidenceSlaMonitorReport` consumes owner follow-up boards, prevention plans, and stability evidence",
-            "open the next release escalation ledger set",
+            "`FridayReleaseEscalationLedger` consumes release evidence SLA monitor reports and preserves escalation history",
+            "open the next release checkpoint review board set",
         ),
         item(
-            "release-evidence-sla-monitor-states",
-            "Freshness, due-window, escalation, and acknowledgement states",
+            "release-escalation-ledger-states",
+            "Owner response, acknowledgement, gate, and carryover states",
             20,
             CompletionItemStatus::Done,
-            "SLA requirements classify fresh, due-soon, overdue, missing, blocked, and acknowledged states with release-gate and checkpoint escalation levels",
-            "open the next release escalation ledger set",
+            "entries classify pending, acknowledged, resolved, rejected, carried-over, blocked, carry-over, cleared, and monitoring states",
+            "open the next release checkpoint review board set",
         ),
         item(
-            "release-evidence-sla-monitor-cli",
-            "SLA monitor CLI and JSON commands",
+            "release-escalation-ledger-cli",
+            "Escalation ledger append, list, export, and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-evidence-sla-monitor` and JSON mode generate SLA reports without running builds, deployments, or remediation commands",
-            "open the next release escalation ledger set",
+            "`flow --friday-release-escalation-ledger` appends owner responses and gate outcomes without running remediation commands",
+            "open the next release checkpoint review board set",
         ),
         item(
-            "release-evidence-sla-monitor-dashboard",
-            "Dashboard SLA monitor rendering",
+            "release-escalation-ledger-dashboard",
+            "Dashboard escalation history rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports SLA monitor JSON and renders SLA state, overdue owners, escalation levels, gate blockers, and copyable escalation text",
-            "open the next release escalation ledger set",
+            "the visible dashboard imports escalation ledgers and renders active carryovers, acknowledgement blockers, gate blockers, and copyable owner response text",
+            "open the next release checkpoint review board set",
         ),
         item(
-            "release-evidence-sla-monitor-coverage",
-            "SLA monitor Rust and TypeScript coverage",
+            "release-escalation-ledger-coverage",
+            "Escalation ledger Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify SLA scoring, stale/missing evidence, owner escalation grouping, command safety, and dashboard rendering",
-            "open the next release escalation ledger set",
+            "focused Rust integration coverage plus dashboard smoke checks verify append/list behavior, acknowledgement scoring, carryover gates, command safety, and dashboard rendering",
+            "open the next release checkpoint review board set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Evidence SLA Monitor".to_string(),
+        name: "Friday Release Escalation Ledger".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Watch Friday release owner follow-ups, prevention-plan evidence, and stability artifacts for SLA freshness, due-window breaches, and escalation-ready blockers.".to_string(),
+        loop_rule: "Preserve Friday SLA escalations, owner responses, acknowledgement decisions, release-gate outcomes, and next-checkpoint carryover as auditable local release-control history.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_evidence_sla_monitor_loop() {
+    fn active_set_tracks_friday_release_escalation_ledger_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Evidence SLA Monitor");
+        assert_eq!(set.name, "Friday Release Escalation Ledger");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

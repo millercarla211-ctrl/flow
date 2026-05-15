@@ -4,6 +4,7 @@ import {
   dispatchDashboardCommand,
   normalizeReleaseCandidateArchive,
   normalizeReleaseDeploymentGate,
+  normalizeReleaseEscalationLedger,
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseIncidentArchive,
@@ -40,6 +41,7 @@ import {
   type FlowDashboardCommandStatus,
   type FlowReleaseCandidateArchive,
   type FlowReleaseDeploymentGateReport,
+  type FlowReleaseEscalationLedger,
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseEvidenceSlaMonitorReport,
   type FlowReleaseIncidentArchive,
@@ -109,6 +111,7 @@ type UiState = {
   dashboardReleasePreventionPlan: FlowReleasePreventionPlanReport | null;
   dashboardReleaseOwnerFollowUpBoard: FlowReleaseOwnerFollowUpBoardReport | null;
   dashboardReleaseEvidenceSlaMonitor: FlowReleaseEvidenceSlaMonitorReport | null;
+  dashboardReleaseEscalationLedger: FlowReleaseEscalationLedger | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -2344,6 +2347,73 @@ function renderReleaseEvidenceSlaMonitor(monitor: FlowReleaseEvidenceSlaMonitorR
   `;
 }
 
+function renderReleaseEscalationLedger(ledger: FlowReleaseEscalationLedger | null) {
+  if (!ledger) {
+    return "";
+  }
+
+  const status = ledger.activeCount > 0 || ledger.acknowledgementBlockerCount > 0
+    ? "blocked"
+    : "ready";
+
+  return `
+    <article class="feature-card dashboard-release-escalation-ledger">
+      <div class="card-topline">
+        <span class="eyebrow">Escalation ledger</span>
+        <span class="badge ${badgeTone(status)}">${ledger.activeCount} active</span>
+      </div>
+      <h3>${ledger.activeCount > 0 ? "Escalations are carrying forward" : "No active escalation carryovers"}</h3>
+      <p>${escapeHtml(ledger.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${ledger.entryCount}</strong><small>records</small></span>
+        <span><strong>${ledger.carryoverCount}</strong><small>carryovers</small></span>
+        <span><strong>${ledger.acknowledgementBlockerCount}</strong><small>ack blockers</small></span>
+        <span><strong>${ledger.releaseGateBlockingCount}</strong><small>gate blocks</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Owners</strong> ${ledger.ownerCount}</span>
+        <span><strong>Pending</strong> ${ledger.responsePendingCount}</span>
+        <span><strong>Resolved</strong> ${ledger.resolvedCount}</span>
+        <span><strong>Ledger</strong> ${escapeHtml(ledger.ledgerJson)}</span>
+      </div>
+      <div class="runner-package-files">
+        ${ledger.entries
+          .slice(0, 6)
+          .map(
+            (entry) => `
+              <div class="runner-package-file ${
+                entry.acknowledged && !entry.activeCarryover ? "present" : "missing"
+              }">
+                <strong>@${escapeHtml(entry.owner)} - ${escapeHtml(entry.title)}</strong>
+                <small>${escapeHtml(entry.ownerResponse)} - ${escapeHtml(entry.gateOutcome)}</small>
+                <code>${escapeHtml(entry.evidencePath)}</code>
+                <span>${escapeHtml(entry.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="note-list">
+        ${ledger.ownerGroups
+          .slice(0, 4)
+          .map(
+            (group) =>
+              `<span>@${escapeHtml(group.owner)}: ${group.entryCount} record(s), ${group.activeCount} active, ${group.acknowledgementBlockerCount} acknowledgement blocker(s)</span>`,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-escalation-ledger-command">
+          Copy ledger command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-escalation-ledger-owner-response">
+          Copy owner responses
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2565,6 +2635,7 @@ function renderDashboard(state: UiState) {
       ${renderReleasePreventionPlan(state.dashboardReleasePreventionPlan)}
       ${renderReleaseOwnerFollowUpBoard(state.dashboardReleaseOwnerFollowUpBoard)}
       ${renderReleaseEvidenceSlaMonitor(state.dashboardReleaseEvidenceSlaMonitor)}
+      ${renderReleaseEscalationLedger(state.dashboardReleaseEscalationLedger)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2705,6 +2776,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleasePreventionPlan: null,
     dashboardReleaseOwnerFollowUpBoard: null,
     dashboardReleaseEvidenceSlaMonitor: null,
+    dashboardReleaseEscalationLedger: null,
   };
 
   function render() {
@@ -3015,6 +3087,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releasePreventionPlan = normalizeReleasePreventionPlan(parsed);
       const releaseOwnerFollowUpBoard = normalizeReleaseOwnerFollowUpBoard(parsed);
       const releaseEvidenceSlaMonitor = normalizeReleaseEvidenceSlaMonitor(parsed);
+      const releaseEscalationLedger = normalizeReleaseEscalationLedger(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -3056,8 +3129,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseOwnerFollowUpBoard ?? state.dashboardReleaseOwnerFollowUpBoard;
       state.dashboardReleaseEvidenceSlaMonitor =
         releaseEvidenceSlaMonitor ?? state.dashboardReleaseEvidenceSlaMonitor;
+      state.dashboardReleaseEscalationLedger =
+        releaseEscalationLedger ?? state.dashboardReleaseEscalationLedger;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseEvidenceSlaMonitor
+      state.status = releaseEscalationLedger
+        ? `Imported release escalation ledger with ${releaseEscalationLedger.entryCount} record(s) from ${file.name}.`
+        : releaseEvidenceSlaMonitor
         ? `Imported release evidence SLA monitor at ${releaseEvidenceSlaMonitor.scoreOutOf100}/100 from ${file.name}.`
         : releaseOwnerFollowUpBoard
         ? `Imported owner follow-up board at ${releaseOwnerFollowUpBoard.scoreOutOf100}/100 from ${file.name}.`
@@ -3633,6 +3710,38 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseEscalationLedgerCommand() {
+    const command = state.dashboardReleaseEscalationLedger?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release escalation ledger command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release escalation ledger command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseEscalationLedgerOwnerResponses() {
+    const copy = state.dashboardReleaseEscalationLedger?.ownerResponseCopy ?? "";
+    if (!copy) {
+      state.status = "No release escalation owner response copy is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release escalation owner responses copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -3897,6 +4006,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-evidence-sla-monitor-escalation']")
       ?.addEventListener("click", () => {
         void copyReleaseEvidenceSlaMonitorEscalations();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-escalation-ledger-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseEscalationLedgerCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-escalation-ledger-owner-response']")
+      ?.addEventListener("click", () => {
+        void copyReleaseEscalationLedgerOwnerResponses();
       });
 
     mountRoot

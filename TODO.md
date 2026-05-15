@@ -683,16 +683,34 @@ Goal: monitor owner follow-up boards and release evidence freshness against expl
 
 This set is complete. The next loop should open `Friday Release Escalation Ledger` and preserve SLA escalations, owner responses, acknowledgement decisions, and release-gate outcomes as searchable local release-control history.
 
-## Next Set: Friday Release Escalation Ledger
+## Completed Set: Friday Release Escalation Ledger
 
-Status: 0/100
+Status: 100/100
 
 Goal: turn SLA monitor escalations into auditable release-control history with owner responses, acknowledgement decisions, release-gate outcomes, and next-checkpoint carryover.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed escalation ledger model that consumes release evidence SLA monitor reports.
+- [x] Add owner response, acknowledgement, release-gate outcome, and carryover states for each escalation.
+- [x] Add append/list/export CLI and JSON commands without executing remediation commands.
+- [x] Add dashboard import/rendering for escalation history, active carryovers, acknowledgement blockers, and copyable owner response text.
+- [x] Add focused Rust/TypeScript coverage for append/list behavior, acknowledgement scoring, release-gate carryover, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Checkpoint Review Board` and consolidate escalation ledgers, SLA monitors, owner follow-ups, prevention evidence, and stability evidence into a signed checkpoint decision surface.
+
+## Next Set: Friday Release Checkpoint Review Board
+
+Status: 0/100
+
+Goal: consolidate release escalations, SLA state, owner follow-ups, prevention evidence, and stability artifacts into one signed checkpoint review board that decides whether Friday can move forward.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed escalation ledger model that consumes release evidence SLA monitor reports.
-- [ ] Add owner response, acknowledgement, release-gate outcome, and carryover states for each escalation.
-- [ ] Add append/list/export CLI and JSON commands without executing remediation commands.
-- [ ] Add dashboard import/rendering for escalation history, active carryovers, acknowledgement blockers, and copyable owner response text.
-- [ ] Add focused Rust/TypeScript coverage for append/list behavior, acknowledgement scoring, release-gate carryover, command safety, and dashboard rendering.
+- [ ] Add a typed checkpoint review board model that consumes escalation ledgers, SLA monitors, owner follow-up boards, prevention plans, and stability evidence.
+- [ ] Add readiness, hold, carryover, and review-decision states with explicit owner acknowledgement requirements.
+- [ ] Add CLI and JSON commands for generating checkpoint review boards without running deployments, builds, or remediation commands.
+- [ ] Add dashboard import/rendering for checkpoint decisions, active escalations, carryover blockers, and copyable review notes.
+- [ ] Add focused Rust/TypeScript coverage for decision scoring, carryover blockers, command safety, and dashboard rendering.

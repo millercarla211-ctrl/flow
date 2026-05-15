@@ -27,6 +27,7 @@ use flow::friday::{
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayReleaseCandidateArchiveEntry, FridayReleaseChecklistSignoffDecision,
     FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget,
+    FridayReleaseEscalationGateOutcome, FridayReleaseEscalationOwnerResponse,
     FridayReleaseEvidenceEscalationLevel, FridayReleaseEvidenceSlaState,
     FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
     FridayReleaseOwnerFollowUpCompletionState, FridayReleasePreventionActionKind,
@@ -38,9 +39,9 @@ use flow::friday::{
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerRequest,
     FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
     FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
-    append_friday_release_candidate_to_archive, append_friday_release_incident_to_archive,
-    append_friday_release_operator_signoff, append_friday_release_promotion_to_ledger,
-    append_friday_trusted_host_runner_history,
+    append_friday_release_candidate_to_archive, append_friday_release_escalation_to_ledger,
+    append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
+    append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -2436,6 +2437,38 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert!(evidence_sla_monitor.commands.iter().any(|command| {
         command.contains("--friday-release-evidence-sla-monitor")
             && command.contains("--owner-followup-board")
+    }));
+    let escalation_ledger_path = root.join("release-escalation-ledger.json");
+    let escalation_ledger = append_friday_release_escalation_to_ledger(
+        &escalation_ledger_path,
+        &evidence_sla_monitor_path,
+        FridayReleaseEscalationOwnerResponse::Pending,
+        FridayReleaseEscalationGateOutcome::CarryOver,
+    )
+    .unwrap();
+    assert!(escalation_ledger.entry_count > 0);
+    assert!(escalation_ledger.active_count > 0);
+    assert!(escalation_ledger.carryover_count > 0);
+    assert!(escalation_ledger.acknowledgement_blocker_count > 0);
+    assert!(escalation_ledger.release_gate_blocking_count > 0);
+    assert!(
+        escalation_ledger
+            .owner_groups
+            .iter()
+            .any(|group| { group.owner == "release-operator" && group.active_count > 0 })
+    );
+    assert!(escalation_ledger.entries.iter().any(|entry| {
+        entry.owner_response == FridayReleaseEscalationOwnerResponse::Pending
+            && entry.gate_outcome == FridayReleaseEscalationGateOutcome::CarryOver
+            && entry.owner_response_copy.contains("@release-operator")
+    }));
+    assert!(
+        escalation_ledger
+            .owner_response_copy
+            .contains("Friday release escalation ledger")
+    );
+    assert!(escalation_ledger.commands.iter().any(|command| {
+        command.contains("--friday-release-escalation-ledger") && command.contains("--monitor")
     }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);

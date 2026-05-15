@@ -1190,6 +1190,80 @@ export interface FlowReleaseEvidenceSlaMonitorReport {
   commands: string[];
 }
 
+export type FlowReleaseEscalationOwnerResponse =
+  | "pending"
+  | "acknowledged"
+  | "resolved"
+  | "rejected"
+  | "carried-over";
+
+export type FlowReleaseEscalationGateOutcome =
+  | "blocked"
+  | "carry-over"
+  | "cleared"
+  | "monitoring";
+
+export interface FlowReleaseEscalationLedgerEntry {
+  escalationId: string;
+  recordedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  monitorId: string | null;
+  monitorJson: string;
+  requirementId: string;
+  source: FlowReleaseEvidenceRequirementSource;
+  owner: string;
+  title: string;
+  slaState: FlowReleaseEvidenceSlaState;
+  escalationLevel: FlowReleaseEvidenceEscalationLevel;
+  ownerResponse: FlowReleaseEscalationOwnerResponse;
+  gateOutcome: FlowReleaseEscalationGateOutcome;
+  acknowledgementRequired: boolean;
+  acknowledged: boolean;
+  activeCarryover: boolean;
+  releaseGateBlocking: boolean;
+  evidencePath: string;
+  escalationCopy: string;
+  ownerResponseCopy: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseEscalationOwnerGroup {
+  owner: string;
+  entryCount: number;
+  activeCount: number;
+  acknowledgedCount: number;
+  acknowledgementBlockerCount: number;
+  carryoverCount: number;
+  releaseGateBlockingCount: number;
+  entries: string[];
+}
+
+export interface FlowReleaseEscalationLedger {
+  ledgerId: string;
+  ledgerJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  entryCount: number;
+  activeCount: number;
+  acknowledgedCount: number;
+  responsePendingCount: number;
+  rejectedCount: number;
+  resolvedCount: number;
+  carryoverCount: number;
+  releaseGateBlockingCount: number;
+  acknowledgementBlockerCount: number;
+  ownerCount: number;
+  latestEscalationId: string | null;
+  latestGateOutcome: FlowReleaseEscalationGateOutcome | null;
+  ownerGroups: FlowReleaseEscalationOwnerGroup[];
+  entries: FlowReleaseEscalationLedgerEntry[];
+  ownerResponseCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -3766,6 +3840,140 @@ export function normalizeReleaseEvidenceSlaMonitor(
   };
 }
 
+export function normalizeReleaseEscalationLedger(
+  value: unknown,
+): FlowReleaseEscalationLedger | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const ledger =
+    root.release_escalation_ledger && typeof root.release_escalation_ledger === "object"
+      ? (root.release_escalation_ledger as Record<string, unknown>)
+      : root.releaseEscalationLedger && typeof root.releaseEscalationLedger === "object"
+        ? (root.releaseEscalationLedger as Record<string, unknown>)
+        : root;
+  const ledgerId = stringValue(ledger.ledger_id, ledger.ledgerId);
+  const entries = arrayValue(ledger.entries)
+    .map((item): FlowReleaseEscalationLedgerEntry | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const entry = item as Record<string, unknown>;
+      const escalationId = stringValue(entry.escalation_id, entry.escalationId);
+      if (!escalationId) {
+        return null;
+      }
+      return {
+        escalationId,
+        recordedAtUnixMs: stringValue(entry.recorded_at_unix_ms, entry.recordedAtUnixMs),
+        productName: stringValue(entry.product_name, entry.productName),
+        localOnly: booleanValue(entry.local_only, entry.localOnly),
+        monitorId: stringValue(entry.monitor_id, entry.monitorId) || null,
+        monitorJson: stringValue(entry.monitor_json, entry.monitorJson),
+        requirementId: stringValue(entry.requirement_id, entry.requirementId),
+        source: releaseEvidenceRequirementSource(stringValue(entry.source)),
+        owner: stringValue(entry.owner),
+        title: stringValue(entry.title),
+        slaState: releaseEvidenceSlaState(stringValue(entry.sla_state, entry.slaState)),
+        escalationLevel: releaseEvidenceEscalationLevel(
+          stringValue(entry.escalation_level, entry.escalationLevel),
+        ),
+        ownerResponse: releaseEscalationOwnerResponse(
+          stringValue(entry.owner_response, entry.ownerResponse),
+        ),
+        gateOutcome: releaseEscalationGateOutcome(
+          stringValue(entry.gate_outcome, entry.gateOutcome),
+        ),
+        acknowledgementRequired: booleanValue(
+          entry.acknowledgement_required,
+          entry.acknowledgementRequired,
+        ),
+        acknowledged: booleanValue(entry.acknowledged),
+        activeCarryover: booleanValue(entry.active_carryover, entry.activeCarryover),
+        releaseGateBlocking: booleanValue(entry.release_gate_blocking, entry.releaseGateBlocking),
+        evidencePath: stringValue(entry.evidence_path, entry.evidencePath),
+        escalationCopy: stringValue(entry.escalation_copy, entry.escalationCopy),
+        ownerResponseCopy: stringValue(entry.owner_response_copy, entry.ownerResponseCopy),
+        nextAction: stringValue(entry.next_action, entry.nextAction),
+      };
+    })
+    .filter((entry): entry is FlowReleaseEscalationLedgerEntry => entry !== null);
+  const ownerGroups = arrayValue(ledger.owner_groups, ledger.ownerGroups)
+    .map((item): FlowReleaseEscalationOwnerGroup | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const group = item as Record<string, unknown>;
+      const owner = stringValue(group.owner);
+      if (!owner) {
+        return null;
+      }
+      return {
+        owner,
+        entryCount: numberValue(group.entry_count, group.entryCount),
+        activeCount: numberValue(group.active_count, group.activeCount),
+        acknowledgedCount: numberValue(group.acknowledged_count, group.acknowledgedCount),
+        acknowledgementBlockerCount: numberValue(
+          group.acknowledgement_blocker_count,
+          group.acknowledgementBlockerCount,
+        ),
+        carryoverCount: numberValue(group.carryover_count, group.carryoverCount),
+        releaseGateBlockingCount: numberValue(
+          group.release_gate_blocking_count,
+          group.releaseGateBlockingCount,
+        ),
+        entries: arrayValue(group.entries)
+          .map((entry) => stringValue(entry))
+          .filter(Boolean),
+      };
+    })
+    .filter((group): group is FlowReleaseEscalationOwnerGroup => group !== null);
+
+  if (!ledgerId && entries.length === 0) {
+    return null;
+  }
+
+  return {
+    ledgerId,
+    ledgerJson: stringValue(ledger.ledger_json, ledger.ledgerJson),
+    generatedAtUnixMs: stringValue(ledger.generated_at_unix_ms, ledger.generatedAtUnixMs),
+    productName: stringValue(ledger.product_name, ledger.productName),
+    localOnly: booleanValue(ledger.local_only, ledger.localOnly),
+    entryCount: numberValue(ledger.entry_count, ledger.entryCount),
+    activeCount: numberValue(ledger.active_count, ledger.activeCount),
+    acknowledgedCount: numberValue(ledger.acknowledged_count, ledger.acknowledgedCount),
+    responsePendingCount: numberValue(ledger.response_pending_count, ledger.responsePendingCount),
+    rejectedCount: numberValue(ledger.rejected_count, ledger.rejectedCount),
+    resolvedCount: numberValue(ledger.resolved_count, ledger.resolvedCount),
+    carryoverCount: numberValue(ledger.carryover_count, ledger.carryoverCount),
+    releaseGateBlockingCount: numberValue(
+      ledger.release_gate_blocking_count,
+      ledger.releaseGateBlockingCount,
+    ),
+    acknowledgementBlockerCount: numberValue(
+      ledger.acknowledgement_blocker_count,
+      ledger.acknowledgementBlockerCount,
+    ),
+    ownerCount: numberValue(ledger.owner_count, ledger.ownerCount),
+    latestEscalationId: stringValue(ledger.latest_escalation_id, ledger.latestEscalationId) || null,
+    latestGateOutcome:
+      ledger.latest_gate_outcome == null && ledger.latestGateOutcome == null
+        ? null
+        : releaseEscalationGateOutcome(
+            stringValue(ledger.latest_gate_outcome, ledger.latestGateOutcome),
+          ),
+    ownerGroups,
+    entries,
+    ownerResponseCopy: stringValue(ledger.owner_response_copy, ledger.ownerResponseCopy),
+    summary: stringValue(ledger.summary),
+    commands: arrayValue(ledger.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -4098,6 +4306,31 @@ function releaseEvidenceRequirementSource(value: string): FlowReleaseEvidenceReq
     return value;
   }
   return "owner-follow-up";
+}
+
+function releaseEscalationOwnerResponse(value: string): FlowReleaseEscalationOwnerResponse {
+  if (
+    value === "pending" ||
+    value === "acknowledged" ||
+    value === "resolved" ||
+    value === "rejected" ||
+    value === "carried-over"
+  ) {
+    return value;
+  }
+  return "pending";
+}
+
+function releaseEscalationGateOutcome(value: string): FlowReleaseEscalationGateOutcome {
+  if (
+    value === "blocked" ||
+    value === "carry-over" ||
+    value === "cleared" ||
+    value === "monitoring"
+  ) {
+    return value;
+  }
+  return "carry-over";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

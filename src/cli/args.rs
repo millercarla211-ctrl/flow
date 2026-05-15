@@ -502,6 +502,27 @@ pub enum Command {
         prevention_plan_file: String,
         stability_board_file: String,
     },
+    /// Append a Friday release escalation ledger entry set
+    FridayReleaseEscalationLedger {
+        ledger_file: String,
+        monitor_file: String,
+        owner_response: String,
+        gate_outcome: String,
+    },
+    /// Print a Friday release escalation ledger preview as JSON
+    FridayReleaseEscalationLedgerJson {
+        ledger_file: String,
+        monitor_file: String,
+        owner_response: String,
+        gate_outcome: String,
+    },
+    /// List an existing Friday release escalation ledger
+    FridayReleaseEscalationLedgerList { ledger_file: String },
+    /// Export an existing Friday release escalation ledger
+    FridayReleaseEscalationLedgerExport {
+        ledger_file: String,
+        output_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1716,6 +1737,41 @@ impl Args {
                     stability_board_file,
                 }
             }
+            "--friday-release-escalation-ledger" | "--friday-escalation-ledger" => {
+                let (ledger_file, monitor_file, owner_response, gate_outcome) =
+                    parse_friday_release_escalation_ledger_args(&args);
+                Command::FridayReleaseEscalationLedger {
+                    ledger_file,
+                    monitor_file,
+                    owner_response,
+                    gate_outcome,
+                }
+            }
+            "--friday-release-escalation-ledger-json" | "--friday-escalation-ledger-json" => {
+                let (ledger_file, monitor_file, owner_response, gate_outcome) =
+                    parse_friday_release_escalation_ledger_args(&args);
+                Command::FridayReleaseEscalationLedgerJson {
+                    ledger_file,
+                    monitor_file,
+                    owner_response,
+                    gate_outcome,
+                }
+            }
+            "--friday-release-escalation-ledger-list" | "--friday-escalation-ledger-list" => {
+                Command::FridayReleaseEscalationLedgerList {
+                    ledger_file: parse_friday_release_escalation_ledger_file_arg(&args),
+                }
+            }
+            "--friday-release-escalation-ledger-export" | "--friday-escalation-ledger-export" => {
+                let ledger_file = parse_friday_release_escalation_ledger_file_arg(&args);
+                let output_file = flag_value(&args, "--output").unwrap_or_else(|| {
+                    "tmp/friday-dashboard/release-escalation-ledger-export.json".to_string()
+                });
+                Command::FridayReleaseEscalationLedgerExport {
+                    ledger_file,
+                    output_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -2877,6 +2933,39 @@ fn parse_friday_release_evidence_sla_monitor_args(
         prevention_plan_file,
         stability_board_file,
     )
+}
+
+fn parse_friday_release_escalation_ledger_args(
+    args: &[String],
+) -> (String, String, String, String) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let ledger_file = flag_value(args, "--ledger")
+        .or_else(|| flag_value(args, "--output"))
+        .unwrap_or_else(|| format!("{export_dir}/release-escalation-ledger.json"));
+    let monitor_file = flag_value(args, "--monitor")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-evidence-sla-monitor.json"));
+    let owner_response = flag_value(args, "--response").unwrap_or_else(|| "pending".to_string());
+    let gate_outcome = flag_value(args, "--outcome").unwrap_or_else(|| "carry-over".to_string());
+
+    (ledger_file, monitor_file, owner_response, gate_outcome)
+}
+
+fn parse_friday_release_escalation_ledger_file_arg(args: &[String]) -> String {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    flag_value(args, "--ledger")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-escalation-ledger.json"))
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {
