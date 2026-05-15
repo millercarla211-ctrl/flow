@@ -17,6 +17,7 @@ import {
   normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffDispatchAuditTrail,
   normalizeReleaseHandoffDispatchChecklist,
+  normalizeReleaseHandoffDispatchGovernanceReview,
   normalizeReleaseHandoffGovernanceReview,
   normalizeReleaseHandoffPacket,
   normalizeReleaseIncidentArchive,
@@ -2701,6 +2702,74 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-handoff-dispatch-audit-json --trail tmp/friday-dashboard/release-handoff-dispatch-audit-trail.json --checklist <release-handoff-dispatch-checklist.json>",
     ],
   });
+  const releaseHandoffDispatchGovernanceReview =
+    normalizeReleaseHandoffDispatchGovernanceReview({
+      review_id: "friday-release-handoff-dispatch-governance-review-smoke",
+      review_json: "tmp/friday-dashboard/release-handoff-dispatch-governance-review.json",
+      generated_at_unix_ms: 28,
+      product_name: "Friday",
+      local_only: true,
+      status: "blocked",
+      score_out_of_100: 0,
+      state: "blocked-carryover",
+      approved_for_external_handoff: false,
+      trail_id: "friday-release-handoff-dispatch-audit-trail-smoke",
+      trail_json: "tmp/friday-dashboard/release-handoff-dispatch-audit-trail.json",
+      latest_audit_id:
+        "friday-release-handoff-dispatch-audit-friday-release-handoff-dispatch-checklist-smoke-27",
+      latest_checklist_id: "friday-release-handoff-dispatch-checklist-smoke",
+      active_audit_id:
+        "friday-release-handoff-dispatch-audit-friday-release-handoff-dispatch-checklist-smoke-27",
+      active_checklist_id: "friday-release-handoff-dispatch-checklist-smoke",
+      latest_state: "blocked",
+      record_count: 1,
+      finding_count: 2,
+      final_decision_gap_count: 0,
+      stale_checklist_count: 0,
+      revoked_active_decision_count: 0,
+      blocked_carryover_count: 1,
+      held_count: 1,
+      release_gate_blocking_count: 2,
+      unresolved_blocker_count: 3,
+      findings: [
+        {
+          id: "active-dispatch-blocker-carryover",
+          source: "blocker-carryover",
+          state: "blocked-carryover",
+          release_gate_blocking: true,
+          audit_id:
+            "friday-release-handoff-dispatch-audit-friday-release-handoff-dispatch-checklist-smoke-27",
+          checklist_id: "friday-release-handoff-dispatch-checklist-smoke",
+          title: "Active dispatch decision has blocker carryover",
+          evidence_path: "tmp/friday-dashboard/release-handoff-dispatch-checklist.json",
+          summary: "Active dispatch decision still carries 3 unresolved blocker(s).",
+          next_action:
+            "Resolve blockers before considering the external handoff complete.",
+        },
+        {
+          id: "latest-dispatch-decision-held",
+          source: "latest-decision",
+          state: "held",
+          release_gate_blocking: true,
+          audit_id:
+            "friday-release-handoff-dispatch-audit-friday-release-handoff-dispatch-checklist-smoke-27",
+          checklist_id: "friday-release-handoff-dispatch-checklist-smoke",
+          title: "Latest dispatch decision is not approved",
+          evidence_path: "tmp/friday-dashboard/release-handoff-dispatch-checklist.json",
+          summary: "Latest dispatch decision is blocked.",
+          next_action:
+            "Move the latest decision to approved or sent-manually only after blockers are resolved.",
+        },
+      ],
+      governance_notes_copy:
+        "Friday release handoff dispatch governance\nStatus: hold dispatch completion\n- [blocked-carryover] Active dispatch decision has blocker carryover -> Resolve blockers before considering the external handoff complete.",
+      summary:
+        "Friday release handoff dispatch governance is blocked-carryover with score 0/100, 2 finding(s), 0 final decision gap(s), 0 stale checklist warning(s), 0 revoked decision issue(s), and 1 blocker carryover issue(s).",
+      commands: [
+        "flow --friday-release-handoff-dispatch-governance --output tmp/friday-dashboard/release-handoff-dispatch-governance-review.json --trail tmp/friday-dashboard/release-handoff-dispatch-audit-trail.json",
+        "flow --friday-release-handoff-dispatch-governance-json --output tmp/friday-dashboard/release-handoff-dispatch-governance-review.json --trail tmp/friday-dashboard/release-handoff-dispatch-audit-trail.json",
+      ],
+    });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -3488,8 +3557,32 @@ export function dashboardSectionSmokeReport(
         ) &&
         releaseHandoffDispatchAuditTrail.commands.some((command) =>
           command.includes("--friday-release-handoff-dispatch-audit"),
-        ),
+      ),
       `${releaseHandoffDispatchAuditTrail?.blockerCarryoverCount ?? 0} dispatch audit carryover record(s)`,
+    ),
+    check(
+      "release-handoff-dispatch-governance-importable",
+      releaseHandoffDispatchGovernanceReview?.state === "blocked-carryover" &&
+        releaseHandoffDispatchGovernanceReview.findingCount === 2 &&
+        releaseHandoffDispatchGovernanceReview.releaseGateBlockingCount === 2,
+      `${releaseHandoffDispatchGovernanceReview?.findingCount ?? 0} dispatch governance finding(s)`,
+    ),
+    check(
+      "release-handoff-dispatch-governance-copy",
+      releaseHandoffDispatchGovernanceReview !== null &&
+        !releaseHandoffDispatchGovernanceReview.approvedForExternalHandoff &&
+        releaseHandoffDispatchGovernanceReview.findings.some(
+          (finding) =>
+            finding.state === "blocked-carryover" &&
+            finding.nextAction.includes("external handoff complete"),
+        ) &&
+        releaseHandoffDispatchGovernanceReview.governanceNotesCopy.includes(
+          "Friday release handoff dispatch governance",
+        ) &&
+        releaseHandoffDispatchGovernanceReview.commands.some((command) =>
+          command.includes("--friday-release-handoff-dispatch-governance"),
+        ),
+      `${releaseHandoffDispatchGovernanceReview?.blockedCarryoverCount ?? 0} dispatch governance carryover blocker(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

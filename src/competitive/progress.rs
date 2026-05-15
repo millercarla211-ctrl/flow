@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-handoff-dispatch-audit-model",
-            "Typed release handoff dispatch audit model",
+            "release-handoff-dispatch-governance-model",
+            "Typed release handoff dispatch governance model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseHandoffDispatchAuditTrail` consumes dispatch checklists and preserves operator decisions",
-            "open the next Friday release handoff dispatch governance set",
+            "`FridayReleaseHandoffDispatchGovernanceReview` consumes dispatch audit trails and validates completed handoff readiness",
+            "open the next Friday release handoff completion ledger set",
         ),
         item(
-            "release-handoff-dispatch-audit-states",
-            "Draft, ready, held, approved, sent-manually, revoked, and blocked audit states",
+            "release-handoff-dispatch-governance-states",
+            "Approved, held, needs-final-decision, stale-checklist, revoked-active-decision, and blocked-carryover states",
             20,
             CompletionItemStatus::Done,
-            "dispatch audit records preserve manual send wording, final decisions, active checklist, revocations, and blocker carryover",
-            "open the next Friday release handoff dispatch governance set",
+            "dispatch governance findings preserve latest decisions, active decisions, final decision gaps, revoked decisions, stale checklists, and blocker carryover",
+            "open the next Friday release handoff completion ledger set",
         ),
         item(
-            "release-handoff-dispatch-audit-cli",
-            "Release handoff dispatch audit append/list/export CLI and JSON commands",
+            "release-handoff-dispatch-governance-cli",
+            "Release handoff dispatch governance CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-handoff-dispatch-audit` appends local audit records without sending, deploying, building, uploading, or mutating external systems",
-            "open the next Friday release handoff dispatch governance set",
+            "`flow --friday-release-handoff-dispatch-governance` writes local review JSON without sending, deploying, building, uploading, or mutating external systems",
+            "open the next Friday release handoff completion ledger set",
         ),
         item(
-            "release-handoff-dispatch-audit-dashboard",
-            "Dashboard handoff dispatch audit rendering",
+            "release-handoff-dispatch-governance-dashboard",
+            "Dashboard handoff dispatch governance rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports dispatch audit trails and renders history, latest checklist, final decisions, blockers, command copy, and audit summary copy",
-            "open the next Friday release handoff dispatch governance set",
+            "the visible dashboard imports dispatch governance reviews and renders latest decision, final decision gaps, revoked/stale warnings, blocker carryover, command copy, and governance notes",
+            "open the next Friday release handoff completion ledger set",
         ),
         item(
-            "release-handoff-dispatch-audit-coverage",
-            "Release handoff dispatch audit Rust and TypeScript coverage",
+            "release-handoff-dispatch-governance-coverage",
+            "Release handoff dispatch governance Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify audit append/list behavior, final decision preservation, blocker carryover, command safety, and dashboard rendering",
-            "open the next Friday release handoff dispatch governance set",
+            "focused Rust integration coverage plus dashboard smoke checks verify governance scoring, revoked decision detection, final decision enforcement, blocker carryover, command safety, and dashboard rendering",
+            "open the next Friday release handoff completion ledger set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Handoff Dispatch Audit".to_string(),
+        name: "Friday Release Handoff Dispatch Governance".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Preserve Friday release handoff dispatch checklists and operator final decisions as local history before any external send.".to_string(),
+        loop_rule: "Validate Friday release handoff dispatch audit trails before any external handoff is considered complete.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_handoff_dispatch_audit_loop() {
+    fn active_set_tracks_friday_release_handoff_dispatch_governance_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Handoff Dispatch Audit");
+        assert_eq!(set.name, "Friday Release Handoff Dispatch Governance");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

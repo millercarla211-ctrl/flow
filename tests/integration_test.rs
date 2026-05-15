@@ -34,20 +34,20 @@ use flow::friday::{
     FridayReleaseHandoffAuditRequest, FridayReleaseHandoffAuditState,
     FridayReleaseHandoffDispatchAuditRequest, FridayReleaseHandoffDispatchAuditState,
     FridayReleaseHandoffDispatchChecklistRequest, FridayReleaseHandoffDispatchChecklistSource,
-    FridayReleaseHandoffDispatchChecklistState, FridayReleaseHandoffGovernanceState,
-    FridayReleaseHandoffPacketSectionKind, FridayReleaseIncidentOutcome,
-    FridayReleaseIncidentSeverity, FridayReleaseOwnerFollowUpCompletionState,
-    FridayReleasePreventionActionKind, FridayReleasePreventionFindingKind,
-    FridayReleasePromotionDecision, FridayReleasePromotionRecordRequest,
-    FridayReleaseQaCheckStatus, FridayResearchWorkflow, FridayRouteVisualStatus,
-    FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
-    FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
-    FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
-    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
-    FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus, FridayVerificationStatus,
-    FridayWorkspaceStore, append_friday_release_candidate_to_archive,
-    append_friday_release_checkpoint_signoff_to_ledger, append_friday_release_escalation_to_ledger,
-    append_friday_release_handoff_audit_to_trail,
+    FridayReleaseHandoffDispatchChecklistState, FridayReleaseHandoffDispatchGovernanceState,
+    FridayReleaseHandoffGovernanceState, FridayReleaseHandoffPacketSectionKind,
+    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
+    FridayReleaseOwnerFollowUpCompletionState, FridayReleasePreventionActionKind,
+    FridayReleasePreventionFindingKind, FridayReleasePromotionDecision,
+    FridayReleasePromotionRecordRequest, FridayReleaseQaCheckStatus, FridayResearchWorkflow,
+    FridayRouteVisualStatus, FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor,
+    FridayTrustedHostCommandRawOutput, FridayTrustedHostLiveRunnerRecord,
+    FridayTrustedHostLiveRunnerStatus, FridayTrustedHostRunnerCancellationToken,
+    FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerRequest,
+    FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
+    FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
+    append_friday_release_candidate_to_archive, append_friday_release_checkpoint_signoff_to_ledger,
+    append_friday_release_escalation_to_ledger, append_friday_release_handoff_audit_to_trail,
     append_friday_release_handoff_dispatch_audit_to_trail,
     append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
     append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
@@ -68,6 +68,7 @@ use flow::friday::{
     friday_release_evidence_sla_monitor_report_at,
     friday_release_handoff_dispatch_audit_trail_report,
     friday_release_handoff_dispatch_checklist_report,
+    friday_release_handoff_dispatch_governance_review_report,
     friday_release_handoff_governance_review_report, friday_release_handoff_packet_report,
     friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
     friday_release_operator_checklist_report, friday_release_owner_followup_board_report_at,
@@ -90,6 +91,7 @@ use flow::friday::{
     write_friday_release_evidence_sla_monitor_report,
     write_friday_release_handoff_dispatch_audit_trail,
     write_friday_release_handoff_dispatch_checklist,
+    write_friday_release_handoff_dispatch_governance_review,
     write_friday_release_handoff_governance_review, write_friday_release_handoff_packet,
     write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
@@ -2956,6 +2958,67 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     )
     .unwrap();
     assert!(release_handoff_dispatch_audit_export_path.exists());
+    let release_handoff_dispatch_governance_review_path =
+        root.join("release-handoff-dispatch-governance-review.json");
+    let release_handoff_dispatch_governance_review =
+        friday_release_handoff_dispatch_governance_review_report(
+            &release_handoff_dispatch_governance_review_path,
+            &release_handoff_dispatch_audit_trail_path,
+        );
+    write_friday_release_handoff_dispatch_governance_review(
+        &release_handoff_dispatch_governance_review_path,
+        &release_handoff_dispatch_governance_review,
+    )
+    .unwrap();
+    assert!(!release_handoff_dispatch_governance_review.approved_for_external_handoff);
+    assert_eq!(
+        release_handoff_dispatch_governance_review.state,
+        FridayReleaseHandoffDispatchGovernanceState::BlockedCarryover
+    );
+    assert_eq!(
+        release_handoff_dispatch_governance_review
+            .latest_checklist_id
+            .as_deref(),
+        Some(release_handoff_dispatch_checklist.checklist_id.as_str())
+    );
+    assert_eq!(
+        release_handoff_dispatch_governance_review
+            .active_checklist_id
+            .as_deref(),
+        Some(release_handoff_dispatch_checklist.checklist_id.as_str())
+    );
+    assert_eq!(
+        release_handoff_dispatch_governance_review.latest_state,
+        Some(FridayReleaseHandoffDispatchAuditState::Blocked)
+    );
+    assert!(release_handoff_dispatch_governance_review.score_out_of_100 < 100);
+    assert!(release_handoff_dispatch_governance_review.finding_count > 0);
+    assert!(release_handoff_dispatch_governance_review.blocked_carryover_count > 0);
+    assert!(release_handoff_dispatch_governance_review.release_gate_blocking_count > 0);
+    assert!(
+        release_handoff_dispatch_governance_review
+            .findings
+            .iter()
+            .any(|finding| {
+                finding.state == FridayReleaseHandoffDispatchGovernanceState::BlockedCarryover
+                    && finding.release_gate_blocking
+                    && finding.next_action.contains("external handoff complete")
+            })
+    );
+    assert!(
+        release_handoff_dispatch_governance_review
+            .governance_notes_copy
+            .contains("Friday release handoff dispatch governance")
+    );
+    assert!(
+        release_handoff_dispatch_governance_review
+            .commands
+            .iter()
+            .any(|command| {
+                command.contains("--friday-release-handoff-dispatch-governance")
+                    && command.contains("--trail")
+            })
+    );
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

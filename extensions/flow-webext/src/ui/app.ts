@@ -14,6 +14,7 @@ import {
   normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffDispatchAuditTrail,
   normalizeReleaseHandoffDispatchChecklist,
+  normalizeReleaseHandoffDispatchGovernanceReview,
   normalizeReleaseHandoffGovernanceReview,
   normalizeReleaseHandoffPacket,
   normalizeReleaseIncidentArchive,
@@ -60,6 +61,7 @@ import {
   type FlowReleaseHandoffAuditTrail,
   type FlowReleaseHandoffDispatchAuditTrail,
   type FlowReleaseHandoffDispatchChecklist,
+  type FlowReleaseHandoffDispatchGovernanceReview,
   type FlowReleaseHandoffGovernanceReview,
   type FlowReleaseHandoffPacket,
   type FlowReleaseIncidentArchive,
@@ -139,6 +141,7 @@ type UiState = {
   dashboardReleaseHandoffGovernanceReview: FlowReleaseHandoffGovernanceReview | null;
   dashboardReleaseHandoffDispatchChecklist: FlowReleaseHandoffDispatchChecklist | null;
   dashboardReleaseHandoffDispatchAuditTrail: FlowReleaseHandoffDispatchAuditTrail | null;
+  dashboardReleaseHandoffDispatchGovernanceReview: FlowReleaseHandoffDispatchGovernanceReview | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -3026,6 +3029,71 @@ function renderReleaseHandoffDispatchAuditTrail(
   `;
 }
 
+function renderReleaseHandoffDispatchGovernanceReview(
+  review: FlowReleaseHandoffDispatchGovernanceReview | null,
+) {
+  if (!review) {
+    return "";
+  }
+
+  const status = review.approvedForExternalHandoff
+    ? "ready"
+    : review.releaseGateBlockingCount > 0 || review.blockedCarryoverCount > 0
+      ? "blocked"
+      : "warning";
+
+  return `
+    <article class="feature-card dashboard-release-handoff-dispatch-governance">
+      <div class="card-topline">
+        <span class="eyebrow">Release handoff dispatch governance</span>
+        <span class="badge ${badgeTone(status)}">${escapeHtml(review.state)}</span>
+      </div>
+      <h3>${review.approvedForExternalHandoff ? "Dispatch handoff is governed" : "Dispatch handoff remains gated"}</h3>
+      <p>${escapeHtml(review.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${review.scoreOutOf100}</strong><small>score</small></span>
+        <span><strong>${review.findingCount}</strong><small>findings</small></span>
+        <span><strong>${review.finalDecisionGapCount}</strong><small>decision gaps</small></span>
+        <span><strong>${review.blockedCarryoverCount}</strong><small>carryover</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Latest checklist</strong> ${escapeHtml(review.latestChecklistId ?? "none")}</span>
+        <span><strong>Active checklist</strong> ${escapeHtml(review.activeChecklistId ?? "none")}</span>
+        <span><strong>Gate blocks</strong> ${review.releaseGateBlockingCount}</span>
+        <span><strong>Review</strong> ${escapeHtml(review.reviewJson)}</span>
+      </div>
+      ${
+        review.releaseGateBlockingCount > 0
+          ? `<p class="soft-warning">${review.releaseGateBlockingCount} dispatch governance blocker(s) must be resolved before handoff completion.</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${review.findings
+          .slice(0, 8)
+          .map(
+            (finding) => `
+              <div class="runner-package-file ${finding.releaseGateBlocking ? "missing" : "present"}">
+                <strong>${escapeHtml(finding.title)}</strong>
+                <small>${escapeHtml(finding.source)} - ${escapeHtml(finding.state)}</small>
+                <code>${escapeHtml(finding.evidencePath || "inline")}</code>
+                <span>${escapeHtml(finding.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-dispatch-governance-command">
+          Copy governance command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-dispatch-governance-notes">
+          Copy governance notes
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -3257,6 +3325,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseHandoffGovernanceReview(state.dashboardReleaseHandoffGovernanceReview)}
       ${renderReleaseHandoffDispatchChecklist(state.dashboardReleaseHandoffDispatchChecklist)}
       ${renderReleaseHandoffDispatchAuditTrail(state.dashboardReleaseHandoffDispatchAuditTrail)}
+      ${renderReleaseHandoffDispatchGovernanceReview(state.dashboardReleaseHandoffDispatchGovernanceReview)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3407,6 +3476,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseHandoffGovernanceReview: null,
     dashboardReleaseHandoffDispatchChecklist: null,
     dashboardReleaseHandoffDispatchAuditTrail: null,
+    dashboardReleaseHandoffDispatchGovernanceReview: null,
   };
 
   function render() {
@@ -3733,6 +3803,8 @@ export async function mountFlowApp(surfaceInput: string) {
         normalizeReleaseHandoffDispatchChecklist(parsed);
       const releaseHandoffDispatchAuditTrail =
         normalizeReleaseHandoffDispatchAuditTrail(parsed);
+      const releaseHandoffDispatchGovernanceReview =
+        normalizeReleaseHandoffDispatchGovernanceReview(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -3794,8 +3866,13 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseHandoffDispatchChecklist ?? state.dashboardReleaseHandoffDispatchChecklist;
       state.dashboardReleaseHandoffDispatchAuditTrail =
         releaseHandoffDispatchAuditTrail ?? state.dashboardReleaseHandoffDispatchAuditTrail;
+      state.dashboardReleaseHandoffDispatchGovernanceReview =
+        releaseHandoffDispatchGovernanceReview ??
+        state.dashboardReleaseHandoffDispatchGovernanceReview;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseHandoffDispatchAuditTrail
+      state.status = releaseHandoffDispatchGovernanceReview
+        ? `Imported release handoff dispatch governance at ${releaseHandoffDispatchGovernanceReview.scoreOutOf100}/100 from ${file.name}.`
+        : releaseHandoffDispatchAuditTrail
         ? `Imported release handoff dispatch audit with ${releaseHandoffDispatchAuditTrail.recordCount} record(s) from ${file.name}.`
         : releaseHandoffDispatchChecklist
         ? `Imported release handoff dispatch checklist with ${releaseHandoffDispatchChecklist.itemCount} item(s) from ${file.name}.`
@@ -4728,6 +4805,39 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseHandoffDispatchGovernanceCommand() {
+    const command = state.dashboardReleaseHandoffDispatchGovernanceReview?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release handoff dispatch governance command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release handoff dispatch governance command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseHandoffDispatchGovernanceNotes() {
+    const copy =
+      state.dashboardReleaseHandoffDispatchGovernanceReview?.governanceNotesCopy ?? "";
+    if (!copy) {
+      state.status = "No release handoff dispatch governance notes are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release handoff dispatch governance notes copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -5118,6 +5228,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-dispatch-audit-summary']")
       ?.addEventListener("click", () => {
         void copyReleaseHandoffDispatchAuditSummary();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-dispatch-governance-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffDispatchGovernanceCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-dispatch-governance-notes']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffDispatchGovernanceNotes();
       });
 
     mountRoot

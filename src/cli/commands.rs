@@ -39,15 +39,15 @@ use crate::friday::{
     FridayReleaseHandoffAuditState, FridayReleaseHandoffAuditTrail,
     FridayReleaseHandoffDispatchAuditRequest, FridayReleaseHandoffDispatchAuditState,
     FridayReleaseHandoffDispatchAuditTrail, FridayReleaseHandoffDispatchChecklist,
-    FridayReleaseHandoffDispatchChecklistRequest, FridayReleaseHandoffGovernanceReview,
-    FridayReleaseHandoffPacket, FridayReleaseIncidentArchive, FridayReleaseIncidentOutcome,
-    FridayReleaseOperatorChecklistReport, FridayReleaseOwnerFollowUpBoardReport,
-    FridayReleasePostPromotionMonitorReport, FridayReleasePreventionPlanReport,
-    FridayReleasePromotionDecision, FridayReleasePromotionLedger,
-    FridayReleasePromotionRecordRequest, FridayReleaseQaCommandCenterReport,
-    FridayReleaseRecoveryRunbookReport, FridayReleaseRollbackDrillReport,
-    FridayReleaseStabilityBoardReport, FridayResearchReport, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleaseHandoffDispatchChecklistRequest, FridayReleaseHandoffDispatchGovernanceReview,
+    FridayReleaseHandoffGovernanceReview, FridayReleaseHandoffPacket, FridayReleaseIncidentArchive,
+    FridayReleaseIncidentOutcome, FridayReleaseOperatorChecklistReport,
+    FridayReleaseOwnerFollowUpBoardReport, FridayReleasePostPromotionMonitorReport,
+    FridayReleasePreventionPlanReport, FridayReleasePromotionDecision,
+    FridayReleasePromotionLedger, FridayReleasePromotionRecordRequest,
+    FridayReleaseQaCommandCenterReport, FridayReleaseRecoveryRunbookReport,
+    FridayReleaseRollbackDrillReport, FridayReleaseStabilityBoardReport, FridayResearchReport,
+    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
@@ -78,6 +78,7 @@ use crate::friday::{
     friday_release_handoff_dispatch_audit_record_from_checklist,
     friday_release_handoff_dispatch_audit_trail_report,
     friday_release_handoff_dispatch_checklist_report,
+    friday_release_handoff_dispatch_governance_review_report,
     friday_release_handoff_governance_review_report, friday_release_handoff_packet_report,
     friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
     friday_release_operator_checklist_report, friday_release_owner_followup_board_report,
@@ -103,6 +104,7 @@ use crate::friday::{
     write_friday_release_evidence_export_kit, write_friday_release_evidence_sla_monitor_report,
     write_friday_release_handoff_audit_trail, write_friday_release_handoff_dispatch_audit_trail,
     write_friday_release_handoff_dispatch_checklist,
+    write_friday_release_handoff_dispatch_governance_review,
     write_friday_release_handoff_governance_review, write_friday_release_handoff_packet,
     write_friday_release_incident_archive, write_friday_release_operator_checklist,
     write_friday_release_owner_followup_board_report,
@@ -1919,6 +1921,32 @@ pub async fn execute(command: Command) -> Result<()> {
             print_friday_release_handoff_dispatch_audit_trail(&trail);
         }
 
+        Command::FridayReleaseHandoffDispatchGovernance {
+            review_file,
+            trail_file,
+        } => {
+            let review = friday_release_handoff_dispatch_governance_review_report(
+                resolve_repo_relative_path(&review_file),
+                resolve_repo_relative_path(&trail_file),
+            );
+            write_friday_release_handoff_dispatch_governance_review(
+                resolve_repo_relative_path(&review_file),
+                &review,
+            )?;
+            print_friday_release_handoff_dispatch_governance_review(&review);
+        }
+
+        Command::FridayReleaseHandoffDispatchGovernanceJson {
+            review_file,
+            trail_file,
+        } => {
+            let review = friday_release_handoff_dispatch_governance_review_report(
+                resolve_repo_relative_path(&review_file),
+                resolve_repo_relative_path(&trail_file),
+            );
+            println!("{}", review.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -2530,6 +2558,10 @@ fn print_interactive_help() {
     println!("                           List an existing handoff dispatch audit trail");
     println!("  --friday-release-handoff-dispatch-audit-export [--trail file] [--output file]");
     println!("                           Export an existing handoff dispatch audit trail JSON");
+    println!("  --friday-release-handoff-dispatch-governance [export-dir]");
+    println!("                           Write handoff dispatch governance JSON without sending");
+    println!("  --friday-release-handoff-dispatch-governance-json [export-dir]");
+    println!("                           Print handoff dispatch governance as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -5000,6 +5032,54 @@ fn print_friday_release_handoff_dispatch_audit_trail(
     println!();
     println!("Commands:");
     for command in &trail.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_handoff_dispatch_governance_review(
+    review: &FridayReleaseHandoffDispatchGovernanceReview,
+) {
+    println!("Friday Release Handoff Dispatch Governance");
+    println!("===========================================");
+    println!(
+        "Approved: {} | state: {} | score: {}/100 | findings: {}",
+        yes_no(review.approved_for_external_handoff),
+        review.state.label(),
+        review.score_out_of_100,
+        review.finding_count
+    );
+    println!(
+        "Final decision gaps: {} | stale checklists: {} | revoked decisions: {} | blocker carryover: {} | release gate blocks: {}",
+        review.final_decision_gap_count,
+        review.stale_checklist_count,
+        review.revoked_active_decision_count,
+        review.blocked_carryover_count,
+        review.release_gate_blocking_count
+    );
+    if let Some(checklist_id) = &review.latest_checklist_id {
+        println!("Latest checklist: {checklist_id}");
+    }
+    if let Some(checklist_id) = &review.active_checklist_id {
+        println!("Active checklist: {checklist_id}");
+    }
+    println!("Review: {}", review.review_json);
+    println!("Trail: {}", review.trail_json);
+    println!();
+    println!("Dispatch governance findings:");
+    for finding in &review.findings {
+        println!(
+            "  - {} [{}] {}",
+            finding.title,
+            finding.source.label(),
+            finding.state.label()
+        );
+        println!("    checklist: {}", finding.checklist_id);
+        println!("    evidence: {}", finding.evidence_path);
+        println!("    next: {}", finding.next_action);
+    }
+    println!();
+    println!("Commands:");
+    for command in &review.commands {
         println!("  - {command}");
     }
 }
