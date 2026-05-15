@@ -653,6 +653,31 @@ pub enum Command {
         dispatch_note: String,
         privacy_note: String,
     },
+    /// Append a Friday release handoff dispatch audit record
+    FridayReleaseHandoffDispatchAudit {
+        trail_file: String,
+        checklist_file: String,
+        state: String,
+        operator: String,
+        final_decision_note: String,
+        supersedes_checklist_id: Option<String>,
+    },
+    /// Print a Friday release handoff dispatch audit trail as JSON
+    FridayReleaseHandoffDispatchAuditJson {
+        trail_file: String,
+        checklist_file: String,
+        state: String,
+        operator: String,
+        final_decision_note: String,
+        supersedes_checklist_id: Option<String>,
+    },
+    /// List an existing Friday release handoff dispatch audit trail
+    FridayReleaseHandoffDispatchAuditList { trail_file: String },
+    /// Export an existing Friday release handoff dispatch audit trail
+    FridayReleaseHandoffDispatchAuditExport {
+        trail_file: String,
+        output_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -2152,6 +2177,61 @@ impl Args {
                     privacy_note,
                 }
             }
+            "--friday-release-handoff-dispatch-audit" | "--friday-handoff-dispatch-audit" => {
+                let (
+                    trail_file,
+                    checklist_file,
+                    state,
+                    operator,
+                    final_decision_note,
+                    supersedes_checklist_id,
+                ) = parse_friday_release_handoff_dispatch_audit_args(&args);
+                Command::FridayReleaseHandoffDispatchAudit {
+                    trail_file,
+                    checklist_file,
+                    state,
+                    operator,
+                    final_decision_note,
+                    supersedes_checklist_id,
+                }
+            }
+            "--friday-release-handoff-dispatch-audit-json"
+            | "--friday-handoff-dispatch-audit-json" => {
+                let (
+                    trail_file,
+                    checklist_file,
+                    state,
+                    operator,
+                    final_decision_note,
+                    supersedes_checklist_id,
+                ) = parse_friday_release_handoff_dispatch_audit_args(&args);
+                Command::FridayReleaseHandoffDispatchAuditJson {
+                    trail_file,
+                    checklist_file,
+                    state,
+                    operator,
+                    final_decision_note,
+                    supersedes_checklist_id,
+                }
+            }
+            "--friday-release-handoff-dispatch-audit-list"
+            | "--friday-handoff-dispatch-audit-list" => {
+                Command::FridayReleaseHandoffDispatchAuditList {
+                    trail_file: parse_friday_release_handoff_dispatch_audit_trail_file_arg(&args),
+                }
+            }
+            "--friday-release-handoff-dispatch-audit-export"
+            | "--friday-handoff-dispatch-audit-export" => {
+                let trail_file = parse_friday_release_handoff_dispatch_audit_trail_file_arg(&args);
+                let output_file = flag_value(&args, "--output").unwrap_or_else(|| {
+                    "tmp/friday-dashboard/release-handoff-dispatch-audit-trail-export.json"
+                        .to_string()
+                });
+                Command::FridayReleaseHandoffDispatchAuditExport {
+                    trail_file,
+                    output_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -3596,6 +3676,55 @@ fn parse_friday_release_handoff_dispatch_checklist_args(
         dispatch_note,
         privacy_note,
     )
+}
+
+fn parse_friday_release_handoff_dispatch_audit_args(
+    args: &[String],
+) -> (String, String, String, String, String, Option<String>) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let trail_file = flag_value(args, "--trail")
+        .or_else(|| flag_value(args, "--ledger"))
+        .or_else(|| flag_value(args, "--output"))
+        .unwrap_or_else(|| format!("{export_dir}/release-handoff-dispatch-audit-trail.json"));
+    let checklist_file = flag_value(args, "--checklist")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-handoff-dispatch-checklist.json"));
+    let state = flag_value(args, "--state").unwrap_or_else(|| "draft".to_string());
+    let operator = flag_value(args, "--operator").unwrap_or_else(|| "operator".to_string());
+    let final_decision_note = flag_value(args, "--final-decision-note")
+        .or_else(|| flag_value(args, "--decision-note"))
+        .or_else(|| flag_value(args, "--note"))
+        .unwrap_or_else(|| "Recorded local dispatch checklist decision.".to_string());
+    let supersedes_checklist_id = flag_value(args, "--supersedes")
+        .or_else(|| flag_value(args, "--supersedes-checklist"))
+        .filter(|value| !value.trim().is_empty());
+
+    (
+        trail_file,
+        checklist_file,
+        state,
+        operator,
+        final_decision_note,
+        supersedes_checklist_id,
+    )
+}
+
+fn parse_friday_release_handoff_dispatch_audit_trail_file_arg(args: &[String]) -> String {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    flag_value(args, "--trail")
+        .or_else(|| flag_value(args, "--ledger"))
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-handoff-dispatch-audit-trail.json"))
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

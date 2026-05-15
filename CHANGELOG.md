@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Handoff Dispatch Audit at 100/100 with typed local-only dispatch audit trails, draft/ready/held/approved/sent-manually/revoked/blocked states, append/list/export/JSON commands, dashboard import/rendering, copyable dispatch audit summaries, and focused Rust/TypeScript coverage
+- opened Friday Release Handoff Dispatch Governance as the next set for validating dispatch audit trails before any external handoff is considered complete
 - completed Friday Release Handoff Dispatch Checklist at 100/100 with typed local-only dispatch checklist generation, ready/held/missing-recipient/missing-attachment/privacy-review/blocked states, non-sending CLI/JSON commands, dashboard import/rendering, copyable dispatch checklist text, and focused Rust/TypeScript coverage
 - opened Friday Release Handoff Dispatch Audit as the next set for preserving dispatch checklist history and operator final decisions before any external send
 - completed Friday Release Handoff Governance Review at 100/100 with typed local-only governance reviews, approved/held/needs-acknowledgement/stale-active-packet/blocked-carryover states, non-sending CLI/JSON commands, dashboard import/rendering, copyable governance notes, and focused Rust/TypeScript coverage

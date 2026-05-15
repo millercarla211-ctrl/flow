@@ -32,6 +32,7 @@ use flow::friday::{
     FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceAttachmentState,
     FridayReleaseEvidenceEscalationLevel, FridayReleaseEvidenceSlaState,
     FridayReleaseHandoffAuditRequest, FridayReleaseHandoffAuditState,
+    FridayReleaseHandoffDispatchAuditRequest, FridayReleaseHandoffDispatchAuditState,
     FridayReleaseHandoffDispatchChecklistRequest, FridayReleaseHandoffDispatchChecklistSource,
     FridayReleaseHandoffDispatchChecklistState, FridayReleaseHandoffGovernanceState,
     FridayReleaseHandoffPacketSectionKind, FridayReleaseIncidentOutcome,
@@ -46,9 +47,10 @@ use flow::friday::{
     FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus, FridayVerificationStatus,
     FridayWorkspaceStore, append_friday_release_candidate_to_archive,
     append_friday_release_checkpoint_signoff_to_ledger, append_friday_release_escalation_to_ledger,
-    append_friday_release_handoff_audit_to_trail, append_friday_release_incident_to_archive,
-    append_friday_release_operator_signoff, append_friday_release_promotion_to_ledger,
-    append_friday_trusted_host_runner_history,
+    append_friday_release_handoff_audit_to_trail,
+    append_friday_release_handoff_dispatch_audit_to_trail,
+    append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
+    append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -64,6 +66,7 @@ use flow::friday::{
     friday_release_checkpoint_review_board_report, friday_release_deployment_gate_report,
     friday_release_evidence_attachment_review_report, friday_release_evidence_export_kit_report,
     friday_release_evidence_sla_monitor_report_at,
+    friday_release_handoff_dispatch_audit_trail_report,
     friday_release_handoff_dispatch_checklist_report,
     friday_release_handoff_governance_review_report, friday_release_handoff_packet_report,
     friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
@@ -85,6 +88,7 @@ use flow::friday::{
     write_friday_release_checkpoint_review_board_report, write_friday_release_deployment_gate,
     write_friday_release_evidence_attachment_review, write_friday_release_evidence_export_kit,
     write_friday_release_evidence_sla_monitor_report,
+    write_friday_release_handoff_dispatch_audit_trail,
     write_friday_release_handoff_dispatch_checklist,
     write_friday_release_handoff_governance_review, write_friday_release_handoff_packet,
     write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
@@ -2868,6 +2872,90 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
                     && command.contains("--governance-review")
             })
     );
+    let release_handoff_dispatch_audit_trail_path =
+        root.join("release-handoff-dispatch-audit-trail.json");
+    let release_handoff_dispatch_audit_trail =
+        append_friday_release_handoff_dispatch_audit_to_trail(
+            &release_handoff_dispatch_audit_trail_path,
+            &release_handoff_dispatch_checklist_path,
+            FridayReleaseHandoffDispatchAuditRequest {
+                state: FridayReleaseHandoffDispatchAuditState::Blocked,
+                operator: "release-operator".to_string(),
+                final_decision_note:
+                    "Dispatch remains local until privacy and governance blockers are resolved."
+                        .to_string(),
+                supersedes_checklist_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(release_handoff_dispatch_audit_trail.record_count, 1);
+    assert_eq!(release_handoff_dispatch_audit_trail.blocked_count, 1);
+    assert_eq!(
+        release_handoff_dispatch_audit_trail.latest_state,
+        Some(FridayReleaseHandoffDispatchAuditState::Blocked)
+    );
+    assert_eq!(
+        release_handoff_dispatch_audit_trail
+            .latest_checklist_id
+            .as_deref(),
+        Some(release_handoff_dispatch_checklist.checklist_id.as_str())
+    );
+    assert_eq!(
+        release_handoff_dispatch_audit_trail
+            .active_checklist_id
+            .as_deref(),
+        Some(release_handoff_dispatch_checklist.checklist_id.as_str())
+    );
+    assert!(!release_handoff_dispatch_audit_trail.latest_ready_to_dispatch);
+    assert!(release_handoff_dispatch_audit_trail.unresolved_blocker_count > 0);
+    assert_eq!(
+        release_handoff_dispatch_audit_trail.blocker_carryover_count,
+        1
+    );
+    assert_eq!(release_handoff_dispatch_audit_trail.final_decision_count, 1);
+    assert!(
+        release_handoff_dispatch_audit_trail
+            .records
+            .iter()
+            .any(|record| {
+                record.state == FridayReleaseHandoffDispatchAuditState::Blocked
+                    && record.blocker_carryover > 0
+                    && record
+                        .final_decision_note
+                        .contains("Dispatch remains local")
+                    && record.audit_notes.contains("No automatic send: true")
+            })
+    );
+    assert!(
+        release_handoff_dispatch_audit_trail
+            .audit_summary_copy
+            .contains("Friday release handoff dispatch audit")
+    );
+    assert!(
+        release_handoff_dispatch_audit_trail
+            .commands
+            .iter()
+            .any(|command| {
+                command.contains("--friday-release-handoff-dispatch-audit-list")
+                    && command.contains("--trail")
+            })
+    );
+    let release_handoff_dispatch_audit_preview = friday_release_handoff_dispatch_audit_trail_report(
+        &release_handoff_dispatch_audit_trail_path,
+        release_handoff_dispatch_audit_trail.records.clone(),
+    );
+    assert_eq!(
+        release_handoff_dispatch_audit_preview.record_count,
+        release_handoff_dispatch_audit_trail.record_count
+    );
+    let release_handoff_dispatch_audit_export_path =
+        root.join("release-handoff-dispatch-audit-trail-export.json");
+    write_friday_release_handoff_dispatch_audit_trail(
+        &release_handoff_dispatch_audit_export_path,
+        &release_handoff_dispatch_audit_preview,
+    )
+    .unwrap();
+    assert!(release_handoff_dispatch_audit_export_path.exists());
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

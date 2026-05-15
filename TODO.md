@@ -845,16 +845,34 @@ Goal: turn approved handoff governance reviews into a final local dispatch check
 
 This set is complete. The next loop should open `Friday Release Handoff Dispatch Audit` and preserve generated dispatch checklists plus operator final decisions as local history before any external send.
 
-## Next Set: Friday Release Handoff Dispatch Audit
+## Completed Set: Friday Release Handoff Dispatch Audit
 
-Status: 0/100
+Status: 100/100
 
 Goal: preserve every generated release handoff dispatch checklist and operator decision as a local audit history before any external communication happens.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed handoff dispatch audit model that consumes dispatch checklists.
+- [x] Add audit states for draft, ready, held, approved, sent-manually, revoked, and blocked.
+- [x] Add append, list, export, and JSON commands without sending, deploying, building, uploading, or mutating external systems.
+- [x] Add dashboard import/rendering for dispatch history, latest checklist, operator final decision, blockers, and copyable audit summary.
+- [x] Add focused Rust/TypeScript coverage for audit append/list behavior, final decision preservation, blocker carryover, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Handoff Dispatch Governance` and validate dispatch audit trails before any external handoff is considered complete.
+
+## Next Set: Friday Release Handoff Dispatch Governance
+
+Status: 0/100
+
+Goal: validate handoff dispatch audit trails so Friday can prove the latest dispatch decision is approved or sent manually, blockers are resolved, revoked decisions are inactive, and final decision notes are present.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed handoff dispatch audit model that consumes dispatch checklists.
-- [ ] Add audit states for draft, ready, held, approved, sent-manually, revoked, and blocked.
-- [ ] Add append, list, export, and JSON commands without sending, deploying, building, uploading, or mutating external systems.
-- [ ] Add dashboard import/rendering for dispatch history, latest checklist, operator final decision, blockers, and copyable audit summary.
-- [ ] Add focused Rust/TypeScript coverage for audit append/list behavior, final decision preservation, blocker carryover, command safety, and dashboard rendering.
+- [ ] Add a typed handoff dispatch governance model that consumes dispatch audit trails.
+- [ ] Add governance states for approved, held, needs-final-decision, stale-checklist, revoked-active-decision, and blocked-carryover.
+- [ ] Add CLI and JSON commands that create governance reviews without sending, deploying, building, uploading, or mutating external systems.
+- [ ] Add dashboard import/rendering for latest dispatch decision, revoked/stale warnings, final decision gaps, blocker carryover, and copyable governance notes.
+- [ ] Add focused Rust/TypeScript coverage for governance scoring, revoked decision detection, final decision enforcement, blocker carryover, command safety, and dashboard rendering.

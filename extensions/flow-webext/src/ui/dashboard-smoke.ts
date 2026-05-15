@@ -15,6 +15,7 @@ import {
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseHandoffAuditTrail,
+  normalizeReleaseHandoffDispatchAuditTrail,
   normalizeReleaseHandoffDispatchChecklist,
   normalizeReleaseHandoffGovernanceReview,
   normalizeReleaseHandoffPacket,
@@ -2630,6 +2631,76 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-handoff-dispatch-checklist-json --output tmp/friday-dashboard/release-handoff-dispatch-checklist.json --governance-review tmp/friday-dashboard/release-handoff-governance-review.json --recipient <recipient> --attachment <file>",
     ],
   });
+  const releaseHandoffDispatchAuditTrail = normalizeReleaseHandoffDispatchAuditTrail({
+    trail_id: "friday-release-handoff-dispatch-audit-trail-smoke",
+    trail_json: "tmp/friday-dashboard/release-handoff-dispatch-audit-trail.json",
+    generated_at_unix_ms: 27,
+    product_name: "Friday",
+    local_only: true,
+    record_count: 1,
+    draft_count: 0,
+    ready_count: 0,
+    held_count: 0,
+    approved_count: 0,
+    sent_manually_count: 0,
+    revoked_count: 0,
+    blocked_count: 1,
+    active_audit_id:
+      "friday-release-handoff-dispatch-audit-friday-release-handoff-dispatch-checklist-smoke-27",
+    active_checklist_id: "friday-release-handoff-dispatch-checklist-smoke",
+    latest_audit_id:
+      "friday-release-handoff-dispatch-audit-friday-release-handoff-dispatch-checklist-smoke-27",
+    latest_checklist_id: "friday-release-handoff-dispatch-checklist-smoke",
+    latest_state: "blocked",
+    latest_ready_to_dispatch: false,
+    unresolved_blocker_count: 3,
+    blocker_carryover_count: 1,
+    final_decision_count: 1,
+    records: [
+      {
+        audit_id:
+          "friday-release-handoff-dispatch-audit-friday-release-handoff-dispatch-checklist-smoke-27",
+        checklist_id: "friday-release-handoff-dispatch-checklist-smoke",
+        checklist_json: "tmp/friday-dashboard/release-handoff-dispatch-checklist.json",
+        recorded_at_unix_ms: 27,
+        product_name: "Friday",
+        local_only: true,
+        state: "blocked",
+        operator: "release-operator",
+        final_decision_note:
+          "Dispatch remains local until privacy and governance blockers are resolved.",
+        supersedes_checklist_id: null,
+        checklist_ready_to_dispatch: false,
+        checklist_status: "blocked",
+        checklist_state: "blocked",
+        item_count: 6,
+        ready_count: 3,
+        recipient_count: 1,
+        attachment_count: 1,
+        privacy_review_count: 1,
+        missing_recipient_count: 0,
+        missing_attachment_count: 1,
+        blocked_count: 1,
+        release_gate_blocking_count: 3,
+        active: true,
+        blocker_carryover: 3,
+        audit_notes:
+          "Friday handoff dispatch audit: blocked\nOperator: release-operator\nChecklist: friday-release-handoff-dispatch-checklist-smoke\nFinal decision: Dispatch remains local until privacy and governance blockers are resolved.\nBlocker carryover: 3\nNo automatic send: true",
+        summary:
+          "release-operator recorded dispatch checklist friday-release-handoff-dispatch-checklist-smoke as blocked with 3 release-gate blocker(s).",
+      },
+    ],
+    audit_summary_copy:
+      "Friday release handoff dispatch audit\n- release-operator [blocked] friday-release-handoff-dispatch-checklist-smoke -> Dispatch remains local until privacy and governance blockers are resolved.\n  carryover blockers: 3",
+    summary:
+      "Friday release handoff dispatch audit has 1 record(s), 0 approved, 0 sent manually, 0 held, 1 blocked, and 1 blocker carryover record(s).",
+    commands: [
+      "flow --friday-release-handoff-dispatch-audit --trail tmp/friday-dashboard/release-handoff-dispatch-audit-trail.json --checklist <release-handoff-dispatch-checklist.json> --state draft --operator <name>",
+      "flow --friday-release-handoff-dispatch-audit-list --trail tmp/friday-dashboard/release-handoff-dispatch-audit-trail.json",
+      "flow --friday-release-handoff-dispatch-audit-export --trail tmp/friday-dashboard/release-handoff-dispatch-audit-trail.json --output tmp/friday-dashboard/release-handoff-dispatch-audit-trail.json",
+      "flow --friday-release-handoff-dispatch-audit-json --trail tmp/friday-dashboard/release-handoff-dispatch-audit-trail.json --checklist <release-handoff-dispatch-checklist.json>",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -3392,8 +3463,33 @@ export function dashboardSectionSmokeReport(
         ) &&
         releaseHandoffDispatchChecklist.commands.some((command) =>
           command.includes("--friday-release-handoff-dispatch-checklist"),
-        ),
+      ),
       `${releaseHandoffDispatchChecklist?.privacyReviewCount ?? 0} dispatch privacy review item(s)`,
+    ),
+    check(
+      "release-handoff-dispatch-audit-importable",
+      releaseHandoffDispatchAuditTrail?.recordCount === 1 &&
+        releaseHandoffDispatchAuditTrail.blockedCount === 1 &&
+        releaseHandoffDispatchAuditTrail.activeChecklistId ===
+          "friday-release-handoff-dispatch-checklist-smoke",
+      `${releaseHandoffDispatchAuditTrail?.recordCount ?? 0} dispatch audit record(s)`,
+    ),
+    check(
+      "release-handoff-dispatch-audit-copy",
+      releaseHandoffDispatchAuditTrail !== null &&
+        releaseHandoffDispatchAuditTrail.records.some(
+          (record) =>
+            record.state === "blocked" &&
+            record.blockerCarryover === 3 &&
+            record.finalDecisionNote.includes("Dispatch remains local"),
+        ) &&
+        releaseHandoffDispatchAuditTrail.auditSummaryCopy.includes(
+          "Friday release handoff dispatch audit",
+        ) &&
+        releaseHandoffDispatchAuditTrail.commands.some((command) =>
+          command.includes("--friday-release-handoff-dispatch-audit"),
+        ),
+      `${releaseHandoffDispatchAuditTrail?.blockerCarryoverCount ?? 0} dispatch audit carryover record(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

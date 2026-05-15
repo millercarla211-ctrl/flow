@@ -1730,6 +1730,73 @@ export interface FlowReleaseHandoffDispatchChecklist {
   commands: string[];
 }
 
+export type FlowReleaseHandoffDispatchAuditState =
+  | "draft"
+  | "ready"
+  | "held"
+  | "approved"
+  | "sent-manually"
+  | "revoked"
+  | "blocked";
+
+export interface FlowReleaseHandoffDispatchAuditRecord {
+  auditId: string;
+  checklistId: string;
+  checklistJson: string;
+  recordedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  state: FlowReleaseHandoffDispatchAuditState;
+  operator: string;
+  finalDecisionNote: string;
+  supersedesChecklistId: string | null;
+  checklistReadyToDispatch: boolean;
+  checklistStatus: FlowDashboardPanelStatus;
+  checklistState: FlowReleaseHandoffDispatchChecklistState;
+  itemCount: number;
+  readyCount: number;
+  recipientCount: number;
+  attachmentCount: number;
+  privacyReviewCount: number;
+  missingRecipientCount: number;
+  missingAttachmentCount: number;
+  blockedCount: number;
+  releaseGateBlockingCount: number;
+  active: boolean;
+  blockerCarryover: number;
+  auditNotes: string;
+  summary: string;
+}
+
+export interface FlowReleaseHandoffDispatchAuditTrail {
+  trailId: string;
+  trailJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  recordCount: number;
+  draftCount: number;
+  readyCount: number;
+  heldCount: number;
+  approvedCount: number;
+  sentManuallyCount: number;
+  revokedCount: number;
+  blockedCount: number;
+  activeAuditId: string | null;
+  activeChecklistId: string | null;
+  latestAuditId: string | null;
+  latestChecklistId: string | null;
+  latestState: FlowReleaseHandoffDispatchAuditState | null;
+  latestReadyToDispatch: boolean;
+  unresolvedBlockerCount: number;
+  blockerCarryoverCount: number;
+  finalDecisionCount: number;
+  records: FlowReleaseHandoffDispatchAuditRecord[];
+  auditSummaryCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -5316,6 +5383,136 @@ export function normalizeReleaseHandoffDispatchChecklist(
   };
 }
 
+export function normalizeReleaseHandoffDispatchAuditTrail(
+  value: unknown,
+): FlowReleaseHandoffDispatchAuditTrail | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const trail =
+    root.release_handoff_dispatch_audit_trail &&
+    typeof root.release_handoff_dispatch_audit_trail === "object"
+      ? (root.release_handoff_dispatch_audit_trail as Record<string, unknown>)
+      : root.releaseHandoffDispatchAuditTrail &&
+          typeof root.releaseHandoffDispatchAuditTrail === "object"
+        ? (root.releaseHandoffDispatchAuditTrail as Record<string, unknown>)
+        : root;
+  const trailId = stringValue(trail.trail_id, trail.trailId);
+  const records = arrayValue(trail.records)
+    .map((item): FlowReleaseHandoffDispatchAuditRecord | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const auditId = stringValue(record.audit_id, record.auditId);
+      if (!auditId) {
+        return null;
+      }
+      return {
+        auditId,
+        checklistId: stringValue(record.checklist_id, record.checklistId),
+        checklistJson: stringValue(record.checklist_json, record.checklistJson),
+        recordedAtUnixMs: stringValue(
+          record.recorded_at_unix_ms,
+          record.recordedAtUnixMs,
+        ),
+        productName: stringValue(record.product_name, record.productName),
+        localOnly: booleanValue(record.local_only, record.localOnly),
+        state: releaseHandoffDispatchAuditState(stringValue(record.state)),
+        operator: stringValue(record.operator),
+        finalDecisionNote: stringValue(
+          record.final_decision_note,
+          record.finalDecisionNote,
+        ),
+        supersedesChecklistId:
+          stringValue(record.supersedes_checklist_id, record.supersedesChecklistId) || null,
+        checklistReadyToDispatch: booleanValue(
+          record.checklist_ready_to_dispatch,
+          record.checklistReadyToDispatch,
+        ),
+        checklistStatus: panelStatus(stringValue(record.checklist_status, record.checklistStatus)),
+        checklistState: releaseHandoffDispatchChecklistState(
+          stringValue(record.checklist_state, record.checklistState),
+        ),
+        itemCount: numberValue(record.item_count, record.itemCount),
+        readyCount: numberValue(record.ready_count, record.readyCount),
+        recipientCount: numberValue(record.recipient_count, record.recipientCount),
+        attachmentCount: numberValue(record.attachment_count, record.attachmentCount),
+        privacyReviewCount: numberValue(
+          record.privacy_review_count,
+          record.privacyReviewCount,
+        ),
+        missingRecipientCount: numberValue(
+          record.missing_recipient_count,
+          record.missingRecipientCount,
+        ),
+        missingAttachmentCount: numberValue(
+          record.missing_attachment_count,
+          record.missingAttachmentCount,
+        ),
+        blockedCount: numberValue(record.blocked_count, record.blockedCount),
+        releaseGateBlockingCount: numberValue(
+          record.release_gate_blocking_count,
+          record.releaseGateBlockingCount,
+        ),
+        active: booleanValue(record.active),
+        blockerCarryover: numberValue(record.blocker_carryover, record.blockerCarryover),
+        auditNotes: stringValue(record.audit_notes, record.auditNotes),
+        summary: stringValue(record.summary),
+      };
+    })
+    .filter((record): record is FlowReleaseHandoffDispatchAuditRecord => record !== null);
+
+  if (!trailId && records.length === 0) {
+    return null;
+  }
+
+  return {
+    trailId,
+    trailJson: stringValue(trail.trail_json, trail.trailJson),
+    generatedAtUnixMs: stringValue(trail.generated_at_unix_ms, trail.generatedAtUnixMs),
+    productName: stringValue(trail.product_name, trail.productName),
+    localOnly: booleanValue(trail.local_only, trail.localOnly),
+    recordCount: numberValue(trail.record_count, trail.recordCount),
+    draftCount: numberValue(trail.draft_count, trail.draftCount),
+    readyCount: numberValue(trail.ready_count, trail.readyCount),
+    heldCount: numberValue(trail.held_count, trail.heldCount),
+    approvedCount: numberValue(trail.approved_count, trail.approvedCount),
+    sentManuallyCount: numberValue(trail.sent_manually_count, trail.sentManuallyCount),
+    revokedCount: numberValue(trail.revoked_count, trail.revokedCount),
+    blockedCount: numberValue(trail.blocked_count, trail.blockedCount),
+    activeAuditId: stringValue(trail.active_audit_id, trail.activeAuditId) || null,
+    activeChecklistId: stringValue(trail.active_checklist_id, trail.activeChecklistId) || null,
+    latestAuditId: stringValue(trail.latest_audit_id, trail.latestAuditId) || null,
+    latestChecklistId: stringValue(trail.latest_checklist_id, trail.latestChecklistId) || null,
+    latestState:
+      trail.latest_state || trail.latestState
+        ? releaseHandoffDispatchAuditState(stringValue(trail.latest_state, trail.latestState))
+        : null,
+    latestReadyToDispatch: booleanValue(
+      trail.latest_ready_to_dispatch,
+      trail.latestReadyToDispatch,
+    ),
+    unresolvedBlockerCount: numberValue(
+      trail.unresolved_blocker_count,
+      trail.unresolvedBlockerCount,
+    ),
+    blockerCarryoverCount: numberValue(
+      trail.blocker_carryover_count,
+      trail.blockerCarryoverCount,
+    ),
+    finalDecisionCount: numberValue(trail.final_decision_count, trail.finalDecisionCount),
+    records,
+    auditSummaryCopy: stringValue(trail.audit_summary_copy, trail.auditSummaryCopy),
+    summary: stringValue(trail.summary),
+    commands: arrayValue(trail.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -5839,6 +6036,23 @@ function releaseHandoffDispatchChecklistSource(
     return value;
   }
   return "dispatch-note";
+}
+
+function releaseHandoffDispatchAuditState(
+  value: string,
+): FlowReleaseHandoffDispatchAuditState {
+  if (
+    value === "draft" ||
+    value === "ready" ||
+    value === "held" ||
+    value === "approved" ||
+    value === "sent-manually" ||
+    value === "revoked" ||
+    value === "blocked"
+  ) {
+    return value;
+  }
+  return "draft";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {
