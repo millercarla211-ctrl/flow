@@ -12,6 +12,7 @@ import {
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseExternalReceiptArchive,
+  normalizeReleaseClosureLedger,
   normalizeReleaseReceiptReviewBoard,
   normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffDispatchAuditTrail,
@@ -64,6 +65,7 @@ import {
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseEvidenceSlaMonitorReport,
   type FlowReleaseExternalReceiptArchive,
+  type FlowReleaseClosureLedger,
   type FlowReleaseReceiptReviewBoardReport,
   type FlowReleaseHandoffAuditTrail,
   type FlowReleaseHandoffDispatchAuditTrail,
@@ -157,6 +159,7 @@ type UiState = {
   dashboardReleaseOutboundReviewLedger: FlowReleaseOutboundReviewLedger | null;
   dashboardReleaseExternalReceiptArchive: FlowReleaseExternalReceiptArchive | null;
   dashboardReleaseReceiptReviewBoard: FlowReleaseReceiptReviewBoardReport | null;
+  dashboardReleaseClosureLedger: FlowReleaseClosureLedger | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -3427,6 +3430,70 @@ function renderReleaseReceiptReviewBoard(
   `;
 }
 
+function renderReleaseClosureLedger(ledger: FlowReleaseClosureLedger | null) {
+  if (!ledger) {
+    return "";
+  }
+  return `
+    <article class="feature-card dashboard-release-closure-ledger">
+      <div class="card-topline">
+        <span class="eyebrow">Release closure</span>
+        <span class="badge ${badgeTone(ledger.blockedOutcomeCount > 0 ? "blocked" : "ready")}">
+          ${escapeHtml(ledger.latestState ?? "draft")}
+        </span>
+      </div>
+      <h3>Local closure ledger</h3>
+      <p>${escapeHtml(ledger.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${ledger.recordCount}</strong><small>records</small></span>
+        <span><strong>${ledger.closedCount}</strong><small>closed</small></span>
+        <span><strong>${ledger.carryoverCount}</strong><small>carryover</small></span>
+        <span><strong>${ledger.blockedCount}</strong><small>blocked</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Active closure</strong> ${escapeHtml(ledger.activeClosureId ?? "none")}</span>
+        <span><strong>Latest review</strong> ${escapeHtml(ledger.latestReceiptReviewId ?? "none")}</span>
+        <span><strong>Review decision</strong> ${escapeHtml(ledger.latestReviewDecision ?? "none")}</span>
+        <span><strong>Ledger</strong> ${escapeHtml(ledger.ledgerJson)}</span>
+      </div>
+      ${
+        ledger.releaseGateBlockingCount > 0 || ledger.unresolvedBlockerCount > 0
+          ? `<p class="soft-warning">Release closure stays local while ${ledger.releaseGateBlockingCount} gate blocker(s) and ${ledger.unresolvedBlockerCount} unresolved blocker(s) remain.</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${ledger.records
+          .slice()
+          .reverse()
+          .slice(0, 8)
+          .map(
+            (record) => `
+              <div class="runner-package-file ${
+                record.state === "closed" && !record.externallyMutatedByFriday
+                  ? "present"
+                  : "missing"
+              }">
+                <strong>${escapeHtml(record.operator)} - ${escapeHtml(record.state)}</strong>
+                <small>${record.readyForExternalCompletion ? "ready" : "not ready"} / ${escapeHtml(record.reviewDecision)}</small>
+                <code>${escapeHtml(record.receiptReviewJson || "inline")}</code>
+                <span>${escapeHtml(record.closureNote)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-closure-command">
+          Copy closure command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-closure-summary">
+          Copy closure summary
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -3664,6 +3731,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseOutboundReviewLedger(state.dashboardReleaseOutboundReviewLedger)}
       ${renderReleaseExternalReceiptArchive(state.dashboardReleaseExternalReceiptArchive)}
       ${renderReleaseReceiptReviewBoard(state.dashboardReleaseReceiptReviewBoard)}
+      ${renderReleaseClosureLedger(state.dashboardReleaseClosureLedger)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3820,6 +3888,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseOutboundReviewLedger: null,
     dashboardReleaseExternalReceiptArchive: null,
     dashboardReleaseReceiptReviewBoard: null,
+    dashboardReleaseClosureLedger: null,
   };
 
   function render() {
@@ -4158,6 +4227,8 @@ export async function mountFlowApp(surfaceInput: string) {
         normalizeReleaseExternalReceiptArchive(parsed);
       const releaseReceiptReviewBoard =
         normalizeReleaseReceiptReviewBoard(parsed);
+      const releaseClosureLedger =
+        normalizeReleaseClosureLedger(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -4232,8 +4303,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseExternalReceiptArchive ?? state.dashboardReleaseExternalReceiptArchive;
       state.dashboardReleaseReceiptReviewBoard =
         releaseReceiptReviewBoard ?? state.dashboardReleaseReceiptReviewBoard;
+      state.dashboardReleaseClosureLedger =
+        releaseClosureLedger ?? state.dashboardReleaseClosureLedger;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseReceiptReviewBoard
+      state.status = releaseClosureLedger
+        ? `Imported release closure ledger with ${releaseClosureLedger.recordCount} record(s) from ${file.name}.`
+        : releaseReceiptReviewBoard
         ? `Imported release receipt review board ${releaseReceiptReviewBoard.decision} at ${releaseReceiptReviewBoard.scoreOutOf100}/100 from ${file.name}.`
         : releaseExternalReceiptArchive
         ? `Imported release external receipt archive with ${releaseExternalReceiptArchive.recordCount} record(s) from ${file.name}.`
@@ -5392,6 +5467,39 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseClosureCommand() {
+    const command = state.dashboardReleaseClosureLedger?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release closure command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release closure command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseClosureSummary() {
+    const copy =
+      state.dashboardReleaseClosureLedger?.closureSummaryCopy ?? "";
+    if (!copy) {
+      state.status = "No release closure summary is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release closure summary copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -5860,6 +5968,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-receipt-review-notes']")
       ?.addEventListener("click", () => {
         void copyReleaseReceiptReviewNotes();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-closure-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseClosureCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-closure-summary']")
+      ?.addEventListener("click", () => {
+        void copyReleaseClosureSummary();
       });
 
     mountRoot

@@ -971,16 +971,34 @@ Goal: consolidate outbound reviews and external receipt archives into a final lo
 
 This set is complete. The next loop should open `Friday Release Closure Ledger` and preserve reviewed receipt decisions, operator closure notes, carryover commitments, and final release outcome history without external mutation.
 
-## Next Set: Friday Release Closure Ledger
+## Completed Set: Friday Release Closure Ledger
 
-Status: 0/100
+Status: 100/100
 
 Goal: preserve receipt review board outcomes as a local closure history so Friday can show which releases are closed, held, blocked, carried over, revoked, or superseded without sending, deploying, uploading, emailing, or mutating external systems.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed closure ledger that consumes release receipt review boards.
+- [x] Add closure states for draft, closed, held, carryover, blocked, revoked, and superseded.
+- [x] Add append/list/export/JSON commands that preserve closure records without external mutation.
+- [x] Add dashboard import/rendering for closure history, active review board, operator closure notes, carryover, and copyable closure summaries.
+- [x] Add focused Rust/TypeScript coverage for closed receipt decisions, blocked carryover, revoked/superseded records, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Continuity Journal` and turn closure ledgers into a searchable local continuity surface for next-release planning, carryover ownership, and historical release outcome review.
+
+## Next Set: Friday Release Continuity Journal
+
+Status: 0/100
+
+Goal: connect release closure ledgers into a local continuity journal so Friday can show historical release outcomes, recurring blockers, carryover commitments, and next-release planning notes without external mutation.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed closure ledger that consumes release receipt review boards.
-- [ ] Add closure states for draft, closed, held, carryover, blocked, revoked, and superseded.
-- [ ] Add append/list/export/JSON commands that preserve closure records without external mutation.
-- [ ] Add dashboard import/rendering for closure history, active review board, operator closure notes, carryover, and copyable closure summaries.
-- [ ] Add focused Rust/TypeScript coverage for closed receipt decisions, blocked carryover, revoked/superseded records, command safety, and dashboard rendering.
+- [ ] Add a typed continuity journal that consumes release closure ledgers.
+- [ ] Add journal entry kinds for outcome, carryover, blocker-pattern, next-release-note, operator-decision, and superseded-history.
+- [ ] Add append/list/export/JSON commands that preserve continuity history without external mutation.
+- [ ] Add dashboard import/rendering for release outcome history, recurring blockers, carryover ownership, and copyable next-release notes.
+- [ ] Add focused Rust/TypeScript coverage for closure history ingestion, recurring blocker detection, carryover summaries, command safety, and dashboard rendering.

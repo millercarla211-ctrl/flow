@@ -2210,6 +2210,78 @@ export interface FlowReleaseReceiptReviewBoardReport {
   commands: string[];
 }
 
+export type FlowReleaseClosureState =
+  | "draft"
+  | "closed"
+  | "held"
+  | "carryover"
+  | "blocked"
+  | "revoked"
+  | "superseded";
+
+export interface FlowReleaseClosureRecord {
+  closureId: string;
+  receiptReviewId: string;
+  receiptReviewJson: string;
+  recordedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  state: FlowReleaseClosureState;
+  operator: string;
+  closureNote: string;
+  externalReference: string | null;
+  carryoverCommitment: string | null;
+  supersedesClosureId: string | null;
+  reviewDecision: FlowReleaseReceiptReviewDecision;
+  reviewStatus: FlowDashboardPanelStatus;
+  reviewScoreOutOf100: number;
+  readyForExternalCompletion: boolean;
+  archiveId: string;
+  activeReceiptId: string | null;
+  latestReceiptState: FlowReleaseExternalReceiptState | null;
+  latestOutboundReviewId: string | null;
+  latestOutboundReviewState: FlowReleaseOutboundReviewState | null;
+  findingCount: number;
+  verifiedReceiptCount: number;
+  staleOrMissingCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  active: boolean;
+  externallyMutatedByFriday: boolean;
+  closureNotesCopy: string;
+  summary: string;
+}
+
+export interface FlowReleaseClosureLedger {
+  ledgerId: string;
+  ledgerJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  recordCount: number;
+  draftCount: number;
+  closedCount: number;
+  heldCount: number;
+  carryoverCount: number;
+  blockedCount: number;
+  revokedCount: number;
+  supersededCount: number;
+  activeClosureId: string | null;
+  latestClosureId: string | null;
+  latestState: FlowReleaseClosureState | null;
+  latestReceiptReviewId: string | null;
+  latestReviewDecision: FlowReleaseReceiptReviewDecision | null;
+  closedOutcomeCount: number;
+  carryoverOutcomeCount: number;
+  blockedOutcomeCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  records: FlowReleaseClosureRecord[];
+  closureSummaryCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -6815,6 +6887,197 @@ export function normalizeReleaseReceiptReviewBoard(
   };
 }
 
+export function normalizeReleaseClosureLedger(
+  value: unknown,
+): FlowReleaseClosureLedger | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const root = value as Record<string, unknown>;
+  const ledger =
+    root.ledger_id || root.ledgerId || root.records
+      ? root
+      : root.release_closure_ledger &&
+          typeof root.release_closure_ledger === "object"
+        ? (root.release_closure_ledger as Record<string, unknown>)
+        : root.releaseClosureLedger &&
+            typeof root.releaseClosureLedger === "object"
+          ? (root.releaseClosureLedger as Record<string, unknown>)
+          : root;
+  const records = arrayValue(ledger.records)
+    .map((item): FlowReleaseClosureRecord | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const closureId = stringValue(record.closure_id, record.closureId);
+      if (!closureId) {
+        return null;
+      }
+      return {
+        closureId,
+        receiptReviewId: stringValue(
+          record.receipt_review_id,
+          record.receiptReviewId,
+        ),
+        receiptReviewJson: stringValue(
+          record.receipt_review_json,
+          record.receiptReviewJson,
+        ),
+        recordedAtUnixMs: stringValue(
+          record.recorded_at_unix_ms,
+          record.recordedAtUnixMs,
+        ),
+        productName: stringValue(record.product_name, record.productName),
+        localOnly: booleanValue(record.local_only, record.localOnly),
+        state: releaseClosureState(stringValue(record.state)),
+        operator: stringValue(record.operator),
+        closureNote: stringValue(record.closure_note, record.closureNote),
+        externalReference:
+          stringValue(record.external_reference, record.externalReference) || null,
+        carryoverCommitment:
+          stringValue(record.carryover_commitment, record.carryoverCommitment) ||
+          null,
+        supersedesClosureId:
+          stringValue(record.supersedes_closure_id, record.supersedesClosureId) ||
+          null,
+        reviewDecision: releaseReceiptReviewDecision(
+          stringValue(record.review_decision, record.reviewDecision),
+        ),
+        reviewStatus: panelStatus(stringValue(record.review_status, record.reviewStatus)),
+        reviewScoreOutOf100: numberValue(
+          record.review_score_out_of_100,
+          record.reviewScoreOutOf100,
+        ),
+        readyForExternalCompletion: booleanValue(
+          record.ready_for_external_completion,
+          record.readyForExternalCompletion,
+        ),
+        archiveId: stringValue(record.archive_id, record.archiveId),
+        activeReceiptId:
+          stringValue(record.active_receipt_id, record.activeReceiptId) || null,
+        latestReceiptState:
+          record.latest_receipt_state || record.latestReceiptState
+            ? releaseExternalReceiptState(
+                stringValue(record.latest_receipt_state, record.latestReceiptState),
+              )
+            : null,
+        latestOutboundReviewId:
+          stringValue(
+            record.latest_outbound_review_id,
+            record.latestOutboundReviewId,
+          ) || null,
+        latestOutboundReviewState:
+          record.latest_outbound_review_state || record.latestOutboundReviewState
+            ? releaseOutboundReviewState(
+                stringValue(
+                  record.latest_outbound_review_state,
+                  record.latestOutboundReviewState,
+                ),
+              )
+            : null,
+        findingCount: numberValue(record.finding_count, record.findingCount),
+        verifiedReceiptCount: numberValue(
+          record.verified_receipt_count,
+          record.verifiedReceiptCount,
+        ),
+        staleOrMissingCount: numberValue(
+          record.stale_or_missing_count,
+          record.staleOrMissingCount,
+        ),
+        releaseGateBlockingCount: numberValue(
+          record.release_gate_blocking_count,
+          record.releaseGateBlockingCount,
+        ),
+        unresolvedBlockerCount: numberValue(
+          record.unresolved_blocker_count,
+          record.unresolvedBlockerCount,
+        ),
+        active: booleanValue(record.active),
+        externallyMutatedByFriday: booleanValue(
+          record.externally_mutated_by_friday,
+          record.externallyMutatedByFriday,
+        ),
+        closureNotesCopy: stringValue(
+          record.closure_notes_copy,
+          record.closureNotesCopy,
+        ),
+        summary: stringValue(record.summary),
+      };
+    })
+    .filter((record): record is FlowReleaseClosureRecord => record !== null);
+  const ledgerId = stringValue(ledger.ledger_id, ledger.ledgerId);
+
+  if (!ledgerId && records.length === 0) {
+    return null;
+  }
+
+  return {
+    ledgerId,
+    ledgerJson: stringValue(ledger.ledger_json, ledger.ledgerJson),
+    generatedAtUnixMs: stringValue(
+      ledger.generated_at_unix_ms,
+      ledger.generatedAtUnixMs,
+    ),
+    productName: stringValue(ledger.product_name, ledger.productName),
+    localOnly: booleanValue(ledger.local_only, ledger.localOnly),
+    recordCount: numberValue(ledger.record_count, ledger.recordCount),
+    draftCount: numberValue(ledger.draft_count, ledger.draftCount),
+    closedCount: numberValue(ledger.closed_count, ledger.closedCount),
+    heldCount: numberValue(ledger.held_count, ledger.heldCount),
+    carryoverCount: numberValue(ledger.carryover_count, ledger.carryoverCount),
+    blockedCount: numberValue(ledger.blocked_count, ledger.blockedCount),
+    revokedCount: numberValue(ledger.revoked_count, ledger.revokedCount),
+    supersededCount: numberValue(ledger.superseded_count, ledger.supersededCount),
+    activeClosureId:
+      stringValue(ledger.active_closure_id, ledger.activeClosureId) || null,
+    latestClosureId:
+      stringValue(ledger.latest_closure_id, ledger.latestClosureId) || null,
+    latestState:
+      ledger.latest_state || ledger.latestState
+        ? releaseClosureState(stringValue(ledger.latest_state, ledger.latestState))
+        : null,
+    latestReceiptReviewId:
+      stringValue(ledger.latest_receipt_review_id, ledger.latestReceiptReviewId) ||
+      null,
+    latestReviewDecision:
+      ledger.latest_review_decision || ledger.latestReviewDecision
+        ? releaseReceiptReviewDecision(
+            stringValue(ledger.latest_review_decision, ledger.latestReviewDecision),
+          )
+        : null,
+    closedOutcomeCount: numberValue(
+      ledger.closed_outcome_count,
+      ledger.closedOutcomeCount,
+    ),
+    carryoverOutcomeCount: numberValue(
+      ledger.carryover_outcome_count,
+      ledger.carryoverOutcomeCount,
+    ),
+    blockedOutcomeCount: numberValue(
+      ledger.blocked_outcome_count,
+      ledger.blockedOutcomeCount,
+    ),
+    releaseGateBlockingCount: numberValue(
+      ledger.release_gate_blocking_count,
+      ledger.releaseGateBlockingCount,
+    ),
+    unresolvedBlockerCount: numberValue(
+      ledger.unresolved_blocker_count,
+      ledger.unresolvedBlockerCount,
+    ),
+    records,
+    closureSummaryCopy: stringValue(
+      ledger.closure_summary_copy,
+      ledger.closureSummaryCopy,
+    ),
+    summary: stringValue(ledger.summary),
+    commands: arrayValue(ledger.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -7492,6 +7755,21 @@ function releaseReceiptReviewSource(value: string): FlowReleaseReceiptReviewSour
     return value;
   }
   return "receipt-archive";
+}
+
+function releaseClosureState(value: string): FlowReleaseClosureState {
+  if (
+    value === "draft" ||
+    value === "closed" ||
+    value === "held" ||
+    value === "carryover" ||
+    value === "blocked" ||
+    value === "revoked" ||
+    value === "superseded"
+  ) {
+    return value;
+  }
+  return "draft";
 }
 
 function releasePublicationBlockerKind(value: string): FlowReleasePublicationBlockerKind {

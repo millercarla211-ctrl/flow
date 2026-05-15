@@ -801,6 +801,35 @@ pub enum Command {
         review_file: String,
         receipt_archive_file: String,
     },
+    /// Append a Friday release closure record
+    FridayReleaseClosure {
+        ledger_file: String,
+        receipt_review_file: String,
+        state: String,
+        operator: String,
+        closure_note: String,
+        external_reference: Option<String>,
+        carryover_commitment: Option<String>,
+        supersedes_closure_id: Option<String>,
+    },
+    /// Print a Friday release closure ledger preview as JSON
+    FridayReleaseClosureJson {
+        ledger_file: String,
+        receipt_review_file: String,
+        state: String,
+        operator: String,
+        closure_note: String,
+        external_reference: Option<String>,
+        carryover_commitment: Option<String>,
+        supersedes_closure_id: Option<String>,
+    },
+    /// List an existing Friday release closure ledger
+    FridayReleaseClosureList { ledger_file: String },
+    /// Export an existing Friday release closure ledger
+    FridayReleaseClosureExport {
+        ledger_file: String,
+        output_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -2598,6 +2627,65 @@ impl Args {
                     receipt_archive_file,
                 }
             }
+            "--friday-release-closure" | "--friday-closure" => {
+                let (
+                    ledger_file,
+                    receipt_review_file,
+                    state,
+                    operator,
+                    closure_note,
+                    external_reference,
+                    carryover_commitment,
+                    supersedes_closure_id,
+                ) = parse_friday_release_closure_args(&args);
+                Command::FridayReleaseClosure {
+                    ledger_file,
+                    receipt_review_file,
+                    state,
+                    operator,
+                    closure_note,
+                    external_reference,
+                    carryover_commitment,
+                    supersedes_closure_id,
+                }
+            }
+            "--friday-release-closure-json" | "--friday-closure-json" => {
+                let (
+                    ledger_file,
+                    receipt_review_file,
+                    state,
+                    operator,
+                    closure_note,
+                    external_reference,
+                    carryover_commitment,
+                    supersedes_closure_id,
+                ) = parse_friday_release_closure_args(&args);
+                Command::FridayReleaseClosureJson {
+                    ledger_file,
+                    receipt_review_file,
+                    state,
+                    operator,
+                    closure_note,
+                    external_reference,
+                    carryover_commitment,
+                    supersedes_closure_id,
+                }
+            }
+            "--friday-release-closure-list" | "--friday-closure-list" => {
+                Command::FridayReleaseClosureList {
+                    ledger_file: parse_friday_release_closure_ledger_file_arg(&args),
+                }
+            }
+            "--friday-release-closure-export" | "--friday-closure-export" => {
+                let ledger_file = parse_friday_release_closure_ledger_file_arg(&args);
+                let output_file = flag_value(&args, "--output").unwrap_or_else(|| {
+                    "tmp/friday-dashboard/release-closure-ledger-export.json".to_string()
+                });
+                Command::FridayReleaseClosureExport {
+                    ledger_file,
+                    output_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -4354,6 +4442,72 @@ fn parse_friday_release_receipt_review_board_args(args: &[String]) -> (String, S
         .unwrap_or_else(|| format!("{export_dir}/release-external-receipt-archive.json"));
 
     (review_file, receipt_archive_file)
+}
+
+fn parse_friday_release_closure_args(
+    args: &[String],
+) -> (
+    String,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let ledger_file = flag_value(args, "--ledger")
+        .or_else(|| flag_value(args, "--output"))
+        .unwrap_or_else(|| format!("{export_dir}/release-closure-ledger.json"));
+    let receipt_review_file = flag_value(args, "--receipt-review")
+        .or_else(|| flag_value(args, "--review"))
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-receipt-review-board.json"));
+    let state = flag_value(args, "--state").unwrap_or_else(|| "draft".to_string());
+    let operator = flag_value(args, "--operator")
+        .or_else(|| flag_value(args, "--reviewer"))
+        .unwrap_or_else(|| "operator".to_string());
+    let closure_note = flag_value(args, "--closure-note")
+        .or_else(|| flag_value(args, "--note"))
+        .unwrap_or_else(|| "Recorded local release closure outcome.".to_string());
+    let external_reference = flag_value(args, "--reference")
+        .or_else(|| flag_value(args, "--external-reference"))
+        .filter(|value| !value.trim().is_empty());
+    let carryover_commitment = flag_value(args, "--carryover")
+        .or_else(|| flag_value(args, "--carryover-commitment"))
+        .filter(|value| !value.trim().is_empty());
+    let supersedes_closure_id = flag_value(args, "--supersedes")
+        .or_else(|| flag_value(args, "--supersedes-closure"))
+        .filter(|value| !value.trim().is_empty());
+
+    (
+        ledger_file,
+        receipt_review_file,
+        state,
+        operator,
+        closure_note,
+        external_reference,
+        carryover_commitment,
+        supersedes_closure_id,
+    )
+}
+
+fn parse_friday_release_closure_ledger_file_arg(args: &[String]) -> String {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    flag_value(args, "--ledger")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-closure-ledger.json"))
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

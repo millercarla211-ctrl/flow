@@ -27,25 +27,26 @@ use flow::friday::{
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayReleaseCandidateArchiveEntry, FridayReleaseChecklistSignoffDecision,
     FridayReleaseCheckpointDecision, FridayReleaseCheckpointSignoffDecision,
-    FridayReleaseCheckpointSignoffRequest, FridayReleaseDeploymentGateDecision,
-    FridayReleaseDeploymentTarget, FridayReleaseEscalationGateOutcome,
-    FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceAttachmentState,
-    FridayReleaseEvidenceEscalationLevel, FridayReleaseEvidenceSlaState,
-    FridayReleaseExternalReceiptKind, FridayReleaseExternalReceiptRequest,
-    FridayReleaseExternalReceiptState, FridayReleaseHandoffAuditRequest,
-    FridayReleaseHandoffAuditState, FridayReleaseHandoffCompletionRequest,
-    FridayReleaseHandoffCompletionState, FridayReleaseHandoffDispatchAuditRequest,
-    FridayReleaseHandoffDispatchAuditState, FridayReleaseHandoffDispatchChecklistRequest,
-    FridayReleaseHandoffDispatchChecklistSource, FridayReleaseHandoffDispatchChecklistState,
-    FridayReleaseHandoffDispatchGovernanceState, FridayReleaseHandoffGovernanceState,
-    FridayReleaseHandoffPacketSectionKind, FridayReleaseIncidentOutcome,
-    FridayReleaseIncidentSeverity, FridayReleaseOutboundReviewRequest,
-    FridayReleaseOutboundReviewState, FridayReleaseOwnerFollowUpCompletionState,
-    FridayReleasePreventionActionKind, FridayReleasePreventionFindingKind,
-    FridayReleasePromotionDecision, FridayReleasePromotionRecordRequest,
-    FridayReleasePublicationRequest, FridayReleasePublicationState, FridayReleaseQaCheckStatus,
-    FridayReleaseReceiptReviewDecision, FridayResearchWorkflow, FridayRouteVisualStatus,
-    FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
+    FridayReleaseCheckpointSignoffRequest, FridayReleaseClosureRequest, FridayReleaseClosureState,
+    FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget,
+    FridayReleaseEscalationGateOutcome, FridayReleaseEscalationOwnerResponse,
+    FridayReleaseEvidenceAttachmentState, FridayReleaseEvidenceEscalationLevel,
+    FridayReleaseEvidenceSlaState, FridayReleaseExternalReceiptKind,
+    FridayReleaseExternalReceiptRequest, FridayReleaseExternalReceiptState,
+    FridayReleaseHandoffAuditRequest, FridayReleaseHandoffAuditState,
+    FridayReleaseHandoffCompletionRequest, FridayReleaseHandoffCompletionState,
+    FridayReleaseHandoffDispatchAuditRequest, FridayReleaseHandoffDispatchAuditState,
+    FridayReleaseHandoffDispatchChecklistRequest, FridayReleaseHandoffDispatchChecklistSource,
+    FridayReleaseHandoffDispatchChecklistState, FridayReleaseHandoffDispatchGovernanceState,
+    FridayReleaseHandoffGovernanceState, FridayReleaseHandoffPacketSectionKind,
+    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
+    FridayReleaseOutboundReviewRequest, FridayReleaseOutboundReviewState,
+    FridayReleaseOwnerFollowUpCompletionState, FridayReleasePreventionActionKind,
+    FridayReleasePreventionFindingKind, FridayReleasePromotionDecision,
+    FridayReleasePromotionRecordRequest, FridayReleasePublicationRequest,
+    FridayReleasePublicationState, FridayReleaseQaCheckStatus, FridayReleaseReceiptReviewDecision,
+    FridayResearchWorkflow, FridayRouteVisualStatus, FridayRuntimeSurfaceStore,
+    FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
     FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
@@ -68,7 +69,8 @@ use flow::friday::{
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_release_candidate_archive_report,
     friday_release_candidate_entry_from_gate, friday_release_checkpoint_evidence_vault_report,
-    friday_release_checkpoint_review_board_report, friday_release_deployment_gate_report,
+    friday_release_checkpoint_review_board_report, friday_release_closure_ledger_report,
+    friday_release_closure_record_from_receipt_review, friday_release_deployment_gate_report,
     friday_release_evidence_attachment_review_report, friday_release_evidence_export_kit_report,
     friday_release_evidence_sla_monitor_report_at, friday_release_external_receipt_archive_report,
     friday_release_external_receipt_record_from_outbound_review,
@@ -96,9 +98,9 @@ use flow::friday::{
     run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command_bridge_with_executor,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
     write_friday_release_checkpoint_evidence_vault,
-    write_friday_release_checkpoint_review_board_report, write_friday_release_deployment_gate,
-    write_friday_release_evidence_attachment_review, write_friday_release_evidence_export_kit,
-    write_friday_release_evidence_sla_monitor_report,
+    write_friday_release_checkpoint_review_board_report, write_friday_release_closure_ledger,
+    write_friday_release_deployment_gate, write_friday_release_evidence_attachment_review,
+    write_friday_release_evidence_export_kit, write_friday_release_evidence_sla_monitor_report,
     write_friday_release_external_receipt_archive, write_friday_release_handoff_completion_ledger,
     write_friday_release_handoff_dispatch_audit_trail,
     write_friday_release_handoff_dispatch_checklist,
@@ -3307,6 +3309,72 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert!(release_receipt_review_board.commands.iter().any(|command| {
         command.contains("--friday-release-receipt-review-board")
             && command.contains("--receipt-archive")
+    }));
+    let release_closure_ledger_path = root.join("release-closure-ledger.json");
+    let release_closure_record = friday_release_closure_record_from_receipt_review(
+        &release_receipt_review_board_path,
+        FridayReleaseClosureRequest {
+            state: FridayReleaseClosureState::Closed,
+            operator: "release-operator".to_string(),
+            closure_note: "Closure remains local until receipt review blockers clear.".to_string(),
+            external_reference: Some("operator-owned-reference".to_string()),
+            carryover_commitment: Some(
+                "Resolve blocked receipt review before closure.".to_string(),
+            ),
+            supersedes_closure_id: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        release_closure_record.state,
+        FridayReleaseClosureState::Blocked
+    );
+    assert!(!release_closure_record.ready_for_external_completion);
+    assert!(!release_closure_record.externally_mutated_by_friday);
+    assert_eq!(
+        release_closure_record.review_decision,
+        FridayReleaseReceiptReviewDecision::BlockedReview
+    );
+    assert!(
+        release_closure_record
+            .closure_notes_copy
+            .contains("Friday release closure ledger")
+    );
+    assert!(
+        release_closure_record
+            .closure_notes_copy
+            .contains("No external mutation by Friday: true")
+    );
+    let release_closure_ledger = friday_release_closure_ledger_report(
+        &release_closure_ledger_path,
+        vec![release_closure_record],
+    );
+    write_friday_release_closure_ledger(&release_closure_ledger_path, &release_closure_ledger)
+        .unwrap();
+    assert_eq!(release_closure_ledger.record_count, 1);
+    assert_eq!(release_closure_ledger.blocked_count, 1);
+    assert_eq!(release_closure_ledger.closed_count, 0);
+    assert_eq!(release_closure_ledger.closed_outcome_count, 0);
+    assert_eq!(release_closure_ledger.blocked_outcome_count, 1);
+    assert!(
+        release_closure_ledger
+            .active_closure_id
+            .as_deref()
+            .unwrap_or_default()
+            .contains("friday-release-closure")
+    );
+    assert!(
+        release_closure_ledger
+            .closure_summary_copy
+            .contains("Friday release closure ledger")
+    );
+    assert!(
+        release_closure_ledger
+            .closure_summary_copy
+            .contains("Friday did not fetch, send, publish, deploy, upload, or email")
+    );
+    assert!(release_closure_ledger.commands.iter().any(|command| {
+        command.contains("--friday-release-closure") && command.contains("--ledger")
     }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);

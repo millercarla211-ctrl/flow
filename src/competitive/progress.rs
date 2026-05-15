@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-receipt-review-model",
-            "Typed release receipt review board model",
+            "release-closure-ledger-model",
+            "Typed release closure ledger model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseReceiptReviewBoardReport` consumes external receipt archives and summarizes final local release evidence decisions",
-            "open the next Friday release closure ledger set",
+            "`FridayReleaseClosureLedger` consumes release receipt review boards and preserves local closure history",
+            "open the next Friday release continuity journal set",
         ),
         item(
-            "release-receipt-review-decisions",
-            "Verified, held, missing-receipt, stale-evidence, blocked-review, revoked-receipt, and carryover decisions",
+            "release-closure-states",
+            "Draft, closed, held, carryover, blocked, revoked, and superseded closure states",
             20,
             CompletionItemStatus::Done,
-            "receipt review findings rank blocked outbound reviews, stale evidence, missing receipts, revoked receipts, carryover, and verified evidence explicitly",
-            "open the next Friday release closure ledger set",
+            "closed requests downgrade to blocked while receipt review blockers remain, and carryover commitments stay explicit",
+            "open the next Friday release continuity journal set",
         ),
         item(
-            "release-receipt-review-cli",
-            "Release receipt review CLI and JSON commands",
+            "release-closure-cli",
+            "Release closure append, list, export, and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-receipt-review-board` generates review boards without fetching, sending, publishing, deploying, uploading, or emailing",
-            "open the next Friday release closure ledger set",
+            "`flow --friday-release-closure` preserves closure records without fetching, sending, publishing, deploying, uploading, or emailing",
+            "open the next Friday release continuity journal set",
         ),
         item(
-            "release-receipt-review-dashboard",
-            "Dashboard release receipt review rendering",
+            "release-closure-dashboard",
+            "Dashboard release closure ledger rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports receipt review boards and renders decision, score, active evidence, blockers, findings, command copy, and review notes",
-            "open the next Friday release closure ledger set",
+            "the visible dashboard imports closure ledgers and renders closure history, active review, carryover, blockers, command copy, and closure summaries",
+            "open the next Friday release continuity journal set",
         ),
         item(
-            "release-receipt-review-coverage",
-            "Release receipt review Rust and TypeScript coverage",
+            "release-closure-coverage",
+            "Release closure Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify blocked review decisions, no-fetch/no-send copy, review import normalization, and dashboard rendering",
-            "open the next Friday release closure ledger set",
+            "focused Rust integration coverage plus dashboard smoke checks verify blocked closure downgrades, no-fetch/no-send copy, ledger import normalization, and dashboard rendering",
+            "open the next Friday release continuity journal set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Receipt Review Board".to_string(),
+        name: "Friday Release Closure Ledger".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Consolidate outbound reviews, external receipts, blocker carryover, evidence freshness, and operator final decisions into one local review surface.".to_string(),
+        loop_rule: "Preserve reviewed receipt outcomes, operator closure notes, carryover commitments, and final local release history without external mutation.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_receipt_review_board_loop() {
+    fn active_set_tracks_friday_release_closure_ledger_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Receipt Review Board");
+        assert_eq!(set.name, "Friday Release Closure Ledger");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

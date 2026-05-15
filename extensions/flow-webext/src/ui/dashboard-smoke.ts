@@ -15,6 +15,7 @@ import {
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseExternalReceiptArchive,
+  normalizeReleaseClosureLedger,
   normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffCompletionLedger,
   normalizeReleaseHandoffDispatchAuditTrail,
@@ -3183,6 +3184,84 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-receipt-review-board-json --output tmp/friday-dashboard/release-receipt-review-board.json --receipt-archive tmp/friday-dashboard/release-external-receipt-archive.json",
     ],
   });
+  const releaseClosureLedger = normalizeReleaseClosureLedger({
+    ledger_id: "friday-release-closure-ledger-smoke",
+    ledger_json: "tmp/friday-dashboard/release-closure-ledger.json",
+    generated_at_unix_ms: 34,
+    product_name: "Friday",
+    local_only: true,
+    record_count: 1,
+    draft_count: 0,
+    closed_count: 0,
+    held_count: 0,
+    carryover_count: 0,
+    blocked_count: 1,
+    revoked_count: 0,
+    superseded_count: 0,
+    active_closure_id:
+      "friday-release-closure-friday-release-receipt-review-board-smoke-34",
+    latest_closure_id:
+      "friday-release-closure-friday-release-receipt-review-board-smoke-34",
+    latest_state: "blocked",
+    latest_receipt_review_id: "friday-release-receipt-review-board-smoke",
+    latest_review_decision: "blocked-review",
+    closed_outcome_count: 0,
+    carryover_outcome_count: 0,
+    blocked_outcome_count: 1,
+    release_gate_blocking_count: 3,
+    unresolved_blocker_count: 3,
+    records: [
+      {
+        closure_id:
+          "friday-release-closure-friday-release-receipt-review-board-smoke-34",
+        receipt_review_id: "friday-release-receipt-review-board-smoke",
+        receipt_review_json:
+          "tmp/friday-dashboard/release-receipt-review-board.json",
+        recorded_at_unix_ms: 34,
+        product_name: "Friday",
+        local_only: true,
+        state: "blocked",
+        operator: "release-operator",
+        closure_note:
+          "Closure remains local until receipt review blockers clear.",
+        external_reference: "operator-owned-reference",
+        carryover_commitment: "Resolve blocked outbound review before closure.",
+        supersedes_closure_id: "",
+        review_decision: "blocked-review",
+        review_status: "blocked",
+        review_score_out_of_100: 0,
+        ready_for_external_completion: false,
+        archive_id: "friday-release-external-receipt-archive-smoke",
+        active_receipt_id:
+          "friday-release-external-receipt-friday-release-outbound-review-friday-release-publication-control-smoke-31-32",
+        latest_receipt_state: "blocked",
+        latest_outbound_review_id:
+          "friday-release-outbound-review-friday-release-publication-control-smoke-31",
+        latest_outbound_review_state: "blocked",
+        finding_count: 3,
+        verified_receipt_count: 0,
+        stale_or_missing_count: 0,
+        release_gate_blocking_count: 3,
+        unresolved_blocker_count: 3,
+        active: true,
+        externally_mutated_by_friday: false,
+        closure_notes_copy:
+          "Friday release closure ledger\nState: blocked\nOperator: release-operator\nReceipt review: friday-release-receipt-review-board-smoke\nFriday did not fetch, send, publish, deploy, upload, or email.\nNo external mutation by Friday: true",
+        summary:
+          "release-operator recorded release closure friday-release-receipt-review-board-smoke as blocked with 3 release-gate blocker(s).",
+      },
+    ],
+    closure_summary_copy:
+      "Friday release closure ledger\n- release-operator [blocked] friday-release-receipt-review-board-smoke -> Closure remains local until receipt review blockers clear.\n  release gate blockers: 3, unresolved blockers: 3\n  carryover: Resolve blocked outbound review before closure.\nFriday did not fetch, send, publish, deploy, upload, or email.",
+    summary:
+      "Friday release closure ledger has 1 record(s), 0 closed, 0 held, 0 carryover, 1 blocked, and 0 externally complete local outcome(s).",
+    commands: [
+      "flow --friday-release-closure --ledger tmp/friday-dashboard/release-closure-ledger.json --receipt-review <release-receipt-review-board.json> --state draft --operator <name>",
+      "flow --friday-release-closure-list --ledger tmp/friday-dashboard/release-closure-ledger.json",
+      "flow --friday-release-closure-export --ledger tmp/friday-dashboard/release-closure-ledger.json --output tmp/friday-dashboard/release-closure-ledger.json",
+      "flow --friday-release-closure-json --ledger tmp/friday-dashboard/release-closure-ledger.json --receipt-review <release-receipt-review-board.json>",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -4124,8 +4203,36 @@ export function dashboardSectionSmokeReport(
         ) &&
         releaseReceiptReviewBoard.commands.some((command) =>
           command.includes("--friday-release-receipt-review-board"),
-        ),
+      ),
       `${releaseReceiptReviewBoard?.findingCount ?? 0} receipt review finding(s)`,
+    ),
+    check(
+      "release-closure-ledger-importable",
+      releaseClosureLedger?.recordCount === 1 &&
+        releaseClosureLedger.blockedCount === 1 &&
+        releaseClosureLedger.activeClosureId?.includes("friday-release-closure") ===
+          true,
+      `${releaseClosureLedger?.recordCount ?? 0} release closure record(s)`,
+    ),
+    check(
+      "release-closure-ledger-copy",
+      releaseClosureLedger !== null &&
+        releaseClosureLedger.records.some(
+          (record) =>
+            record.state === "blocked" &&
+            !record.readyForExternalCompletion &&
+            !record.externallyMutatedByFriday,
+        ) &&
+        releaseClosureLedger.closureSummaryCopy.includes(
+          "Friday release closure ledger",
+        ) &&
+        releaseClosureLedger.closureSummaryCopy.includes(
+          "Friday did not fetch, send, publish, deploy, upload, or email",
+        ) &&
+        releaseClosureLedger.commands.some((command) =>
+          command.includes("--friday-release-closure"),
+        ),
+      `${releaseClosureLedger?.blockedOutcomeCount ?? 0} release closure blocked outcome(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",
