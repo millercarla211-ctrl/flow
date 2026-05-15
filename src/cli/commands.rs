@@ -37,17 +37,19 @@ use crate::friday::{
     FridayReleaseEvidenceAttachmentReview, FridayReleaseEvidenceExportKitReport,
     FridayReleaseEvidenceSlaMonitorReport, FridayReleaseHandoffAuditRequest,
     FridayReleaseHandoffAuditState, FridayReleaseHandoffAuditTrail,
-    FridayReleaseHandoffDispatchAuditRequest, FridayReleaseHandoffDispatchAuditState,
-    FridayReleaseHandoffDispatchAuditTrail, FridayReleaseHandoffDispatchChecklist,
-    FridayReleaseHandoffDispatchChecklistRequest, FridayReleaseHandoffDispatchGovernanceReview,
-    FridayReleaseHandoffGovernanceReview, FridayReleaseHandoffPacket, FridayReleaseIncidentArchive,
-    FridayReleaseIncidentOutcome, FridayReleaseOperatorChecklistReport,
-    FridayReleaseOwnerFollowUpBoardReport, FridayReleasePostPromotionMonitorReport,
-    FridayReleasePreventionPlanReport, FridayReleasePromotionDecision,
-    FridayReleasePromotionLedger, FridayReleasePromotionRecordRequest,
-    FridayReleaseQaCommandCenterReport, FridayReleaseRecoveryRunbookReport,
-    FridayReleaseRollbackDrillReport, FridayReleaseStabilityBoardReport, FridayResearchReport,
-    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleaseHandoffCompletionLedger, FridayReleaseHandoffCompletionRequest,
+    FridayReleaseHandoffCompletionState, FridayReleaseHandoffDispatchAuditRequest,
+    FridayReleaseHandoffDispatchAuditState, FridayReleaseHandoffDispatchAuditTrail,
+    FridayReleaseHandoffDispatchChecklist, FridayReleaseHandoffDispatchChecklistRequest,
+    FridayReleaseHandoffDispatchGovernanceReview, FridayReleaseHandoffGovernanceReview,
+    FridayReleaseHandoffPacket, FridayReleaseIncidentArchive, FridayReleaseIncidentOutcome,
+    FridayReleaseOperatorChecklistReport, FridayReleaseOwnerFollowUpBoardReport,
+    FridayReleasePostPromotionMonitorReport, FridayReleasePreventionPlanReport,
+    FridayReleasePromotionDecision, FridayReleasePromotionLedger,
+    FridayReleasePromotionRecordRequest, FridayReleaseQaCommandCenterReport,
+    FridayReleaseRecoveryRunbookReport, FridayReleaseRollbackDrillReport,
+    FridayReleaseStabilityBoardReport, FridayResearchReport, FridayResearchWorkflow,
+    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
@@ -56,6 +58,7 @@ use crate::friday::{
     FridayTrustedRunnerReleaseTimeline, FridayUiIntegrationStatus, FridayWorkspaceStore,
     append_friday_release_candidate_to_archive, append_friday_release_checkpoint_signoff_to_ledger,
     append_friday_release_escalation_to_ledger, append_friday_release_handoff_audit_to_trail,
+    append_friday_release_handoff_completion_to_ledger,
     append_friday_release_handoff_dispatch_audit_to_trail,
     append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
     append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
@@ -74,7 +77,8 @@ use crate::friday::{
     friday_release_escalation_entries_from_monitor, friday_release_escalation_ledger_report,
     friday_release_evidence_attachment_review_report, friday_release_evidence_export_kit_report,
     friday_release_evidence_sla_monitor_report, friday_release_handoff_audit_record_from_packet,
-    friday_release_handoff_audit_trail_report,
+    friday_release_handoff_audit_trail_report, friday_release_handoff_completion_ledger_report,
+    friday_release_handoff_completion_record_from_governance_review,
     friday_release_handoff_dispatch_audit_record_from_checklist,
     friday_release_handoff_dispatch_audit_trail_report,
     friday_release_handoff_dispatch_checklist_report,
@@ -94,6 +98,7 @@ use crate::friday::{
     friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
     read_friday_release_candidate_archive, read_friday_release_checkpoint_signoff_ledger,
     read_friday_release_escalation_ledger, read_friday_release_handoff_audit_trail,
+    read_friday_release_handoff_completion_ledger,
     read_friday_release_handoff_dispatch_audit_trail, read_friday_release_incident_archive,
     read_friday_release_promotion_ledger, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
     run_friday_trusted_host_command, run_friday_trusted_host_command_bridge,
@@ -102,7 +107,8 @@ use crate::friday::{
     write_friday_release_checkpoint_signoff_ledger, write_friday_release_deployment_gate,
     write_friday_release_escalation_ledger, write_friday_release_evidence_attachment_review,
     write_friday_release_evidence_export_kit, write_friday_release_evidence_sla_monitor_report,
-    write_friday_release_handoff_audit_trail, write_friday_release_handoff_dispatch_audit_trail,
+    write_friday_release_handoff_audit_trail, write_friday_release_handoff_completion_ledger,
+    write_friday_release_handoff_dispatch_audit_trail,
     write_friday_release_handoff_dispatch_checklist,
     write_friday_release_handoff_dispatch_governance_review,
     write_friday_release_handoff_governance_review, write_friday_release_handoff_packet,
@@ -1947,6 +1953,80 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", review.to_pretty_json()?);
         }
 
+        Command::FridayReleaseHandoffCompletion {
+            ledger_file,
+            governance_review_file,
+            state,
+            operator,
+            outcome_note,
+            external_reference,
+            supersedes_completion_id,
+        } => {
+            let ledger = append_friday_release_handoff_completion_to_ledger(
+                resolve_repo_relative_path(&ledger_file),
+                resolve_repo_relative_path(&governance_review_file),
+                FridayReleaseHandoffCompletionRequest {
+                    state: FridayReleaseHandoffCompletionState::parse(&state)?,
+                    operator,
+                    outcome_note,
+                    external_reference,
+                    supersedes_completion_id,
+                },
+            )?;
+            print_friday_release_handoff_completion_ledger(&ledger);
+        }
+
+        Command::FridayReleaseHandoffCompletionJson {
+            ledger_file,
+            governance_review_file,
+            state,
+            operator,
+            outcome_note,
+            external_reference,
+            supersedes_completion_id,
+        } => {
+            let ledger_path = resolve_repo_relative_path(&ledger_file);
+            let governance_review_path = resolve_repo_relative_path(&governance_review_file);
+            let mut records = read_friday_release_handoff_completion_ledger(&ledger_path)
+                .map(|ledger| ledger.records)
+                .unwrap_or_default();
+            records.push(
+                friday_release_handoff_completion_record_from_governance_review(
+                    &governance_review_path,
+                    FridayReleaseHandoffCompletionRequest {
+                        state: FridayReleaseHandoffCompletionState::parse(&state)?,
+                        operator,
+                        outcome_note,
+                        external_reference,
+                        supersedes_completion_id,
+                    },
+                )?,
+            );
+            let ledger = friday_release_handoff_completion_ledger_report(&ledger_path, records);
+            println!("{}", ledger.to_pretty_json()?);
+        }
+
+        Command::FridayReleaseHandoffCompletionList { ledger_file } => {
+            let ledger = read_friday_release_handoff_completion_ledger(
+                resolve_repo_relative_path(&ledger_file),
+            )?;
+            print_friday_release_handoff_completion_ledger(&ledger);
+        }
+
+        Command::FridayReleaseHandoffCompletionExport {
+            ledger_file,
+            output_file,
+        } => {
+            let ledger = read_friday_release_handoff_completion_ledger(
+                resolve_repo_relative_path(&ledger_file),
+            )?;
+            write_friday_release_handoff_completion_ledger(
+                resolve_repo_relative_path(&output_file),
+                &ledger,
+            )?;
+            print_friday_release_handoff_completion_ledger(&ledger);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -2562,6 +2642,16 @@ fn print_interactive_help() {
     println!("                           Write handoff dispatch governance JSON without sending");
     println!("  --friday-release-handoff-dispatch-governance-json [export-dir]");
     println!("                           Print handoff dispatch governance as JSON");
+    println!("  --friday-release-handoff-completion [--ledger file] [--governance-review file]");
+    println!("                           Append a governed local handoff completion record");
+    println!(
+        "  --friday-release-handoff-completion-json [--ledger file] [--governance-review file]"
+    );
+    println!("                           Print handoff completion ledger preview as JSON");
+    println!("  --friday-release-handoff-completion-list [--ledger file]");
+    println!("                           List an existing handoff completion ledger");
+    println!("  --friday-release-handoff-completion-export [--ledger file] [--output file]");
+    println!("                           Export an existing handoff completion ledger JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -5080,6 +5170,61 @@ fn print_friday_release_handoff_dispatch_governance_review(
     println!();
     println!("Commands:");
     for command in &review.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_handoff_completion_ledger(ledger: &FridayReleaseHandoffCompletionLedger) {
+    println!("Friday Release Handoff Completion Ledger");
+    println!("=========================================");
+    println!(
+        "Records: {} | completed: {} | manually sent: {} | held: {} | blocked: {}",
+        ledger.record_count,
+        ledger.completed_count,
+        ledger.manually_sent_count,
+        ledger.held_count,
+        ledger.blocked_count
+    );
+    println!(
+        "Approved outcomes: {} | blocked outcomes: {} | active gate blocks: {} | active unresolved blockers: {}",
+        ledger.approved_outcome_count,
+        ledger.blocked_outcome_count,
+        ledger.release_gate_blocking_count,
+        ledger.unresolved_blocker_count
+    );
+    if let Some(completion_id) = &ledger.active_completion_id {
+        println!("Active completion: {completion_id}");
+    }
+    if let Some(review_id) = &ledger.latest_governance_review_id {
+        println!("Latest governance review: {review_id}");
+    }
+    if let Some(state) = ledger.latest_state {
+        println!("Latest state: {}", state.label());
+    }
+    println!("Ledger: {}", ledger.ledger_json);
+    println!();
+    println!("Completion records:");
+    for record in ledger.records.iter().rev().take(8) {
+        println!(
+            "  - {} [{}] {}",
+            record.operator,
+            record.state.label(),
+            record.governance_review_id
+        );
+        println!("    outcome: {}", record.outcome_note);
+        println!(
+            "    governance: {} | approved: {} | blockers: {}",
+            record.governance_state.label(),
+            yes_no(record.approved_for_external_handoff),
+            record.release_gate_blocking_count
+        );
+        if let Some(reference) = &record.external_reference {
+            println!("    reference: {reference}");
+        }
+    }
+    println!();
+    println!("Commands:");
+    for command in &ledger.commands {
         println!("  - {command}");
     }
 }

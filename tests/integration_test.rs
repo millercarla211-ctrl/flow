@@ -32,6 +32,7 @@ use flow::friday::{
     FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceAttachmentState,
     FridayReleaseEvidenceEscalationLevel, FridayReleaseEvidenceSlaState,
     FridayReleaseHandoffAuditRequest, FridayReleaseHandoffAuditState,
+    FridayReleaseHandoffCompletionRequest, FridayReleaseHandoffCompletionState,
     FridayReleaseHandoffDispatchAuditRequest, FridayReleaseHandoffDispatchAuditState,
     FridayReleaseHandoffDispatchChecklistRequest, FridayReleaseHandoffDispatchChecklistSource,
     FridayReleaseHandoffDispatchChecklistState, FridayReleaseHandoffDispatchGovernanceState,
@@ -65,7 +66,8 @@ use flow::friday::{
     friday_release_candidate_entry_from_gate, friday_release_checkpoint_evidence_vault_report,
     friday_release_checkpoint_review_board_report, friday_release_deployment_gate_report,
     friday_release_evidence_attachment_review_report, friday_release_evidence_export_kit_report,
-    friday_release_evidence_sla_monitor_report_at,
+    friday_release_evidence_sla_monitor_report_at, friday_release_handoff_completion_ledger_report,
+    friday_release_handoff_completion_record_from_governance_review,
     friday_release_handoff_dispatch_audit_trail_report,
     friday_release_handoff_dispatch_checklist_report,
     friday_release_handoff_dispatch_governance_review_report,
@@ -89,6 +91,7 @@ use flow::friday::{
     write_friday_release_checkpoint_review_board_report, write_friday_release_deployment_gate,
     write_friday_release_evidence_attachment_review, write_friday_release_evidence_export_kit,
     write_friday_release_evidence_sla_monitor_report,
+    write_friday_release_handoff_completion_ledger,
     write_friday_release_handoff_dispatch_audit_trail,
     write_friday_release_handoff_dispatch_checklist,
     write_friday_release_handoff_dispatch_governance_review,
@@ -3017,6 +3020,62 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
             .any(|command| {
                 command.contains("--friday-release-handoff-dispatch-governance")
                     && command.contains("--trail")
+            })
+    );
+    let release_handoff_completion_ledger_path =
+        root.join("release-handoff-completion-ledger.json");
+    let release_handoff_completion_record =
+        friday_release_handoff_completion_record_from_governance_review(
+            &release_handoff_dispatch_governance_review_path,
+            FridayReleaseHandoffCompletionRequest {
+                state: FridayReleaseHandoffCompletionState::Completed,
+                operator: "release-operator".to_string(),
+                outcome_note:
+                    "Completion remains local until dispatch governance blockers are cleared."
+                        .to_string(),
+                external_reference: Some("manual-note-001".to_string()),
+                supersedes_completion_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        release_handoff_completion_record.state,
+        FridayReleaseHandoffCompletionState::Blocked
+    );
+    assert!(!release_handoff_completion_record.externally_mutated_by_friday);
+    assert!(release_handoff_completion_record.release_gate_blocking_count > 0);
+    assert!(
+        release_handoff_completion_record
+            .completion_notes
+            .contains("No external mutation by Friday: true")
+    );
+    let release_handoff_completion_ledger = friday_release_handoff_completion_ledger_report(
+        &release_handoff_completion_ledger_path,
+        vec![release_handoff_completion_record],
+    );
+    write_friday_release_handoff_completion_ledger(
+        &release_handoff_completion_ledger_path,
+        &release_handoff_completion_ledger,
+    )
+    .unwrap();
+    assert_eq!(release_handoff_completion_ledger.record_count, 1);
+    assert_eq!(release_handoff_completion_ledger.blocked_count, 1);
+    assert_eq!(release_handoff_completion_ledger.completed_count, 0);
+    assert_eq!(release_handoff_completion_ledger.approved_outcome_count, 0);
+    assert_eq!(release_handoff_completion_ledger.blocked_outcome_count, 1);
+    assert!(release_handoff_completion_ledger.release_gate_blocking_count > 0);
+    assert!(
+        release_handoff_completion_ledger
+            .completion_summary_copy
+            .contains("Friday release handoff completion ledger")
+    );
+    assert!(
+        release_handoff_completion_ledger
+            .commands
+            .iter()
+            .any(|command| {
+                command.contains("--friday-release-handoff-completion")
+                    && command.contains("--ledger")
             })
     );
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();

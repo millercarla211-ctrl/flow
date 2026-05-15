@@ -15,6 +15,7 @@ import {
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseHandoffAuditTrail,
+  normalizeReleaseHandoffCompletionLedger,
   normalizeReleaseHandoffDispatchAuditTrail,
   normalizeReleaseHandoffDispatchChecklist,
   normalizeReleaseHandoffDispatchGovernanceReview,
@@ -2770,6 +2771,82 @@ export function dashboardSectionSmokeReport(
         "flow --friday-release-handoff-dispatch-governance-json --output tmp/friday-dashboard/release-handoff-dispatch-governance-review.json --trail tmp/friday-dashboard/release-handoff-dispatch-audit-trail.json",
       ],
     });
+  const releaseHandoffCompletionLedger = normalizeReleaseHandoffCompletionLedger({
+    ledger_id: "friday-release-handoff-completion-ledger-smoke",
+    ledger_json: "tmp/friday-dashboard/release-handoff-completion-ledger.json",
+    generated_at_unix_ms: 29,
+    product_name: "Friday",
+    local_only: true,
+    record_count: 1,
+    draft_count: 0,
+    completed_count: 0,
+    manually_sent_count: 0,
+    held_count: 0,
+    revoked_count: 0,
+    superseded_count: 0,
+    blocked_count: 1,
+    active_completion_id:
+      "friday-release-handoff-completion-friday-release-handoff-dispatch-governance-review-smoke-29",
+    latest_completion_id:
+      "friday-release-handoff-completion-friday-release-handoff-dispatch-governance-review-smoke-29",
+    latest_state: "blocked",
+    latest_governance_review_id:
+      "friday-release-handoff-dispatch-governance-review-smoke",
+    latest_governance_state: "blocked-carryover",
+    approved_outcome_count: 0,
+    blocked_outcome_count: 1,
+    release_gate_blocking_count: 2,
+    unresolved_blocker_count: 3,
+    records: [
+      {
+        completion_id:
+          "friday-release-handoff-completion-friday-release-handoff-dispatch-governance-review-smoke-29",
+        governance_review_id:
+          "friday-release-handoff-dispatch-governance-review-smoke",
+        governance_review_json:
+          "tmp/friday-dashboard/release-handoff-dispatch-governance-review.json",
+        recorded_at_unix_ms: 29,
+        product_name: "Friday",
+        local_only: true,
+        state: "blocked",
+        operator: "release-operator",
+        outcome_note:
+          "Completion remains local until dispatch governance blockers are cleared.",
+        external_reference: "",
+        supersedes_completion_id: "",
+        governance_state: "blocked-carryover",
+        governance_status: "blocked",
+        governance_score_out_of_100: 0,
+        approved_for_external_handoff: false,
+        latest_audit_id:
+          "friday-release-handoff-dispatch-audit-friday-release-handoff-dispatch-checklist-smoke-27",
+        latest_checklist_id: "friday-release-handoff-dispatch-checklist-smoke",
+        active_audit_id:
+          "friday-release-handoff-dispatch-audit-friday-release-handoff-dispatch-checklist-smoke-27",
+        active_checklist_id: "friday-release-handoff-dispatch-checklist-smoke",
+        finding_count: 2,
+        release_gate_blocking_count: 2,
+        blocker_carryover_count: 1,
+        unresolved_blocker_count: 3,
+        active: true,
+        externally_mutated_by_friday: false,
+        completion_notes:
+          "Friday handoff completion: blocked\nOperator: release-operator\nGovernance: friday-release-handoff-dispatch-governance-review-smoke\nOutcome: Completion remains local until dispatch governance blockers are cleared.\nNo external mutation by Friday: true",
+        summary:
+          "release-operator recorded handoff completion friday-release-handoff-dispatch-governance-review-smoke as blocked with 2 release-gate blocker(s).",
+      },
+    ],
+    completion_summary_copy:
+      "Friday release handoff completion ledger\n- release-operator [blocked] friday-release-handoff-dispatch-governance-review-smoke -> Completion remains local until dispatch governance blockers are cleared.\n  release gate blockers: 2, unresolved blockers: 3",
+    summary:
+      "Friday release handoff completion ledger has 1 record(s), 0 completed, 0 manually sent, 0 held, 1 blocked, and 0 approved governed outcome(s).",
+    commands: [
+      "flow --friday-release-handoff-completion --ledger tmp/friday-dashboard/release-handoff-completion-ledger.json --governance-review <release-handoff-dispatch-governance-review.json> --state draft --operator <name>",
+      "flow --friday-release-handoff-completion-list --ledger tmp/friday-dashboard/release-handoff-completion-ledger.json",
+      "flow --friday-release-handoff-completion-export --ledger tmp/friday-dashboard/release-handoff-completion-ledger.json --output tmp/friday-dashboard/release-handoff-completion-ledger.json",
+      "flow --friday-release-handoff-completion-json --ledger tmp/friday-dashboard/release-handoff-completion-ledger.json --governance-review <release-handoff-dispatch-governance-review.json>",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -3581,8 +3658,34 @@ export function dashboardSectionSmokeReport(
         ) &&
         releaseHandoffDispatchGovernanceReview.commands.some((command) =>
           command.includes("--friday-release-handoff-dispatch-governance"),
-        ),
+      ),
       `${releaseHandoffDispatchGovernanceReview?.blockedCarryoverCount ?? 0} dispatch governance carryover blocker(s)`,
+    ),
+    check(
+      "release-handoff-completion-ledger-importable",
+      releaseHandoffCompletionLedger?.recordCount === 1 &&
+        releaseHandoffCompletionLedger.blockedCount === 1 &&
+        releaseHandoffCompletionLedger.activeCompletionId?.includes(
+          "friday-release-handoff-completion",
+        ) === true,
+      `${releaseHandoffCompletionLedger?.recordCount ?? 0} handoff completion record(s)`,
+    ),
+    check(
+      "release-handoff-completion-ledger-copy",
+      releaseHandoffCompletionLedger !== null &&
+        releaseHandoffCompletionLedger.records.some(
+          (record) =>
+            record.state === "blocked" &&
+            record.releaseGateBlockingCount === 2 &&
+            !record.externallyMutatedByFriday,
+        ) &&
+        releaseHandoffCompletionLedger.completionSummaryCopy.includes(
+          "Friday release handoff completion ledger",
+        ) &&
+        releaseHandoffCompletionLedger.commands.some((command) =>
+          command.includes("--friday-release-handoff-completion"),
+        ),
+      `${releaseHandoffCompletionLedger?.blockedOutcomeCount ?? 0} handoff completion blocked outcome(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

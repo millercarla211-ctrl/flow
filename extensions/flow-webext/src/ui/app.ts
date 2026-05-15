@@ -14,6 +14,7 @@ import {
   normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffDispatchAuditTrail,
   normalizeReleaseHandoffDispatchChecklist,
+  normalizeReleaseHandoffCompletionLedger,
   normalizeReleaseHandoffDispatchGovernanceReview,
   normalizeReleaseHandoffGovernanceReview,
   normalizeReleaseHandoffPacket,
@@ -61,6 +62,7 @@ import {
   type FlowReleaseHandoffAuditTrail,
   type FlowReleaseHandoffDispatchAuditTrail,
   type FlowReleaseHandoffDispatchChecklist,
+  type FlowReleaseHandoffCompletionLedger,
   type FlowReleaseHandoffDispatchGovernanceReview,
   type FlowReleaseHandoffGovernanceReview,
   type FlowReleaseHandoffPacket,
@@ -142,6 +144,7 @@ type UiState = {
   dashboardReleaseHandoffDispatchChecklist: FlowReleaseHandoffDispatchChecklist | null;
   dashboardReleaseHandoffDispatchAuditTrail: FlowReleaseHandoffDispatchAuditTrail | null;
   dashboardReleaseHandoffDispatchGovernanceReview: FlowReleaseHandoffDispatchGovernanceReview | null;
+  dashboardReleaseHandoffCompletionLedger: FlowReleaseHandoffCompletionLedger | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -3094,6 +3097,72 @@ function renderReleaseHandoffDispatchGovernanceReview(
   `;
 }
 
+function renderReleaseHandoffCompletionLedger(
+  ledger: FlowReleaseHandoffCompletionLedger | null,
+) {
+  if (!ledger) {
+    return "";
+  }
+  return `
+    <article class="feature-card dashboard-release-handoff-completion-ledger">
+      <div class="card-topline">
+        <span class="eyebrow">Release handoff completion</span>
+        <span class="badge ${badgeTone(ledger.blockedOutcomeCount > 0 ? "blocked" : "ready")}">
+          ${ledger.latestState ?? "draft"}
+        </span>
+      </div>
+      <h3>Governed local completion ledger</h3>
+      <p>${escapeHtml(ledger.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${ledger.recordCount}</strong><small>records</small></span>
+        <span><strong>${ledger.approvedOutcomeCount}</strong><small>approved</small></span>
+        <span><strong>${ledger.blockedOutcomeCount}</strong><small>blocked</small></span>
+        <span><strong>${ledger.releaseGateBlockingCount}</strong><small>gate blocks</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Active completion</strong> ${escapeHtml(ledger.activeCompletionId ?? "none")}</span>
+        <span><strong>Latest governance</strong> ${escapeHtml(ledger.latestGovernanceReviewId ?? "none")}</span>
+        <span><strong>Governance state</strong> ${escapeHtml(ledger.latestGovernanceState ?? "unknown")}</span>
+        <span><strong>Ledger</strong> ${escapeHtml(ledger.ledgerJson)}</span>
+      </div>
+      ${
+        ledger.releaseGateBlockingCount > 0 || ledger.unresolvedBlockerCount > 0
+          ? `<p class="soft-warning">This ledger is carrying ${ledger.releaseGateBlockingCount} gate blocker(s) and ${ledger.unresolvedBlockerCount} unresolved blocker(s).</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${ledger.records
+          .slice()
+          .reverse()
+          .slice(0, 8)
+          .map(
+            (record) => `
+              <div class="runner-package-file ${
+                record.releaseGateBlockingCount > 0 || record.unresolvedBlockerCount > 0
+                  ? "missing"
+                  : "present"
+              }">
+                <strong>${escapeHtml(record.operator)} - ${escapeHtml(record.state)}</strong>
+                <small>${escapeHtml(record.governanceState)} governance, ${record.governanceScoreOutOf100}/100</small>
+                <code>${escapeHtml(record.governanceReviewJson || "inline")}</code>
+                <span>${escapeHtml(record.outcomeNote)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-completion-command">
+          Copy completion command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-completion-summary">
+          Copy completion summary
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -3326,6 +3395,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseHandoffDispatchChecklist(state.dashboardReleaseHandoffDispatchChecklist)}
       ${renderReleaseHandoffDispatchAuditTrail(state.dashboardReleaseHandoffDispatchAuditTrail)}
       ${renderReleaseHandoffDispatchGovernanceReview(state.dashboardReleaseHandoffDispatchGovernanceReview)}
+      ${renderReleaseHandoffCompletionLedger(state.dashboardReleaseHandoffCompletionLedger)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3477,6 +3547,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseHandoffDispatchChecklist: null,
     dashboardReleaseHandoffDispatchAuditTrail: null,
     dashboardReleaseHandoffDispatchGovernanceReview: null,
+    dashboardReleaseHandoffCompletionLedger: null,
   };
 
   function render() {
@@ -3805,6 +3876,8 @@ export async function mountFlowApp(surfaceInput: string) {
         normalizeReleaseHandoffDispatchAuditTrail(parsed);
       const releaseHandoffDispatchGovernanceReview =
         normalizeReleaseHandoffDispatchGovernanceReview(parsed);
+      const releaseHandoffCompletionLedger =
+        normalizeReleaseHandoffCompletionLedger(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -3869,8 +3942,12 @@ export async function mountFlowApp(surfaceInput: string) {
       state.dashboardReleaseHandoffDispatchGovernanceReview =
         releaseHandoffDispatchGovernanceReview ??
         state.dashboardReleaseHandoffDispatchGovernanceReview;
+      state.dashboardReleaseHandoffCompletionLedger =
+        releaseHandoffCompletionLedger ?? state.dashboardReleaseHandoffCompletionLedger;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseHandoffDispatchGovernanceReview
+      state.status = releaseHandoffCompletionLedger
+        ? `Imported release handoff completion ledger with ${releaseHandoffCompletionLedger.recordCount} record(s) from ${file.name}.`
+        : releaseHandoffDispatchGovernanceReview
         ? `Imported release handoff dispatch governance at ${releaseHandoffDispatchGovernanceReview.scoreOutOf100}/100 from ${file.name}.`
         : releaseHandoffDispatchAuditTrail
         ? `Imported release handoff dispatch audit with ${releaseHandoffDispatchAuditTrail.recordCount} record(s) from ${file.name}.`
@@ -4838,6 +4915,39 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseHandoffCompletionCommand() {
+    const command = state.dashboardReleaseHandoffCompletionLedger?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release handoff completion command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release handoff completion command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseHandoffCompletionSummary() {
+    const copy =
+      state.dashboardReleaseHandoffCompletionLedger?.completionSummaryCopy ?? "";
+    if (!copy) {
+      state.status = "No release handoff completion summary is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release handoff completion summary copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -5240,6 +5350,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-dispatch-governance-notes']")
       ?.addEventListener("click", () => {
         void copyReleaseHandoffDispatchGovernanceNotes();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-completion-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffCompletionCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-completion-summary']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffCompletionSummary();
       });
 
     mountRoot

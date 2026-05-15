@@ -688,6 +688,33 @@ pub enum Command {
         review_file: String,
         trail_file: String,
     },
+    /// Append a Friday release handoff completion record
+    FridayReleaseHandoffCompletion {
+        ledger_file: String,
+        governance_review_file: String,
+        state: String,
+        operator: String,
+        outcome_note: String,
+        external_reference: Option<String>,
+        supersedes_completion_id: Option<String>,
+    },
+    /// Print a Friday release handoff completion ledger preview as JSON
+    FridayReleaseHandoffCompletionJson {
+        ledger_file: String,
+        governance_review_file: String,
+        state: String,
+        operator: String,
+        outcome_note: String,
+        external_reference: Option<String>,
+        supersedes_completion_id: Option<String>,
+    },
+    /// List an existing Friday release handoff completion ledger
+    FridayReleaseHandoffCompletionList { ledger_file: String },
+    /// Export an existing Friday release handoff completion ledger
+    FridayReleaseHandoffCompletionExport {
+        ledger_file: String,
+        output_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -2260,6 +2287,61 @@ impl Args {
                     trail_file,
                 }
             }
+            "--friday-release-handoff-completion" | "--friday-handoff-completion" => {
+                let (
+                    ledger_file,
+                    governance_review_file,
+                    state,
+                    operator,
+                    outcome_note,
+                    external_reference,
+                    supersedes_completion_id,
+                ) = parse_friday_release_handoff_completion_args(&args);
+                Command::FridayReleaseHandoffCompletion {
+                    ledger_file,
+                    governance_review_file,
+                    state,
+                    operator,
+                    outcome_note,
+                    external_reference,
+                    supersedes_completion_id,
+                }
+            }
+            "--friday-release-handoff-completion-json" | "--friday-handoff-completion-json" => {
+                let (
+                    ledger_file,
+                    governance_review_file,
+                    state,
+                    operator,
+                    outcome_note,
+                    external_reference,
+                    supersedes_completion_id,
+                ) = parse_friday_release_handoff_completion_args(&args);
+                Command::FridayReleaseHandoffCompletionJson {
+                    ledger_file,
+                    governance_review_file,
+                    state,
+                    operator,
+                    outcome_note,
+                    external_reference,
+                    supersedes_completion_id,
+                }
+            }
+            "--friday-release-handoff-completion-list" | "--friday-handoff-completion-list" => {
+                Command::FridayReleaseHandoffCompletionList {
+                    ledger_file: parse_friday_release_handoff_completion_ledger_file_arg(&args),
+                }
+            }
+            "--friday-release-handoff-completion-export" | "--friday-handoff-completion-export" => {
+                let ledger_file = parse_friday_release_handoff_completion_ledger_file_arg(&args);
+                let output_file = flag_value(&args, "--output").unwrap_or_else(|| {
+                    "tmp/friday-dashboard/release-handoff-completion-ledger-export.json".to_string()
+                });
+                Command::FridayReleaseHandoffCompletionExport {
+                    ledger_file,
+                    output_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -3771,6 +3853,65 @@ fn parse_friday_release_handoff_dispatch_governance_args(args: &[String]) -> (St
         .unwrap_or_else(|| format!("{export_dir}/release-handoff-dispatch-audit-trail.json"));
 
     (review_file, trail_file)
+}
+
+fn parse_friday_release_handoff_completion_args(
+    args: &[String],
+) -> (
+    String,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let ledger_file = flag_value(args, "--ledger")
+        .or_else(|| flag_value(args, "--output"))
+        .unwrap_or_else(|| format!("{export_dir}/release-handoff-completion-ledger.json"));
+    let governance_review_file = flag_value(args, "--governance-review")
+        .or_else(|| flag_value(args, "--review"))
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-handoff-dispatch-governance-review.json"));
+    let state = flag_value(args, "--state").unwrap_or_else(|| "draft".to_string());
+    let operator = flag_value(args, "--operator").unwrap_or_else(|| "operator".to_string());
+    let outcome_note = flag_value(args, "--outcome-note")
+        .or_else(|| flag_value(args, "--note"))
+        .unwrap_or_else(|| "Recorded governed local handoff outcome.".to_string());
+    let external_reference = flag_value(args, "--external-reference")
+        .or_else(|| flag_value(args, "--reference"))
+        .filter(|value| !value.trim().is_empty());
+    let supersedes_completion_id = flag_value(args, "--supersedes")
+        .or_else(|| flag_value(args, "--supersedes-completion"))
+        .filter(|value| !value.trim().is_empty());
+
+    (
+        ledger_file,
+        governance_review_file,
+        state,
+        operator,
+        outcome_note,
+        external_reference,
+        supersedes_completion_id,
+    )
+}
+
+fn parse_friday_release_handoff_completion_ledger_file_arg(args: &[String]) -> String {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    flag_value(args, "--ledger")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-handoff-completion-ledger.json"))
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

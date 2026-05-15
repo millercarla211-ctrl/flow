@@ -881,16 +881,34 @@ Goal: validate handoff dispatch audit trails so Friday can prove the latest disp
 
 This set is complete. The next loop should open `Friday Release Handoff Completion Ledger` and preserve dispatch governance approvals, manual-send confirmations, unresolved blockers, and final handoff outcomes as local history.
 
-## Next Set: Friday Release Handoff Completion Ledger
+## Completed Set: Friday Release Handoff Completion Ledger
 
-Status: 0/100
+Status: 100/100
 
 Goal: preserve governed handoff completion outcomes so Friday can show which external handoff was approved, manually sent, held, revoked, or blocked without performing any external send itself.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed handoff completion ledger model that consumes dispatch governance reviews.
+- [x] Add completion states for draft, completed, manually-sent, held, revoked, superseded, and blocked.
+- [x] Add append, list, export, and JSON commands without sending, deploying, building, uploading, or mutating external systems.
+- [x] Add dashboard import/rendering for completion history, latest governance review, operator outcome, blocker carryover, and copyable completion notes.
+- [x] Add focused Rust/TypeScript coverage for completion append/list behavior, manual-send wording, revoked/superseded handling, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Publication Control` and keep final release notes, deployment notes, public announcements, and external send instructions local-only until an operator explicitly marks them ready.
+
+## Next Set: Friday Release Publication Control
+
+Status: 0/100
+
+Goal: turn completed handoff ledgers into local-only publication controls so Friday can prepare release notes, deployment notes, announcement copy, and external-send instructions without publishing, deploying, uploading, emailing, or mutating external systems.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed handoff completion ledger model that consumes dispatch governance reviews.
-- [ ] Add completion states for draft, completed, manually-sent, held, revoked, superseded, and blocked.
-- [ ] Add append, list, export, and JSON commands without sending, deploying, building, uploading, or mutating external systems.
-- [ ] Add dashboard import/rendering for completion history, latest governance review, operator outcome, blocker carryover, and copyable completion notes.
-- [ ] Add focused Rust/TypeScript coverage for completion append/list behavior, manual-send wording, revoked/superseded handling, command safety, and dashboard rendering.
+- [ ] Add a typed publication-control model that consumes completion ledgers and marks publish readiness.
+- [ ] Add publication states for draft, ready, held, blocked, published-manually, revoked, and superseded.
+- [ ] Add CLI/JSON commands that generate publication controls and local copy without performing external publication.
+- [ ] Add dashboard import/rendering for latest completion, publication blockers, manual-publish wording, and copyable release notes.
+- [ ] Add focused Rust/TypeScript coverage for publication readiness, blocked ledgers, manual-publish safety, and dashboard rendering.

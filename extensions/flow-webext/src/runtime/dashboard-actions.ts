@@ -1857,6 +1857,74 @@ export interface FlowReleaseHandoffDispatchGovernanceReview {
   commands: string[];
 }
 
+export type FlowReleaseHandoffCompletionState =
+  | "draft"
+  | "completed"
+  | "manually-sent"
+  | "held"
+  | "revoked"
+  | "superseded"
+  | "blocked";
+
+export interface FlowReleaseHandoffCompletionRecord {
+  completionId: string;
+  governanceReviewId: string;
+  governanceReviewJson: string;
+  recordedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  state: FlowReleaseHandoffCompletionState;
+  operator: string;
+  outcomeNote: string;
+  externalReference: string | null;
+  supersedesCompletionId: string | null;
+  governanceState: FlowReleaseHandoffDispatchGovernanceState;
+  governanceStatus: FlowDashboardPanelStatus;
+  governanceScoreOutOf100: number;
+  approvedForExternalHandoff: boolean;
+  latestAuditId: string | null;
+  latestChecklistId: string | null;
+  activeAuditId: string | null;
+  activeChecklistId: string | null;
+  findingCount: number;
+  releaseGateBlockingCount: number;
+  blockerCarryoverCount: number;
+  unresolvedBlockerCount: number;
+  active: boolean;
+  externallyMutatedByFriday: boolean;
+  completionNotes: string;
+  summary: string;
+}
+
+export interface FlowReleaseHandoffCompletionLedger {
+  ledgerId: string;
+  ledgerJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  recordCount: number;
+  draftCount: number;
+  completedCount: number;
+  manuallySentCount: number;
+  heldCount: number;
+  revokedCount: number;
+  supersededCount: number;
+  blockedCount: number;
+  activeCompletionId: string | null;
+  latestCompletionId: string | null;
+  latestState: FlowReleaseHandoffCompletionState | null;
+  latestGovernanceReviewId: string | null;
+  latestGovernanceState: FlowReleaseHandoffDispatchGovernanceState | null;
+  approvedOutcomeCount: number;
+  blockedOutcomeCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  records: FlowReleaseHandoffCompletionRecord[];
+  completionSummaryCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -5686,6 +5754,161 @@ export function normalizeReleaseHandoffDispatchGovernanceReview(
   };
 }
 
+export function normalizeReleaseHandoffCompletionLedger(
+  value: unknown,
+): FlowReleaseHandoffCompletionLedger | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const root = value as Record<string, unknown>;
+  const ledger =
+    root.ledger_id || root.ledgerId || root.records
+      ? root
+      : root.release_handoff_completion_ledger &&
+          typeof root.release_handoff_completion_ledger === "object"
+        ? (root.release_handoff_completion_ledger as Record<string, unknown>)
+        : root.releaseHandoffCompletionLedger &&
+            typeof root.releaseHandoffCompletionLedger === "object"
+          ? (root.releaseHandoffCompletionLedger as Record<string, unknown>)
+          : root;
+  const records = arrayValue(ledger.records)
+    .map((item): FlowReleaseHandoffCompletionRecord | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const completionId = stringValue(record.completion_id, record.completionId);
+      if (!completionId) {
+        return null;
+      }
+      return {
+        completionId,
+        governanceReviewId: stringValue(
+          record.governance_review_id,
+          record.governanceReviewId,
+        ),
+        governanceReviewJson: stringValue(
+          record.governance_review_json,
+          record.governanceReviewJson,
+        ),
+        recordedAtUnixMs: stringValue(record.recorded_at_unix_ms, record.recordedAtUnixMs),
+        productName: stringValue(record.product_name, record.productName),
+        localOnly: booleanValue(record.local_only, record.localOnly),
+        state: releaseHandoffCompletionState(stringValue(record.state)),
+        operator: stringValue(record.operator),
+        outcomeNote: stringValue(record.outcome_note, record.outcomeNote),
+        externalReference:
+          stringValue(record.external_reference, record.externalReference) || null,
+        supersedesCompletionId:
+          stringValue(record.supersedes_completion_id, record.supersedesCompletionId) || null,
+        governanceState: releaseHandoffDispatchGovernanceState(
+          stringValue(record.governance_state, record.governanceState),
+        ),
+        governanceStatus: panelStatus(
+          stringValue(record.governance_status, record.governanceStatus),
+        ),
+        governanceScoreOutOf100: numberValue(
+          record.governance_score_out_of_100,
+          record.governanceScoreOutOf100,
+        ),
+        approvedForExternalHandoff: booleanValue(
+          record.approved_for_external_handoff,
+          record.approvedForExternalHandoff,
+        ),
+        latestAuditId: stringValue(record.latest_audit_id, record.latestAuditId) || null,
+        latestChecklistId:
+          stringValue(record.latest_checklist_id, record.latestChecklistId) || null,
+        activeAuditId: stringValue(record.active_audit_id, record.activeAuditId) || null,
+        activeChecklistId:
+          stringValue(record.active_checklist_id, record.activeChecklistId) || null,
+        findingCount: numberValue(record.finding_count, record.findingCount),
+        releaseGateBlockingCount: numberValue(
+          record.release_gate_blocking_count,
+          record.releaseGateBlockingCount,
+        ),
+        blockerCarryoverCount: numberValue(
+          record.blocker_carryover_count,
+          record.blockerCarryoverCount,
+        ),
+        unresolvedBlockerCount: numberValue(
+          record.unresolved_blocker_count,
+          record.unresolvedBlockerCount,
+        ),
+        active: booleanValue(record.active),
+        externallyMutatedByFriday: booleanValue(
+          record.externally_mutated_by_friday,
+          record.externallyMutatedByFriday,
+        ),
+        completionNotes: stringValue(record.completion_notes, record.completionNotes),
+        summary: stringValue(record.summary),
+      };
+    })
+    .filter((record): record is FlowReleaseHandoffCompletionRecord => record !== null);
+  const ledgerId = stringValue(ledger.ledger_id, ledger.ledgerId);
+
+  if (!ledgerId && records.length === 0) {
+    return null;
+  }
+
+  return {
+    ledgerId,
+    ledgerJson: stringValue(ledger.ledger_json, ledger.ledgerJson),
+    generatedAtUnixMs: stringValue(ledger.generated_at_unix_ms, ledger.generatedAtUnixMs),
+    productName: stringValue(ledger.product_name, ledger.productName),
+    localOnly: booleanValue(ledger.local_only, ledger.localOnly),
+    recordCount: numberValue(ledger.record_count, ledger.recordCount),
+    draftCount: numberValue(ledger.draft_count, ledger.draftCount),
+    completedCount: numberValue(ledger.completed_count, ledger.completedCount),
+    manuallySentCount: numberValue(ledger.manually_sent_count, ledger.manuallySentCount),
+    heldCount: numberValue(ledger.held_count, ledger.heldCount),
+    revokedCount: numberValue(ledger.revoked_count, ledger.revokedCount),
+    supersededCount: numberValue(ledger.superseded_count, ledger.supersededCount),
+    blockedCount: numberValue(ledger.blocked_count, ledger.blockedCount),
+    activeCompletionId:
+      stringValue(ledger.active_completion_id, ledger.activeCompletionId) || null,
+    latestCompletionId:
+      stringValue(ledger.latest_completion_id, ledger.latestCompletionId) || null,
+    latestState:
+      ledger.latest_state || ledger.latestState
+        ? releaseHandoffCompletionState(stringValue(ledger.latest_state, ledger.latestState))
+        : null,
+    latestGovernanceReviewId:
+      stringValue(ledger.latest_governance_review_id, ledger.latestGovernanceReviewId) ||
+      null,
+    latestGovernanceState:
+      ledger.latest_governance_state || ledger.latestGovernanceState
+        ? releaseHandoffDispatchGovernanceState(
+            stringValue(ledger.latest_governance_state, ledger.latestGovernanceState),
+          )
+        : null,
+    approvedOutcomeCount: numberValue(
+      ledger.approved_outcome_count,
+      ledger.approvedOutcomeCount,
+    ),
+    blockedOutcomeCount: numberValue(
+      ledger.blocked_outcome_count,
+      ledger.blockedOutcomeCount,
+    ),
+    releaseGateBlockingCount: numberValue(
+      ledger.release_gate_blocking_count,
+      ledger.releaseGateBlockingCount,
+    ),
+    unresolvedBlockerCount: numberValue(
+      ledger.unresolved_blocker_count,
+      ledger.unresolvedBlockerCount,
+    ),
+    records,
+    completionSummaryCopy: stringValue(
+      ledger.completion_summary_copy,
+      ledger.completionSummaryCopy,
+    ),
+    summary: stringValue(ledger.summary),
+    commands: arrayValue(ledger.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -6257,6 +6480,21 @@ function releaseHandoffDispatchGovernanceSource(
     return value;
   }
   return "audit-trail";
+}
+
+function releaseHandoffCompletionState(value: string): FlowReleaseHandoffCompletionState {
+  if (
+    value === "draft" ||
+    value === "completed" ||
+    value === "manually-sent" ||
+    value === "held" ||
+    value === "revoked" ||
+    value === "superseded" ||
+    value === "blocked"
+  ) {
+    return value;
+  }
+  return "draft";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {
