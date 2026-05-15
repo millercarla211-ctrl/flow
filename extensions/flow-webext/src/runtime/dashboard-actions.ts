@@ -955,6 +955,90 @@ export interface FlowReleaseIncidentArchive {
   commands: string[];
 }
 
+export type FlowReleasePreventionFindingKind =
+  | "critical-incident"
+  | "repeated-failure-class"
+  | "stale-evidence"
+  | "missing-evidence"
+  | "missing-incident-note"
+  | "rollback-gap"
+  | "stability-gate";
+
+export type FlowReleasePreventionActionKind =
+  | "refresh-evidence"
+  | "harden-rollback"
+  | "attach-incident-note"
+  | "resolve-recurrence"
+  | "review-release-gate";
+
+export type FlowReleasePreventionActionStatus =
+  | "owner-ready"
+  | "needs-evidence"
+  | "blocked";
+
+export interface FlowReleasePreventionFinding {
+  id: string;
+  kind: FlowReleasePreventionFindingKind;
+  severity: FlowReleaseIncidentSeverity;
+  title: string;
+  recurrenceCount: number;
+  sourcePaths: string[];
+  summary: string;
+  nextAction: string;
+  releaseGateBlocking: boolean;
+}
+
+export interface FlowReleasePreventionAction {
+  id: string;
+  kind: FlowReleasePreventionActionKind;
+  status: FlowReleasePreventionActionStatus;
+  owner: string;
+  title: string;
+  summary: string;
+  sourcePath: string;
+  evidencePath: string;
+  command: string;
+  required: boolean;
+  releaseGateBlocking: boolean;
+  nextAction: string;
+}
+
+export interface FlowReleasePreventionEvidenceLink {
+  id: string;
+  label: string;
+  path: string;
+  present: boolean;
+}
+
+export interface FlowReleasePreventionPlanReport {
+  planId: string;
+  planJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  readyForNextCheckpoint: boolean;
+  incidentArchiveJson: string;
+  stabilityBoardJson: string;
+  incidentCount: number;
+  findingCount: number;
+  recurringIssueCount: number;
+  actionCount: number;
+  ownerReadyCount: number;
+  blockerCount: number;
+  evidenceMissingCount: number;
+  gateBlockingCount: number;
+  latestIncidentId: string | null;
+  activeRollbackReference: string | null;
+  findings: FlowReleasePreventionFinding[];
+  actions: FlowReleasePreventionAction[];
+  evidenceLinks: FlowReleasePreventionEvidenceLink[];
+  ownerReadyCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -3158,6 +3242,134 @@ export function normalizeReleaseIncidentArchive(value: unknown): FlowReleaseInci
   };
 }
 
+export function normalizeReleasePreventionPlan(
+  value: unknown,
+): FlowReleasePreventionPlanReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const plan =
+    root.release_prevention_plan && typeof root.release_prevention_plan === "object"
+      ? (root.release_prevention_plan as Record<string, unknown>)
+      : root.releasePreventionPlan && typeof root.releasePreventionPlan === "object"
+        ? (root.releasePreventionPlan as Record<string, unknown>)
+        : root;
+  const planId = stringValue(plan.plan_id, plan.planId);
+  const findings = arrayValue(plan.findings)
+    .map((item): FlowReleasePreventionFinding | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const finding = item as Record<string, unknown>;
+      const id = stringValue(finding.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        kind: releasePreventionFindingKind(stringValue(finding.kind)),
+        severity: releaseIncidentSeverity(stringValue(finding.severity)),
+        title: stringValue(finding.title),
+        recurrenceCount: numberValue(finding.recurrence_count, finding.recurrenceCount),
+        sourcePaths: arrayValue(finding.source_paths, finding.sourcePaths)
+          .map((path) => stringValue(path))
+          .filter(Boolean),
+        summary: stringValue(finding.summary),
+        nextAction: stringValue(finding.next_action, finding.nextAction),
+        releaseGateBlocking: booleanValue(
+          finding.release_gate_blocking,
+          finding.releaseGateBlocking,
+        ),
+      };
+    })
+    .filter((finding): finding is FlowReleasePreventionFinding => finding !== null);
+  const actions = arrayValue(plan.actions)
+    .map((item): FlowReleasePreventionAction | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const action = item as Record<string, unknown>;
+      const id = stringValue(action.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        kind: releasePreventionActionKind(stringValue(action.kind)),
+        status: releasePreventionActionStatus(stringValue(action.status)),
+        owner: stringValue(action.owner),
+        title: stringValue(action.title),
+        summary: stringValue(action.summary),
+        sourcePath: stringValue(action.source_path, action.sourcePath),
+        evidencePath: stringValue(action.evidence_path, action.evidencePath),
+        command: stringValue(action.command),
+        required: booleanValue(action.required),
+        releaseGateBlocking: booleanValue(action.release_gate_blocking, action.releaseGateBlocking),
+        nextAction: stringValue(action.next_action, action.nextAction),
+      };
+    })
+    .filter((action): action is FlowReleasePreventionAction => action !== null);
+  const evidenceLinks = arrayValue(plan.evidence_links, plan.evidenceLinks)
+    .map((item): FlowReleasePreventionEvidenceLink | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const link = item as Record<string, unknown>;
+      const id = stringValue(link.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        label: stringValue(link.label),
+        path: stringValue(link.path),
+        present: booleanValue(link.present),
+      };
+    })
+    .filter((link): link is FlowReleasePreventionEvidenceLink => link !== null);
+
+  if (!planId && findings.length === 0 && actions.length === 0) {
+    return null;
+  }
+
+  return {
+    planId,
+    planJson: stringValue(plan.plan_json, plan.planJson),
+    generatedAtUnixMs: stringValue(plan.generated_at_unix_ms, plan.generatedAtUnixMs),
+    productName: stringValue(plan.product_name, plan.productName),
+    localOnly: booleanValue(plan.local_only, plan.localOnly),
+    status: panelStatus(stringValue(plan.status)),
+    scoreOutOf100: numberValue(plan.score_out_of_100, plan.scoreOutOf100),
+    readyForNextCheckpoint: booleanValue(
+      plan.ready_for_next_checkpoint,
+      plan.readyForNextCheckpoint,
+    ),
+    incidentArchiveJson: stringValue(plan.incident_archive_json, plan.incidentArchiveJson),
+    stabilityBoardJson: stringValue(plan.stability_board_json, plan.stabilityBoardJson),
+    incidentCount: numberValue(plan.incident_count, plan.incidentCount),
+    findingCount: numberValue(plan.finding_count, plan.findingCount),
+    recurringIssueCount: numberValue(plan.recurring_issue_count, plan.recurringIssueCount),
+    actionCount: numberValue(plan.action_count, plan.actionCount),
+    ownerReadyCount: numberValue(plan.owner_ready_count, plan.ownerReadyCount),
+    blockerCount: numberValue(plan.blocker_count, plan.blockerCount),
+    evidenceMissingCount: numberValue(plan.evidence_missing_count, plan.evidenceMissingCount),
+    gateBlockingCount: numberValue(plan.gate_blocking_count, plan.gateBlockingCount),
+    latestIncidentId: stringValue(plan.latest_incident_id, plan.latestIncidentId) || null,
+    activeRollbackReference:
+      stringValue(plan.active_rollback_reference, plan.activeRollbackReference) || null,
+    findings,
+    actions,
+    evidenceLinks,
+    ownerReadyCopy: stringValue(plan.owner_ready_copy, plan.ownerReadyCopy),
+    summary: stringValue(plan.summary),
+    commands: arrayValue(plan.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -3396,6 +3608,41 @@ function releaseIncidentOutcome(value: string): FlowReleaseIncidentOutcome {
     return value;
   }
   return "open";
+}
+
+function releasePreventionFindingKind(value: string): FlowReleasePreventionFindingKind {
+  if (
+    value === "critical-incident" ||
+    value === "repeated-failure-class" ||
+    value === "stale-evidence" ||
+    value === "missing-evidence" ||
+    value === "missing-incident-note" ||
+    value === "rollback-gap" ||
+    value === "stability-gate"
+  ) {
+    return value;
+  }
+  return "stability-gate";
+}
+
+function releasePreventionActionKind(value: string): FlowReleasePreventionActionKind {
+  if (
+    value === "refresh-evidence" ||
+    value === "harden-rollback" ||
+    value === "attach-incident-note" ||
+    value === "resolve-recurrence" ||
+    value === "review-release-gate"
+  ) {
+    return value;
+  }
+  return "review-release-gate";
+}
+
+function releasePreventionActionStatus(value: string): FlowReleasePreventionActionStatus {
+  if (value === "owner-ready" || value === "needs-evidence" || value === "blocked") {
+    return value;
+  }
+  return "blocked";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

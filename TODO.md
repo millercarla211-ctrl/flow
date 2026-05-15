@@ -629,16 +629,34 @@ Goal: preserve Friday recovery decisions as searchable local release history tha
 
 This set is complete. The next loop should open `Friday Release Prevention Planner` and turn incident history into concrete prevention work, owner-ready actions, and readiness gates for future release loops.
 
-## Next Set: Friday Release Prevention Planner
+## Completed Set: Friday Release Prevention Planner
 
-Status: 0/100
+Status: 100/100
 
 Goal: convert archived release incidents into a prevention plan that identifies recurring failure classes, assigns owner-ready follow-up actions, and blocks the next checkpoint until prevention evidence is attached.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed prevention planner model that consumes the release incident archive and current stability board.
+- [x] Add recurrence detection for repeated blocker categories, stale evidence, missing incident notes, and unresolved rollback gaps.
+- [x] Add CLI and JSON commands for generating prevention plans without executing remediation commands.
+- [x] Add dashboard import/rendering for prevention actions, owner-ready copy, blockers, and evidence links.
+- [x] Add focused Rust/TypeScript coverage for recurrence scoring, blocked-plan states, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Owner Follow-up Board` and turn prevention actions into reviewable owner assignments, due windows, evidence requests, and completion gates.
+
+## Next Set: Friday Release Owner Follow-up Board
+
+Status: 0/100
+
+Goal: turn prevention-plan actions into owner-ready follow-up records with due windows, evidence requirements, completion states, and dashboard review controls.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed prevention planner model that consumes the release incident archive and current stability board.
-- [ ] Add recurrence detection for repeated blocker categories, stale evidence, missing incident notes, and unresolved rollback gaps.
-- [ ] Add CLI and JSON commands for generating prevention plans without executing remediation commands.
-- [ ] Add dashboard import/rendering for prevention actions, owner-ready copy, blockers, and evidence links.
-- [ ] Add focused Rust/TypeScript coverage for recurrence scoring, blocked-plan states, command safety, and dashboard rendering.
+- [ ] Add a typed owner follow-up board model that consumes the release prevention plan.
+- [ ] Add owner assignment, due-window, evidence-request, and completion-state fields for each prevention action.
+- [ ] Add CLI and JSON commands for generating follow-up boards without executing remediation commands.
+- [ ] Add dashboard import/rendering for owners, due windows, evidence requests, completion blockers, and copyable assignment text.
+- [ ] Add focused Rust/TypeScript coverage for owner grouping, overdue detection, evidence gates, command safety, and dashboard rendering.

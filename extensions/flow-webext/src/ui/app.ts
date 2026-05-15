@@ -8,6 +8,7 @@ import {
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
   normalizeReleasePostPromotionMonitor,
+  normalizeReleasePreventionPlan,
   normalizeReleasePromotionLedger,
   normalizeReleaseQaCommandCenter,
   normalizeReleaseRecoveryRunbook,
@@ -41,6 +42,7 @@ import {
   type FlowReleaseIncidentArchive,
   type FlowReleaseOperatorChecklistReport,
   type FlowReleasePostPromotionMonitorReport,
+  type FlowReleasePreventionPlanReport,
   type FlowReleasePromotionLedger,
   type FlowReleaseQaCommandCenterReport,
   type FlowReleaseRecoveryRunbookReport,
@@ -100,6 +102,7 @@ type UiState = {
   dashboardReleaseStabilityBoard: FlowReleaseStabilityBoardReport | null;
   dashboardReleaseRecoveryRunbook: FlowReleaseRecoveryRunbookReport | null;
   dashboardReleaseIncidentArchive: FlowReleaseIncidentArchive | null;
+  dashboardReleasePreventionPlan: FlowReleasePreventionPlanReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -2140,6 +2143,71 @@ function renderReleaseIncidentArchive(archive: FlowReleaseIncidentArchive | null
   `;
 }
 
+function renderReleasePreventionPlan(plan: FlowReleasePreventionPlanReport | null) {
+  if (!plan) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-release-prevention-plan">
+      <div class="card-topline">
+        <span class="eyebrow">Prevention plan</span>
+        <span class="badge ${badgeTone(plan.status)}">${plan.scoreOutOf100} / 100</span>
+      </div>
+      <h3>${plan.readyForNextCheckpoint ? "Next checkpoint is clear" : "Next checkpoint needs prevention evidence"}</h3>
+      <p>${escapeHtml(plan.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${plan.findingCount}</strong><small>findings</small></span>
+        <span><strong>${plan.recurringIssueCount}</strong><small>recurring</small></span>
+        <span><strong>${plan.actionCount}</strong><small>actions</small></span>
+        <span><strong>${plan.gateBlockingCount}</strong><small>gate blocks</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Owner ready</strong> ${plan.ownerReadyCount}</span>
+        <span><strong>Evidence missing</strong> ${plan.evidenceMissingCount}</span>
+        <span><strong>Incidents</strong> ${plan.incidentCount}</span>
+        <span><strong>Rollback</strong> ${escapeHtml(plan.activeRollbackReference ?? "not recorded")}</span>
+      </div>
+      <div class="runner-package-files">
+        ${plan.actions
+          .slice(0, 6)
+          .map(
+            (action) => `
+              <div class="runner-package-file ${
+                action.status === "owner-ready" ? "present" : "missing"
+              }">
+                <strong>${escapeHtml(action.title)}</strong>
+                <small>${escapeHtml(action.kind)} - ${escapeHtml(action.status)}</small>
+                <code>${escapeHtml(action.command)}</code>
+                <span>${escapeHtml(action.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      ${
+        plan.findings.length
+          ? `<div class="note-list">${plan.findings
+              .slice(0, 5)
+              .map(
+                (finding) =>
+                  `<span>${escapeHtml(finding.title)}: ${escapeHtml(finding.nextAction)}</span>`,
+              )
+              .join("")}</div>`
+          : ""
+      }
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-prevention-plan-command">
+          Copy plan command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-prevention-plan-owner-copy">
+          Copy owner actions
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2358,6 +2426,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseStabilityBoard(state.dashboardReleaseStabilityBoard)}
       ${renderReleaseRecoveryRunbook(state.dashboardReleaseRecoveryRunbook)}
       ${renderReleaseIncidentArchive(state.dashboardReleaseIncidentArchive)}
+      ${renderReleasePreventionPlan(state.dashboardReleasePreventionPlan)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2495,6 +2564,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseStabilityBoard: null,
     dashboardReleaseRecoveryRunbook: null,
     dashboardReleaseIncidentArchive: null,
+    dashboardReleasePreventionPlan: null,
   };
 
   function render() {
@@ -2802,6 +2872,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseStabilityBoard = normalizeReleaseStabilityBoard(parsed);
       const releaseRecoveryRunbook = normalizeReleaseRecoveryRunbook(parsed);
       const releaseIncidentArchive = normalizeReleaseIncidentArchive(parsed);
+      const releasePreventionPlan = normalizeReleasePreventionPlan(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2837,8 +2908,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseRecoveryRunbook ?? state.dashboardReleaseRecoveryRunbook;
       state.dashboardReleaseIncidentArchive =
         releaseIncidentArchive ?? state.dashboardReleaseIncidentArchive;
+      state.dashboardReleasePreventionPlan =
+        releasePreventionPlan ?? state.dashboardReleasePreventionPlan;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseIncidentArchive
+      state.status = releasePreventionPlan
+        ? `Imported prevention plan at ${releasePreventionPlan.scoreOutOf100}/100 from ${file.name}.`
+        : releaseIncidentArchive
         ? `Imported incident archive with ${releaseIncidentArchive.incidentCount} incident(s) from ${file.name}.`
         : releaseRecoveryRunbook
         ? `Imported recovery runbook at ${releaseRecoveryRunbook.scoreOutOf100}/100 from ${file.name}.`
@@ -3312,6 +3387,38 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleasePreventionPlanCommand() {
+    const command = state.dashboardReleasePreventionPlan?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No prevention plan command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Prevention plan command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleasePreventionPlanOwnerCopy() {
+    const copy = state.dashboardReleasePreventionPlan?.ownerReadyCopy ?? "";
+    if (!copy) {
+      state.status = "No owner-ready prevention copy is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Owner-ready prevention actions copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -3540,6 +3647,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-incident-archive-follow-up']")
       ?.addEventListener("click", () => {
         void copyReleaseIncidentArchiveFollowUp();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-prevention-plan-command']")
+      ?.addEventListener("click", () => {
+        void copyReleasePreventionPlanCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-prevention-plan-owner-copy']")
+      ?.addEventListener("click", () => {
+        void copyReleasePreventionPlanOwnerCopy();
       });
 
     mountRoot

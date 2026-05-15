@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Prevention Planner at 100/100 with typed local-only prevention plans, recurrence detection, release-gate blockers, owner-ready actions, non-executing CLI/JSON commands, dashboard import/rendering, copyable owner text, and focused Rust/TypeScript coverage
+- opened Friday Release Owner Follow-up Board as the next set for turning prevention actions into owner assignments, due windows, evidence requests, and completion gates
 - completed Friday Release Incident Archive at 100/100 with typed local-only incident history, severity/outcome/follow-up/prevention taxonomies, append/list/export CLI commands, dashboard import/rendering, copyable follow-up actions, and focused Rust/TypeScript coverage
 - opened Friday Release Prevention Planner as the next set for turning incident history into recurrence detection, owner-ready prevention actions, and release-blocking evidence gates
 - completed Friday Release Recovery Runbook at 100/100 with typed local-only recovery reports, pause/diagnose/rollback/verify/resume/follow-up phases, explicit approval gates, non-executing CLI/JSON commands, dashboard import/rendering, copyable recovery commands, and focused Rust/TypeScript coverage

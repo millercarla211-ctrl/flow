@@ -27,7 +27,8 @@ use flow::friday::{
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayReleaseCandidateArchiveEntry, FridayReleaseChecklistSignoffDecision,
     FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget,
-    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity, FridayReleasePromotionDecision,
+    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity, FridayReleasePreventionActionKind,
+    FridayReleasePreventionFindingKind, FridayReleasePromotionDecision,
     FridayReleasePromotionRecordRequest, FridayReleaseQaCheckStatus, FridayResearchWorkflow,
     FridayRouteVisualStatus, FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor,
     FridayTrustedHostCommandRawOutput, FridayTrustedHostLiveRunnerRecord,
@@ -52,10 +53,11 @@ use flow::friday::{
     friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
     friday_release_evidence_export_kit_report, friday_release_incident_archive_report,
     friday_release_incident_entry_from_sources, friday_release_operator_checklist_report,
-    friday_release_post_promotion_monitor_report, friday_release_qa_command_center_report,
-    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
-    friday_release_stability_board_report, friday_route_visual_report,
-    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
+    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
+    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
+    friday_release_rollback_drill_report, friday_release_stability_board_report,
+    friday_route_visual_report, friday_route_visual_report_for_root,
+    friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -66,10 +68,10 @@ use flow::friday::{
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
     write_friday_release_deployment_gate, write_friday_release_evidence_export_kit,
     write_friday_release_operator_checklist, write_friday_release_post_promotion_monitor_report,
-    write_friday_release_qa_command_center_report, write_friday_release_recovery_runbook_report,
-    write_friday_release_rollback_drill_report, write_friday_release_stability_board_report,
-    write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
-    write_friday_trusted_runner_release_timeline,
+    write_friday_release_prevention_plan_report, write_friday_release_qa_command_center_report,
+    write_friday_release_recovery_runbook_report, write_friday_release_rollback_drill_report,
+    write_friday_release_stability_board_report, write_friday_trusted_host_live_runner_state,
+    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -2321,6 +2323,40 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
             .entries
             .iter()
             .all(|entry| !entry.evidence_paths.is_empty())
+    );
+    let prevention_plan_path = root.join("release-prevention-plan.json");
+    let prevention_plan = friday_release_prevention_plan_report(
+        &prevention_plan_path,
+        &incident_archive_path,
+        &stability_board_path,
+    );
+    write_friday_release_prevention_plan_report(&prevention_plan_path, &prevention_plan).unwrap();
+    assert_eq!(prevention_plan.incident_count, 1);
+    assert!(!prevention_plan.ready_for_next_checkpoint);
+    assert!(prevention_plan.blocker_count > 0);
+    assert!(prevention_plan.gate_blocking_count > 0);
+    assert!(prevention_plan.findings.iter().any(|finding| {
+        finding.kind == FridayReleasePreventionFindingKind::RollbackGap
+            && finding.release_gate_blocking
+    }));
+    assert!(prevention_plan.findings.iter().any(|finding| {
+        finding.kind == FridayReleasePreventionFindingKind::RepeatedFailureClass
+            && finding.id.contains("rollback")
+    }));
+    assert!(prevention_plan.actions.iter().any(|action| {
+        action.kind == FridayReleasePreventionActionKind::HardenRollback
+            && action.command.contains("--dry-run")
+    }));
+    assert!(
+        prevention_plan
+            .owner_ready_copy
+            .contains("Friday release prevention plan")
+    );
+    assert!(
+        prevention_plan
+            .commands
+            .iter()
+            .any(|command| command.contains("--friday-release-prevention-plan"))
     );
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);

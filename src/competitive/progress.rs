@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-incident-archive-model",
-            "Typed release incident archive model",
+            "release-prevention-planner-model",
+            "Typed release prevention planner model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseIncidentArchive` consumes recovery runbooks, stability boards, post-promotion monitors, rollback drills, and incident notes",
-            "open the next release prevention planner set",
+            "`FridayReleasePreventionPlanReport` consumes the release incident archive and current stability board",
+            "open the next release owner follow-up board set",
         ),
         item(
-            "release-incident-archive-taxonomy",
-            "Incident severity, outcome, and follow-up taxonomy",
+            "release-prevention-planner-recurrence",
+            "Recurrence and blocker detection",
             20,
             CompletionItemStatus::Done,
-            "incident records classify info/watch/blocking/critical severity plus open/monitoring/resolved/rolled-back/prevented outcomes and prevention items",
-            "open the next release prevention planner set",
+            "prevention findings detect critical incidents, repeated failure classes, stale evidence, missing evidence, missing incident notes, rollback gaps, and checkpoint gate blockers",
+            "open the next release owner follow-up board set",
         ),
         item(
-            "release-incident-archive-cli",
-            "Incident archive append/list/export CLI",
+            "release-prevention-planner-cli",
+            "Prevention plan CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-incident-archive`, JSON, list, and export commands preserve local incident history without executing recovery commands",
-            "open the next release prevention planner set",
+            "`flow --friday-release-prevention-plan` and JSON mode generate owner-ready prevention actions without executing remediation commands",
+            "open the next release owner follow-up board set",
         ),
         item(
-            "release-incident-archive-dashboard",
-            "Dashboard incident archive rendering",
+            "release-prevention-planner-dashboard",
+            "Dashboard prevention plan rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports incident archive JSON and renders counts, latest incident, severity, rollback reference, and copyable follow-up actions",
-            "open the next release prevention planner set",
+            "the visible dashboard imports prevention plan JSON and renders findings, recurrence counts, owner-ready actions, gate blockers, and copyable owner text",
+            "open the next release owner follow-up board set",
         ),
         item(
-            "release-incident-archive-coverage",
-            "Incident archive Rust and TypeScript coverage",
+            "release-prevention-planner-coverage",
+            "Prevention planner Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify archive append/list data, critical severity mapping, follow-ups, prevention items, and dashboard rendering",
-            "open the next release prevention planner set",
+            "focused Rust integration coverage plus dashboard smoke checks verify recurrence scoring, blocked-plan states, dry-run command safety, owner-copy text, and dashboard rendering",
+            "open the next release owner follow-up board set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Incident Archive".to_string(),
+        name: "Friday Release Prevention Planner".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Preserve Friday recovery decisions as searchable local release history with severity, outcome, follow-up, and prevention metadata.".to_string(),
+        loop_rule: "Convert Friday incident history and stability evidence into owner-ready prevention work and release-blocking evidence gates.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_incident_archive_loop() {
+    fn active_set_tracks_friday_release_prevention_planner_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Incident Archive");
+        assert_eq!(set.name, "Friday Release Prevention Planner");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

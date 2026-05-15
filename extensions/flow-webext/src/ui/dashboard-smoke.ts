@@ -11,6 +11,7 @@ import {
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
   normalizeReleasePostPromotionMonitor,
+  normalizeReleasePreventionPlan,
   normalizeReleasePromotionLedger,
   normalizeReleaseQaCommandCenter,
   normalizeReleaseRecoveryRunbook,
@@ -1548,6 +1549,112 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-incident-archive-json --archive tmp/friday-dashboard/release-incident-archive.json",
     ],
   });
+  const releasePreventionPlan = normalizeReleasePreventionPlan({
+    plan_id: "friday-release-prevention-plan-smoke",
+    plan_json: "tmp/friday-dashboard/release-prevention-plan.json",
+    generated_at_unix_ms: 15,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    score_out_of_100: 42,
+    ready_for_next_checkpoint: false,
+    incident_archive_json: "tmp/friday-dashboard/release-incident-archive.json",
+    stability_board_json: "tmp/friday-dashboard/release-stability-board.json",
+    incident_count: 1,
+    finding_count: 4,
+    recurring_issue_count: 1,
+    action_count: 4,
+    owner_ready_count: 2,
+    blocker_count: 4,
+    evidence_missing_count: 1,
+    gate_blocking_count: 2,
+    latest_incident_id: "friday-release-incident-smoke",
+    active_rollback_reference: "candidate-initial",
+    findings: [
+      {
+        id: "critical-incidents",
+        kind: "critical-incident",
+        severity: "critical",
+        title: "Critical incidents are still in the archive",
+        recurrence_count: 1,
+        source_paths: ["tmp/friday-dashboard/release-recovery-runbook.json"],
+        summary: "Critical incident history needs explicit prevention evidence.",
+        next_action: "Assign prevention owners for every critical incident.",
+        release_gate_blocking: true,
+      },
+      {
+        id: "repeated-rollback",
+        kind: "repeated-failure-class",
+        severity: "blocking",
+        title: "Repeated rollback release failure class",
+        recurrence_count: 2,
+        source_paths: ["tmp/friday-dashboard/release-rollback-drill.json"],
+        summary: "The archive shows repeated rollback prevention signals.",
+        next_action: "Create one owner-ready prevention action for rollback.",
+        release_gate_blocking: true,
+      },
+    ],
+    actions: [
+      {
+        id: "prevent-critical-incidents",
+        kind: "resolve-recurrence",
+        status: "owner-ready",
+        owner: "release-operator",
+        title: "Assign prevention owner",
+        summary: "Critical incident history needs explicit prevention evidence.",
+        source_path: "tmp/friday-dashboard/release-recovery-runbook.json",
+        evidence_path: "tmp/friday-dashboard/release-prevention-plan.json",
+        command:
+          "flow --friday-release-prevention-plan --output tmp/friday-dashboard/release-prevention-plan.json --incident-archive tmp/friday-dashboard/release-incident-archive.json --stability-board tmp/friday-dashboard/release-stability-board.json",
+        required: true,
+        release_gate_blocking: false,
+        next_action: "Assign prevention owners for every critical incident.",
+      },
+      {
+        id: "prevent-rollback-recovery-gap",
+        kind: "harden-rollback",
+        status: "needs-evidence",
+        owner: "release-operator",
+        title: "Harden rollback drill evidence",
+        summary: "Friday needs a clean rollback recovery path.",
+        source_path: "tmp/friday-dashboard/release-rollback-drill.json",
+        evidence_path: "tmp/friday-dashboard/release-rollback-drill.json",
+        command:
+          "flow --friday-release-rollback-drill-json --output tmp/friday-dashboard/release-rollback-drill.json --dry-run",
+        required: true,
+        release_gate_blocking: true,
+        next_action: "Run a clean rollback drill and attach the result.",
+      },
+    ],
+    evidence_links: [
+      {
+        id: "incident-archive",
+        label: "Incident archive",
+        path: "tmp/friday-dashboard/release-incident-archive.json",
+        present: true,
+      },
+      {
+        id: "stability-board",
+        label: "Stability board",
+        path: "tmp/friday-dashboard/release-stability-board.json",
+        present: true,
+      },
+      {
+        id: "missing-prevention-evidence",
+        label: "Missing prevention evidence",
+        path: "tmp/friday-dashboard/missing-prevention-evidence.json",
+        present: false,
+      },
+    ],
+    owner_ready_copy:
+      "Friday release prevention plan\n- [owner-ready] Assign prevention owner -> Assign prevention owners for every critical incident.",
+    summary:
+      "Friday prevention plan is 42/100 with 4 blockers, 1 recurring issue class, and 2 release gate blockers.",
+    commands: [
+      "flow --friday-release-prevention-plan --output tmp/friday-dashboard/release-prevention-plan.json --incident-archive tmp/friday-dashboard/release-incident-archive.json --stability-board tmp/friday-dashboard/release-stability-board.json",
+      "flow --friday-release-prevention-plan-json --output tmp/friday-dashboard/release-prevention-plan.json --incident-archive tmp/friday-dashboard/release-incident-archive.json --stability-board tmp/friday-dashboard/release-stability-board.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -1997,8 +2104,31 @@ export function dashboardSectionSmokeReport(
         ) &&
         releaseIncidentArchive.commands.some((command) =>
           command.includes("--friday-release-incident-archive"),
-        ),
+      ),
       `${releaseIncidentArchive?.followUpCount ?? 0} incident follow-up action(s)`,
+    ),
+    check(
+      "release-prevention-plan-importable",
+      releasePreventionPlan?.scoreOutOf100 === 42 &&
+        releasePreventionPlan.readyForNextCheckpoint === false &&
+        releasePreventionPlan.activeRollbackReference === "candidate-initial",
+      `${releasePreventionPlan?.scoreOutOf100 ?? 0}/100 prevention plan score`,
+    ),
+    check(
+      "release-prevention-plan-actions",
+      releasePreventionPlan !== null &&
+        releasePreventionPlan.recurringIssueCount === 1 &&
+        releasePreventionPlan.actions.some(
+          (action) =>
+            action.kind === "harden-rollback" &&
+            action.command.includes("--dry-run") &&
+            action.releaseGateBlocking,
+        ) &&
+        releasePreventionPlan.ownerReadyCopy.includes("Friday release prevention plan") &&
+        releasePreventionPlan.commands.some((command) =>
+          command.includes("--friday-release-prevention-plan"),
+        ),
+      `${releasePreventionPlan?.actionCount ?? 0} prevention action(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",
