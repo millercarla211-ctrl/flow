@@ -482,16 +482,34 @@ Goal: bundle the release checklist, QA command center, package, timeline, signof
 
 This set is complete. The next loop should open `Friday Release Deployment Gate` and turn checklist, QA, export-kit, dashboard, and deployment target evidence into an explicit deploy/no-deploy decision surface.
 
-## Next Set: Friday Release Deployment Gate
+## Completed Set: Friday Release Deployment Gate
 
-Status: 0/100
+Status: 100/100
 
 Goal: make Friday's major-checkpoint deployment decision explicit by consuming the release evidence export kit, QA report, checklist, dashboard state, and deployment target into one local-first go/no-go gate.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed deployment-gate model that consumes export-kit, QA, checklist, release package, timeline, dashboard readiness, and optional target metadata.
+- [x] Add no-deploy reason categories for missing evidence, stale checks, blocked QA, unsigned releases, unreviewed dashboard state, and target mismatch.
+- [x] Add CLI and JSON commands for generating deployment-gate reports without running builds or deployments.
+- [x] Add dashboard import/rendering for go/no-go status, target profile, rollback note, and copyable deploy checklist.
+- [x] Add focused Rust/TypeScript coverage for deployment-gate scoring, target mismatch warnings, and visible dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Candidate Archive` and preserve deployment gates, evidence kits, target metadata, and rollback notes as comparable candidate records before any major deploy.
+
+## Next Set: Friday Release Candidate Archive
+
+Status: 0/100
+
+Goal: preserve every Friday major-checkpoint candidate as a comparable local record so operators can see deployment gates, evidence kits, targets, rollback notes, and promotion history without digging through loose JSON files.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed deployment-gate model that consumes export-kit, QA, checklist, release package, timeline, dashboard readiness, and optional target metadata.
-- [ ] Add no-deploy reason categories for missing evidence, stale checks, blocked QA, unsigned releases, unreviewed dashboard state, and target mismatch.
-- [ ] Add CLI and JSON commands for generating deployment-gate reports without running builds or deployments.
-- [ ] Add dashboard import/rendering for go/no-go status, target profile, rollback note, and copyable deploy checklist.
-- [ ] Add focused Rust/TypeScript coverage for deployment-gate scoring, target mismatch warnings, and visible dashboard rendering.
+- [ ] Add a typed release-candidate archive model that stores deployment gate JSON, export kit JSON, target profile, score, decision, and rollback note.
+- [ ] Add candidate diff summaries for score changes, new blockers, resolved blockers, target changes, and evidence checksum changes.
+- [ ] Add CLI and JSON commands for appending candidates and printing candidate history without running builds or deployments.
+- [ ] Add dashboard import/rendering for candidate history, latest-candidate status, and compare-to-previous guidance.
+- [ ] Add focused Rust/TypeScript coverage for candidate archive writes, diff warnings, and dashboard rendering.

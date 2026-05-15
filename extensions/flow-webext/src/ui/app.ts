@@ -2,6 +2,7 @@ import { requestQuickContext, replaceSelection, toggleOverlay } from "../runtime
 import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
+  normalizeReleaseDeploymentGate,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseOperatorChecklist,
   normalizeReleaseQaCommandCenter,
@@ -27,6 +28,7 @@ import {
   type FlowDashboardRunnerReleaseTimeline,
   type FlowDashboardRunnerUxReport,
   type FlowDashboardCommandStatus,
+  type FlowReleaseDeploymentGateReport,
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseOperatorChecklistReport,
   type FlowReleaseQaCommandCenterReport,
@@ -76,6 +78,7 @@ type UiState = {
   dashboardReleaseChecklistReason: string;
   dashboardReleaseQa: FlowReleaseQaCommandCenterReport | null;
   dashboardReleaseExportKit: FlowReleaseEvidenceExportKitReport | null;
+  dashboardReleaseDeploymentGate: FlowReleaseDeploymentGateReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -1577,6 +1580,68 @@ function renderReleaseExportKit(kit: FlowReleaseEvidenceExportKitReport | null) 
   `;
 }
 
+function renderReleaseDeploymentGate(gate: FlowReleaseDeploymentGateReport | null) {
+  if (!gate) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-release-deployment-gate ${gate.decision}">
+      <div class="card-topline">
+        <span class="eyebrow">Release deployment gate</span>
+        <span class="badge ${badgeTone(gate.status)}">${escapeHtml(gate.decision)}</span>
+      </div>
+      <h3>${gate.readyToDeploy ? "Ready to deploy" : "Do not deploy yet"}</h3>
+      <p>${escapeHtml(gate.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${gate.scoreOutOf100}</strong><small>score</small></span>
+        <span><strong>${gate.noDeployReasonCount}</strong><small>blocking</small></span>
+        <span><strong>${gate.warningCount}</strong><small>warnings</small></span>
+        <span><strong>${gate.readyCount}/${gate.totalCount}</strong><small>ready</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Target</strong> ${escapeHtml(gate.target.label)}</span>
+        <span><strong>Provider</strong> ${escapeHtml(gate.target.provider)}</span>
+        <span><strong>Environment</strong> ${escapeHtml(gate.target.environment)}</span>
+        <span><strong>Gate</strong> ${escapeHtml(gate.gateJson)}</span>
+      </div>
+      ${
+        gate.reasons.length
+          ? `<div class="runner-package-files">${gate.reasons
+              .slice(0, 5)
+              .map(
+                (reason) => `
+                  <div class="runner-package-file ${
+                    reason.severity === "warning" ? "present" : "missing"
+                  }">
+                    <strong>${escapeHtml(reason.title)}</strong>
+                    <small>${escapeHtml(reason.category)} - ${escapeHtml(reason.severity)}</small>
+                    <code>${escapeHtml(reason.sourcePath)}</code>
+                    <span>${escapeHtml(reason.nextAction)}</span>
+                  </div>
+                `,
+              )
+              .join("")}</div>`
+          : `<div class="note-list"><span>All deployment-gate reasons are clear.</span></div>`
+      }
+      <div class="note-list">
+        ${gate.deployChecklist
+          .slice(0, 4)
+          .map((item) => `<span>${escapeHtml(item)}</span>`)
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-deployment-gate-copy">
+          Copy gate note
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-deployment-gate-command">
+          Copy gate command
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -1787,6 +1852,7 @@ function renderDashboard(state: UiState) {
       )}
       ${renderReleaseQa(state.dashboardReleaseQa)}
       ${renderReleaseExportKit(state.dashboardReleaseExportKit)}
+      ${renderReleaseDeploymentGate(state.dashboardReleaseDeploymentGate)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1916,6 +1982,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseChecklistReason: "",
     dashboardReleaseQa: null,
     dashboardReleaseExportKit: null,
+    dashboardReleaseDeploymentGate: null,
   };
 
   function render() {
@@ -2215,6 +2282,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseChecklist = normalizeReleaseOperatorChecklist(parsed);
       const releaseQa = normalizeReleaseQaCommandCenter(parsed);
       const releaseExportKit = normalizeReleaseEvidenceExportKit(parsed);
+      const releaseDeploymentGate = normalizeReleaseDeploymentGate(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2234,8 +2302,12 @@ export async function mountFlowApp(surfaceInput: string) {
       state.dashboardReleaseQa = releaseQa ?? state.dashboardReleaseQa;
       state.dashboardReleaseExportKit =
         releaseExportKit ?? state.dashboardReleaseExportKit;
+      state.dashboardReleaseDeploymentGate =
+        releaseDeploymentGate ?? state.dashboardReleaseDeploymentGate;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseExportKit
+      state.status = releaseDeploymentGate
+        ? `Imported deployment gate ${releaseDeploymentGate.decision} at ${releaseDeploymentGate.scoreOutOf100}/100 from ${file.name}.`
+        : releaseExportKit
         ? `Imported release evidence export kit with ${releaseExportKit.manifest.fileCount} file(s) from ${file.name}.`
         : releaseQa
         ? `Imported release QA command center at ${releaseQa.scoreOutOf100}/100 from ${file.name}.`
@@ -2499,6 +2571,36 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseDeploymentGateNote() {
+    const gate = state.dashboardReleaseDeploymentGate;
+    if (!gate) {
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(gate.operatorCopy);
+      state.status = "Release deployment gate note copied.";
+    } catch {
+      state.status = gate.operatorCopy;
+    }
+    render();
+  }
+
+  async function copyReleaseDeploymentGateCommand() {
+    const command = state.dashboardReleaseDeploymentGate?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release deployment gate command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release deployment gate command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -2655,6 +2757,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-export-kit-command']")
       ?.addEventListener("click", () => {
         void copyReleaseExportKitCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-deployment-gate-copy']")
+      ?.addEventListener("click", () => {
+        void copyReleaseDeploymentGateNote();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-deployment-gate-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseDeploymentGateCommand();
       });
 
     mountRoot

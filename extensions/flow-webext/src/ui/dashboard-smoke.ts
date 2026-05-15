@@ -5,6 +5,7 @@ import {
 import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
+  normalizeReleaseDeploymentGate,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseOperatorChecklist,
   normalizeReleaseQaCommandCenter,
@@ -787,6 +788,65 @@ export function dashboardSectionSmokeReport(
       ],
     },
   });
+  const releaseDeploymentGate = normalizeReleaseDeploymentGate({
+    gate_id: "friday-release-deployment-gate-smoke",
+    gate_json: "tmp/friday-dashboard/release-deployment-gate.json",
+    generated_at_unix_ms: 7,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    decision: "no-go",
+    ready_to_deploy: false,
+    score_out_of_100: 71,
+    summary:
+      "Friday deployment gate is no-go at 71 / 100 with 2 blocking reason(s) and 1 warning(s).",
+    target: {
+      id: "local-friday-checkpoint",
+      label: "Local Friday checkpoint",
+      environment: "local",
+      provider: "local",
+      url: null,
+      local_only_required: true,
+      requires_vercel: false,
+      expected_product_name: "Friday",
+      rollback_note: "Keep previous evidence attached.",
+    },
+    export_kit_json: "tmp/friday-dashboard/release-evidence-export-kit.json",
+    qa_json: "tmp/friday-dashboard/release-qa-command-center.json",
+    checklist_json: "tmp/friday-dashboard/release-operator-checklist.json",
+    package_json: "tmp/friday-dashboard/trusted-runner-release-package.json",
+    timeline_json: "tmp/friday-dashboard/trusted-runner-release-timeline.json",
+    dashboard_export_dir: "tmp/friday-dashboard",
+    no_deploy_reason_count: 2,
+    warning_count: 1,
+    ready_count: 5,
+    total_count: 7,
+    reasons: [
+      {
+        id: "qa-not-ready",
+        category: "blocked-qa",
+        severity: "blocking",
+        title: "Release QA is blocked",
+        detail: "Dashboard smoke is stale.",
+        source_path: "tmp/friday-dashboard/release-qa-command-center.json",
+        next_action: "Refresh dashboard smoke.",
+      },
+    ],
+    checklist: [
+      {
+        id: "release-qa",
+        title: "Release QA command center",
+        ready: false,
+        detail: "Score 83 / 100 with stale dashboard smoke.",
+        source_path: "tmp/friday-dashboard/release-qa-command-center.json",
+      },
+    ],
+    deploy_checklist: ["Do not deploy yet.", "Resolve every blocking deployment-gate reason first."],
+    rollback_note: "Keep previous evidence attached.",
+    operator_copy:
+      "Friday deployment gate: no-go\nScore: 71 / 100\nTarget: Local Friday checkpoint",
+    commands: ["flow --friday-release-deployment-gate tmp/friday-dashboard"],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -1078,8 +1138,23 @@ export function dashboardSectionSmokeReport(
         releaseExportKit.operatorCopy.includes("Manifest checksum") &&
         releaseExportKit.manifest.commands.some((command) =>
           command.includes("--friday-release-export-kit"),
-        ),
+      ),
       `${releaseExportKit?.manifest.staleCount ?? 0} stale export-kit file(s)`,
+    ),
+    check(
+      "release-deployment-gate-importable",
+      releaseDeploymentGate?.decision === "no-go" &&
+        releaseDeploymentGate.target.localOnlyRequired === true &&
+        releaseDeploymentGate.noDeployReasonCount === 2,
+      `${releaseDeploymentGate?.decision ?? "missing"} deployment decision`,
+    ),
+    check(
+      "release-deployment-gate-copy",
+      releaseDeploymentGate?.operatorCopy.includes("Friday deployment gate") === true &&
+        releaseDeploymentGate.commands.some((command) =>
+          command.includes("--friday-release-deployment-gate"),
+        ),
+      `${releaseDeploymentGate?.commands.length ?? 0} deployment gate command(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

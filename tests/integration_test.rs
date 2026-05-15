@@ -26,7 +26,8 @@ use flow::friday::{
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayReleaseChecklistSignoffDecision, FridayReleaseQaCheckStatus,
-    FridayResearchWorkflow, FridayRouteVisualStatus, FridayRuntimeSurfaceStore,
+    FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget, FridayResearchWorkflow,
+    FridayRouteVisualStatus, FridayRuntimeSurfaceStore,
     FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
     FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
@@ -45,8 +46,9 @@ use flow::friday::{
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_release_evidence_export_kit_report,
-    friday_release_operator_checklist_report, friday_release_qa_command_center_report,
-    friday_route_visual_report, friday_route_visual_report_for_root,
+    friday_release_deployment_gate_report, friday_release_operator_checklist_report,
+    friday_release_qa_command_center_report, friday_route_visual_report,
+    friday_route_visual_report_for_root,
     friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
@@ -56,9 +58,10 @@ use flow::friday::{
     refresh_friday_trusted_host_live_runner_state, run_friday_ocr_smoke,
     run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command_bridge_with_executor,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
-    write_friday_release_evidence_export_kit, write_friday_release_operator_checklist,
-    write_friday_release_qa_command_center_report, write_friday_trusted_host_live_runner_state,
-    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
+    write_friday_release_deployment_gate, write_friday_release_evidence_export_kit,
+    write_friday_release_operator_checklist, write_friday_release_qa_command_center_report,
+    write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
+    write_friday_trusted_runner_release_timeline,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -1955,6 +1958,44 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     );
     write_friday_release_evidence_export_kit(&export_kit_path, &export_kit).unwrap();
     assert!(export_kit_path.exists());
+    let deployment_gate_path = root.join("release-deployment-gate.json");
+    let deployment_gate = friday_release_deployment_gate_report(
+        &deployment_gate_path,
+        &export_kit_path,
+        &qa_path,
+        &checklist_path,
+        &package_path,
+        &timeline_path,
+        &root,
+        FridayReleaseDeploymentTarget::default(),
+    );
+    assert_eq!(deployment_gate.product_name, "Friday");
+    assert_eq!(
+        deployment_gate.decision,
+        FridayReleaseDeploymentGateDecision::NoGo
+    );
+    assert!(!deployment_gate.ready_to_deploy);
+    assert!(deployment_gate.no_deploy_reason_count > 0);
+    assert!(deployment_gate.score_out_of_100 < 100);
+    assert!(
+        deployment_gate
+            .reasons
+            .iter()
+            .any(|reason| reason.category.label() == "blocked-qa")
+    );
+    assert!(
+        deployment_gate
+            .operator_copy
+            .contains("Friday deployment gate")
+    );
+    assert!(
+        deployment_gate
+            .commands
+            .iter()
+            .any(|command| command.contains("--friday-release-deployment-gate"))
+    );
+    write_friday_release_deployment_gate(&deployment_gate_path, &deployment_gate).unwrap();
+    assert!(deployment_gate_path.exists());
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

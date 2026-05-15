@@ -28,7 +28,8 @@ use crate::experience::{
 };
 use crate::friday::{
     FridayArtifactStore, FridayFeatureStatus, FridayReleaseChecklistSignoff,
-    FridayReleaseChecklistSignoffDecision, FridayReleaseEvidenceExportKitReport,
+    FridayReleaseChecklistSignoffDecision, FridayReleaseDeploymentGateReport,
+    FridayReleaseDeploymentTarget, FridayReleaseEvidenceExportKitReport,
     FridayReleaseOperatorChecklistReport, FridayReleaseQaCommandCenterReport, FridayResearchReport,
     FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
@@ -46,8 +47,9 @@ use crate::friday::{
     friday_dashboard_product_ui_binding_from_export, friday_dashboard_product_ui_smoke_from_export,
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
-    friday_operator_readiness_report, friday_release_evidence_export_kit_report,
-    friday_release_operator_checklist_report, friday_release_qa_command_center_report,
+    friday_operator_readiness_report, friday_release_deployment_gate_report,
+    friday_release_evidence_export_kit_report, friday_release_operator_checklist_report,
+    friday_release_qa_command_center_report,
     friday_research_search_plan, friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
@@ -57,8 +59,9 @@ use crate::friday::{
     friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
     run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
     run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
-    write_friday_release_evidence_export_kit, write_friday_release_operator_checklist,
-    write_friday_release_qa_command_center_report, write_friday_trusted_host_live_runner_state,
+    write_friday_release_deployment_gate, write_friday_release_evidence_export_kit,
+    write_friday_release_operator_checklist, write_friday_release_qa_command_center_report,
+    write_friday_trusted_host_live_runner_state,
     write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
 };
 use crate::models::{
@@ -934,6 +937,91 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayReleaseDeploymentGate {
+            gate_file,
+            export_dir,
+            export_kit_file,
+            qa_file,
+            checklist_file,
+            package_file,
+            timeline_file,
+            target_id,
+            target_label,
+            environment,
+            provider,
+            target_url,
+            local_only_required,
+            requires_vercel,
+            expected_product_name,
+            rollback_note,
+        } => {
+            let target = FridayReleaseDeploymentTarget {
+                id: target_id,
+                label: target_label,
+                environment,
+                provider,
+                url: target_url,
+                local_only_required,
+                requires_vercel,
+                expected_product_name,
+                rollback_note,
+            };
+            let report = friday_release_deployment_gate_report(
+                resolve_repo_relative_path(&gate_file),
+                resolve_repo_relative_path(&export_kit_file),
+                resolve_repo_relative_path(&qa_file),
+                resolve_repo_relative_path(&checklist_file),
+                resolve_repo_relative_path(&package_file),
+                resolve_repo_relative_path(&timeline_file),
+                resolve_repo_relative_path(&export_dir),
+                target,
+            );
+            write_friday_release_deployment_gate(resolve_repo_relative_path(&gate_file), &report)?;
+            print_friday_release_deployment_gate(&report);
+        }
+
+        Command::FridayReleaseDeploymentGateJson {
+            gate_file,
+            export_dir,
+            export_kit_file,
+            qa_file,
+            checklist_file,
+            package_file,
+            timeline_file,
+            target_id,
+            target_label,
+            environment,
+            provider,
+            target_url,
+            local_only_required,
+            requires_vercel,
+            expected_product_name,
+            rollback_note,
+        } => {
+            let target = FridayReleaseDeploymentTarget {
+                id: target_id,
+                label: target_label,
+                environment,
+                provider,
+                url: target_url,
+                local_only_required,
+                requires_vercel,
+                expected_product_name,
+                rollback_note,
+            };
+            let report = friday_release_deployment_gate_report(
+                resolve_repo_relative_path(&gate_file),
+                resolve_repo_relative_path(&export_kit_file),
+                resolve_repo_relative_path(&qa_file),
+                resolve_repo_relative_path(&checklist_file),
+                resolve_repo_relative_path(&package_file),
+                resolve_repo_relative_path(&timeline_file),
+                resolve_repo_relative_path(&export_dir),
+                target,
+            );
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1435,6 +1523,10 @@ fn print_interactive_help() {
     println!("                           Write Friday release evidence export-kit JSON");
     println!("  --friday-release-export-kit-json [export-dir]");
     println!("                           Print Friday release evidence export kit as JSON");
+    println!("  --friday-release-deployment-gate [export-dir]");
+    println!("                           Write Friday release go/no-go deployment gate JSON");
+    println!("  --friday-release-deployment-gate-json [export-dir]");
+    println!("                           Print Friday release deployment gate as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -2748,6 +2840,63 @@ fn print_friday_release_evidence_export_kit(report: &FridayReleaseEvidenceExport
     println!();
     println!("Commands:");
     for command in &report.manifest.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_deployment_gate(report: &FridayReleaseDeploymentGateReport) {
+    println!("Friday Release Deployment Gate");
+    println!("==============================");
+    println!("{}", report.summary);
+    println!("Decision: {}", report.decision.label());
+    println!("Ready to deploy: {}", yes_no(report.ready_to_deploy));
+    println!("Score: {} / 100", report.score_out_of_100);
+    println!(
+        "Target: {} ({}, {})",
+        report.target.label, report.target.environment, report.target.provider
+    );
+    println!(
+        "Reasons: {} blocking, {} warning(s) | Checklist: {}/{} ready",
+        report.no_deploy_reason_count,
+        report.warning_count,
+        report.ready_count,
+        report.total_count
+    );
+    println!("Gate: {}", report.gate_json);
+    println!();
+    println!("No-deploy reasons:");
+    if report.reasons.is_empty() {
+        println!("  - none");
+    } else {
+        for reason in &report.reasons {
+            println!(
+                "  - {} [{}:{}]",
+                reason.title,
+                reason.category.label(),
+                reason.severity.label()
+            );
+            println!("    {}", reason.detail);
+            println!("    source: {}", reason.source_path);
+            println!("    next: {}", reason.next_action);
+        }
+    }
+    println!();
+    println!("Deployment checklist:");
+    for item in &report.checklist {
+        println!(
+            "  - {} ready={} ({})",
+            item.title,
+            yes_no(item.ready),
+            item.source_path
+        );
+        println!("    {}", item.detail);
+    }
+    println!();
+    println!("Operator copy:");
+    println!("{}", report.operator_copy);
+    println!();
+    println!("Commands:");
+    for command in &report.commands {
         println!("  - {command}");
     }
 }

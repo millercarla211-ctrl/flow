@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-export-kit-model",
-            "Typed release evidence export-kit model",
+            "release-deployment-gate-model",
+            "Typed release deployment-gate model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseEvidenceExportKitReport` bundles checklist, QA, package, timeline, signoffs, and lightweight check-result files with manifest checksums",
-            "open the next release deployment gate set",
+            "`FridayReleaseDeploymentGateReport` consumes export-kit, QA, checklist, package, timeline, dashboard state, and target metadata",
+            "open the next release candidate archive set",
         ),
         item(
-            "release-export-kit-cli",
-            "Release export-kit CLI and JSON commands",
+            "release-deployment-gate-reasons",
+            "No-deploy reason categories",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-export-kit` writes the local kit and `--friday-release-export-kit-json` previews it without running host commands or full builds",
-            "open the next release deployment gate set",
+            "deployment gates classify missing evidence, stale checks, blocked QA, unsigned releases, dashboard state, and target mismatch as warning or blocking reasons",
+            "open the next release candidate archive set",
         ),
         item(
-            "release-export-kit-dashboard",
-            "Dashboard export-kit rendering",
+            "release-deployment-gate-cli",
+            "Deployment-gate CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports export-kit JSON, renders completeness metrics, stale/missing evidence, and checksum details",
-            "open the next release deployment gate set",
+            "`flow --friday-release-deployment-gate` writes the go/no-go report and `--friday-release-deployment-gate-json` previews it without running builds or deployments",
+            "open the next release candidate archive set",
         ),
         item(
-            "release-export-kit-operator-copy",
-            "Operator attachment copy",
+            "release-deployment-gate-dashboard",
+            "Dashboard deployment-gate rendering",
             20,
             CompletionItemStatus::Done,
-            "export-kit reports include copyable checkpoint text with kit path, readiness, manifest checksum, file counts, and attach guidance",
-            "open the next release deployment gate set",
+            "the visible dashboard imports deployment-gate JSON, renders go/no-go status, target profile, rollback note, reasons, and deploy checklist",
+            "open the next release candidate archive set",
         ),
         item(
-            "release-export-kit-coverage",
-            "Export-kit Rust and TypeScript coverage",
+            "release-deployment-gate-coverage",
+            "Deployment-gate Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage and dashboard smoke checks verify kit completeness, checksum copy, stale warnings, CLI wiring, and UI normalization",
-            "open the next release deployment gate set",
+            "focused Rust integration coverage and dashboard smoke checks verify no-go scoring, target policy, operator copy, commands, and UI normalization",
+            "open the next release candidate archive set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Evidence Export Kit".to_string(),
+        name: "Friday Release Deployment Gate".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Bundle the release checklist, QA command center, package, timeline, signoffs, and lightweight check outputs into one local-only review kit with manifests, checksums, and dashboard import guidance.".to_string(),
+        loop_rule: "Turn release evidence, QA, checklist, dashboard state, and deployment target metadata into one explicit local-first go/no-go gate before major Friday checkpoints.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_evidence_export_kit_loop() {
+    fn active_set_tracks_friday_release_deployment_gate_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Evidence Export Kit");
+        assert_eq!(set.name, "Friday Release Deployment Gate");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

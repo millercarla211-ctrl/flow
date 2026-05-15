@@ -293,6 +293,44 @@ pub enum Command {
         extension_typecheck_result_file: String,
         dashboard_smoke_result_file: String,
     },
+    /// Write the Friday release deployment gate JSON
+    FridayReleaseDeploymentGate {
+        gate_file: String,
+        export_dir: String,
+        export_kit_file: String,
+        qa_file: String,
+        checklist_file: String,
+        package_file: String,
+        timeline_file: String,
+        target_id: String,
+        target_label: String,
+        environment: String,
+        provider: String,
+        target_url: Option<String>,
+        local_only_required: bool,
+        requires_vercel: bool,
+        expected_product_name: String,
+        rollback_note: String,
+    },
+    /// Print the Friday release deployment gate as JSON
+    FridayReleaseDeploymentGateJson {
+        gate_file: String,
+        export_dir: String,
+        export_kit_file: String,
+        qa_file: String,
+        checklist_file: String,
+        package_file: String,
+        timeline_file: String,
+        target_id: String,
+        target_label: String,
+        environment: String,
+        provider: String,
+        target_url: Option<String>,
+        local_only_required: bool,
+        requires_vercel: bool,
+        expected_product_name: String,
+        rollback_note: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1103,6 +1141,82 @@ impl Args {
                     dashboard_smoke_result_file,
                 }
             }
+            "--friday-release-deployment-gate" | "--friday-deployment-gate" => {
+                let (
+                    gate_file,
+                    export_dir,
+                    export_kit_file,
+                    qa_file,
+                    checklist_file,
+                    package_file,
+                    timeline_file,
+                    target_id,
+                    target_label,
+                    environment,
+                    provider,
+                    target_url,
+                    local_only_required,
+                    requires_vercel,
+                    expected_product_name,
+                    rollback_note,
+                ) = parse_friday_release_deployment_gate_args(&args);
+                Command::FridayReleaseDeploymentGate {
+                    gate_file,
+                    export_dir,
+                    export_kit_file,
+                    qa_file,
+                    checklist_file,
+                    package_file,
+                    timeline_file,
+                    target_id,
+                    target_label,
+                    environment,
+                    provider,
+                    target_url,
+                    local_only_required,
+                    requires_vercel,
+                    expected_product_name,
+                    rollback_note,
+                }
+            }
+            "--friday-release-deployment-gate-json" | "--friday-deployment-gate-json" => {
+                let (
+                    gate_file,
+                    export_dir,
+                    export_kit_file,
+                    qa_file,
+                    checklist_file,
+                    package_file,
+                    timeline_file,
+                    target_id,
+                    target_label,
+                    environment,
+                    provider,
+                    target_url,
+                    local_only_required,
+                    requires_vercel,
+                    expected_product_name,
+                    rollback_note,
+                ) = parse_friday_release_deployment_gate_args(&args);
+                Command::FridayReleaseDeploymentGateJson {
+                    gate_file,
+                    export_dir,
+                    export_kit_file,
+                    qa_file,
+                    checklist_file,
+                    package_file,
+                    timeline_file,
+                    target_id,
+                    target_label,
+                    environment,
+                    provider,
+                    target_url,
+                    local_only_required,
+                    requires_vercel,
+                    expected_product_name,
+                    rollback_note,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -1803,6 +1917,83 @@ fn parse_friday_release_export_kit_args(
         cargo_check_result_file,
         extension_typecheck_result_file,
         dashboard_smoke_result_file,
+    )
+}
+
+#[allow(clippy::type_complexity)]
+fn parse_friday_release_deployment_gate_args(
+    args: &[String],
+) -> (
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    bool,
+    bool,
+    String,
+    String,
+) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let gate_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--gate"))
+        .unwrap_or_else(|| format!("{export_dir}/release-deployment-gate.json"));
+    let export_kit_file = flag_value(args, "--export-kit")
+        .or_else(|| flag_value(args, "--kit"))
+        .unwrap_or_else(|| format!("{export_dir}/release-evidence-export-kit.json"));
+    let qa_file = flag_value(args, "--qa")
+        .or_else(|| flag_value(args, "--release-qa"))
+        .unwrap_or_else(|| format!("{export_dir}/release-qa-command-center.json"));
+    let checklist_file = flag_value(args, "--checklist")
+        .unwrap_or_else(|| format!("{export_dir}/release-operator-checklist.json"));
+    let package_file = flag_value(args, "--package")
+        .unwrap_or_else(|| format!("{export_dir}/trusted-runner-release-package.json"));
+    let timeline_file = flag_value(args, "--timeline")
+        .unwrap_or_else(|| format!("{export_dir}/trusted-runner-release-timeline.json"));
+    let target_id =
+        flag_value(args, "--target-id").unwrap_or_else(|| "local-friday-checkpoint".to_string());
+    let target_label = flag_value(args, "--target-label")
+        .unwrap_or_else(|| "Local Friday checkpoint".to_string());
+    let environment = flag_value(args, "--environment").unwrap_or_else(|| "local".to_string());
+    let provider = flag_value(args, "--provider").unwrap_or_else(|| "local".to_string());
+    let target_url = flag_value(args, "--url").or_else(|| flag_value(args, "--target-url"));
+    let local_only_required = !args.iter().any(|value| value == "--remote-allowed");
+    let requires_vercel = args.iter().any(|value| value == "--vercel");
+    let expected_product_name =
+        flag_value(args, "--product").unwrap_or_else(|| "Friday".to_string());
+    let rollback_note = flag_value(args, "--rollback-note").unwrap_or_else(|| {
+        "Keep the previous evidence kit and release package attached; do not promote until the deployment gate returns go.".to_string()
+    });
+
+    (
+        gate_file,
+        export_dir,
+        export_kit_file,
+        qa_file,
+        checklist_file,
+        package_file,
+        timeline_file,
+        target_id,
+        target_label,
+        environment,
+        provider,
+        target_url,
+        local_only_required,
+        requires_vercel,
+        expected_product_name,
+        rollback_note,
     )
 }
 

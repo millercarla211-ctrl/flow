@@ -457,6 +457,75 @@ export interface FlowReleaseEvidenceExportKitReport {
   manifest: FlowReleaseEvidenceExportKitManifest;
 }
 
+export type FlowReleaseDeploymentGateDecision = "go" | "no-go" | "draft";
+export type FlowReleaseDeploymentGateReasonCategory =
+  | "missing-evidence"
+  | "stale-checks"
+  | "blocked-qa"
+  | "unsigned-release"
+  | "dashboard-state"
+  | "target-mismatch";
+
+export interface FlowReleaseDeploymentTarget {
+  id: string;
+  label: string;
+  environment: string;
+  provider: string;
+  url: string | null;
+  localOnlyRequired: boolean;
+  requiresVercel: boolean;
+  expectedProductName: string;
+  rollbackNote: string;
+}
+
+export interface FlowReleaseDeploymentGateReason {
+  id: string;
+  category: FlowReleaseDeploymentGateReasonCategory;
+  severity: "blocking" | "warning";
+  title: string;
+  detail: string;
+  sourcePath: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseDeploymentGateChecklistItem {
+  id: string;
+  title: string;
+  ready: boolean;
+  detail: string;
+  sourcePath: string;
+}
+
+export interface FlowReleaseDeploymentGateReport {
+  gateId: string;
+  gateJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  decision: FlowReleaseDeploymentGateDecision;
+  readyToDeploy: boolean;
+  scoreOutOf100: number;
+  summary: string;
+  target: FlowReleaseDeploymentTarget;
+  exportKitJson: string;
+  qaJson: string;
+  checklistJson: string;
+  packageJson: string;
+  timelineJson: string;
+  dashboardExportDir: string;
+  noDeployReasonCount: number;
+  warningCount: number;
+  readyCount: number;
+  totalCount: number;
+  reasons: FlowReleaseDeploymentGateReason[];
+  checklist: FlowReleaseDeploymentGateChecklistItem[];
+  deployChecklist: string[];
+  rollbackNote: string;
+  operatorCopy: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -1687,6 +1756,123 @@ export function normalizeReleaseEvidenceExportKit(
   };
 }
 
+export function normalizeReleaseDeploymentGate(
+  value: unknown,
+): FlowReleaseDeploymentGateReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const report =
+    root.release_deployment_gate && typeof root.release_deployment_gate === "object"
+      ? (root.release_deployment_gate as Record<string, unknown>)
+      : root.releaseDeploymentGate && typeof root.releaseDeploymentGate === "object"
+        ? (root.releaseDeploymentGate as Record<string, unknown>)
+        : root;
+  const gateId = stringValue(report.gate_id, report.gateId);
+  const targetRecord =
+    report.target && typeof report.target === "object"
+      ? (report.target as Record<string, unknown>)
+      : null;
+  const reasons = arrayValue(report.reasons)
+    .map((item): FlowReleaseDeploymentGateReason | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const reason = item as Record<string, unknown>;
+      const id = stringValue(reason.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        category: deploymentReasonCategory(stringValue(reason.category)),
+        severity: stringValue(reason.severity) === "warning" ? "warning" : "blocking",
+        title: stringValue(reason.title) || id,
+        detail: stringValue(reason.detail),
+        sourcePath: stringValue(reason.source_path, reason.sourcePath),
+        nextAction: stringValue(reason.next_action, reason.nextAction),
+      };
+    })
+    .filter((item): item is FlowReleaseDeploymentGateReason => item !== null);
+  const checklist = arrayValue(report.checklist)
+    .map((item): FlowReleaseDeploymentGateChecklistItem | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const check = item as Record<string, unknown>;
+      const id = stringValue(check.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        title: stringValue(check.title) || id,
+        ready: booleanValue(check.ready),
+        detail: stringValue(check.detail),
+        sourcePath: stringValue(check.source_path, check.sourcePath),
+      };
+    })
+    .filter((item): item is FlowReleaseDeploymentGateChecklistItem => item !== null);
+
+  if (!gateId && !targetRecord && reasons.length === 0 && checklist.length === 0) {
+    return null;
+  }
+
+  const target = targetRecord ?? {};
+
+  return {
+    gateId,
+    gateJson: stringValue(report.gate_json, report.gateJson),
+    generatedAtUnixMs: stringValue(report.generated_at_unix_ms, report.generatedAtUnixMs),
+    productName: stringValue(report.product_name, report.productName),
+    localOnly: booleanValue(report.local_only, report.localOnly),
+    status: panelStatus(stringValue(report.status)),
+    decision: deploymentDecision(stringValue(report.decision)),
+    readyToDeploy: booleanValue(report.ready_to_deploy, report.readyToDeploy),
+    scoreOutOf100: numberValue(report.score_out_of_100, report.scoreOutOf100),
+    summary: stringValue(report.summary),
+    target: {
+      id: stringValue(target.id),
+      label: stringValue(target.label),
+      environment: stringValue(target.environment),
+      provider: stringValue(target.provider),
+      url: stringValue(target.url) || null,
+      localOnlyRequired: booleanValue(target.local_only_required, target.localOnlyRequired),
+      requiresVercel: booleanValue(target.requires_vercel, target.requiresVercel),
+      expectedProductName: stringValue(
+        target.expected_product_name,
+        target.expectedProductName,
+      ),
+      rollbackNote: stringValue(target.rollback_note, target.rollbackNote),
+    },
+    exportKitJson: stringValue(report.export_kit_json, report.exportKitJson),
+    qaJson: stringValue(report.qa_json, report.qaJson),
+    checklistJson: stringValue(report.checklist_json, report.checklistJson),
+    packageJson: stringValue(report.package_json, report.packageJson),
+    timelineJson: stringValue(report.timeline_json, report.timelineJson),
+    dashboardExportDir: stringValue(report.dashboard_export_dir, report.dashboardExportDir),
+    noDeployReasonCount: numberValue(
+      report.no_deploy_reason_count,
+      report.noDeployReasonCount,
+    ),
+    warningCount: numberValue(report.warning_count, report.warningCount),
+    readyCount: numberValue(report.ready_count, report.readyCount),
+    totalCount: numberValue(report.total_count, report.totalCount),
+    reasons,
+    checklist,
+    deployChecklist: arrayValue(report.deploy_checklist, report.deployChecklist)
+      .map((item) => stringValue(item))
+      .filter(Boolean),
+    rollbackNote: stringValue(report.rollback_note, report.rollbackNote),
+    operatorCopy: stringValue(report.operator_copy, report.operatorCopy),
+    commands: arrayValue(report.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -1831,6 +2017,27 @@ function qaCheckStatus(value: string): FlowReleaseQaCheckStatus {
     return value;
   }
   return "warning";
+}
+
+function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {
+  if (value === "go" || value === "no-go" || value === "draft") {
+    return value;
+  }
+  return "draft";
+}
+
+function deploymentReasonCategory(value: string): FlowReleaseDeploymentGateReasonCategory {
+  if (
+    value === "missing-evidence" ||
+    value === "stale-checks" ||
+    value === "blocked-qa" ||
+    value === "unsigned-release" ||
+    value === "dashboard-state" ||
+    value === "target-mismatch"
+  ) {
+    return value;
+  }
+  return "missing-evidence";
 }
 
 function runnerStatus(value: string): FlowDashboardCommandStatus {
