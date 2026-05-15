@@ -8,6 +8,7 @@ import {
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
   normalizeTrustedHostRunnerCancellationUx,
+  normalizeTrustedHostRunnerOperatorReview,
   normalizeTrustedHostRunnerApprovalUi,
   normalizeTrustedHostRunnerResults,
   normalizeTrustedHostRunnerUx,
@@ -428,6 +429,77 @@ export function dashboardSectionSmokeReport(
       },
     ],
   });
+  const trustedOperatorReview = normalizeTrustedHostRunnerOperatorReview({
+    history_json: "tmp/friday-dashboard/trusted-host-runner-history.json",
+    review_id: "trusted-runner-review-smoke",
+    generated_at_unix_ms: 1,
+    record_count: 3,
+    matched_count: 3,
+    ready_count: 1,
+    blocked_count: 2,
+    release_gate_status: "blocked",
+    filters: {
+      status: null,
+      action_id: "host",
+      since_unix_ms: null,
+      until_unix_ms: null,
+      limit: 50,
+    },
+    release_gate_summaries: [
+      {
+        id: "succeeded",
+        title: "Succeeded",
+        severity: "ready",
+        count: 1,
+        detail: "Successful commands are ready for release review.",
+        next_action: "Attach successful checks to release review.",
+      },
+      {
+        id: "failed",
+        title: "Failed",
+        severity: "blocked",
+        count: 1,
+        detail: "Failed command blocks release until reviewed.",
+        next_action: "Export incident notes and rerun.",
+      },
+      {
+        id: "stale-live-state",
+        title: "Stale live state",
+        severity: "watch",
+        count: 0,
+        detail: "Import live state for stale runner records.",
+        next_action: "Open the live runner state card.",
+      },
+    ],
+    incident_notes: [
+      {
+        id: "incident-host-run",
+        action_id: "host-run",
+        status: "failed",
+        severity: "blocked",
+        title: "Failed: Run host report",
+        body: "The command failed and blocks release.",
+        export_markdown: "### Failed: Run host report",
+        recorded_at_unix_ms: 1,
+      },
+    ],
+    records: [
+      {
+        result_id: "host-run-1",
+        action_id: "host-run",
+        label: "Run host report",
+        status: "failed",
+        severity: "blocked",
+        command: "flow --friday-readiness",
+        summary: "Failed in 6ms: boom",
+        release_gate: "This command failed and blocks release.",
+        operator_reason: "reviewed locally",
+        recorded_at_unix_ms: 1,
+        duration_ms: 6,
+        exit_code: 2,
+      },
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -616,8 +688,34 @@ export function dashboardSectionSmokeReport(
             control.kind === "denial-recovery" &&
             control.requiresReason &&
             control.command.includes("denial recovery reason"),
-        ),
+      ),
       `${trustedDenialRecoveryUx?.controls.length ?? 0} denial recovery control(s)`,
+    ),
+    check(
+      "trusted-runner-operator-review-filters",
+      trustedOperatorReview?.filters.actionId === "host" &&
+        trustedOperatorReview.releaseGateStatus === "blocked" &&
+        trustedOperatorReview.blockedCount === 2,
+      `${trustedOperatorReview?.matchedCount ?? 0} review record(s)`,
+    ),
+    check(
+      "trusted-runner-operator-review-release-gate",
+      trustedOperatorReview?.releaseGateSummaries.some(
+        (summary) => summary.id === "failed" && summary.severity === "blocked",
+      ) === true &&
+        trustedOperatorReview.releaseGateSummaries.some(
+          (summary) => summary.id === "stale-live-state",
+        ),
+      `${trustedOperatorReview?.releaseGateSummaries.length ?? 0} release gate summaries`,
+    ),
+    check(
+      "trusted-runner-operator-review-incidents",
+      trustedOperatorReview?.incidentNotes.some(
+        (note) =>
+          note.severity === "blocked" &&
+          note.exportMarkdown.includes("Failed: Run host report"),
+      ) === true,
+      `${trustedOperatorReview?.incidentNotes.length ?? 0} incident note(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

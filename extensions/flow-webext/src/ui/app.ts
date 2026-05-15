@@ -5,6 +5,7 @@ import {
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
   normalizeTrustedHostRunnerCancellationUx,
+  normalizeTrustedHostRunnerOperatorReview,
   normalizeTrustedHostRunnerApprovalUi,
   normalizeTrustedHostRunnerResults,
   normalizeTrustedHostRunnerUx,
@@ -16,6 +17,7 @@ import {
   type FlowDashboardRunnerApprovalUiReport,
   type FlowDashboardRunnerCancellationControl,
   type FlowDashboardRunnerCancellationUxReport,
+  type FlowDashboardRunnerOperatorReviewReport,
   type FlowDashboardRunnerUxReport,
   type FlowDashboardCommandStatus,
 } from "../runtime/dashboard-actions";
@@ -57,6 +59,7 @@ type UiState = {
   dashboardLiveRunnerState: FlowDashboardLiveRunnerState | null;
   dashboardRunnerCancellationUx: FlowDashboardRunnerCancellationUxReport | null;
   dashboardRunnerCancellationDrafts: Record<string, string>;
+  dashboardRunnerOperatorReview: FlowDashboardRunnerOperatorReviewReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -1196,6 +1199,80 @@ function renderLiveRunnerState(
   `;
 }
 
+function renderRunnerOperatorReview(review: FlowDashboardRunnerOperatorReviewReport | null) {
+  if (!review) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-runner-review">
+      <div class="card-topline">
+        <span class="eyebrow">Trusted runner review</span>
+        <span class="badge ${badgeTone(review.releaseGateStatus === "blocked" ? "blocked" : review.releaseGateStatus === "ready" ? "ready" : "pending")}">
+          ${escapeHtml(review.releaseGateStatus || "review")}
+        </span>
+      </div>
+      <div class="dashboard-history-metrics">
+        <span><strong>${review.matchedCount}</strong><small>matched</small></span>
+        <span><strong>${review.blockedCount}</strong><small>blocked</small></span>
+        <span><strong>${review.readyCount}</strong><small>ready</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>History</strong> ${escapeHtml(review.historyJson)}</span>
+        <span><strong>Status</strong> ${escapeHtml(review.filters.status)}</span>
+        <span><strong>Action</strong> ${escapeHtml(review.filters.actionId ?? "all")}</span>
+        <span><strong>Limit</strong> ${review.filters.limit}</span>
+      </div>
+      <div class="runner-review-grid">
+        <div>
+          <span class="eyebrow">Release gate</span>
+          <div class="note-list">
+            ${review.releaseGateSummaries
+              .map(
+                (summary) => `
+                  <span>
+                    <strong>${escapeHtml(summary.title)}</strong>
+                    <em class="badge ${badgeTone(summary.severity === "blocked" ? "blocked" : summary.severity === "ready" ? "ready" : "pending")}">${summary.count}</em>
+                    ${escapeHtml(summary.detail)}
+                    <small>${escapeHtml(summary.nextAction)}</small>
+                  </span>
+                `,
+              )
+              .join("")}
+          </div>
+        </div>
+        <div>
+          <span class="eyebrow">Incident notes</span>
+          <div class="runner-incident-list">
+            ${
+              review.incidentNotes.length
+                ? review.incidentNotes
+                    .map(
+                      (note) => `
+                        <div class="runner-incident">
+                          <strong>${escapeHtml(note.title)}</strong>
+                          <small>${escapeHtml(note.body)}</small>
+                          <button
+                            type="button"
+                            class="secondary"
+                            data-action="dashboard-runner-incident-copy"
+                            data-runner-incident-id="${escapeHtml(note.id)}"
+                          >
+                            Copy note
+                          </button>
+                        </div>
+                      `,
+                    )
+                    .join("")
+                : "<p>No incident notes for the current filter.</p>"
+            }
+          </div>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -1397,6 +1474,7 @@ function renderDashboard(state: UiState) {
         state.dashboardRunnerCancellationUx,
         state.dashboardRunnerCancellationDrafts,
       )}
+      ${renderRunnerOperatorReview(state.dashboardRunnerOperatorReview)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1519,6 +1597,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardLiveRunnerState: null,
     dashboardRunnerCancellationUx: null,
     dashboardRunnerCancellationDrafts: readRunnerCancellationDrafts(),
+    dashboardRunnerOperatorReview: null,
   };
 
   function render() {
@@ -1812,6 +1891,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const runnerUx = normalizeTrustedHostRunnerUx(parsed);
       const approvalUi = normalizeTrustedHostRunnerApprovalUi(parsed);
       const liveState = normalizeTrustedHostLiveRunnerState(parsed);
+      const operatorReview = normalizeTrustedHostRunnerOperatorReview(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -1820,8 +1900,12 @@ export async function mountFlowApp(surfaceInput: string) {
       state.dashboardLiveRunnerState = liveState ?? state.dashboardLiveRunnerState;
       state.dashboardRunnerCancellationUx =
         cancellationUx ?? state.dashboardRunnerCancellationUx;
+      state.dashboardRunnerOperatorReview =
+        operatorReview ?? state.dashboardRunnerOperatorReview;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = cancellationUx
+      state.status = operatorReview
+        ? `Imported trusted runner operator review with ${operatorReview.matchedCount} matched record(s) from ${file.name}.`
+        : cancellationUx
         ? `Imported trusted runner cancellation UX with ${cancellationUx.controls.length} control(s) from ${file.name}.`
         : liveState
         ? `Imported live trusted runner state with ${liveState.recordCount} tracked record(s) from ${file.name}.`
@@ -1979,6 +2063,22 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyRunnerIncidentNote(noteId: string) {
+    const note = state.dashboardRunnerOperatorReview?.incidentNotes.find(
+      (item) => item.id === noteId,
+    );
+    if (!note) {
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(note.exportMarkdown);
+      state.status = `${note.title}: incident note copied.`;
+    } catch {
+      state.status = `${note.title}: ${note.exportMarkdown}`;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -2087,6 +2187,17 @@ export async function mountFlowApp(surfaceInput: string) {
           const controlId = button.dataset.runnerCancellationControlId;
           if (controlId) {
             void copyRunnerCancellationControl(controlId);
+          }
+        });
+      });
+
+    mountRoot
+      .querySelectorAll<HTMLButtonElement>("[data-action='dashboard-runner-incident-copy']")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          const noteId = button.dataset.runnerIncidentId;
+          if (noteId) {
+            void copyRunnerIncidentNote(noteId);
           }
         });
       });

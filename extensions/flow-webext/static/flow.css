@@ -338,6 +338,38 @@ p {
   padding: 10px;
 }
 
+.runner-review-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  margin-top: 16px;
+}
+
+.runner-review-grid .note-list {
+  display: grid;
+}
+
+.runner-review-grid small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.runner-incident-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.runner-incident {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+}
+
 .dashboard-rail {
   display: grid;
   gap: 14px;
@@ -617,6 +649,7 @@ pre {
   .workspace-grid,
   .dashboard-rail,
   .context-grid,
+  .runner-review-grid,
   .grid.two {
     grid-template-columns: 1fr;
   }

@@ -346,6 +346,87 @@ impl FridayTrustedHostRunnerCancellationUxReport {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerOperatorReviewFilter {
+    pub status: Option<FridayTrustedHostRunnerStatus>,
+    pub action_id: Option<String>,
+    pub since_unix_ms: Option<u128>,
+    pub until_unix_ms: Option<u128>,
+    pub limit: usize,
+}
+
+impl Default for FridayTrustedHostRunnerOperatorReviewFilter {
+    fn default() -> Self {
+        Self {
+            status: None,
+            action_id: None,
+            since_unix_ms: None,
+            until_unix_ms: None,
+            limit: HISTORY_LIMIT,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerReviewRecord {
+    pub result_id: String,
+    pub action_id: String,
+    pub label: String,
+    pub status: FridayTrustedHostRunnerStatus,
+    pub severity: String,
+    pub command: String,
+    pub summary: String,
+    pub release_gate: String,
+    pub operator_reason: Option<String>,
+    pub recorded_at_unix_ms: u128,
+    pub duration_ms: u64,
+    pub exit_code: Option<i32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerReleaseGateSummary {
+    pub id: String,
+    pub title: String,
+    pub severity: String,
+    pub count: usize,
+    pub detail: String,
+    pub next_action: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerIncidentNote {
+    pub id: String,
+    pub action_id: String,
+    pub status: FridayTrustedHostRunnerStatus,
+    pub severity: String,
+    pub title: String,
+    pub body: String,
+    pub export_markdown: String,
+    pub recorded_at_unix_ms: u128,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerOperatorReviewReport {
+    pub history_json: String,
+    pub review_id: String,
+    pub generated_at_unix_ms: u128,
+    pub filters: FridayTrustedHostRunnerOperatorReviewFilter,
+    pub record_count: usize,
+    pub matched_count: usize,
+    pub ready_count: usize,
+    pub blocked_count: usize,
+    pub release_gate_status: String,
+    pub release_gate_summaries: Vec<FridayTrustedHostRunnerReleaseGateSummary>,
+    pub incident_notes: Vec<FridayTrustedHostRunnerIncidentNote>,
+    pub records: Vec<FridayTrustedHostRunnerReviewRecord>,
+}
+
+impl FridayTrustedHostRunnerOperatorReviewReport {
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FridayTrustedHostRunnerCancellationToken {
     pub cancel_requested: bool,
     pub reason: Option<String>,
@@ -565,6 +646,68 @@ pub fn friday_trusted_host_runner_cancellation_ux_report_from_state_file(
 ) -> Result<FridayTrustedHostRunnerCancellationUxReport> {
     let state = read_friday_trusted_host_live_runner_state(state_path)?;
     Ok(friday_trusted_host_runner_cancellation_ux_report(&state))
+}
+
+pub fn friday_trusted_host_runner_operator_review_report(
+    history: &FridayTrustedHostRunnerHistory,
+    filter: FridayTrustedHostRunnerOperatorReviewFilter,
+) -> FridayTrustedHostRunnerOperatorReviewReport {
+    let limit = filter.limit.clamp(1, HISTORY_LIMIT);
+    let filtered = history
+        .records
+        .iter()
+        .filter(|record| runner_review_matches_filter(record, &filter))
+        .take(limit)
+        .cloned()
+        .collect::<Vec<_>>();
+    let records = filtered
+        .iter()
+        .map(runner_review_record)
+        .collect::<Vec<_>>();
+    let incident_notes = filtered
+        .iter()
+        .filter_map(runner_incident_note)
+        .collect::<Vec<_>>();
+    let release_gate_summaries = runner_release_gate_summaries(&filtered);
+    let ready_count = filtered
+        .iter()
+        .filter(|record| record.status == FridayTrustedHostRunnerStatus::Succeeded)
+        .count();
+    let blocked_count = filtered
+        .iter()
+        .filter(|record| runner_release_gate_severity(record.status) == "blocked")
+        .count();
+
+    FridayTrustedHostRunnerOperatorReviewReport {
+        history_json: history.history_json.clone(),
+        review_id: format!("trusted-runner-review-{}", unix_ms()),
+        generated_at_unix_ms: unix_ms(),
+        filters: FridayTrustedHostRunnerOperatorReviewFilter { limit, ..filter },
+        record_count: history.result_count,
+        matched_count: filtered.len(),
+        ready_count,
+        blocked_count,
+        release_gate_status: if blocked_count > 0 {
+            "blocked".to_string()
+        } else if filtered.is_empty() {
+            "empty".to_string()
+        } else {
+            "ready".to_string()
+        },
+        release_gate_summaries,
+        incident_notes,
+        records,
+    }
+}
+
+pub fn friday_trusted_host_runner_operator_review_report_from_history_file(
+    history_path: impl AsRef<Path>,
+    filter: FridayTrustedHostRunnerOperatorReviewFilter,
+) -> Result<FridayTrustedHostRunnerOperatorReviewReport> {
+    let history = read_friday_trusted_host_runner_history(history_path)?;
+    Ok(friday_trusted_host_runner_operator_review_report(
+        &history, filter,
+    ))
 }
 
 pub fn read_friday_trusted_host_live_runner_state(
@@ -1211,6 +1354,210 @@ fn runner_result(
             .filter(|reason| !reason.is_empty()),
         audit_event: format!("trusted-host-runner-{}", status.label()),
         recorded_at_unix_ms: unix_ms(),
+    }
+}
+
+fn runner_review_matches_filter(
+    record: &FridayTrustedHostRunnerResult,
+    filter: &FridayTrustedHostRunnerOperatorReviewFilter,
+) -> bool {
+    if filter.status.is_some_and(|status| record.status != status) {
+        return false;
+    }
+    if let Some(action_id) = filter.action_id.as_deref() {
+        if !action_id.trim().is_empty() && !record.action_id.contains(action_id.trim()) {
+            return false;
+        }
+    }
+    if filter
+        .since_unix_ms
+        .is_some_and(|since| record.recorded_at_unix_ms < since)
+    {
+        return false;
+    }
+    if filter
+        .until_unix_ms
+        .is_some_and(|until| record.recorded_at_unix_ms > until)
+    {
+        return false;
+    }
+    true
+}
+
+fn runner_review_record(
+    record: &FridayTrustedHostRunnerResult,
+) -> FridayTrustedHostRunnerReviewRecord {
+    FridayTrustedHostRunnerReviewRecord {
+        result_id: format!("{}-{}", record.action_id, record.recorded_at_unix_ms),
+        action_id: record.action_id.clone(),
+        label: record.label.clone(),
+        status: record.status,
+        severity: runner_release_gate_severity(record.status).to_string(),
+        command: record.command.clone(),
+        summary: runner_review_summary(record),
+        release_gate: runner_release_gate_detail(record.status).to_string(),
+        operator_reason: record.operator_reason.clone(),
+        recorded_at_unix_ms: record.recorded_at_unix_ms,
+        duration_ms: record.duration_ms,
+        exit_code: record.exit_code,
+    }
+}
+
+fn runner_release_gate_summaries(
+    records: &[FridayTrustedHostRunnerResult],
+) -> Vec<FridayTrustedHostRunnerReleaseGateSummary> {
+    let mut summaries = [
+        FridayTrustedHostRunnerStatus::Succeeded,
+        FridayTrustedHostRunnerStatus::Failed,
+        FridayTrustedHostRunnerStatus::TimedOut,
+        FridayTrustedHostRunnerStatus::Cancelled,
+        FridayTrustedHostRunnerStatus::Denied,
+    ]
+    .into_iter()
+    .map(|status| {
+        let count = records
+            .iter()
+            .filter(|record| record.status == status)
+            .count();
+        FridayTrustedHostRunnerReleaseGateSummary {
+            id: status.label().to_string(),
+            title: runner_status_title(status).to_string(),
+            severity: runner_release_gate_severity(status).to_string(),
+            count,
+            detail: runner_release_gate_detail(status).to_string(),
+            next_action: runner_release_gate_next_action(status, count).to_string(),
+        }
+    })
+    .collect::<Vec<_>>();
+    summaries.push(FridayTrustedHostRunnerReleaseGateSummary {
+        id: "stale-live-state".to_string(),
+        title: "Stale live state".to_string(),
+        severity: "watch".to_string(),
+        count: 0,
+        detail: "Immutable runner history cannot contain stale live records; import the live-state JSON to review stale in-flight work.".to_string(),
+        next_action:
+            "Open the live runner state card when stale cleanup controls are needed.".to_string(),
+    });
+    summaries
+}
+
+fn runner_incident_note(
+    record: &FridayTrustedHostRunnerResult,
+) -> Option<FridayTrustedHostRunnerIncidentNote> {
+    if record.status == FridayTrustedHostRunnerStatus::Succeeded {
+        return None;
+    }
+    let title = format!("{}: {}", runner_status_title(record.status), record.label);
+    let body = format!(
+        "{} Command `{}` recorded {} with exit code {}.",
+        runner_release_gate_detail(record.status),
+        record.command,
+        record.recorded_at_unix_ms,
+        record
+            .exit_code
+            .map(|code| code.to_string())
+            .unwrap_or_else(|| "n/a".to_string())
+    );
+    let export_markdown = format!(
+        "### {title}\n\n- Action: `{}`\n- Status: `{}`\n- Severity: `{}`\n- Recorded: `{}`\n- Duration: `{}ms`\n- Exit code: `{}`\n- Operator reason: `{}`\n- Command: `{}`\n- Stdout: `{}`\n- Stderr: `{}`\n",
+        record.action_id,
+        record.status.label(),
+        runner_release_gate_severity(record.status),
+        record.recorded_at_unix_ms,
+        record.duration_ms,
+        record
+            .exit_code
+            .map(|code| code.to_string())
+            .unwrap_or_else(|| "n/a".to_string()),
+        record.operator_reason.as_deref().unwrap_or("not recorded"),
+        record.command,
+        record.stdout_summary,
+        record.stderr_summary,
+    );
+    Some(FridayTrustedHostRunnerIncidentNote {
+        id: format!(
+            "incident-{}-{}",
+            record.action_id, record.recorded_at_unix_ms
+        ),
+        action_id: record.action_id.clone(),
+        status: record.status,
+        severity: runner_release_gate_severity(record.status).to_string(),
+        title,
+        body,
+        export_markdown,
+        recorded_at_unix_ms: record.recorded_at_unix_ms,
+    })
+}
+
+fn runner_review_summary(record: &FridayTrustedHostRunnerResult) -> String {
+    let output = if !record.stderr_summary.trim().is_empty() {
+        &record.stderr_summary
+    } else if !record.stdout_summary.trim().is_empty() {
+        &record.stdout_summary
+    } else {
+        "no output"
+    };
+    format!(
+        "{} in {}ms: {}",
+        runner_status_title(record.status),
+        record.duration_ms,
+        output
+    )
+}
+
+fn runner_release_gate_severity(status: FridayTrustedHostRunnerStatus) -> &'static str {
+    match status {
+        FridayTrustedHostRunnerStatus::Succeeded => "ready",
+        FridayTrustedHostRunnerStatus::Failed
+        | FridayTrustedHostRunnerStatus::TimedOut
+        | FridayTrustedHostRunnerStatus::Denied => "blocked",
+        FridayTrustedHostRunnerStatus::Cancelled => "watch",
+    }
+}
+
+fn runner_release_gate_detail(status: FridayTrustedHostRunnerStatus) -> &'static str {
+    match status {
+        FridayTrustedHostRunnerStatus::Succeeded => {
+            "This command completed successfully and does not block release review."
+        }
+        FridayTrustedHostRunnerStatus::Failed => {
+            "This command failed and blocks release until stderr is reviewed or the action is rerun successfully."
+        }
+        FridayTrustedHostRunnerStatus::TimedOut => {
+            "This command timed out and blocks release until the timeout cause is understood."
+        }
+        FridayTrustedHostRunnerStatus::Cancelled => {
+            "This command was cancelled; confirm the cancellation was intentional before release."
+        }
+        FridayTrustedHostRunnerStatus::Denied => {
+            "This command was blocked or denied before execution and needs an approval-policy note."
+        }
+    }
+}
+
+fn runner_release_gate_next_action(
+    status: FridayTrustedHostRunnerStatus,
+    count: usize,
+) -> &'static str {
+    if count == 0 {
+        return "No action needed for this status.";
+    }
+    match status {
+        FridayTrustedHostRunnerStatus::Succeeded => {
+            "Attach successful checks to the release review package."
+        }
+        FridayTrustedHostRunnerStatus::Failed => {
+            "Export incident notes, fix the failing command, and rerun through the trusted runner."
+        }
+        FridayTrustedHostRunnerStatus::TimedOut => {
+            "Review timeout settings and rerun only after confirming the command remains safe."
+        }
+        FridayTrustedHostRunnerStatus::Cancelled => {
+            "Record why cancellation was intentional or rerun with explicit approval."
+        }
+        FridayTrustedHostRunnerStatus::Denied => {
+            "Resolve the approval-policy issue before preparing another execution."
+        }
     }
 }
 

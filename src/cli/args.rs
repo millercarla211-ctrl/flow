@@ -164,6 +164,24 @@ pub enum Command {
     FridayTrustedHostRunnerCancellationUx { state_file: String },
     /// Print trusted runner cancellation and recovery controls as JSON
     FridayTrustedHostRunnerCancellationUxJson { state_file: String },
+    /// Show trusted runner operator review filters, release gates, and incidents
+    FridayTrustedHostRunnerOperatorReview {
+        history_file: String,
+        status: Option<String>,
+        action_id: Option<String>,
+        since_ms: Option<String>,
+        until_ms: Option<String>,
+        limit: usize,
+    },
+    /// Print trusted runner operator review as JSON
+    FridayTrustedHostRunnerOperatorReviewJson {
+        history_file: String,
+        status: Option<String>,
+        action_id: Option<String>,
+        since_ms: Option<String>,
+        until_ms: Option<String>,
+        limit: usize,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -746,6 +764,31 @@ impl Args {
                 let state_file = parse_friday_trusted_host_cancellation_ux_args(&args);
                 Command::FridayTrustedHostRunnerCancellationUxJson { state_file }
             }
+            "--friday-trusted-host-runner-review" | "--friday-dashboard-trusted-runner-review" => {
+                let (history_file, status, action_id, since_ms, until_ms, limit) =
+                    parse_friday_trusted_host_runner_review_args(&args);
+                Command::FridayTrustedHostRunnerOperatorReview {
+                    history_file,
+                    status,
+                    action_id,
+                    since_ms,
+                    until_ms,
+                    limit,
+                }
+            }
+            "--friday-trusted-host-runner-review-json"
+            | "--friday-dashboard-trusted-runner-review-json" => {
+                let (history_file, status, action_id, since_ms, until_ms, limit) =
+                    parse_friday_trusted_host_runner_review_args(&args);
+                Command::FridayTrustedHostRunnerOperatorReviewJson {
+                    history_file,
+                    status,
+                    action_id,
+                    since_ms,
+                    until_ms,
+                    limit,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -1233,6 +1276,32 @@ fn parse_friday_trusted_host_cancellation_ux_args(args: &[String]) -> String {
         .cloned()
         .or_else(|| flag_value(args, "--state"))
         .unwrap_or_else(|| "tmp/friday-dashboard/trusted-host-live-state.json".to_string())
+}
+
+fn parse_friday_trusted_host_runner_review_args(
+    args: &[String],
+) -> (
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    usize,
+) {
+    let history_file = args
+        .get(2)
+        .filter(|value| !value.starts_with("--"))
+        .cloned()
+        .or_else(|| flag_value(args, "--history"))
+        .unwrap_or_else(|| "tmp/friday-dashboard/trusted-host-runner-history.json".to_string());
+    let status = flag_value(args, "--status");
+    let action_id = flag_value(args, "--action-id");
+    let since_ms = flag_value(args, "--since-ms");
+    let until_ms = flag_value(args, "--until-ms");
+    let limit = flag_value(args, "--limit")
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(50);
+    (history_file, status, action_id, since_ms, until_ms, limit)
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

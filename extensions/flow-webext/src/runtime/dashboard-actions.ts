@@ -172,6 +172,64 @@ export interface FlowDashboardRunnerCancellationUxReport {
   guidance: string[];
 }
 
+export interface FlowDashboardRunnerReviewFilter {
+  status: FlowDashboardCommandStatus | "all";
+  actionId: string | null;
+  sinceUnixMs: string | null;
+  untilUnixMs: string | null;
+  limit: number;
+}
+
+export interface FlowDashboardRunnerReviewRecord {
+  resultId: string;
+  actionId: string;
+  label: string;
+  status: FlowDashboardCommandStatus;
+  severity: string;
+  command: string;
+  summary: string;
+  releaseGate: string;
+  operatorReason: string | null;
+  recordedAtUnixMs: string;
+  durationMs: number;
+  exitCode: number | null;
+}
+
+export interface FlowDashboardRunnerReleaseGateSummary {
+  id: string;
+  title: string;
+  severity: string;
+  count: number;
+  detail: string;
+  nextAction: string;
+}
+
+export interface FlowDashboardRunnerIncidentNote {
+  id: string;
+  actionId: string;
+  status: FlowDashboardCommandStatus;
+  severity: string;
+  title: string;
+  body: string;
+  exportMarkdown: string;
+  recordedAtUnixMs: string;
+}
+
+export interface FlowDashboardRunnerOperatorReviewReport {
+  historyJson: string;
+  reviewId: string;
+  generatedAtUnixMs: string;
+  filters: FlowDashboardRunnerReviewFilter;
+  recordCount: number;
+  matchedCount: number;
+  readyCount: number;
+  blockedCount: number;
+  releaseGateStatus: string;
+  releaseGateSummaries: FlowDashboardRunnerReleaseGateSummary[];
+  incidentNotes: FlowDashboardRunnerIncidentNote[];
+  records: FlowDashboardRunnerReviewRecord[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -816,6 +874,124 @@ export function buildTrustedHostRunnerCancellationUx(
       "Clean up stale live records, then retry from a fresh bridge import if the action still matters.",
       "Denial recovery always requires a short operator reason so the audit trail explains the correction.",
     ],
+  };
+}
+
+export function normalizeTrustedHostRunnerOperatorReview(
+  value: unknown,
+): FlowDashboardRunnerOperatorReviewReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const report =
+    root.operator_review && typeof root.operator_review === "object"
+      ? (root.operator_review as Record<string, unknown>)
+      : root.operatorReview && typeof root.operatorReview === "object"
+        ? (root.operatorReview as Record<string, unknown>)
+        : root;
+  const summaries = arrayValue(report.release_gate_summaries, report.releaseGateSummaries)
+    .map((item): FlowDashboardRunnerReleaseGateSummary | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const summary = item as Record<string, unknown>;
+      const id = stringValue(summary.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        title: stringValue(summary.title) || id,
+        severity: stringValue(summary.severity) || "watch",
+        count: numberValue(summary.count),
+        detail: stringValue(summary.detail),
+        nextAction: stringValue(summary.next_action, summary.nextAction),
+      };
+    })
+    .filter((item): item is FlowDashboardRunnerReleaseGateSummary => item !== null);
+  const incidentNotes = arrayValue(report.incident_notes, report.incidentNotes)
+    .map((item): FlowDashboardRunnerIncidentNote | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const note = item as Record<string, unknown>;
+      const id = stringValue(note.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        actionId: stringValue(note.action_id, note.actionId),
+        status: runnerStatus(stringValue(note.status)),
+        severity: stringValue(note.severity) || "watch",
+        title: stringValue(note.title) || id,
+        body: stringValue(note.body),
+        exportMarkdown: stringValue(note.export_markdown, note.exportMarkdown),
+        recordedAtUnixMs: stringValue(note.recorded_at_unix_ms, note.recordedAtUnixMs),
+      };
+    })
+    .filter((item): item is FlowDashboardRunnerIncidentNote => item !== null);
+  const records = arrayValue(report.records)
+    .map((item): FlowDashboardRunnerReviewRecord | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const resultId = stringValue(record.result_id, record.resultId);
+      if (!resultId) {
+        return null;
+      }
+      return {
+        resultId,
+        actionId: stringValue(record.action_id, record.actionId),
+        label: stringValue(record.label),
+        status: runnerStatus(stringValue(record.status)),
+        severity: stringValue(record.severity),
+        command: stringValue(record.command),
+        summary: stringValue(record.summary),
+        releaseGate: stringValue(record.release_gate, record.releaseGate),
+        operatorReason: stringValue(record.operator_reason, record.operatorReason) || null,
+        recordedAtUnixMs: stringValue(record.recorded_at_unix_ms, record.recordedAtUnixMs),
+        durationMs: numberValue(record.duration_ms, record.durationMs),
+        exitCode:
+          stringValue(record.exit_code, record.exitCode) === ""
+            ? null
+            : numberValue(record.exit_code, record.exitCode),
+      };
+    })
+    .filter((item): item is FlowDashboardRunnerReviewRecord => item !== null);
+
+  if (summaries.length === 0 && incidentNotes.length === 0 && records.length === 0) {
+    return null;
+  }
+
+  const filterRecord =
+    report.filters && typeof report.filters === "object"
+      ? (report.filters as Record<string, unknown>)
+      : {};
+  const status = stringValue(filterRecord.status);
+
+  return {
+    historyJson: stringValue(report.history_json, report.historyJson),
+    reviewId: stringValue(report.review_id, report.reviewId),
+    generatedAtUnixMs: stringValue(report.generated_at_unix_ms, report.generatedAtUnixMs),
+    filters: {
+      status: status ? runnerStatus(status) : "all",
+      actionId: stringValue(filterRecord.action_id, filterRecord.actionId) || null,
+      sinceUnixMs: stringValue(filterRecord.since_unix_ms, filterRecord.sinceUnixMs) || null,
+      untilUnixMs: stringValue(filterRecord.until_unix_ms, filterRecord.untilUnixMs) || null,
+      limit: numberValue(filterRecord.limit),
+    },
+    recordCount: numberValue(report.record_count, report.recordCount),
+    matchedCount: numberValue(report.matched_count, report.matchedCount),
+    readyCount: numberValue(report.ready_count, report.readyCount),
+    blockedCount: numberValue(report.blocked_count, report.blockedCount),
+    releaseGateStatus: stringValue(report.release_gate_status, report.releaseGateStatus),
+    releaseGateSummaries: summaries,
+    incidentNotes,
+    records,
   };
 }
 

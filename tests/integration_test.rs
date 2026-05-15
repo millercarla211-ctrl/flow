@@ -28,13 +28,14 @@ use flow::friday::{
     FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
     FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
     FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
-    FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerRequest,
-    FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
-    FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
-    append_friday_trusted_host_runner_history, default_friday_browser_verification_report,
-    default_friday_local_execution_checks, default_friday_product_plan,
-    default_friday_ui_integration_plan, export_friday_dashboard_bundle,
-    friday_dashboard_export_history_from_export, friday_dashboard_host_command_bridge_from_export,
+    FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
+    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
+    FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus, FridayVerificationStatus,
+    FridayWorkspaceStore, append_friday_trusted_host_runner_history,
+    default_friday_browser_verification_report, default_friday_local_execution_checks,
+    default_friday_product_plan, default_friday_ui_integration_plan,
+    export_friday_dashboard_bundle, friday_dashboard_export_history_from_export,
+    friday_dashboard_host_command_bridge_from_export,
     friday_dashboard_host_command_record_from_action, friday_dashboard_panel_from_export,
     friday_dashboard_product_ui_binding_from_export, friday_dashboard_product_ui_smoke_from_export,
     friday_dashboard_release_review_from_export, friday_dashboard_screenshot_history,
@@ -43,7 +44,8 @@ use flow::friday::{
     friday_operator_readiness_report, friday_route_visual_report,
     friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
-    friday_trusted_host_runner_cancellation_ux_report, friday_trusted_host_runner_ux_report,
+    friday_trusted_host_runner_cancellation_ux_report,
+    friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
     read_friday_trusted_host_live_runner_state, read_friday_trusted_host_runner_history,
     refresh_friday_trusted_host_live_runner_state, run_friday_ocr_smoke,
     run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command_bridge_with_executor,
@@ -992,14 +994,14 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
 
     assert_eq!(
         bundle.completion.name,
-        "Friday Desktop Runner Cancellation UX"
+        "Friday Trusted Runner Operator Review"
     );
     assert_eq!(bundle.completion.current_score_out_of_100, 100);
     assert_eq!(bundle.manifest.score_out_of_100, 100);
     assert_eq!(bundle.export_history.record_count, 1);
     assert_eq!(
         bundle.release_review.loop_name,
-        "Friday Desktop Runner Cancellation UX"
+        "Friday Trusted Runner Operator Review"
     );
     assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
     assert!(PathBuf::from(&bundle.manifest.release_review_json).exists());
@@ -1045,7 +1047,7 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     export_friday_dashboard_bundle(&root).unwrap();
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
-    assert_eq!(panel.loop_name, "Friday Desktop Runner Cancellation UX");
+    assert_eq!(panel.loop_name, "Friday Trusted Runner Operator Review");
     assert_eq!(panel.score_out_of_100, 100);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
     assert_eq!(panel.cards.len(), 8);
@@ -1145,7 +1147,7 @@ fn friday_dashboard_export_history_tracks_checkpoints() {
     assert_eq!(history.score_delta_from_previous, 0);
     assert_eq!(history.readiness_delta_from_previous, 0);
     assert!(history.records.iter().all(|record| {
-        record.loop_name == "Friday Desktop Runner Cancellation UX"
+        record.loop_name == "Friday Trusted Runner Operator Review"
             && record.manifest_json.ends_with("manifest.json")
     }));
 
@@ -1164,7 +1166,7 @@ fn friday_dashboard_release_review_links_release_artifacts() {
     export_friday_dashboard_bundle(&root).unwrap();
 
     let review = friday_dashboard_release_review_from_export(&root).unwrap();
-    assert_eq!(review.loop_name, "Friday Desktop Runner Cancellation UX");
+    assert_eq!(review.loop_name, "Friday Trusted Runner Operator Review");
     assert_eq!(review.score_out_of_100, 100);
     assert!(review.total_count >= 6);
     assert!(
@@ -1522,6 +1524,57 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
             .iter()
             .any(|note| note.release_review_path.ends_with("release-review.json"))
     );
+    let operator_review = friday_trusted_host_runner_operator_review_report(
+        &loaded,
+        FridayTrustedHostRunnerOperatorReviewFilter::default(),
+    );
+    assert_eq!(operator_review.record_count, 5);
+    assert_eq!(operator_review.matched_count, 5);
+    assert_eq!(operator_review.ready_count, 1);
+    assert_eq!(operator_review.blocked_count, 3);
+    assert_eq!(operator_review.release_gate_status, "blocked");
+    assert!(
+        operator_review
+            .release_gate_summaries
+            .iter()
+            .any(|summary| {
+                summary.id == "failed" && summary.severity == "blocked" && summary.count == 1
+            })
+    );
+    assert!(
+        operator_review
+            .release_gate_summaries
+            .iter()
+            .any(|summary| summary.id == "stale-live-state")
+    );
+    assert!(operator_review.incident_notes.iter().any(|note| {
+        note.status == FridayTrustedHostRunnerStatus::Failed
+            && note.export_markdown.contains("### Failed")
+            && note.export_markdown.contains("Stderr")
+    }));
+    let failed_review = friday_trusted_host_runner_operator_review_report(
+        &loaded,
+        FridayTrustedHostRunnerOperatorReviewFilter {
+            status: Some(FridayTrustedHostRunnerStatus::Failed),
+            action_id: Some(success.action_id.clone()),
+            limit: 10,
+            ..Default::default()
+        },
+    );
+    assert_eq!(failed_review.matched_count, 1);
+    assert_eq!(
+        failed_review.records[0].status,
+        FridayTrustedHostRunnerStatus::Failed
+    );
+    let empty_review = friday_trusted_host_runner_operator_review_report(
+        &loaded,
+        FridayTrustedHostRunnerOperatorReviewFilter {
+            since_unix_ms: Some(u128::MAX),
+            limit: 10,
+            ..Default::default()
+        },
+    );
+    assert_eq!(empty_review.release_gate_status, "empty");
     let approval_ui =
         friday_trusted_host_runner_approval_ui_report(&loaded, root.join("release-review.json"));
     assert_eq!(approval_ui.modal_id, "trusted-runner-approval");

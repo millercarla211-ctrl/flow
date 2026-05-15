@@ -376,14 +376,32 @@ This set is complete. The next loop should open `Friday Trusted Runner Operator 
 
 ## Next Set: Friday Trusted Runner Operator Review
 
-Status: 0/100
+Status: 100/100
 
 Goal: make trusted runner audit review useful after many local commands by giving operators filterable history, export-ready incident notes, release-gate summaries, and clear escalation paths.
 
+### Completed To Reach 100/100
+
+- [x] Add typed trusted-runner review filters for status, action, and time window.
+- [x] Add release-gate summaries that highlight blocked, failed, timed-out, cancelled, denied, and stale runner work.
+- [x] Add export-ready incident notes for failed or unsafe command attempts.
+- [x] Add dashboard rendering for the review filters and release-gate summaries.
+- [x] Add focused Rust/TypeScript coverage for trusted-runner review filtering and release-gate copy.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Trusted Runner Release Package` and turn runner review evidence into a single exportable release handoff that operators can attach to shipped builds.
+
+## Next Set: Friday Trusted Runner Release Package
+
+Status: 0/100
+
+Goal: package trusted-runner evidence into one signed, reviewable, local-only release handoff with manifest links, incident markdown, live-state freshness, and CLI/browser import guidance.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add typed trusted-runner review filters for status, action, and time window.
-- [ ] Add release-gate summaries that highlight blocked, failed, timed-out, cancelled, denied, and stale runner work.
-- [ ] Add export-ready incident notes for failed or unsafe command attempts.
-- [ ] Add dashboard rendering for the review filters and release-gate summaries.
-- [ ] Add focused Rust/TypeScript coverage for trusted-runner review filtering and release-gate copy.
+- [ ] Add a typed trusted-runner release package report that merges history review, cancellation UX, live state, and release review links.
+- [ ] Add a local-only package manifest with checksums for runner history, live state, incident notes, and dashboard JSON.
+- [ ] Add CLI and JSON commands for generating the release package without running new host commands.
+- [ ] Add dashboard import/rendering for the package summary and missing-evidence warnings.
+- [ ] Add focused Rust/TypeScript coverage for package completeness, checksum copy, and stale evidence warnings.

@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "runner-visible-cancel-controls",
-            "Visible live runner cancellation controls",
+            "runner-review-filters",
+            "Typed trusted runner review filters",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostRunnerCancellationUxReport` exposes cancel controls for pending and running live records, and the dashboard renders copyable cancel commands",
-            "open the next trusted runner operator review set",
+            "`FridayTrustedHostRunnerOperatorReviewFilter` supports status, action, time-window, and limit filters over persisted runner history",
+            "open the next trusted runner release packaging set",
         ),
         item(
-            "runner-stale-cleanup-retry",
-            "Stale cleanup and retry guidance",
+            "runner-release-gate-summaries",
+            "Release-gate summaries",
             20,
             CompletionItemStatus::Done,
-            "stale live records now surface cleanup and retry commands linked to the imported bridge state file and runner history",
-            "open the next trusted runner operator review set",
+            "`FridayTrustedHostRunnerOperatorReviewReport` groups succeeded, failed, timed-out, cancelled, denied, and stale-live-state review gates",
+            "open the next trusted runner release packaging set",
         ),
         item(
-            "runner-denial-recovery",
-            "Denial recovery copy",
+            "runner-incident-notes",
+            "Export-ready incident notes",
             20,
             CompletionItemStatus::Done,
-            "denied live runner records produce an explicit denial-recovery command with a required operator reason placeholder",
-            "open the next trusted runner operator review set",
+            "failed, timed-out, cancelled, and denied runner records now produce Markdown incident notes for release review handoff",
+            "open the next trusted runner release packaging set",
         ),
         item(
-            "runner-cancellation-drafts",
-            "Dashboard-side cancellation drafts",
+            "runner-review-dashboard",
+            "Dashboard operator review rendering",
             20,
             CompletionItemStatus::Done,
-            "the web dashboard persists per-control cancellation, retry, and denial-recovery reasons in local storage",
-            "open the next trusted runner operator review set",
+            "the dashboard imports and renders operator review filters, release-gate cards, and copyable incident notes",
+            "open the next trusted runner release packaging set",
         ),
         item(
-            "runner-cancellation-tests",
-            "Cancellation and stale cleanup tests",
+            "runner-review-tests",
+            "Review filter and gate tests",
             20,
             CompletionItemStatus::Done,
-            "Rust integration coverage and browser-extension dashboard smoke checks verify cancellation, stale cleanup, retry, and denial recovery contracts",
-            "open the next trusted runner operator review set",
+            "focused Rust integration coverage and browser-extension smoke checks verify review filtering, release-gate copy, and incident exports",
+            "open the next trusted runner release packaging set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Desktop Runner Cancellation UX".to_string(),
+        name: "Friday Trusted Runner Operator Review".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Make live trusted-runner cancellation and recovery obvious in the dashboard so operators can stop, clean up, retry, or recover denied work without guessing which JSON import is authoritative.".to_string(),
+        loop_rule: "Make trusted runner audit review useful after many local commands by giving operators filterable history, export-ready incident notes, release-gate summaries, and clear escalation paths.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_desktop_runner_cancellation_ux_loop() {
+    fn active_set_tracks_friday_trusted_runner_operator_review_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Desktop Runner Cancellation UX");
+        assert_eq!(set.name, "Friday Trusted Runner Operator Review");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

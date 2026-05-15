@@ -31,11 +31,12 @@ use crate::friday::{
     FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
-    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult, FridayTrustedHostRunnerUxReport,
-    FridayUiIntegrationStatus, FridayWorkspaceStore, append_friday_trusted_host_runner_history,
-    default_friday_browser_verification_report, default_friday_local_execution_checks,
-    default_friday_product_plan, default_friday_ui_integration_plan,
-    export_friday_dashboard_bundle, friday_answer_search_plan,
+    FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
+    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult, FridayTrustedHostRunnerStatus,
+    FridayTrustedHostRunnerUxReport, FridayUiIntegrationStatus, FridayWorkspaceStore,
+    append_friday_trusted_host_runner_history, default_friday_browser_verification_report,
+    default_friday_local_execution_checks, default_friday_product_plan,
+    default_friday_ui_integration_plan, export_friday_dashboard_bundle, friday_answer_search_plan,
     friday_dashboard_host_command_bridge_from_export, friday_dashboard_panel_from_export,
     friday_dashboard_product_ui_binding_from_export, friday_dashboard_product_ui_smoke_from_export,
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
@@ -44,6 +45,7 @@ use crate::friday::{
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
+    friday_trusted_host_runner_operator_review_report_from_history_file,
     friday_trusted_host_runner_ux_report_from_history_file, run_friday_ocr_smoke,
     run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
     run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
@@ -621,6 +623,42 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayTrustedHostRunnerOperatorReview {
+            history_file,
+            status,
+            action_id,
+            since_ms,
+            until_ms,
+            limit,
+        } => {
+            let filter = trusted_host_runner_review_filter(
+                &status, &action_id, &since_ms, &until_ms, limit,
+            )?;
+            let report = friday_trusted_host_runner_operator_review_report_from_history_file(
+                resolve_repo_relative_path(&history_file),
+                filter,
+            )?;
+            print_friday_trusted_host_runner_operator_review_report(&report);
+        }
+
+        Command::FridayTrustedHostRunnerOperatorReviewJson {
+            history_file,
+            status,
+            action_id,
+            since_ms,
+            until_ms,
+            limit,
+        } => {
+            let filter = trusted_host_runner_review_filter(
+                &status, &action_id, &since_ms, &until_ms, limit,
+            )?;
+            let report = friday_trusted_host_runner_operator_review_report_from_history_file(
+                resolve_repo_relative_path(&history_file),
+                filter,
+            )?;
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1092,6 +1130,10 @@ fn print_interactive_help() {
     println!("                           Show live runner cancellation and recovery controls");
     println!("  --friday-trusted-host-runner-cancellation-ux-json [state-file]");
     println!("                           Print live runner cancellation controls as JSON");
+    println!("  --friday-trusted-host-runner-review [history-file] [--status status]");
+    println!("                           Show trusted runner operator review and release gates");
+    println!("  --friday-trusted-host-runner-review-json [history-file] [--status status]");
+    println!("                           Print trusted runner operator review as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -2066,6 +2108,106 @@ fn print_friday_trusted_host_runner_cancellation_ux_report(
         if let Some(reason) = &control.disabled_reason {
             println!("    disabled: {}", reason);
         }
+    }
+}
+
+fn trusted_host_runner_review_filter(
+    status: &Option<String>,
+    action_id: &Option<String>,
+    since_ms: &Option<String>,
+    until_ms: &Option<String>,
+    limit: usize,
+) -> Result<FridayTrustedHostRunnerOperatorReviewFilter> {
+    Ok(FridayTrustedHostRunnerOperatorReviewFilter {
+        status: match status
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            Some("all") | None => None,
+            Some(value) => Some(parse_trusted_host_runner_status(value)?),
+        },
+        action_id: action_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string),
+        since_unix_ms: parse_optional_u128_flag(since_ms, "--since-ms")?,
+        until_unix_ms: parse_optional_u128_flag(until_ms, "--until-ms")?,
+        limit,
+    })
+}
+
+fn parse_optional_u128_flag(value: &Option<String>, name: &str) -> Result<Option<u128>> {
+    value
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            value
+                .parse::<u128>()
+                .with_context(|| format!("Invalid {name} value `{value}`"))
+        })
+        .transpose()
+}
+
+fn parse_trusted_host_runner_status(value: &str) -> Result<FridayTrustedHostRunnerStatus> {
+    match value {
+        "succeeded" | "success" => Ok(FridayTrustedHostRunnerStatus::Succeeded),
+        "failed" | "failure" => Ok(FridayTrustedHostRunnerStatus::Failed),
+        "timed-out" | "timeout" => Ok(FridayTrustedHostRunnerStatus::TimedOut),
+        "cancelled" | "canceled" => Ok(FridayTrustedHostRunnerStatus::Cancelled),
+        "denied" | "blocked" => Ok(FridayTrustedHostRunnerStatus::Denied),
+        _ => anyhow::bail!(
+            "Invalid trusted runner status `{value}`. Use succeeded, failed, timed-out, cancelled, denied, or all."
+        ),
+    }
+}
+
+fn print_friday_trusted_host_runner_operator_review_report(
+    report: &FridayTrustedHostRunnerOperatorReviewReport,
+) {
+    println!("Friday Runner Operator Review");
+    println!("=============================");
+    println!("History: {}", report.history_json);
+    println!(
+        "Gate: {} | matched: {} / {} | blocked: {} | ready: {}",
+        report.release_gate_status,
+        report.matched_count,
+        report.record_count,
+        report.blocked_count,
+        report.ready_count
+    );
+    println!();
+    println!("Filters:");
+    println!(
+        "  status: {}",
+        report
+            .filters
+            .status
+            .map(|status| status.label().to_string())
+            .unwrap_or_else(|| "all".to_string())
+    );
+    println!(
+        "  action: {}",
+        report.filters.action_id.as_deref().unwrap_or("all")
+    );
+    println!("  limit: {}", report.filters.limit);
+    println!();
+    println!("Release gate:");
+    for summary in &report.release_gate_summaries {
+        println!(
+            "  - {}: {} [{}]",
+            summary.title, summary.count, summary.severity
+        );
+        println!("    {}", summary.detail);
+        println!("    next: {}", summary.next_action);
+    }
+    println!();
+    println!("Incident notes:");
+    for note in &report.incident_notes {
+        println!("  - {} [{}]", note.title, note.severity);
+        println!("    {}", note.body);
     }
 }
 
