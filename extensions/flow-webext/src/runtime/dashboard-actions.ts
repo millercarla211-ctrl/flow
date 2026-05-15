@@ -2145,6 +2145,71 @@ export interface FlowReleaseExternalReceiptArchive {
   commands: string[];
 }
 
+export type FlowReleaseReceiptReviewDecision =
+  | "verified"
+  | "held"
+  | "missing-receipt"
+  | "stale-evidence"
+  | "blocked-review"
+  | "revoked-receipt"
+  | "carryover";
+
+export type FlowReleaseReceiptReviewSource =
+  | "active-receipt"
+  | "receipt-archive"
+  | "evidence-freshness"
+  | "outbound-review"
+  | "missing-archive";
+
+export interface FlowReleaseReceiptReviewFinding {
+  id: string;
+  source: FlowReleaseReceiptReviewSource;
+  decision: FlowReleaseReceiptReviewDecision;
+  releaseGateBlocking: boolean;
+  receiptId: string;
+  outboundReviewId: string;
+  evidencePath: string;
+  summary: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseReceiptReviewBoardReport {
+  reviewId: string;
+  reviewJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  decision: FlowReleaseReceiptReviewDecision;
+  readyForExternalCompletion: boolean;
+  archiveId: string;
+  archiveJson: string;
+  activeReceiptId: string | null;
+  latestReceiptId: string | null;
+  latestReceiptState: FlowReleaseExternalReceiptState | null;
+  latestOutboundReviewId: string | null;
+  latestOutboundReviewState: FlowReleaseOutboundReviewState | null;
+  recordCount: number;
+  findingCount: number;
+  verifiedCount: number;
+  heldCount: number;
+  missingReceiptCount: number;
+  staleEvidenceCount: number;
+  blockedReviewCount: number;
+  revokedReceiptCount: number;
+  carryoverCount: number;
+  attachedReceiptCount: number;
+  verifiedReceiptCount: number;
+  staleOrMissingCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  findings: FlowReleaseReceiptReviewFinding[];
+  reviewNotesCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -6604,6 +6669,152 @@ export function normalizeReleaseExternalReceiptArchive(
   };
 }
 
+export function normalizeReleaseReceiptReviewBoard(
+  value: unknown,
+): FlowReleaseReceiptReviewBoardReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const root = value as Record<string, unknown>;
+  const review =
+    root.review_id || root.reviewId || root.findings
+      ? root
+      : root.release_receipt_review_board &&
+          typeof root.release_receipt_review_board === "object"
+        ? (root.release_receipt_review_board as Record<string, unknown>)
+        : root.releaseReceiptReviewBoard &&
+            typeof root.releaseReceiptReviewBoard === "object"
+          ? (root.releaseReceiptReviewBoard as Record<string, unknown>)
+          : root;
+  const findings = arrayValue(review.findings)
+    .map((item): FlowReleaseReceiptReviewFinding | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const finding = item as Record<string, unknown>;
+      const id = stringValue(finding.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        source: releaseReceiptReviewSource(stringValue(finding.source)),
+        decision: releaseReceiptReviewDecision(stringValue(finding.decision)),
+        releaseGateBlocking: booleanValue(
+          finding.release_gate_blocking,
+          finding.releaseGateBlocking,
+        ),
+        receiptId: stringValue(finding.receipt_id, finding.receiptId),
+        outboundReviewId: stringValue(
+          finding.outbound_review_id,
+          finding.outboundReviewId,
+        ),
+        evidencePath: stringValue(finding.evidence_path, finding.evidencePath),
+        summary: stringValue(finding.summary),
+        nextAction: stringValue(finding.next_action, finding.nextAction),
+      };
+    })
+    .filter(
+      (finding): finding is FlowReleaseReceiptReviewFinding => finding !== null,
+    );
+  const reviewId = stringValue(review.review_id, review.reviewId);
+
+  if (!reviewId && findings.length === 0) {
+    return null;
+  }
+
+  return {
+    reviewId,
+    reviewJson: stringValue(review.review_json, review.reviewJson),
+    generatedAtUnixMs: stringValue(
+      review.generated_at_unix_ms,
+      review.generatedAtUnixMs,
+    ),
+    productName: stringValue(review.product_name, review.productName),
+    localOnly: booleanValue(review.local_only, review.localOnly),
+    status: panelStatus(stringValue(review.status)),
+    scoreOutOf100: numberValue(review.score_out_of_100, review.scoreOutOf100),
+    decision: releaseReceiptReviewDecision(stringValue(review.decision)),
+    readyForExternalCompletion: booleanValue(
+      review.ready_for_external_completion,
+      review.readyForExternalCompletion,
+    ),
+    archiveId: stringValue(review.archive_id, review.archiveId),
+    archiveJson: stringValue(review.archive_json, review.archiveJson),
+    activeReceiptId:
+      stringValue(review.active_receipt_id, review.activeReceiptId) || null,
+    latestReceiptId:
+      stringValue(review.latest_receipt_id, review.latestReceiptId) || null,
+    latestReceiptState:
+      review.latest_receipt_state || review.latestReceiptState
+        ? releaseExternalReceiptState(
+            stringValue(review.latest_receipt_state, review.latestReceiptState),
+          )
+        : null,
+    latestOutboundReviewId:
+      stringValue(
+        review.latest_outbound_review_id,
+        review.latestOutboundReviewId,
+      ) || null,
+    latestOutboundReviewState:
+      review.latest_outbound_review_state || review.latestOutboundReviewState
+        ? releaseOutboundReviewState(
+            stringValue(
+              review.latest_outbound_review_state,
+              review.latestOutboundReviewState,
+            ),
+          )
+        : null,
+    recordCount: numberValue(review.record_count, review.recordCount),
+    findingCount: numberValue(review.finding_count, review.findingCount),
+    verifiedCount: numberValue(review.verified_count, review.verifiedCount),
+    heldCount: numberValue(review.held_count, review.heldCount),
+    missingReceiptCount: numberValue(
+      review.missing_receipt_count,
+      review.missingReceiptCount,
+    ),
+    staleEvidenceCount: numberValue(
+      review.stale_evidence_count,
+      review.staleEvidenceCount,
+    ),
+    blockedReviewCount: numberValue(
+      review.blocked_review_count,
+      review.blockedReviewCount,
+    ),
+    revokedReceiptCount: numberValue(
+      review.revoked_receipt_count,
+      review.revokedReceiptCount,
+    ),
+    carryoverCount: numberValue(review.carryover_count, review.carryoverCount),
+    attachedReceiptCount: numberValue(
+      review.attached_receipt_count,
+      review.attachedReceiptCount,
+    ),
+    verifiedReceiptCount: numberValue(
+      review.verified_receipt_count,
+      review.verifiedReceiptCount,
+    ),
+    staleOrMissingCount: numberValue(
+      review.stale_or_missing_count,
+      review.staleOrMissingCount,
+    ),
+    releaseGateBlockingCount: numberValue(
+      review.release_gate_blocking_count,
+      review.releaseGateBlockingCount,
+    ),
+    unresolvedBlockerCount: numberValue(
+      review.unresolved_blocker_count,
+      review.unresolvedBlockerCount,
+    ),
+    findings,
+    reviewNotesCopy: stringValue(review.review_notes_copy, review.reviewNotesCopy),
+    summary: stringValue(review.summary),
+    commands: arrayValue(review.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -7251,6 +7462,36 @@ function releaseExternalReceiptKind(value: string): FlowReleaseExternalReceiptKi
     return value;
   }
   return "other";
+}
+
+function releaseReceiptReviewDecision(
+  value: string,
+): FlowReleaseReceiptReviewDecision {
+  if (
+    value === "verified" ||
+    value === "held" ||
+    value === "missing-receipt" ||
+    value === "stale-evidence" ||
+    value === "blocked-review" ||
+    value === "revoked-receipt" ||
+    value === "carryover"
+  ) {
+    return value;
+  }
+  return "held";
+}
+
+function releaseReceiptReviewSource(value: string): FlowReleaseReceiptReviewSource {
+  if (
+    value === "active-receipt" ||
+    value === "receipt-archive" ||
+    value === "evidence-freshness" ||
+    value === "outbound-review" ||
+    value === "missing-archive"
+  ) {
+    return value;
+  }
+  return "receipt-archive";
 }
 
 function releasePublicationBlockerKind(value: string): FlowReleasePublicationBlockerKind {

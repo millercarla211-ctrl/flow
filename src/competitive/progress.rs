@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-external-receipt-model",
-            "Typed release external receipt archive model",
+            "release-receipt-review-model",
+            "Typed release receipt review board model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseExternalReceiptArchive` consumes outbound review ledgers and preserves operator-owned receipt evidence",
-            "open the next Friday release receipt review board set",
+            "`FridayReleaseReceiptReviewBoardReport` consumes external receipt archives and summarizes final local release evidence decisions",
+            "open the next Friday release closure ledger set",
         ),
         item(
-            "release-external-receipt-states",
-            "Draft, attached, verified, stale, missing, revoked, superseded, and blocked states",
+            "release-receipt-review-decisions",
+            "Verified, held, missing-receipt, stale-evidence, blocked-review, revoked-receipt, and carryover decisions",
             20,
             CompletionItemStatus::Done,
-            "receipt records downgrade unsafe attached/verified requests to blocked while outbound reviews still carry blockers, and missing evidence stays explicit",
-            "open the next Friday release receipt review board set",
+            "receipt review findings rank blocked outbound reviews, stale evidence, missing receipts, revoked receipts, carryover, and verified evidence explicitly",
+            "open the next Friday release closure ledger set",
         ),
         item(
-            "release-external-receipt-cli",
-            "Release external receipt CLI, JSON, list, and export commands",
+            "release-receipt-review-cli",
+            "Release receipt review CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-external-receipt` appends receipt evidence without fetching, sending, publishing, deploying, uploading, or emailing",
-            "open the next Friday release receipt review board set",
+            "`flow --friday-release-receipt-review-board` generates review boards without fetching, sending, publishing, deploying, uploading, or emailing",
+            "open the next Friday release closure ledger set",
         ),
         item(
-            "release-external-receipt-dashboard",
-            "Dashboard release external receipt archive rendering",
+            "release-receipt-review-dashboard",
+            "Dashboard release receipt review rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports receipt archives and renders attached/verified/stale/missing/blocked counts, evidence paths, command copy, and audit notes",
-            "open the next Friday release receipt review board set",
+            "the visible dashboard imports receipt review boards and renders decision, score, active evidence, blockers, findings, command copy, and review notes",
+            "open the next Friday release closure ledger set",
         ),
         item(
-            "release-external-receipt-coverage",
-            "Release external receipt Rust and TypeScript coverage",
+            "release-receipt-review-coverage",
+            "Release receipt review Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify blocked reviews, no-fetch/no-send copy, receipt archive import normalization, and dashboard rendering",
-            "open the next Friday release receipt review board set",
+            "focused Rust integration coverage plus dashboard smoke checks verify blocked review decisions, no-fetch/no-send copy, review import normalization, and dashboard rendering",
+            "open the next Friday release closure ledger set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release External Receipt Archive".to_string(),
+        name: "Friday Release Receipt Review Board".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Preserve human-owned publication, send, deploy, upload, or announcement receipts as local evidence without fetching or mutating external systems.".to_string(),
+        loop_rule: "Consolidate outbound reviews, external receipts, blocker carryover, evidence freshness, and operator final decisions into one local review surface.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_external_receipt_archive_loop() {
+    fn active_set_tracks_friday_release_receipt_review_board_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release External Receipt Archive");
+        assert_eq!(set.name, "Friday Release Receipt Review Board");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

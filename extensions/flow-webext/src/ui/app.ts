@@ -12,6 +12,7 @@ import {
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseExternalReceiptArchive,
+  normalizeReleaseReceiptReviewBoard,
   normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffDispatchAuditTrail,
   normalizeReleaseHandoffDispatchChecklist,
@@ -63,6 +64,7 @@ import {
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseEvidenceSlaMonitorReport,
   type FlowReleaseExternalReceiptArchive,
+  type FlowReleaseReceiptReviewBoardReport,
   type FlowReleaseHandoffAuditTrail,
   type FlowReleaseHandoffDispatchAuditTrail,
   type FlowReleaseHandoffDispatchChecklist,
@@ -154,6 +156,7 @@ type UiState = {
   dashboardReleasePublicationControl: FlowReleasePublicationControl | null;
   dashboardReleaseOutboundReviewLedger: FlowReleaseOutboundReviewLedger | null;
   dashboardReleaseExternalReceiptArchive: FlowReleaseExternalReceiptArchive | null;
+  dashboardReleaseReceiptReviewBoard: FlowReleaseReceiptReviewBoardReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -3359,6 +3362,71 @@ function renderReleaseExternalReceiptArchive(
   `;
 }
 
+function renderReleaseReceiptReviewBoard(
+  report: FlowReleaseReceiptReviewBoardReport | null,
+) {
+  if (!report) {
+    return "";
+  }
+  return `
+    <article class="feature-card dashboard-release-receipt-review">
+      <div class="card-topline">
+        <span class="eyebrow">Release receipt review</span>
+        <span class="badge ${badgeTone(report.status)}">
+          ${escapeHtml(report.decision)}
+        </span>
+      </div>
+      <h3>External completion review board</h3>
+      <p>${escapeHtml(report.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${report.scoreOutOf100}</strong><small>score</small></span>
+        <span><strong>${report.recordCount}</strong><small>receipts</small></span>
+        <span><strong>${report.verifiedReceiptCount}</strong><small>verified</small></span>
+        <span><strong>${report.releaseGateBlockingCount}</strong><small>blockers</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Ready</strong> ${report.readyForExternalCompletion ? "yes" : "no"}</span>
+        <span><strong>Active receipt</strong> ${escapeHtml(report.activeReceiptId ?? "none")}</span>
+        <span><strong>Latest receipt</strong> ${escapeHtml(report.latestReceiptState ?? "none")}</span>
+        <span><strong>Latest review</strong> ${escapeHtml(report.latestOutboundReviewId ?? "none")}</span>
+        <span><strong>Archive</strong> ${escapeHtml(report.archiveJson)}</span>
+      </div>
+      ${
+        report.releaseGateBlockingCount > 0 || report.unresolvedBlockerCount > 0
+          ? `<p class="soft-warning">External completion stays held while ${report.releaseGateBlockingCount} gate blocker(s) or ${report.unresolvedBlockerCount} unresolved blocker(s) remain.</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${report.findings
+          .slice(0, 8)
+          .map(
+            (finding) => `
+              <div class="runner-package-file ${
+                !finding.releaseGateBlocking && finding.decision === "verified"
+                  ? "present"
+                  : "missing"
+              }">
+                <strong>${escapeHtml(finding.decision)} - ${escapeHtml(finding.source)}</strong>
+                <small>${finding.releaseGateBlocking ? "release gate hold" : "operator review"} / ${escapeHtml(finding.receiptId || "none")}</small>
+                <code>${escapeHtml(finding.evidencePath || "no evidence recorded")}</code>
+                <span>${escapeHtml(finding.summary)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-receipt-review-command">
+          Copy review command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-receipt-review-notes">
+          Copy review notes
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -3595,6 +3663,7 @@ function renderDashboard(state: UiState) {
       ${renderReleasePublicationControl(state.dashboardReleasePublicationControl)}
       ${renderReleaseOutboundReviewLedger(state.dashboardReleaseOutboundReviewLedger)}
       ${renderReleaseExternalReceiptArchive(state.dashboardReleaseExternalReceiptArchive)}
+      ${renderReleaseReceiptReviewBoard(state.dashboardReleaseReceiptReviewBoard)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3750,6 +3819,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleasePublicationControl: null,
     dashboardReleaseOutboundReviewLedger: null,
     dashboardReleaseExternalReceiptArchive: null,
+    dashboardReleaseReceiptReviewBoard: null,
   };
 
   function render() {
@@ -4086,6 +4156,8 @@ export async function mountFlowApp(surfaceInput: string) {
         normalizeReleaseOutboundReviewLedger(parsed);
       const releaseExternalReceiptArchive =
         normalizeReleaseExternalReceiptArchive(parsed);
+      const releaseReceiptReviewBoard =
+        normalizeReleaseReceiptReviewBoard(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -4158,8 +4230,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseOutboundReviewLedger ?? state.dashboardReleaseOutboundReviewLedger;
       state.dashboardReleaseExternalReceiptArchive =
         releaseExternalReceiptArchive ?? state.dashboardReleaseExternalReceiptArchive;
+      state.dashboardReleaseReceiptReviewBoard =
+        releaseReceiptReviewBoard ?? state.dashboardReleaseReceiptReviewBoard;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseExternalReceiptArchive
+      state.status = releaseReceiptReviewBoard
+        ? `Imported release receipt review board ${releaseReceiptReviewBoard.decision} at ${releaseReceiptReviewBoard.scoreOutOf100}/100 from ${file.name}.`
+        : releaseExternalReceiptArchive
         ? `Imported release external receipt archive with ${releaseExternalReceiptArchive.recordCount} record(s) from ${file.name}.`
         : releaseOutboundReviewLedger
         ? `Imported release outbound review ledger with ${releaseOutboundReviewLedger.recordCount} record(s) from ${file.name}.`
@@ -5283,6 +5359,39 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseReceiptReviewCommand() {
+    const command = state.dashboardReleaseReceiptReviewBoard?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release receipt review command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release receipt review command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseReceiptReviewNotes() {
+    const copy =
+      state.dashboardReleaseReceiptReviewBoard?.reviewNotesCopy ?? "";
+    if (!copy) {
+      state.status = "No release receipt review notes are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release receipt review notes copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -5739,6 +5848,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-external-receipt-notes']")
       ?.addEventListener("click", () => {
         void copyReleaseExternalReceiptNotes();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-receipt-review-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseReceiptReviewCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-receipt-review-notes']")
+      ?.addEventListener("click", () => {
+        void copyReleaseReceiptReviewNotes();
       });
 
     mountRoot

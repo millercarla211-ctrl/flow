@@ -44,8 +44,8 @@ use flow::friday::{
     FridayReleasePreventionActionKind, FridayReleasePreventionFindingKind,
     FridayReleasePromotionDecision, FridayReleasePromotionRecordRequest,
     FridayReleasePublicationRequest, FridayReleasePublicationState, FridayReleaseQaCheckStatus,
-    FridayResearchWorkflow, FridayRouteVisualStatus, FridayRuntimeSurfaceStore,
-    FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
+    FridayReleaseReceiptReviewDecision, FridayResearchWorkflow, FridayRouteVisualStatus,
+    FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
     FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
@@ -83,10 +83,10 @@ use flow::friday::{
     friday_release_outbound_review_record_from_publication_control,
     friday_release_owner_followup_board_report_at, friday_release_post_promotion_monitor_report,
     friday_release_prevention_plan_report, friday_release_publication_control_report,
-    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
-    friday_release_rollback_drill_report, friday_release_stability_board_report,
-    friday_route_visual_report, friday_route_visual_report_for_root,
-    friday_trusted_host_live_runner_state_from_history,
+    friday_release_qa_command_center_report, friday_release_receipt_review_board_report,
+    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
+    friday_release_stability_board_report, friday_route_visual_report,
+    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -108,7 +108,8 @@ use flow::friday::{
     write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_publication_control,
-    write_friday_release_qa_command_center_report, write_friday_release_recovery_runbook_report,
+    write_friday_release_qa_command_center_report,
+    write_friday_release_receipt_review_board_report, write_friday_release_recovery_runbook_report,
     write_friday_release_rollback_drill_report, write_friday_release_stability_board_report,
     write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
     write_friday_trusted_runner_release_timeline,
@@ -3264,6 +3265,49 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
                     && command.contains("--archive")
             })
     );
+    let release_receipt_review_board_path = root.join("release-receipt-review-board.json");
+    let release_receipt_review_board = friday_release_receipt_review_board_report(
+        &release_receipt_review_board_path,
+        &release_external_receipt_archive_path,
+    );
+    write_friday_release_receipt_review_board_report(
+        &release_receipt_review_board_path,
+        &release_receipt_review_board,
+    )
+    .unwrap();
+    assert_eq!(
+        release_receipt_review_board.decision,
+        FridayReleaseReceiptReviewDecision::BlockedReview
+    );
+    assert!(!release_receipt_review_board.ready_for_external_completion);
+    assert_eq!(release_receipt_review_board.record_count, 1);
+    assert_eq!(release_receipt_review_board.verified_receipt_count, 0);
+    assert!(release_receipt_review_board.score_out_of_100 < 100);
+    assert!(release_receipt_review_board.blocked_review_count > 0);
+    assert!(release_receipt_review_board.release_gate_blocking_count > 0);
+    assert!(
+        release_receipt_review_board
+            .findings
+            .iter()
+            .any(
+                |finding| finding.decision == FridayReleaseReceiptReviewDecision::BlockedReview
+                    && finding.release_gate_blocking
+            )
+    );
+    assert!(
+        release_receipt_review_board
+            .review_notes_copy
+            .contains("Friday release receipt review board")
+    );
+    assert!(
+        release_receipt_review_board
+            .review_notes_copy
+            .contains("Friday did not fetch, send, publish, deploy, upload, or email")
+    );
+    assert!(release_receipt_review_board.commands.iter().any(|command| {
+        command.contains("--friday-release-receipt-review-board")
+            && command.contains("--receipt-archive")
+    }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

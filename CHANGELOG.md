@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Receipt Review Board at 100/100 with typed local-only review boards, verified/held/missing/stale/blocked/revoked/carryover decisions, CLI/JSON commands, dashboard import/rendering, copyable review notes, no-fetch/no-send safety copy, and focused Rust/TypeScript coverage
+- opened Friday Release Closure Ledger as the next set for preserving reviewed receipt outcomes, operator closure notes, carryover commitments, and final local release history
 - completed Friday Release External Receipt Archive at 100/100 with typed local-only receipt archives, draft/attached/verified/stale/missing/revoked/superseded/blocked states, append/list/export/JSON commands, dashboard import/rendering, operator-owned evidence paths, no-fetch/no-send audit notes, and focused Rust/TypeScript coverage
 - opened Friday Release Receipt Review Board as the next set for consolidating outbound reviews, receipt archives, freshness warnings, blocker carryover, and operator final decisions
 - completed Friday Release Outbound Review at 100/100 with typed local-only outbound review ledgers, draft/reviewed/changes-requested/held/blocked/manually-published/revoked/superseded states, append/list/export/JSON commands, dashboard import/rendering, copy-safe review counts, no-external-mutation notes, and focused Rust/TypeScript coverage

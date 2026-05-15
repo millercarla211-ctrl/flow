@@ -953,16 +953,34 @@ Goal: preserve human-owned external publication/send/deploy receipts as local ev
 
 This set is complete. The next loop should open `Friday Release Receipt Review Board` and consolidate outbound reviews, external receipts, blocker carryover, evidence freshness, and operator final decisions into one local review surface.
 
-## Next Set: Friday Release Receipt Review Board
+## Completed Set: Friday Release Receipt Review Board
 
-Status: 0/100
+Status: 100/100
 
 Goal: consolidate outbound reviews and external receipt archives into a final local review board so Friday can distinguish verified release outcomes, stale evidence, missing receipts, blocked reviews, and operator carryover before any release is treated as externally complete.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed receipt review board that consumes external receipt archives.
+- [x] Add review decisions for verified, held, missing-receipt, stale-evidence, blocked-review, revoked-receipt, and carryover.
+- [x] Add CLI/JSON commands that generate review boards without fetching, sending, deploying, uploading, emailing, or mutating external systems.
+- [x] Add dashboard import/rendering for receipt decisions, active evidence, freshness warnings, blocker carryover, and copyable review notes.
+- [x] Add focused Rust/TypeScript coverage for verified receipt decisions, stale/missing receipt handling, blocked outbound reviews, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Closure Ledger` and preserve reviewed receipt decisions, operator closure notes, carryover commitments, and final release outcome history without external mutation.
+
+## Next Set: Friday Release Closure Ledger
+
+Status: 0/100
+
+Goal: preserve receipt review board outcomes as a local closure history so Friday can show which releases are closed, held, blocked, carried over, revoked, or superseded without sending, deploying, uploading, emailing, or mutating external systems.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed receipt review board that consumes external receipt archives.
-- [ ] Add review decisions for verified, held, missing-receipt, stale-evidence, blocked-review, revoked-receipt, and carryover.
-- [ ] Add CLI/JSON commands that generate review boards without fetching, sending, deploying, uploading, emailing, or mutating external systems.
-- [ ] Add dashboard import/rendering for receipt decisions, active evidence, freshness warnings, blocker carryover, and copyable review notes.
-- [ ] Add focused Rust/TypeScript coverage for verified receipt decisions, stale/missing receipt handling, blocked outbound reviews, command safety, and dashboard rendering.
+- [ ] Add a typed closure ledger that consumes release receipt review boards.
+- [ ] Add closure states for draft, closed, held, carryover, blocked, revoked, and superseded.
+- [ ] Add append/list/export/JSON commands that preserve closure records without external mutation.
+- [ ] Add dashboard import/rendering for closure history, active review board, operator closure notes, carryover, and copyable closure summaries.
+- [ ] Add focused Rust/TypeScript coverage for closed receipt decisions, blocked carryover, revoked/superseded records, command safety, and dashboard rendering.

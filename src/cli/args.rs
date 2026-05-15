@@ -791,6 +791,16 @@ pub enum Command {
         archive_file: String,
         output_file: String,
     },
+    /// Write a Friday release receipt review board
+    FridayReleaseReceiptReviewBoard {
+        review_file: String,
+        receipt_archive_file: String,
+    },
+    /// Print a Friday release receipt review board as JSON
+    FridayReleaseReceiptReviewBoardJson {
+        review_file: String,
+        receipt_archive_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -2572,6 +2582,22 @@ impl Args {
                     output_file,
                 }
             }
+            "--friday-release-receipt-review-board" | "--friday-receipt-review-board" => {
+                let (review_file, receipt_archive_file) =
+                    parse_friday_release_receipt_review_board_args(&args);
+                Command::FridayReleaseReceiptReviewBoard {
+                    review_file,
+                    receipt_archive_file,
+                }
+            }
+            "--friday-release-receipt-review-board-json" | "--friday-receipt-review-board-json" => {
+                let (review_file, receipt_archive_file) =
+                    parse_friday_release_receipt_review_board_args(&args);
+                Command::FridayReleaseReceiptReviewBoardJson {
+                    review_file,
+                    receipt_archive_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -4310,6 +4336,24 @@ fn parse_friday_release_external_receipt_archive_file_arg(args: &[String]) -> St
     flag_value(args, "--archive")
         .or_else(|| flag_value(args, "--input"))
         .unwrap_or_else(|| format!("{export_dir}/release-external-receipt-archive.json"))
+}
+
+fn parse_friday_release_receipt_review_board_args(args: &[String]) -> (String, String) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let review_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--review"))
+        .unwrap_or_else(|| format!("{export_dir}/release-receipt-review-board.json"));
+    let receipt_archive_file = flag_value(args, "--receipt-archive")
+        .or_else(|| flag_value(args, "--archive"))
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-external-receipt-archive.json"));
+
+    (review_file, receipt_archive_file)
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

@@ -52,9 +52,9 @@ use crate::friday::{
     FridayReleasePromotionLedger, FridayReleasePromotionRecordRequest,
     FridayReleasePublicationControl, FridayReleasePublicationRequest,
     FridayReleasePublicationState, FridayReleaseQaCommandCenterReport,
-    FridayReleaseRecoveryRunbookReport, FridayReleaseRollbackDrillReport,
-    FridayReleaseStabilityBoardReport, FridayResearchReport, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleaseReceiptReviewBoardReport, FridayReleaseRecoveryRunbookReport,
+    FridayReleaseRollbackDrillReport, FridayReleaseStabilityBoardReport, FridayResearchReport,
+    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
@@ -99,8 +99,9 @@ use crate::friday::{
     friday_release_owner_followup_board_report, friday_release_post_promotion_monitor_report,
     friday_release_prevention_plan_report, friday_release_promotion_ledger_report,
     friday_release_publication_control_report, friday_release_qa_command_center_report,
-    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
-    friday_release_stability_board_report, friday_research_search_plan, friday_route_visual_report,
+    friday_release_receipt_review_board_report, friday_release_recovery_runbook_report,
+    friday_release_rollback_drill_report, friday_release_stability_board_report,
+    friday_research_search_plan, friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
@@ -129,7 +130,8 @@ use crate::friday::{
     write_friday_release_outbound_review_ledger, write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_publication_control,
-    write_friday_release_qa_command_center_report, write_friday_release_recovery_runbook_report,
+    write_friday_release_qa_command_center_report,
+    write_friday_release_receipt_review_board_report, write_friday_release_recovery_runbook_report,
     write_friday_release_rollback_drill_report, write_friday_release_stability_board_report,
     write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
     write_friday_trusted_runner_release_timeline,
@@ -2239,6 +2241,32 @@ pub async fn execute(command: Command) -> Result<()> {
             print_friday_release_external_receipt_archive(&archive);
         }
 
+        Command::FridayReleaseReceiptReviewBoard {
+            review_file,
+            receipt_archive_file,
+        } => {
+            let report = friday_release_receipt_review_board_report(
+                resolve_repo_relative_path(&review_file),
+                resolve_repo_relative_path(&receipt_archive_file),
+            );
+            write_friday_release_receipt_review_board_report(
+                resolve_repo_relative_path(&review_file),
+                &report,
+            )?;
+            print_friday_release_receipt_review_board(&report);
+        }
+
+        Command::FridayReleaseReceiptReviewBoardJson {
+            review_file,
+            receipt_archive_file,
+        } => {
+            let report = friday_release_receipt_review_board_report(
+                resolve_repo_relative_path(&review_file),
+                resolve_repo_relative_path(&receipt_archive_file),
+            );
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -2890,6 +2918,10 @@ fn print_interactive_help() {
     println!("                           List an existing external receipt archive");
     println!("  --friday-release-external-receipt-export [--archive file] [--output file]");
     println!("                           Export an existing external receipt archive JSON");
+    println!("  --friday-release-receipt-review-board [export-dir] [--receipt-archive file]");
+    println!("                           Write a local release receipt review board JSON");
+    println!("  --friday-release-receipt-review-board-json [export-dir] [--receipt-archive file]");
+    println!("                           Print release receipt review board as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -5622,6 +5654,56 @@ fn print_friday_release_external_receipt_archive(archive: &FridayReleaseExternal
     println!();
     println!("Commands:");
     for command in &archive.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_receipt_review_board(report: &FridayReleaseReceiptReviewBoardReport) {
+    println!("Friday Release Receipt Review Board");
+    println!("===================================");
+    println!(
+        "Decision: {} | ready: {} | score: {}/100 | findings: {}",
+        report.decision.label(),
+        yes_no(report.ready_for_external_completion),
+        report.score_out_of_100,
+        report.finding_count
+    );
+    println!(
+        "Receipts: {} | attached: {} | verified: {} | stale/missing: {} | gate blockers: {}",
+        report.record_count,
+        report.attached_receipt_count,
+        report.verified_receipt_count,
+        report.stale_or_missing_count,
+        report.release_gate_blocking_count
+    );
+    println!(
+        "Active receipt: {} | latest outbound review: {}",
+        report.active_receipt_id.as_deref().unwrap_or("none"),
+        report
+            .latest_outbound_review_id
+            .as_deref()
+            .unwrap_or("none")
+    );
+    println!("Review: {}", report.review_json);
+    println!("Archive: {}", report.archive_json);
+    println!();
+    println!("Findings:");
+    for finding in &report.findings {
+        println!(
+            "  - {} [{}] {}",
+            finding.summary,
+            finding.decision.label(),
+            finding.source.label()
+        );
+        println!("    evidence: {}", finding.evidence_path);
+        println!("    next: {}", finding.next_action);
+    }
+    if report.findings.is_empty() {
+        println!("  - none");
+    }
+    println!();
+    println!("Commands:");
+    for command in &report.commands {
         println!("  - {command}");
     }
 }
