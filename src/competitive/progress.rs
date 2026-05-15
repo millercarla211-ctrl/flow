@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-rollback-drill-model",
-            "Typed rollback drill model",
+            "release-stability-board-model",
+            "Typed stability evidence board model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseRollbackDrillReport` consumes the post-promotion monitor, promotion ledger, candidate archive, and deployment gate",
-            "open the next stability evidence board set",
+            "`FridayReleaseStabilityBoardReport` consumes release QA, candidate archive, promotion ledger, post-promotion monitor, rollback drill, and deployment gate reports",
+            "wire visible dashboard rendering for the stability board",
         ),
         item(
-            "release-rollback-drill-readiness",
-            "Rollback readiness checks",
+            "release-stability-board-scoring",
+            "Stability score categories",
             20,
             CompletionItemStatus::Done,
-            "rollback drill checks detect missing rollback references, stale monitor evidence, missing evidence, and unresolved post-promotion blockers",
-            "open the next stability evidence board set",
+            "stability board checks classify deployment readiness, QA health, candidate regression, promotion state, post-promotion freshness, and rollback recovery",
+            "wire visible dashboard rendering for the stability board",
         ),
         item(
-            "release-rollback-drill-cli",
-            "Rollback drill CLI and JSON commands",
+            "release-stability-board-cli",
+            "Stability board CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-rollback-drill` and JSON mode generate local-only dry-run readiness reports without executing rollback commands",
-            "open the next stability evidence board set",
+            "`flow --friday-release-stability-board` and JSON mode generate the consolidated local-only evidence board without running builds, deployments, or rollback commands",
+            "wire visible dashboard rendering for the stability board",
         ),
         item(
-            "release-rollback-drill-dashboard",
-            "Dashboard rollback drill rendering",
+            "release-stability-board-dashboard",
+            "Dashboard stability board rendering",
             20,
-            CompletionItemStatus::Done,
-            "the visible dashboard imports rollback drill JSON and renders readiness, dry-run commands, and blocked rollback reasons",
-            "open the next stability evidence board set",
+            CompletionItemStatus::Planned,
+            "dashboard rendering is not wired yet for the stability evidence board",
+            "add dashboard import/rendering for score, active risks, evidence links, and next operator actions",
         ),
         item(
-            "release-rollback-drill-coverage",
-            "Rollback drill Rust and TypeScript coverage",
+            "release-stability-board-coverage",
+            "Stability board Rust and TypeScript coverage",
             20,
-            CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify drill scoring, blocked reasons, dry-run command copy, and visible dashboard import/rendering",
-            "open the next stability evidence board set",
+            CompletionItemStatus::Planned,
+            "focused Rust coverage exists for the model path; TypeScript dashboard smoke coverage is still pending with the dashboard renderer",
+            "add dashboard smoke coverage after the visible board is imported and rendered",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Rollback Drill".to_string(),
+        name: "Friday Release Stability Evidence Board".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Make Friday rollback readiness testable with active rollback references, dry-run commands, and blocked-reason evidence.".to_string(),
+        loop_rule: "Consolidate Friday release QA, candidate, promotion, post-promotion, rollback, and deployment evidence into one stability board.".to_string(),
         items,
     }
 }
@@ -137,14 +137,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_rollback_drill_loop() {
+    fn active_set_tracks_friday_release_stability_evidence_board_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Rollback Drill");
-        assert_eq!(set.current_score_out_of_100, 100);
+        assert_eq!(set.name, "Friday Release Stability Evidence Board");
+        assert_eq!(set.current_score_out_of_100, 60);
         assert!(
             set.items
                 .iter()
-                .all(|item| item.status == CompletionItemStatus::Done)
+                .any(|item| item.status == CompletionItemStatus::Planned)
         );
     }
 

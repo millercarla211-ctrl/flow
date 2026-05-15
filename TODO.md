@@ -577,14 +577,17 @@ This set is complete. The next loop should open `Friday Release Stability Eviden
 
 ## Next Set: Friday Release Stability Evidence Board
 
-Status: 0/100
+Status: 60/100
 
 Goal: consolidate all major Friday release evidence into one local-first stability board that tells the operator whether the current candidate is deployable, stable, recoverable, and ready for the next major checkpoint.
 
+### Completed Toward 100/100
+
+- [x] Add a typed stability evidence board model that consumes release QA, candidate archive, promotion ledger, post-promotion monitor, rollback drill, and deployment gate reports.
+- [x] Add stability score categories for deployment readiness, post-promotion freshness, rollback recovery, candidate regression, and QA health.
+- [x] Add CLI and JSON commands for generating the stability board without running builds, deployments, or rollback commands.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed stability evidence board model that consumes release QA, candidate archive, promotion ledger, post-promotion monitor, rollback drill, and deployment gate reports.
-- [ ] Add stability score categories for deployment readiness, post-promotion freshness, rollback recovery, candidate regression, and QA health.
-- [ ] Add CLI and JSON commands for generating the stability board without running builds, deployments, or rollback commands.
 - [ ] Add dashboard import/rendering for stability score, active risks, evidence links, and next operator actions.
-- [ ] Add focused Rust/TypeScript coverage for board scoring, stale evidence, blocked categories, and dashboard rendering.
+- [ ] Add focused TypeScript dashboard coverage for board import/rendering after the visible board is wired.

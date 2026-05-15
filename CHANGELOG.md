@@ -4,6 +4,7 @@
 
 - completed Friday Release Rollback Drill at 100/100 with typed local-only dry-run reports, rollback readiness checks, stale monitor and post-promotion blocker detection, CLI/JSON generation commands, dashboard rendering, dry-run command copy, and focused Rust/TypeScript coverage
 - opened Friday Release Stability Evidence Board as the next set for consolidating release QA, candidate archive, promotion ledger, post-promotion monitor, rollback drill, and deployment gate evidence into one operator-facing stability surface
+- advanced Friday Release Stability Evidence Board to 60/100 with a typed consolidated stability board, deployment/QA/regression/promotion/freshness/recovery scoring categories, CLI/JSON generation commands, and focused Rust coverage
 - completed Friday Release Deployment Gate at 100/100 with typed local-first go/no-go reports, no-deploy reason categories, target policy checks, CLI/JSON generation commands, dashboard import/rendering, rollback/deploy checklist copy, and focused Rust/TypeScript coverage
 - opened Friday Release Candidate Archive as the next set for preserving comparable deployment gates, evidence kits, target metadata, and rollback notes across major checkpoints
 - advanced Friday Release Candidate Archive to 60/100 with typed candidate archive records, deployment-gate/evidence-kit preservation, candidate diff summaries, and CLI/JSON append/preview commands

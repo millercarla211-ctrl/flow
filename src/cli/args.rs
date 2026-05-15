@@ -403,6 +403,26 @@ pub enum Command {
         operator: String,
         reason: String,
     },
+    /// Write the Friday release stability evidence board
+    FridayReleaseStabilityBoard {
+        board_file: String,
+        qa_file: String,
+        candidate_archive_file: String,
+        promotion_ledger_file: String,
+        post_promotion_monitor_file: String,
+        rollback_drill_file: String,
+        deployment_gate_file: String,
+    },
+    /// Print the Friday release stability evidence board as JSON
+    FridayReleaseStabilityBoardJson {
+        board_file: String,
+        qa_file: String,
+        candidate_archive_file: String,
+        promotion_ledger_file: String,
+        post_promotion_monitor_file: String,
+        rollback_drill_file: String,
+        deployment_gate_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1428,6 +1448,46 @@ impl Args {
                     reason,
                 }
             }
+            "--friday-release-stability-board" | "--friday-stability-board" => {
+                let (
+                    board_file,
+                    qa_file,
+                    candidate_archive_file,
+                    promotion_ledger_file,
+                    post_promotion_monitor_file,
+                    rollback_drill_file,
+                    deployment_gate_file,
+                ) = parse_friday_release_stability_board_args(&args);
+                Command::FridayReleaseStabilityBoard {
+                    board_file,
+                    qa_file,
+                    candidate_archive_file,
+                    promotion_ledger_file,
+                    post_promotion_monitor_file,
+                    rollback_drill_file,
+                    deployment_gate_file,
+                }
+            }
+            "--friday-release-stability-board-json" | "--friday-stability-board-json" => {
+                let (
+                    board_file,
+                    qa_file,
+                    candidate_archive_file,
+                    promotion_ledger_file,
+                    post_promotion_monitor_file,
+                    rollback_drill_file,
+                    deployment_gate_file,
+                ) = parse_friday_release_stability_board_args(&args);
+                Command::FridayReleaseStabilityBoardJson {
+                    board_file,
+                    qa_file,
+                    candidate_archive_file,
+                    promotion_ledger_file,
+                    post_promotion_monitor_file,
+                    rollback_drill_file,
+                    deployment_gate_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -2391,6 +2451,49 @@ fn parse_friday_release_rollback_drill_args(
         rollback_command,
         operator,
         reason,
+    )
+}
+
+#[allow(clippy::type_complexity)]
+fn parse_friday_release_stability_board_args(
+    args: &[String],
+) -> (String, String, String, String, String, String, String) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let board_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--board"))
+        .unwrap_or_else(|| format!("{export_dir}/release-stability-board.json"));
+    let qa_file = flag_value(args, "--qa")
+        .or_else(|| flag_value(args, "--release-qa"))
+        .unwrap_or_else(|| format!("{export_dir}/release-qa-command-center.json"));
+    let candidate_archive_file = flag_value(args, "--candidate-archive")
+        .or_else(|| flag_value(args, "--archive"))
+        .unwrap_or_else(|| format!("{export_dir}/release-candidate-archive.json"));
+    let promotion_ledger_file = flag_value(args, "--promotion-ledger")
+        .or_else(|| flag_value(args, "--ledger"))
+        .unwrap_or_else(|| format!("{export_dir}/release-promotion-ledger.json"));
+    let post_promotion_monitor_file = flag_value(args, "--post-promotion-monitor")
+        .or_else(|| flag_value(args, "--monitor"))
+        .unwrap_or_else(|| format!("{export_dir}/release-post-promotion-monitor.json"));
+    let rollback_drill_file = flag_value(args, "--rollback-drill")
+        .or_else(|| flag_value(args, "--drill"))
+        .unwrap_or_else(|| format!("{export_dir}/release-rollback-drill.json"));
+    let deployment_gate_file = flag_value(args, "--deployment-gate")
+        .or_else(|| flag_value(args, "--gate"))
+        .unwrap_or_else(|| format!("{export_dir}/release-deployment-gate.json"));
+
+    (
+        board_file,
+        qa_file,
+        candidate_archive_file,
+        promotion_ledger_file,
+        post_promotion_monitor_file,
+        rollback_drill_file,
+        deployment_gate_file,
     )
 }
 
