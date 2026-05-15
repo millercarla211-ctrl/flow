@@ -6,6 +6,7 @@
   "description": "Shared Flow WebExtension shell for Chromium, Firefox, and Safari local-first inference",
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "smoke:dashboard": "node ./scripts/dashboard-smoke.mjs",
     "build:chromium": "node ./scripts/build.mjs chromium",
     "build:firefox": "node ./scripts/build.mjs firefox",
     "build:safari": "node ./scripts/build.mjs safari",

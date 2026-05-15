@@ -77,9 +77,9 @@ pub fn active_completion_set() -> CompletionSet {
             "dashboard-typescript-smoke",
             "Dashboard TypeScript smoke path",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "add a small TypeScript smoke/typecheck path for dashboard section rendering",
+            CompletionItemStatus::Done,
+            "`npm run smoke:dashboard` bundles and runs the focused dashboard section smoke report without a full extension build",
+            "keep local-only fallback behavior and remove dummy product copy from this dashboard surface",
         ),
         item(
             "dashboard-local-only-no-dummy-copy",
@@ -140,7 +140,7 @@ mod tests {
     fn active_set_tracks_friday_dashboard_product_ui_wiring_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Dashboard Visible UI Execution");
-        assert_eq!(set.current_score_out_of_100, 60);
+        assert_eq!(set.current_score_out_of_100, 80);
         assert!(
             set.items
                 .iter()

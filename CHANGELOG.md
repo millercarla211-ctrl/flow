@@ -121,6 +121,8 @@
 - added visible dashboard action buttons with typed local commands plus idle, loading, success, error, disabled, and aria states
 - advanced Friday Dashboard Visible UI Execution to 60/100
 - added visible dashboard rails for export history deltas, release-review artifact links, and screenshot capture prompts
+- advanced Friday Dashboard Visible UI Execution to 80/100
+- added `npm run smoke:dashboard` for a focused TypeScript dashboard section smoke check without a full extension build
 
 ## 2026-04-26
 

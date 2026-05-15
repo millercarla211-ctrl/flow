@@ -214,7 +214,7 @@ This set is complete. The next loop should open `Friday Dashboard Visible UI Exe
 
 ## Active Set: Friday Dashboard Visible UI Execution
 
-Status: 60/100
+Status: 80/100
 
 Goal: wire the visible Friday dashboard to render the typed dashboard binding and execute local-only actions from the UI layer.
 
@@ -223,8 +223,8 @@ Goal: wire the visible Friday dashboard to render the typed dashboard binding an
 - [x] Render dashboard cards from the product UI binding in `extensions/flow-webext/src/ui/app.ts`.
 - [x] Add visible disabled/loading/success/error button states for dashboard actions.
 - [x] Render export history, release-review links, and screenshot prompts in the visible dashboard.
+- [x] Add a small TypeScript smoke/typecheck path for dashboard section rendering.
 
 ### Remaining To Reach 100/100
 
-- [ ] Add a small TypeScript smoke/typecheck path for dashboard section rendering.
 - [ ] Keep local-only fallback behavior and remove any dummy product copy from this dashboard surface.

@@ -936,7 +936,7 @@ function renderDashboardRail(state: UiState) {
                   title="${escapeHtml(prompt.captureCommand)}"
                 >
                   <span>${escapeHtml(prompt.title)}</span>
-                  <small>${escapeHtml(prompt.route)} · ${escapeHtml(prompt.viewportId)}</small>
+                  <small>${escapeHtml(prompt.route)} - ${escapeHtml(prompt.viewportId)}</small>
                 </button>
               `,
             )
