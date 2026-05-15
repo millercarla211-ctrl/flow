@@ -2062,6 +2062,89 @@ export interface FlowReleaseOutboundReviewLedger {
   commands: string[];
 }
 
+export type FlowReleaseExternalReceiptState =
+  | "draft"
+  | "attached"
+  | "verified"
+  | "stale"
+  | "missing"
+  | "revoked"
+  | "superseded"
+  | "blocked";
+
+export type FlowReleaseExternalReceiptKind =
+  | "publication"
+  | "send"
+  | "deploy"
+  | "upload"
+  | "announcement"
+  | "other";
+
+export interface FlowReleaseExternalReceiptRecord {
+  receiptId: string;
+  outboundReviewId: string;
+  outboundReviewLedgerId: string;
+  outboundReviewLedgerJson: string;
+  recordedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  state: FlowReleaseExternalReceiptState;
+  receiptKind: FlowReleaseExternalReceiptKind;
+  operator: string;
+  receiptNote: string;
+  evidencePath: string | null;
+  externalReference: string | null;
+  supersedesReceiptId: string | null;
+  outboundReviewState: FlowReleaseOutboundReviewState;
+  outboundReviewCopySafe: boolean;
+  outboundReviewActive: boolean;
+  publicationControlId: string;
+  publicationState: FlowReleasePublicationState;
+  manualPublicationReference: string | null;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  sourceReviewNotesCopy: string;
+  reviewedReleaseNotesCopy: string;
+  active: boolean;
+  receiptAttached: boolean;
+  receiptVerified: boolean;
+  externallyMutatedByFriday: boolean;
+  receiptNotesCopy: string;
+  summary: string;
+}
+
+export interface FlowReleaseExternalReceiptArchive {
+  archiveId: string;
+  archiveJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  recordCount: number;
+  draftCount: number;
+  attachedCount: number;
+  verifiedCount: number;
+  staleCount: number;
+  missingCount: number;
+  revokedCount: number;
+  supersededCount: number;
+  blockedCount: number;
+  activeReceiptId: string | null;
+  latestReceiptId: string | null;
+  latestState: FlowReleaseExternalReceiptState | null;
+  latestOutboundReviewId: string | null;
+  latestOutboundReviewState: FlowReleaseOutboundReviewState | null;
+  attachedReceiptCount: number;
+  verifiedReceiptCount: number;
+  blockedReceiptCount: number;
+  staleOrMissingCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  records: FlowReleaseExternalReceiptRecord[];
+  auditNotesCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -6346,6 +6429,181 @@ export function normalizeReleaseOutboundReviewLedger(
   };
 }
 
+export function normalizeReleaseExternalReceiptArchive(
+  value: unknown,
+): FlowReleaseExternalReceiptArchive | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const root = value as Record<string, unknown>;
+  const archive =
+    root.archive_id || root.archiveId || root.records
+      ? root
+      : root.release_external_receipt_archive &&
+          typeof root.release_external_receipt_archive === "object"
+        ? (root.release_external_receipt_archive as Record<string, unknown>)
+        : root.releaseExternalReceiptArchive &&
+            typeof root.releaseExternalReceiptArchive === "object"
+          ? (root.releaseExternalReceiptArchive as Record<string, unknown>)
+          : root;
+  const records = arrayValue(archive.records)
+    .map((item): FlowReleaseExternalReceiptRecord | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const receiptId = stringValue(record.receipt_id, record.receiptId);
+      if (!receiptId) {
+        return null;
+      }
+      return {
+        receiptId,
+        outboundReviewId: stringValue(record.outbound_review_id, record.outboundReviewId),
+        outboundReviewLedgerId: stringValue(
+          record.outbound_review_ledger_id,
+          record.outboundReviewLedgerId,
+        ),
+        outboundReviewLedgerJson: stringValue(
+          record.outbound_review_ledger_json,
+          record.outboundReviewLedgerJson,
+        ),
+        recordedAtUnixMs: stringValue(record.recorded_at_unix_ms, record.recordedAtUnixMs),
+        productName: stringValue(record.product_name, record.productName),
+        localOnly: booleanValue(record.local_only, record.localOnly),
+        state: releaseExternalReceiptState(stringValue(record.state)),
+        receiptKind: releaseExternalReceiptKind(
+          stringValue(record.receipt_kind, record.receiptKind),
+        ),
+        operator: stringValue(record.operator),
+        receiptNote: stringValue(record.receipt_note, record.receiptNote),
+        evidencePath: stringValue(record.evidence_path, record.evidencePath) || null,
+        externalReference:
+          stringValue(record.external_reference, record.externalReference) || null,
+        supersedesReceiptId:
+          stringValue(record.supersedes_receipt_id, record.supersedesReceiptId) || null,
+        outboundReviewState: releaseOutboundReviewState(
+          stringValue(record.outbound_review_state, record.outboundReviewState),
+        ),
+        outboundReviewCopySafe: booleanValue(
+          record.outbound_review_copy_safe,
+          record.outboundReviewCopySafe,
+        ),
+        outboundReviewActive: booleanValue(
+          record.outbound_review_active,
+          record.outboundReviewActive,
+        ),
+        publicationControlId: stringValue(
+          record.publication_control_id,
+          record.publicationControlId,
+        ),
+        publicationState: releasePublicationState(
+          stringValue(record.publication_state, record.publicationState),
+        ),
+        manualPublicationReference:
+          stringValue(
+            record.manual_publication_reference,
+            record.manualPublicationReference,
+          ) || null,
+        releaseGateBlockingCount: numberValue(
+          record.release_gate_blocking_count,
+          record.releaseGateBlockingCount,
+        ),
+        unresolvedBlockerCount: numberValue(
+          record.unresolved_blocker_count,
+          record.unresolvedBlockerCount,
+        ),
+        sourceReviewNotesCopy: stringValue(
+          record.source_review_notes_copy,
+          record.sourceReviewNotesCopy,
+        ),
+        reviewedReleaseNotesCopy: stringValue(
+          record.reviewed_release_notes_copy,
+          record.reviewedReleaseNotesCopy,
+        ),
+        active: booleanValue(record.active),
+        receiptAttached: booleanValue(record.receipt_attached, record.receiptAttached),
+        receiptVerified: booleanValue(record.receipt_verified, record.receiptVerified),
+        externallyMutatedByFriday: booleanValue(
+          record.externally_mutated_by_friday,
+          record.externallyMutatedByFriday,
+        ),
+        receiptNotesCopy: stringValue(record.receipt_notes_copy, record.receiptNotesCopy),
+        summary: stringValue(record.summary),
+      };
+    })
+    .filter((record): record is FlowReleaseExternalReceiptRecord => record !== null);
+  const archiveId = stringValue(archive.archive_id, archive.archiveId);
+
+  if (!archiveId && records.length === 0) {
+    return null;
+  }
+
+  return {
+    archiveId,
+    archiveJson: stringValue(archive.archive_json, archive.archiveJson),
+    generatedAtUnixMs: stringValue(archive.generated_at_unix_ms, archive.generatedAtUnixMs),
+    productName: stringValue(archive.product_name, archive.productName),
+    localOnly: booleanValue(archive.local_only, archive.localOnly),
+    recordCount: numberValue(archive.record_count, archive.recordCount),
+    draftCount: numberValue(archive.draft_count, archive.draftCount),
+    attachedCount: numberValue(archive.attached_count, archive.attachedCount),
+    verifiedCount: numberValue(archive.verified_count, archive.verifiedCount),
+    staleCount: numberValue(archive.stale_count, archive.staleCount),
+    missingCount: numberValue(archive.missing_count, archive.missingCount),
+    revokedCount: numberValue(archive.revoked_count, archive.revokedCount),
+    supersededCount: numberValue(archive.superseded_count, archive.supersededCount),
+    blockedCount: numberValue(archive.blocked_count, archive.blockedCount),
+    activeReceiptId: stringValue(archive.active_receipt_id, archive.activeReceiptId) || null,
+    latestReceiptId: stringValue(archive.latest_receipt_id, archive.latestReceiptId) || null,
+    latestState:
+      archive.latest_state || archive.latestState
+        ? releaseExternalReceiptState(stringValue(archive.latest_state, archive.latestState))
+        : null,
+    latestOutboundReviewId:
+      stringValue(archive.latest_outbound_review_id, archive.latestOutboundReviewId) ||
+      null,
+    latestOutboundReviewState:
+      archive.latest_outbound_review_state || archive.latestOutboundReviewState
+        ? releaseOutboundReviewState(
+            stringValue(
+              archive.latest_outbound_review_state,
+              archive.latestOutboundReviewState,
+            ),
+          )
+        : null,
+    attachedReceiptCount: numberValue(
+      archive.attached_receipt_count,
+      archive.attachedReceiptCount,
+    ),
+    verifiedReceiptCount: numberValue(
+      archive.verified_receipt_count,
+      archive.verifiedReceiptCount,
+    ),
+    blockedReceiptCount: numberValue(
+      archive.blocked_receipt_count,
+      archive.blockedReceiptCount,
+    ),
+    staleOrMissingCount: numberValue(
+      archive.stale_or_missing_count,
+      archive.staleOrMissingCount,
+    ),
+    releaseGateBlockingCount: numberValue(
+      archive.release_gate_blocking_count,
+      archive.releaseGateBlockingCount,
+    ),
+    unresolvedBlockerCount: numberValue(
+      archive.unresolved_blocker_count,
+      archive.unresolvedBlockerCount,
+    ),
+    records,
+    auditNotesCopy: stringValue(archive.audit_notes_copy, archive.auditNotesCopy),
+    summary: stringValue(archive.summary),
+    commands: arrayValue(archive.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -6963,6 +7221,36 @@ function releaseOutboundReviewState(value: string): FlowReleaseOutboundReviewSta
     return value;
   }
   return "draft";
+}
+
+function releaseExternalReceiptState(value: string): FlowReleaseExternalReceiptState {
+  if (
+    value === "draft" ||
+    value === "attached" ||
+    value === "verified" ||
+    value === "stale" ||
+    value === "missing" ||
+    value === "revoked" ||
+    value === "superseded" ||
+    value === "blocked"
+  ) {
+    return value;
+  }
+  return "draft";
+}
+
+function releaseExternalReceiptKind(value: string): FlowReleaseExternalReceiptKind {
+  if (
+    value === "publication" ||
+    value === "send" ||
+    value === "deploy" ||
+    value === "upload" ||
+    value === "announcement" ||
+    value === "other"
+  ) {
+    return value;
+  }
+  return "other";
 }
 
 function releasePublicationBlockerKind(value: string): FlowReleasePublicationBlockerKind {

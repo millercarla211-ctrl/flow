@@ -35,7 +35,9 @@ use crate::friday::{
     FridayReleaseDeploymentTarget, FridayReleaseEscalationGateOutcome,
     FridayReleaseEscalationLedger, FridayReleaseEscalationOwnerResponse,
     FridayReleaseEvidenceAttachmentReview, FridayReleaseEvidenceExportKitReport,
-    FridayReleaseEvidenceSlaMonitorReport, FridayReleaseHandoffAuditRequest,
+    FridayReleaseEvidenceSlaMonitorReport, FridayReleaseExternalReceiptArchive,
+    FridayReleaseExternalReceiptKind, FridayReleaseExternalReceiptRequest,
+    FridayReleaseExternalReceiptState, FridayReleaseHandoffAuditRequest,
     FridayReleaseHandoffAuditState, FridayReleaseHandoffAuditTrail,
     FridayReleaseHandoffCompletionLedger, FridayReleaseHandoffCompletionRequest,
     FridayReleaseHandoffCompletionState, FridayReleaseHandoffDispatchAuditRequest,
@@ -60,7 +62,8 @@ use crate::friday::{
     FridayTrustedHostRunnerUxReport, FridayTrustedRunnerReleasePackageReport,
     FridayTrustedRunnerReleaseTimeline, FridayUiIntegrationStatus, FridayWorkspaceStore,
     append_friday_release_candidate_to_archive, append_friday_release_checkpoint_signoff_to_ledger,
-    append_friday_release_escalation_to_ledger, append_friday_release_handoff_audit_to_trail,
+    append_friday_release_escalation_to_ledger, append_friday_release_external_receipt_to_archive,
+    append_friday_release_handoff_audit_to_trail,
     append_friday_release_handoff_completion_to_ledger,
     append_friday_release_handoff_dispatch_audit_to_trail,
     append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
@@ -80,8 +83,10 @@ use crate::friday::{
     friday_release_checkpoint_signoff_record_from_review, friday_release_deployment_gate_report,
     friday_release_escalation_entries_from_monitor, friday_release_escalation_ledger_report,
     friday_release_evidence_attachment_review_report, friday_release_evidence_export_kit_report,
-    friday_release_evidence_sla_monitor_report, friday_release_handoff_audit_record_from_packet,
-    friday_release_handoff_audit_trail_report, friday_release_handoff_completion_ledger_report,
+    friday_release_evidence_sla_monitor_report, friday_release_external_receipt_archive_report,
+    friday_release_external_receipt_record_from_outbound_review,
+    friday_release_handoff_audit_record_from_packet, friday_release_handoff_audit_trail_report,
+    friday_release_handoff_completion_ledger_report,
     friday_release_handoff_completion_record_from_governance_review,
     friday_release_handoff_dispatch_audit_record_from_checklist,
     friday_release_handoff_dispatch_audit_trail_report,
@@ -103,8 +108,8 @@ use crate::friday::{
     friday_trusted_host_runner_ux_report_from_history_file,
     friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
     read_friday_release_candidate_archive, read_friday_release_checkpoint_signoff_ledger,
-    read_friday_release_escalation_ledger, read_friday_release_handoff_audit_trail,
-    read_friday_release_handoff_completion_ledger,
+    read_friday_release_escalation_ledger, read_friday_release_external_receipt_archive,
+    read_friday_release_handoff_audit_trail, read_friday_release_handoff_completion_ledger,
     read_friday_release_handoff_dispatch_audit_trail, read_friday_release_incident_archive,
     read_friday_release_outbound_review_ledger, read_friday_release_promotion_ledger,
     run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
@@ -114,7 +119,8 @@ use crate::friday::{
     write_friday_release_checkpoint_signoff_ledger, write_friday_release_deployment_gate,
     write_friday_release_escalation_ledger, write_friday_release_evidence_attachment_review,
     write_friday_release_evidence_export_kit, write_friday_release_evidence_sla_monitor_report,
-    write_friday_release_handoff_audit_trail, write_friday_release_handoff_completion_ledger,
+    write_friday_release_external_receipt_archive, write_friday_release_handoff_audit_trail,
+    write_friday_release_handoff_completion_ledger,
     write_friday_release_handoff_dispatch_audit_trail,
     write_friday_release_handoff_dispatch_checklist,
     write_friday_release_handoff_dispatch_governance_review,
@@ -2154,6 +2160,85 @@ pub async fn execute(command: Command) -> Result<()> {
             print_friday_release_outbound_review_ledger(&ledger);
         }
 
+        Command::FridayReleaseExternalReceipt {
+            archive_file,
+            outbound_review_ledger_file,
+            state,
+            receipt_kind,
+            operator,
+            receipt_note,
+            evidence_path,
+            external_reference,
+            supersedes_receipt_id,
+        } => {
+            let archive = append_friday_release_external_receipt_to_archive(
+                resolve_repo_relative_path(&archive_file),
+                resolve_repo_relative_path(&outbound_review_ledger_file),
+                FridayReleaseExternalReceiptRequest {
+                    state: FridayReleaseExternalReceiptState::parse(&state)?,
+                    receipt_kind: FridayReleaseExternalReceiptKind::parse(&receipt_kind),
+                    operator,
+                    receipt_note,
+                    evidence_path,
+                    external_reference,
+                    supersedes_receipt_id,
+                },
+            )?;
+            print_friday_release_external_receipt_archive(&archive);
+        }
+
+        Command::FridayReleaseExternalReceiptJson {
+            archive_file,
+            outbound_review_ledger_file,
+            state,
+            receipt_kind,
+            operator,
+            receipt_note,
+            evidence_path,
+            external_reference,
+            supersedes_receipt_id,
+        } => {
+            let archive_path = resolve_repo_relative_path(&archive_file);
+            let mut records = read_friday_release_external_receipt_archive(&archive_path)
+                .map(|archive| archive.records)
+                .unwrap_or_default();
+            records.push(friday_release_external_receipt_record_from_outbound_review(
+                resolve_repo_relative_path(&outbound_review_ledger_file),
+                FridayReleaseExternalReceiptRequest {
+                    state: FridayReleaseExternalReceiptState::parse(&state)?,
+                    receipt_kind: FridayReleaseExternalReceiptKind::parse(&receipt_kind),
+                    operator,
+                    receipt_note,
+                    evidence_path,
+                    external_reference,
+                    supersedes_receipt_id,
+                },
+            )?);
+            let archive = friday_release_external_receipt_archive_report(&archive_path, records);
+            println!("{}", archive.to_pretty_json()?);
+        }
+
+        Command::FridayReleaseExternalReceiptList { archive_file } => {
+            let archive = read_friday_release_external_receipt_archive(
+                resolve_repo_relative_path(&archive_file),
+            )?;
+            print_friday_release_external_receipt_archive(&archive);
+        }
+
+        Command::FridayReleaseExternalReceiptExport {
+            archive_file,
+            output_file,
+        } => {
+            let archive = read_friday_release_external_receipt_archive(
+                resolve_repo_relative_path(&archive_file),
+            )?;
+            write_friday_release_external_receipt_archive(
+                resolve_repo_relative_path(&output_file),
+                &archive,
+            )?;
+            print_friday_release_external_receipt_archive(&archive);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -2793,6 +2878,18 @@ fn print_interactive_help() {
     println!("                           List an existing outbound review ledger");
     println!("  --friday-release-outbound-review-export [--ledger file] [--output file]");
     println!("                           Export an existing outbound review ledger JSON");
+    println!(
+        "  --friday-release-external-receipt [--archive file] [--outbound-review-ledger file]"
+    );
+    println!("                           Append an operator-owned external receipt record");
+    println!(
+        "  --friday-release-external-receipt-json [--archive file] [--outbound-review-ledger file]"
+    );
+    println!("                           Print external receipt archive preview as JSON");
+    println!("  --friday-release-external-receipt-list [--archive file]");
+    println!("                           List an existing external receipt archive");
+    println!("  --friday-release-external-receipt-export [--archive file] [--output file]");
+    println!("                           Export an existing external receipt archive JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -5466,6 +5563,65 @@ fn print_friday_release_outbound_review_ledger(ledger: &FridayReleaseOutboundRev
     println!();
     println!("Commands:");
     for command in &ledger.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_external_receipt_archive(archive: &FridayReleaseExternalReceiptArchive) {
+    println!("Friday Release External Receipt Archive");
+    println!("=======================================");
+    println!(
+        "Records: {} | attached: {} | verified: {} | stale/missing: {} | blocked: {}",
+        archive.record_count,
+        archive.attached_receipt_count,
+        archive.verified_receipt_count,
+        archive.stale_or_missing_count,
+        archive.blocked_receipt_count
+    );
+    println!(
+        "Active receipt: {} | latest state: {} | latest outbound review: {}",
+        archive.active_receipt_id.as_deref().unwrap_or("none"),
+        archive
+            .latest_state
+            .map(|state| state.label())
+            .unwrap_or("none"),
+        archive
+            .latest_outbound_review_id
+            .as_deref()
+            .unwrap_or("none")
+    );
+    println!(
+        "Gate blockers: {} | unresolved blockers: {}",
+        archive.release_gate_blocking_count, archive.unresolved_blocker_count
+    );
+    println!("Archive: {}", archive.archive_json);
+    println!();
+    println!("Recent receipts:");
+    for record in archive.records.iter().rev().take(8) {
+        println!(
+            "  - {} [{}:{}] {}",
+            record.operator,
+            record.receipt_kind.label(),
+            record.state.label(),
+            record.outbound_review_id
+        );
+        println!(
+            "    attached: {} | verified: {} | Friday mutated external systems: {}",
+            yes_no(record.receipt_attached),
+            yes_no(record.receipt_verified),
+            yes_no(record.externally_mutated_by_friday)
+        );
+        if let Some(path) = &record.evidence_path {
+            println!("    evidence: {path}");
+        }
+        if let Some(reference) = &record.external_reference {
+            println!("    reference: {reference}");
+        }
+        println!("    note: {}", record.receipt_note);
+    }
+    println!();
+    println!("Commands:");
+    for command in &archive.commands {
         println!("  - {command}");
     }
 }

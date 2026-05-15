@@ -11,6 +11,7 @@ import {
   normalizeReleaseEvidenceAttachmentReview,
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
+  normalizeReleaseExternalReceiptArchive,
   normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffDispatchAuditTrail,
   normalizeReleaseHandoffDispatchChecklist,
@@ -61,6 +62,7 @@ import {
   type FlowReleaseEvidenceAttachmentReview,
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseEvidenceSlaMonitorReport,
+  type FlowReleaseExternalReceiptArchive,
   type FlowReleaseHandoffAuditTrail,
   type FlowReleaseHandoffDispatchAuditTrail,
   type FlowReleaseHandoffDispatchChecklist,
@@ -151,6 +153,7 @@ type UiState = {
   dashboardReleaseHandoffCompletionLedger: FlowReleaseHandoffCompletionLedger | null;
   dashboardReleasePublicationControl: FlowReleasePublicationControl | null;
   dashboardReleaseOutboundReviewLedger: FlowReleaseOutboundReviewLedger | null;
+  dashboardReleaseExternalReceiptArchive: FlowReleaseExternalReceiptArchive | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -3290,6 +3293,72 @@ function renderReleaseOutboundReviewLedger(ledger: FlowReleaseOutboundReviewLedg
   `;
 }
 
+function renderReleaseExternalReceiptArchive(
+  archive: FlowReleaseExternalReceiptArchive | null,
+) {
+  if (!archive) {
+    return "";
+  }
+  return `
+    <article class="feature-card dashboard-release-external-receipt">
+      <div class="card-topline">
+        <span class="eyebrow">Release external receipts</span>
+        <span class="badge ${badgeTone(archive.blockedReceiptCount > 0 ? "blocked" : "ready")}">
+          ${escapeHtml(archive.latestState ?? "draft")}
+        </span>
+      </div>
+      <h3>Operator-owned receipt archive</h3>
+      <p>${escapeHtml(archive.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${archive.recordCount}</strong><small>records</small></span>
+        <span><strong>${archive.attachedReceiptCount}</strong><small>attached</small></span>
+        <span><strong>${archive.verifiedReceiptCount}</strong><small>verified</small></span>
+        <span><strong>${archive.staleOrMissingCount}</strong><small>stale/missing</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Active receipt</strong> ${escapeHtml(archive.activeReceiptId ?? "none")}</span>
+        <span><strong>Latest review</strong> ${escapeHtml(archive.latestOutboundReviewId ?? "none")}</span>
+        <span><strong>Review state</strong> ${escapeHtml(archive.latestOutboundReviewState ?? "none")}</span>
+        <span><strong>Archive</strong> ${escapeHtml(archive.archiveJson)}</span>
+      </div>
+      ${
+        archive.releaseGateBlockingCount > 0 || archive.unresolvedBlockerCount > 0
+          ? `<p class="soft-warning">Receipt evidence stays local while ${archive.releaseGateBlockingCount} gate blocker(s) and ${archive.unresolvedBlockerCount} unresolved blocker(s) remain.</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${archive.records
+          .slice()
+          .reverse()
+          .slice(0, 8)
+          .map(
+            (record) => `
+              <div class="runner-package-file ${
+                record.receiptVerified && !record.externallyMutatedByFriday
+                  ? "present"
+                  : "missing"
+              }">
+                <strong>${escapeHtml(record.operator)} - ${escapeHtml(record.receiptKind)}:${escapeHtml(record.state)}</strong>
+                <small>${record.receiptAttached ? "attached" : "not attached"} / ${record.receiptVerified ? "verified" : "not verified"}</small>
+                <code>${escapeHtml(record.evidencePath ?? record.externalReference ?? "no evidence recorded")}</code>
+                <span>${escapeHtml(record.receiptNote)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-external-receipt-command">
+          Copy receipt command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-external-receipt-notes">
+          Copy audit notes
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -3525,6 +3594,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseHandoffCompletionLedger(state.dashboardReleaseHandoffCompletionLedger)}
       ${renderReleasePublicationControl(state.dashboardReleasePublicationControl)}
       ${renderReleaseOutboundReviewLedger(state.dashboardReleaseOutboundReviewLedger)}
+      ${renderReleaseExternalReceiptArchive(state.dashboardReleaseExternalReceiptArchive)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3679,6 +3749,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseHandoffCompletionLedger: null,
     dashboardReleasePublicationControl: null,
     dashboardReleaseOutboundReviewLedger: null,
+    dashboardReleaseExternalReceiptArchive: null,
   };
 
   function render() {
@@ -4013,6 +4084,8 @@ export async function mountFlowApp(surfaceInput: string) {
         normalizeReleasePublicationControl(parsed);
       const releaseOutboundReviewLedger =
         normalizeReleaseOutboundReviewLedger(parsed);
+      const releaseExternalReceiptArchive =
+        normalizeReleaseExternalReceiptArchive(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -4083,8 +4156,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releasePublicationControl ?? state.dashboardReleasePublicationControl;
       state.dashboardReleaseOutboundReviewLedger =
         releaseOutboundReviewLedger ?? state.dashboardReleaseOutboundReviewLedger;
+      state.dashboardReleaseExternalReceiptArchive =
+        releaseExternalReceiptArchive ?? state.dashboardReleaseExternalReceiptArchive;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseOutboundReviewLedger
+      state.status = releaseExternalReceiptArchive
+        ? `Imported release external receipt archive with ${releaseExternalReceiptArchive.recordCount} record(s) from ${file.name}.`
+        : releaseOutboundReviewLedger
         ? `Imported release outbound review ledger with ${releaseOutboundReviewLedger.recordCount} record(s) from ${file.name}.`
         : releasePublicationControl
         ? `Imported release publication control ${releasePublicationControl.state} at ${releasePublicationControl.scoreOutOf100}/100 from ${file.name}.`
@@ -5173,6 +5250,39 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseExternalReceiptCommand() {
+    const command = state.dashboardReleaseExternalReceiptArchive?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release external receipt command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release external receipt command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseExternalReceiptNotes() {
+    const copy =
+      state.dashboardReleaseExternalReceiptArchive?.auditNotesCopy ?? "";
+    if (!copy) {
+      state.status = "No release external receipt audit notes are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release external receipt audit notes copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -5617,6 +5727,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-outbound-review-notes']")
       ?.addEventListener("click", () => {
         void copyReleaseOutboundReviewNotes();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-external-receipt-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseExternalReceiptCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-external-receipt-notes']")
+      ?.addEventListener("click", () => {
+        void copyReleaseExternalReceiptNotes();
       });
 
     mountRoot

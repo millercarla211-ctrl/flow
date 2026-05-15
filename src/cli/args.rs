@@ -760,6 +760,37 @@ pub enum Command {
         ledger_file: String,
         output_file: String,
     },
+    /// Append a Friday release external receipt record
+    FridayReleaseExternalReceipt {
+        archive_file: String,
+        outbound_review_ledger_file: String,
+        state: String,
+        receipt_kind: String,
+        operator: String,
+        receipt_note: String,
+        evidence_path: Option<String>,
+        external_reference: Option<String>,
+        supersedes_receipt_id: Option<String>,
+    },
+    /// Print a Friday release external receipt archive preview as JSON
+    FridayReleaseExternalReceiptJson {
+        archive_file: String,
+        outbound_review_ledger_file: String,
+        state: String,
+        receipt_kind: String,
+        operator: String,
+        receipt_note: String,
+        evidence_path: Option<String>,
+        external_reference: Option<String>,
+        supersedes_receipt_id: Option<String>,
+    },
+    /// List an existing Friday release external receipt archive
+    FridayReleaseExternalReceiptList { archive_file: String },
+    /// Export an existing Friday release external receipt archive
+    FridayReleaseExternalReceiptExport {
+        archive_file: String,
+        output_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -2478,6 +2509,69 @@ impl Args {
                     output_file,
                 }
             }
+            "--friday-release-external-receipt" | "--friday-external-receipt" => {
+                let (
+                    archive_file,
+                    outbound_review_ledger_file,
+                    state,
+                    receipt_kind,
+                    operator,
+                    receipt_note,
+                    evidence_path,
+                    external_reference,
+                    supersedes_receipt_id,
+                ) = parse_friday_release_external_receipt_args(&args);
+                Command::FridayReleaseExternalReceipt {
+                    archive_file,
+                    outbound_review_ledger_file,
+                    state,
+                    receipt_kind,
+                    operator,
+                    receipt_note,
+                    evidence_path,
+                    external_reference,
+                    supersedes_receipt_id,
+                }
+            }
+            "--friday-release-external-receipt-json" | "--friday-external-receipt-json" => {
+                let (
+                    archive_file,
+                    outbound_review_ledger_file,
+                    state,
+                    receipt_kind,
+                    operator,
+                    receipt_note,
+                    evidence_path,
+                    external_reference,
+                    supersedes_receipt_id,
+                ) = parse_friday_release_external_receipt_args(&args);
+                Command::FridayReleaseExternalReceiptJson {
+                    archive_file,
+                    outbound_review_ledger_file,
+                    state,
+                    receipt_kind,
+                    operator,
+                    receipt_note,
+                    evidence_path,
+                    external_reference,
+                    supersedes_receipt_id,
+                }
+            }
+            "--friday-release-external-receipt-list" | "--friday-external-receipt-list" => {
+                Command::FridayReleaseExternalReceiptList {
+                    archive_file: parse_friday_release_external_receipt_archive_file_arg(&args),
+                }
+            }
+            "--friday-release-external-receipt-export" | "--friday-external-receipt-export" => {
+                let archive_file = parse_friday_release_external_receipt_archive_file_arg(&args);
+                let output_file = flag_value(&args, "--output").unwrap_or_else(|| {
+                    "tmp/friday-dashboard/release-external-receipt-archive-export.json".to_string()
+                });
+                Command::FridayReleaseExternalReceiptExport {
+                    archive_file,
+                    output_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -4144,6 +4238,78 @@ fn parse_friday_release_outbound_review_ledger_file_arg(args: &[String]) -> Stri
     flag_value(args, "--ledger")
         .or_else(|| flag_value(args, "--input"))
         .unwrap_or_else(|| format!("{export_dir}/release-outbound-review-ledger.json"))
+}
+
+fn parse_friday_release_external_receipt_args(
+    args: &[String],
+) -> (
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let archive_file = flag_value(args, "--archive")
+        .or_else(|| flag_value(args, "--output"))
+        .unwrap_or_else(|| format!("{export_dir}/release-external-receipt-archive.json"));
+    let outbound_review_ledger_file = flag_value(args, "--outbound-review-ledger")
+        .or_else(|| flag_value(args, "--outbound-ledger"))
+        .or_else(|| flag_value(args, "--ledger"))
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-outbound-review-ledger.json"));
+    let state = flag_value(args, "--state").unwrap_or_else(|| "draft".to_string());
+    let receipt_kind = flag_value(args, "--kind")
+        .or_else(|| flag_value(args, "--receipt-kind"))
+        .unwrap_or_else(|| "publication".to_string());
+    let operator = flag_value(args, "--operator")
+        .or_else(|| flag_value(args, "--reviewer"))
+        .unwrap_or_else(|| "operator".to_string());
+    let receipt_note = flag_value(args, "--receipt-note")
+        .or_else(|| flag_value(args, "--note"))
+        .unwrap_or_else(|| "Recorded operator-owned external receipt evidence.".to_string());
+    let evidence_path = flag_value(args, "--evidence")
+        .or_else(|| flag_value(args, "--evidence-path"))
+        .filter(|value| !value.trim().is_empty());
+    let external_reference = flag_value(args, "--reference")
+        .or_else(|| flag_value(args, "--external-reference"))
+        .filter(|value| !value.trim().is_empty());
+    let supersedes_receipt_id = flag_value(args, "--supersedes")
+        .or_else(|| flag_value(args, "--supersedes-receipt"))
+        .filter(|value| !value.trim().is_empty());
+
+    (
+        archive_file,
+        outbound_review_ledger_file,
+        state,
+        receipt_kind,
+        operator,
+        receipt_note,
+        evidence_path,
+        external_reference,
+        supersedes_receipt_id,
+    )
+}
+
+fn parse_friday_release_external_receipt_archive_file_arg(args: &[String]) -> String {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    flag_value(args, "--archive")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-external-receipt-archive.json"))
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

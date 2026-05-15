@@ -935,16 +935,34 @@ Goal: add a final local review surface for publication controls so Friday can di
 
 This set is complete. The next loop should open `Friday Release External Receipt Archive` and preserve human-owned external publication, send, deploy, upload, or announcement receipts as local evidence without fetching or mutating external systems.
 
-## Next Set: Friday Release External Receipt Archive
+## Completed Set: Friday Release External Receipt Archive
 
-Status: 0/100
+Status: 100/100
 
 Goal: preserve human-owned external publication/send/deploy receipts as local evidence so Friday can connect outbound reviews to real-world operator outcomes without fetching, sending, deploying, uploading, emailing, or mutating external systems.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed external receipt archive that consumes outbound review ledgers.
+- [x] Add receipt states for draft, attached, verified, stale, missing, revoked, superseded, and blocked.
+- [x] Add append/list/export/JSON commands that never fetch, send, deploy, upload, email, or mutate external systems.
+- [x] Add dashboard import/rendering for receipt history, reviewed copy, manual references, evidence paths, and copyable audit notes.
+- [x] Add focused Rust/TypeScript coverage for receipt attachability, blocked reviews, stale evidence, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Receipt Review Board` and consolidate outbound reviews, external receipts, blocker carryover, evidence freshness, and operator final decisions into one local review surface.
+
+## Next Set: Friday Release Receipt Review Board
+
+Status: 0/100
+
+Goal: consolidate outbound reviews and external receipt archives into a final local review board so Friday can distinguish verified release outcomes, stale evidence, missing receipts, blocked reviews, and operator carryover before any release is treated as externally complete.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed external receipt archive that consumes outbound review ledgers.
-- [ ] Add receipt states for draft, attached, verified, stale, missing, revoked, superseded, and blocked.
-- [ ] Add append/list/export/JSON commands that never fetch, send, deploy, upload, email, or mutate external systems.
-- [ ] Add dashboard import/rendering for receipt history, reviewed copy, manual references, evidence paths, and copyable audit notes.
-- [ ] Add focused Rust/TypeScript coverage for receipt attachability, blocked reviews, stale evidence, command safety, and dashboard rendering.
+- [ ] Add a typed receipt review board that consumes external receipt archives.
+- [ ] Add review decisions for verified, held, missing-receipt, stale-evidence, blocked-review, revoked-receipt, and carryover.
+- [ ] Add CLI/JSON commands that generate review boards without fetching, sending, deploying, uploading, emailing, or mutating external systems.
+- [ ] Add dashboard import/rendering for receipt decisions, active evidence, freshness warnings, blocker carryover, and copyable review notes.
+- [ ] Add focused Rust/TypeScript coverage for verified receipt decisions, stale/missing receipt handling, blocked outbound reviews, command safety, and dashboard rendering.

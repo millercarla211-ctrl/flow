@@ -14,6 +14,7 @@ import {
   normalizeReleaseEvidenceAttachmentReview,
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
+  normalizeReleaseExternalReceiptArchive,
   normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffCompletionLedger,
   normalizeReleaseHandoffDispatchAuditTrail,
@@ -3012,6 +3013,88 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-outbound-review-json --ledger tmp/friday-dashboard/release-outbound-review-ledger.json --publication-control <release-publication-control.json>",
     ],
   });
+  const releaseExternalReceiptArchive = normalizeReleaseExternalReceiptArchive({
+    archive_id: "friday-release-external-receipt-archive-smoke",
+    archive_json: "tmp/friday-dashboard/release-external-receipt-archive.json",
+    generated_at_unix_ms: 32,
+    product_name: "Friday",
+    local_only: true,
+    record_count: 1,
+    draft_count: 0,
+    attached_count: 0,
+    verified_count: 0,
+    stale_count: 0,
+    missing_count: 0,
+    revoked_count: 0,
+    superseded_count: 0,
+    blocked_count: 1,
+    active_receipt_id:
+      "friday-release-external-receipt-friday-release-outbound-review-friday-release-publication-control-smoke-31-32",
+    latest_receipt_id:
+      "friday-release-external-receipt-friday-release-outbound-review-friday-release-publication-control-smoke-31-32",
+    latest_state: "blocked",
+    latest_outbound_review_id:
+      "friday-release-outbound-review-friday-release-publication-control-smoke-31",
+    latest_outbound_review_state: "blocked",
+    attached_receipt_count: 0,
+    verified_receipt_count: 0,
+    blocked_receipt_count: 1,
+    stale_or_missing_count: 0,
+    release_gate_blocking_count: 3,
+    unresolved_blocker_count: 3,
+    records: [
+      {
+        receipt_id:
+          "friday-release-external-receipt-friday-release-outbound-review-friday-release-publication-control-smoke-31-32",
+        outbound_review_id:
+          "friday-release-outbound-review-friday-release-publication-control-smoke-31",
+        outbound_review_ledger_id: "friday-release-outbound-review-ledger-smoke",
+        outbound_review_ledger_json:
+          "tmp/friday-dashboard/release-outbound-review-ledger.json",
+        recorded_at_unix_ms: 32,
+        product_name: "Friday",
+        local_only: true,
+        state: "blocked",
+        receipt_kind: "publication",
+        operator: "release-operator",
+        receipt_note:
+          "Receipt evidence cannot be verified until outbound review blockers clear.",
+        evidence_path: "tmp/friday-dashboard/manual-publication-receipt.md",
+        external_reference: "operator-owned-reference",
+        supersedes_receipt_id: "",
+        outbound_review_state: "blocked",
+        outbound_review_copy_safe: false,
+        outbound_review_active: true,
+        publication_control_id: "friday-release-publication-control-smoke",
+        publication_state: "blocked",
+        manual_publication_reference: "",
+        release_gate_blocking_count: 3,
+        unresolved_blocker_count: 3,
+        source_review_notes_copy:
+          "Friday release outbound review\nFriday did not send, publish, deploy, upload, or email.",
+        reviewed_release_notes_copy:
+          "Friday release notes\nNo external publication by Friday: true",
+        active: true,
+        receipt_attached: false,
+        receipt_verified: false,
+        externally_mutated_by_friday: false,
+        receipt_notes_copy:
+          "Friday release external receipt archive\nFriday did not fetch, send, publish, deploy, upload, or email.\nReceipt evidence is operator-owned.",
+        summary:
+          "release-operator recorded publication receipt blocked for outbound review friday-release-outbound-review-friday-release-publication-control-smoke-31 with 3 gate blocker(s).",
+      },
+    ],
+    audit_notes_copy:
+      "Friday release external receipt archive\n- release-operator [publication:blocked] friday-release-outbound-review-friday-release-publication-control-smoke-31 -> Receipt evidence cannot be verified until outbound review blockers clear.\nFriday did not fetch, send, publish, deploy, upload, or email.",
+    summary:
+      "Friday release external receipt archive has 1 record(s), 0 attached, 0 verified, 0 stale/missing, and 1 blocked receipt(s).",
+    commands: [
+      "flow --friday-release-external-receipt --archive tmp/friday-dashboard/release-external-receipt-archive.json --outbound-review-ledger <release-outbound-review-ledger.json> --state draft --operator <name> --evidence <path>",
+      "flow --friday-release-external-receipt-list --archive tmp/friday-dashboard/release-external-receipt-archive.json",
+      "flow --friday-release-external-receipt-export --archive tmp/friday-dashboard/release-external-receipt-archive.json --output tmp/friday-dashboard/release-external-receipt-archive.json",
+      "flow --friday-release-external-receipt-json --archive tmp/friday-dashboard/release-external-receipt-archive.json --outbound-review-ledger <release-outbound-review-ledger.json>",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -3898,6 +3981,35 @@ export function dashboardSectionSmokeReport(
           command.includes("--friday-release-outbound-review"),
         ),
       `${releaseOutboundReviewLedger?.copySafeCount ?? 0} outbound copy-safe review(s)`,
+    ),
+    check(
+      "release-external-receipt-archive-importable",
+      releaseExternalReceiptArchive?.recordCount === 1 &&
+        releaseExternalReceiptArchive.blockedCount === 1 &&
+        releaseExternalReceiptArchive.activeReceiptId?.includes(
+          "friday-release-external-receipt",
+        ) === true,
+      `${releaseExternalReceiptArchive?.recordCount ?? 0} external receipt record(s)`,
+    ),
+    check(
+      "release-external-receipt-archive-copy",
+      releaseExternalReceiptArchive !== null &&
+        releaseExternalReceiptArchive.records.some(
+          (record) =>
+            record.state === "blocked" &&
+            !record.receiptVerified &&
+            !record.externallyMutatedByFriday,
+        ) &&
+        releaseExternalReceiptArchive.auditNotesCopy.includes(
+          "Friday release external receipt archive",
+        ) &&
+        releaseExternalReceiptArchive.auditNotesCopy.includes(
+          "Friday did not fetch, send, publish, deploy, upload, or email",
+        ) &&
+        releaseExternalReceiptArchive.commands.some((command) =>
+          command.includes("--friday-release-external-receipt"),
+        ),
+      `${releaseExternalReceiptArchive?.verifiedReceiptCount ?? 0} verified external receipt(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",
