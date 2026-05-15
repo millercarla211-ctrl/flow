@@ -248,16 +248,34 @@ Goal: execute dashboard actions through explicit local command handoffs while pr
 
 This set is complete. The next loop should open `Friday Dashboard Host Command Bridge` and connect trusted desktop/Tauri command execution to the dispatcher without allowing silent background commands.
 
-## Next Set: Friday Dashboard Host Command Bridge
+## Completed Set: Friday Dashboard Host Command Bridge
 
-Status: 0/100
+Status: 100/100
 
 Goal: bridge prepared dashboard command handoffs into trusted desktop execution with operator approval, audit logs, and safe failure recovery.
 
+### Done
+
+- [x] Add a trusted host command bridge contract for prepared dashboard command results.
+- [x] Require explicit operator approval before desktop/Tauri command execution.
+- [x] Write command execution audit records with stdout/stderr summaries and duration.
+- [x] Add blocked-command tests for remote, destructive, and malformed commands.
+- [x] Surface trusted host execution results in the dashboard without freezing the UI.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Trusted Host Runner` and implement the approved desktop/Tauri execution worker with bounded stdout/stderr capture, cancellation, and persistent audit history.
+
+## Next Set: Friday Trusted Host Runner
+
+Status: 0/100
+
+Goal: execute approved dashboard host commands through a bounded trusted runner while preserving cancellation, auditability, and local-only safety.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a trusted host command bridge contract for prepared dashboard command results.
-- [ ] Require explicit operator approval before desktop/Tauri command execution.
-- [ ] Write command execution audit records with stdout/stderr summaries and duration.
-- [ ] Add blocked-command tests for remote, destructive, and malformed commands.
-- [ ] Surface trusted host execution results in the dashboard without freezing the UI.
+- [ ] Add a bounded trusted command runner that accepts only approved bridge records.
+- [ ] Add timeout, cancellation, stdout/stderr size limits, and process error mapping.
+- [ ] Persist host execution audit history separately from prepared handoff history.
+- [ ] Add tests for approved success, timeout, cancellation, and denied commands.
+- [ ] Surface trusted runner status in the dashboard with non-blocking progress updates.

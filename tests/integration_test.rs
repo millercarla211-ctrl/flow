@@ -20,7 +20,8 @@ use flow::experience::{
 use flow::forge_bridge::{ForgeBridge, ForgeRemoteKind};
 use flow::friday::{
     FridayArtifactStore, FridayAutomationTrigger, FridayCompetitor, FridayConnectorAuthState,
-    FridayDashboardActionKind, FridayDashboardPanelStatus, FridayDashboardScreenshotStatus,
+    FridayDashboardActionKind, FridayDashboardHostApprovalState,
+    FridayDashboardHostCommandStatus, FridayDashboardPanelStatus, FridayDashboardScreenshotStatus,
     FridayExecutionHandoffStatus,
     FridayLiveUiBindingStatus, FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind,
     FridayMultimodalRouteStatus, FridayMultimodalSurface, FridayOperatorReadinessStatus,
@@ -30,7 +31,9 @@ use flow::friday::{
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
     export_friday_dashboard_bundle, friday_dashboard_export_history_from_export,
-    friday_dashboard_panel_from_export, friday_dashboard_product_ui_binding_from_export,
+    friday_dashboard_host_command_bridge_from_export,
+    friday_dashboard_host_command_record_from_action, friday_dashboard_panel_from_export,
+    friday_dashboard_product_ui_binding_from_export,
     friday_dashboard_product_ui_smoke_from_export, FridayDashboardProductUiSmokeStatus,
     friday_dashboard_release_review_from_export, friday_dashboard_screenshot_history,
     friday_execution_handoff_report,
@@ -941,11 +944,17 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
     let root = temp_root("friday-dashboard-export");
     let bundle = export_friday_dashboard_bundle(&root).unwrap();
 
-    assert_eq!(bundle.completion.name, "Friday Dashboard Command Execution");
+    assert_eq!(
+        bundle.completion.name,
+        "Friday Dashboard Host Command Bridge"
+    );
     assert_eq!(bundle.completion.current_score_out_of_100, 100);
     assert_eq!(bundle.manifest.score_out_of_100, 100);
     assert_eq!(bundle.export_history.record_count, 1);
-    assert_eq!(bundle.release_review.loop_name, "Friday Dashboard Command Execution");
+    assert_eq!(
+        bundle.release_review.loop_name,
+        "Friday Dashboard Host Command Bridge"
+    );
     assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
     assert!(PathBuf::from(&bundle.manifest.release_review_json).exists());
     assert_eq!(bundle.readiness.blocking_count, 0);
@@ -984,7 +993,7 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     export_friday_dashboard_bundle(&root).unwrap();
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
-    assert_eq!(panel.loop_name, "Friday Dashboard Command Execution");
+    assert_eq!(panel.loop_name, "Friday Dashboard Host Command Bridge");
     assert_eq!(panel.score_out_of_100, 100);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
     assert_eq!(panel.cards.len(), 8);
@@ -1079,7 +1088,7 @@ fn friday_dashboard_export_history_tracks_checkpoints() {
     assert_eq!(history.score_delta_from_previous, 0);
     assert_eq!(history.readiness_delta_from_previous, 0);
     assert!(history.records.iter().all(|record| {
-        record.loop_name == "Friday Dashboard Command Execution"
+        record.loop_name == "Friday Dashboard Host Command Bridge"
             && record.manifest_json.ends_with("manifest.json")
     }));
 
@@ -1098,7 +1107,7 @@ fn friday_dashboard_release_review_links_release_artifacts() {
     export_friday_dashboard_bundle(&root).unwrap();
 
     let review = friday_dashboard_release_review_from_export(&root).unwrap();
-    assert_eq!(review.loop_name, "Friday Dashboard Command Execution");
+    assert_eq!(review.loop_name, "Friday Dashboard Host Command Bridge");
     assert_eq!(review.score_out_of_100, 100);
     assert!(review.total_count >= 6);
     assert!(review
@@ -1174,6 +1183,82 @@ fn friday_dashboard_product_ui_binding_maps_panel_json_to_route() {
             && action.button_state.loading_label == "Recovering..."
             && action.button_state.error_label == "Recover failed"
     }));
+    assert!(binding.data_bindings.iter().any(|data_binding| {
+        data_binding.id == "dashboard-host-command-bridge"
+            && data_binding.command.contains("--friday-dashboard-host-bridge-json")
+            && data_binding.local_only
+    }));
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn friday_dashboard_host_command_bridge_requires_approval_and_blocks_unsafe_commands() {
+    let root = temp_root("friday-dashboard-host-command-bridge");
+    export_friday_dashboard_bundle(&root).unwrap();
+
+    let report = friday_dashboard_host_command_bridge_from_export(&root).unwrap();
+    assert_eq!(report.product_name, "Friday");
+    assert_eq!(report.route, "/dashboard");
+    assert_eq!(report.command_count, 9);
+    assert_eq!(report.awaiting_approval_count, 9);
+    assert_eq!(report.blocked_count, 0);
+    assert_eq!(report.audit_count, report.command_count);
+    assert!(report
+        .source_command
+        .contains("--friday-dashboard-product-ui-json"));
+    assert!(report.records.iter().all(|record| {
+        record.status == FridayDashboardHostCommandStatus::AwaitingApproval
+            && record.approval_state == FridayDashboardHostApprovalState::Required
+            && !record.silent_execution_allowed
+            && record.can_execute_after_approval
+            && record.audit.duration_ms == 0
+            && record.audit.stdout_summary.contains("not executed")
+    }));
+
+    let binding = friday_dashboard_product_ui_binding_from_export(&root).unwrap();
+    let action = binding.action_bindings[0].clone();
+
+    let mut remote = action.clone();
+    remote.local_only = false;
+    let remote_record = friday_dashboard_host_command_record_from_action(&remote, 1);
+    assert_eq!(remote_record.status, FridayDashboardHostCommandStatus::Blocked);
+    assert!(remote_record.blocked_reason.unwrap().contains("Remote"));
+
+    let mut destructive = action.clone();
+    destructive.button_state.destructive = true;
+    let destructive_record = friday_dashboard_host_command_record_from_action(&destructive, 2);
+    assert_eq!(
+        destructive_record.approval_state,
+        FridayDashboardHostApprovalState::Blocked
+    );
+    assert!(destructive_record
+        .blocked_reason
+        .unwrap()
+        .contains("Destructive"));
+
+    let mut disabled = action.clone();
+    disabled.enabled = false;
+    disabled.button_state.disabled = true;
+    disabled.button_state.disabled_reason = Some("not ready".to_string());
+    let disabled_record = friday_dashboard_host_command_record_from_action(&disabled, 3);
+    assert_eq!(
+        disabled_record.status,
+        FridayDashboardHostCommandStatus::Blocked
+    );
+    assert_eq!(disabled_record.blocked_reason.as_deref(), Some("not ready"));
+
+    let mut malformed = action;
+    malformed.command.clear();
+    let malformed_record = friday_dashboard_host_command_record_from_action(&malformed, 4);
+    assert_eq!(
+        malformed_record.status,
+        FridayDashboardHostCommandStatus::Blocked
+    );
+    assert!(malformed_record
+        .blocked_reason
+        .unwrap()
+        .contains("empty"));
 
     let _ = fs::remove_dir_all(&root);
 }

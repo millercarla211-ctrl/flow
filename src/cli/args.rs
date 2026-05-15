@@ -116,6 +116,10 @@ pub enum Command {
     FridayDashboardProductUiSmoke { input_dir: String },
     /// Print the visible Friday dashboard product UI smoke check as JSON
     FridayDashboardProductUiSmokeJson { input_dir: String },
+    /// Show trusted host command bridge data for dashboard actions
+    FridayDashboardHostCommandBridge { input_dir: String },
+    /// Print trusted host command bridge data as JSON
+    FridayDashboardHostCommandBridgeJson { input_dir: String },
     /// Run low-resource Friday local execution readiness checks
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
@@ -512,9 +516,7 @@ impl Args {
             "--friday-route-visuals-json" | "--friday-screenshot-routes-json" => {
                 Command::FridayRouteVisualsJson
             }
-            "--friday-execution-handoffs" | "--friday-handoffs" => {
-                Command::FridayExecutionHandoffs
-            }
+            "--friday-execution-handoffs" | "--friday-handoffs" => Command::FridayExecutionHandoffs,
             "--friday-execution-handoffs-json" | "--friday-handoffs-json" => {
                 Command::FridayExecutionHandoffsJson
             }
@@ -580,6 +582,23 @@ impl Args {
                         .unwrap_or_else(|| "tmp/friday-dashboard".to_string()),
                 }
             }
+            "--friday-dashboard-host-bridge" | "--friday-dashboard-host-command-bridge" => {
+                Command::FridayDashboardHostCommandBridge {
+                    input_dir: args
+                        .get(2)
+                        .cloned()
+                        .unwrap_or_else(|| "tmp/friday-dashboard".to_string()),
+                }
+            }
+            "--friday-dashboard-host-bridge-json"
+            | "--friday-dashboard-host-command-bridge-json" => {
+                Command::FridayDashboardHostCommandBridgeJson {
+                    input_dir: args
+                        .get(2)
+                        .cloned()
+                        .unwrap_or_else(|| "tmp/friday-dashboard".to_string()),
+                }
+            }
             "--friday-local-checks" | "--friday-execution-checks" => Command::FridayLocalChecks,
             "--friday-local-checks-json" | "--friday-execution-checks-json" => {
                 Command::FridayLocalChecksJson
@@ -620,8 +639,7 @@ impl Args {
             "--browser-webllm-acceleration" | "--friday-browser-webllm-acceleration" => {
                 Command::BrowserWebLlmAcceleration
             }
-            "--browser-webllm-acceleration-json"
-            | "--friday-browser-webllm-acceleration-json" => {
+            "--browser-webllm-acceleration-json" | "--friday-browser-webllm-acceleration-json" => {
                 Command::BrowserWebLlmAccelerationJson
             }
             "--friday-ocr-smoke" => {

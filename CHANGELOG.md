@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Dashboard Host Command Bridge at 100/100 with a trusted host command bridge report, approval-required records, audit summaries, blocked command checks, CLI/JSON commands, and dashboard host-bridge JSON import
+- opened Friday Trusted Host Runner as the next set for bounded approved desktop/Tauri command execution
 - completed Friday Dashboard Command Execution at 100/100 with a typed local dashboard command dispatcher, permission-aware handoffs, persisted recent results, and visible command result rendering
 - opened Friday Dashboard Host Command Bridge as the next set so trusted desktop execution can be added without silent background commands
 - added an active completion-control loop to `TODO.md` with a conservative 75/100 score for the current feature set

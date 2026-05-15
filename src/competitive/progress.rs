@@ -51,51 +51,51 @@ pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
             "dashboard-command-dispatcher-contract",
-            "Dashboard command dispatcher contract",
+            "Trusted host command bridge contract",
             20,
             CompletionItemStatus::Done,
-            "`extensions/flow-webext/src/runtime/dashboard-actions.ts` defines typed local command dispatch results for dashboard actions",
-            "add confirmation and permission states for risky dashboard commands",
+            "`src/friday/dashboard_host_bridge.rs` maps product UI dashboard actions into trusted host command bridge records",
+            "require explicit operator approval before desktop/Tauri command execution",
         ),
         item(
             "dashboard-command-permissions",
-            "Dashboard command confirmation and permissions",
+            "Explicit host command approval",
             20,
             CompletionItemStatus::Done,
-            "`dispatchDashboardCommand` blocks remote/disabled actions and requires explicit confirmation before risky local handoffs",
-            "persist recent dashboard action results for operator review",
+            "`FridayDashboardHostCommandRecord` sets `silent_execution_allowed=false` and `approval_state=required` for executable commands",
+            "write command execution audit records with stdout/stderr summaries and duration",
         ),
         item(
             "dashboard-command-result-history",
-            "Dashboard command result history",
+            "Host command audit records",
             20,
             CompletionItemStatus::Done,
-            "`extensions/flow-webext/src/runtime/dashboard-actions.ts` persists recent command handoff results in a bounded local browser cache",
-            "add focused tests for command dispatch success, failure, and blocked states",
+            "`FridayDashboardHostCommandAudit` records stdout/stderr summaries, duration, action id, event, and timestamp for every bridge record",
+            "add blocked-command tests for remote, destructive, and malformed commands",
         ),
         item(
             "dashboard-command-dispatch-tests",
-            "Dashboard command dispatch smoke tests",
+            "Host command blocked-state tests",
             20,
             CompletionItemStatus::Done,
-            "`npm run smoke:dashboard` verifies prepared, confirmation-required, blocked, and failed dashboard command dispatch states",
-            "surface command execution results in the visible dashboard without auto-running anything silently",
+            "`cargo test friday_dashboard -- --nocapture` covers local approval, remote, destructive, disabled, and malformed command states",
+            "surface trusted host execution results in the dashboard without freezing the UI",
         ),
         item(
             "dashboard-command-visible-results",
-            "Visible dashboard command results",
+            "Visible host bridge results",
             20,
             CompletionItemStatus::Done,
-            "`extensions/flow-webext/src/ui/app.ts` renders recent command handoff results and copies prepared local commands without silently running them",
-            "open the next host-command bridge set for trusted desktop execution",
+            "`extensions/flow-webext/src/ui/app.ts` imports host bridge JSON and renders the normalized command records in the dashboard result rail",
+            "open the next trusted host runner implementation set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Dashboard Command Execution".to_string(),
+        name: "Friday Dashboard Host Command Bridge".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Execute dashboard actions through explicit local command handoffs while preserving user control, permissions, and low-resource behavior.".to_string(),
+        loop_rule: "Bridge prepared dashboard command handoffs into trusted desktop execution with operator approval, audit logs, and safe failure recovery.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_dashboard_command_execution_loop() {
+    fn active_set_tracks_friday_dashboard_host_command_bridge_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Dashboard Command Execution");
+        assert_eq!(set.name, "Friday Dashboard Host Command Bridge");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

@@ -1,6 +1,7 @@
 import { requestQuickContext, replaceSelection, toggleOverlay } from "../runtime/browser-api";
 import {
   dispatchDashboardCommand,
+  normalizeDashboardHostCommandResults,
   persistDashboardCommandResult,
   readDashboardCommandResults,
   type FlowDashboardCommandResult,
@@ -1011,8 +1012,17 @@ function renderDashboard(state: UiState) {
         </div>
         <div class="actions">
           <input id="dashboard-import-json" type="file" accept="application/json,.json" hidden />
+          <input
+            id="dashboard-import-host-bridge-json"
+            type="file"
+            accept="application/json,.json"
+            hidden
+          />
           <button type="button" class="secondary" data-action="dashboard-import-click">
             Import JSON
+          </button>
+          <button type="button" class="secondary" data-action="dashboard-host-bridge-import-click">
+            Import host bridge
           </button>
           <span class="badge ${badgeTone(binding.status)}">${binding.scoreOutOf100} / 100</span>
         </div>
@@ -1436,11 +1446,30 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function importDashboardHostBridgeJson(file: File) {
+    try {
+      const text = await file.text();
+      const results = normalizeDashboardHostCommandResults(JSON.parse(text));
+      state.dashboardActionResults = results;
+      state.status = `Imported ${results.length} host bridge command result(s) from ${file.name}.`;
+    } catch (error) {
+      state.status = `Host bridge import failed: ${String(error)}`;
+    }
+
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
       ?.addEventListener("click", () => {
         mountRoot.querySelector<HTMLInputElement>("#dashboard-import-json")?.click();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-host-bridge-import-click']")
+      ?.addEventListener("click", () => {
+        mountRoot.querySelector<HTMLInputElement>("#dashboard-import-host-bridge-json")?.click();
       });
 
     mountRoot
@@ -1450,6 +1479,16 @@ export async function mountFlowApp(surfaceInput: string) {
         const file = input.files?.[0];
         if (file) {
           void importDashboardJson(file);
+        }
+      });
+
+    mountRoot
+      .querySelector<HTMLInputElement>("#dashboard-import-host-bridge-json")
+      ?.addEventListener("change", (event) => {
+        const input = event.currentTarget as HTMLInputElement;
+        const file = input.files?.[0];
+        if (file) {
+          void importDashboardHostBridgeJson(file);
         }
       });
 

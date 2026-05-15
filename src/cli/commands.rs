@@ -30,12 +30,12 @@ use crate::friday::{
     FridayArtifactStore, FridayFeatureStatus, FridayResearchReport, FridayResearchWorkflow,
     FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
-    default_friday_product_plan, default_friday_ui_integration_plan, friday_answer_search_plan,
-    export_friday_dashboard_bundle, friday_dashboard_panel_from_export,
-    friday_dashboard_product_ui_binding_from_export, friday_execution_handoff_report,
-    friday_dashboard_product_ui_smoke_from_export, friday_live_ui_route_binding_report,
-    friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
-    friday_multimodal_visual_check,
+    default_friday_product_plan, default_friday_ui_integration_plan,
+    export_friday_dashboard_bundle, friday_answer_search_plan,
+    friday_dashboard_host_command_bridge_from_export, friday_dashboard_panel_from_export,
+    friday_dashboard_product_ui_binding_from_export, friday_dashboard_product_ui_smoke_from_export,
+    friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
+    friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_research_search_plan, friday_route_visual_report,
     run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
 };
@@ -430,7 +430,10 @@ pub async fn execute(command: Command) -> Result<()> {
         }
 
         Command::FridayLiveUiRoutesJson => {
-            println!("{}", friday_live_ui_route_binding_report().to_pretty_json()?);
+            println!(
+                "{}",
+                friday_live_ui_route_binding_report().to_pretty_json()?
+            );
         }
 
         Command::FridayReadiness => {
@@ -471,8 +474,7 @@ pub async fn execute(command: Command) -> Result<()> {
         }
 
         Command::FridayDashboardPanelJson { input_dir } => {
-            let panel =
-                friday_dashboard_panel_from_export(resolve_repo_relative_path(&input_dir))?;
+            let panel = friday_dashboard_panel_from_export(resolve_repo_relative_path(&input_dir))?;
             println!("{}", panel.to_pretty_json()?);
         }
 
@@ -498,12 +500,26 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayDashboardHostCommandBridge { input_dir } => {
+            print_friday_dashboard_host_command_bridge(&input_dir)?;
+        }
+
+        Command::FridayDashboardHostCommandBridgeJson { input_dir } => {
+            let report = friday_dashboard_host_command_bridge_from_export(
+                resolve_repo_relative_path(&input_dir),
+            )?;
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayLocalChecks => {
             print_friday_local_execution_checks();
         }
 
         Command::FridayLocalChecksJson => {
-            println!("{}", default_friday_local_execution_checks().to_pretty_json()?);
+            println!(
+                "{}",
+                default_friday_local_execution_checks().to_pretty_json()?
+            );
         }
 
         Command::FridayBrowserGate => {
@@ -549,10 +565,7 @@ pub async fn execute(command: Command) -> Result<()> {
         }
 
         Command::BrowserPackRecoverySmokeJson => {
-            println!(
-                "{}",
-                browser_pack_recovery_smoke_report().to_pretty_json()?
-            );
+            println!("{}", browser_pack_recovery_smoke_report().to_pretty_json()?);
         }
 
         Command::BrowserWebLlmAcceleration => {
@@ -560,10 +573,7 @@ pub async fn execute(command: Command) -> Result<()> {
         }
 
         Command::BrowserWebLlmAccelerationJson => {
-            println!(
-                "{}",
-                browser_webllm_acceleration_report().to_pretty_json()?
-            );
+            println!("{}", browser_webllm_acceleration_report().to_pretty_json()?);
         }
 
         Command::FridayOcrSmoke {
@@ -683,7 +693,10 @@ pub async fn execute(command: Command) -> Result<()> {
         }
 
         Command::FridayMediaAffordancesJson => {
-            println!("{}", serde_json::to_string_pretty(&friday_media_affordances())?);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&friday_media_affordances())?
+            );
         }
 
         Command::AccessibilityDiagnostics { os, live } => {
@@ -887,6 +900,10 @@ fn print_interactive_help() {
     println!("                           Smoke-check the visible dashboard binding");
     println!("  --friday-dashboard-product-ui-smoke-json [dir]");
     println!("                           Print dashboard binding smoke check as JSON");
+    println!("  --friday-dashboard-host-bridge [dir]");
+    println!("                           Show trusted host command bridge handoffs");
+    println!("  --friday-dashboard-host-bridge-json [dir]");
+    println!("                           Print trusted host command bridge handoffs as JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
@@ -894,7 +911,9 @@ fn print_interactive_help() {
     println!("  --friday-browser-gate-json");
     println!("                           Print browser gate status as JSON");
     println!("  --browser-extension-smoke");
-    println!("                           Show packaged extension and installed-browser smoke readiness");
+    println!(
+        "                           Show packaged extension and installed-browser smoke readiness"
+    );
     println!("  --browser-extension-smoke-json");
     println!("                           Print browser extension smoke readiness as JSON");
     println!("  --browser-extension-launch-smoke [--execute]");
@@ -1388,10 +1407,7 @@ fn print_friday_execution_handoffs() {
         println!("  command: {}", handoff.command);
         println!("  source: {}", handoff.source_file);
         println!("  local_only: {}", yes_no(handoff.local_only));
-        println!(
-            "  user_gesture: {}",
-            yes_no(handoff.requires_user_gesture)
-        );
+        println!("  user_gesture: {}", yes_no(handoff.requires_user_gesture));
         println!("  permissions: {}", handoff.permission_scopes.join(", "));
         if let Some(path) = &handoff.artifact_path {
             println!("  artifact: {}", path);
@@ -1521,7 +1537,9 @@ fn print_friday_dashboard_product_ui(input_dir: &str) -> Result<()> {
     println!("{}", binding.summary);
     println!(
         "Route: {} -> {} ({})",
-        binding.route, binding.source_file, binding.status.label()
+        binding.route,
+        binding.source_file,
+        binding.status.label()
     );
     println!("Score: {} / 100", binding.score_out_of_100);
     println!("Panel JSON: {}", binding.panel_json_command);
@@ -1563,10 +1581,7 @@ fn print_friday_dashboard_product_ui(input_dir: &str) -> Result<()> {
     println!();
     println!("Release links:");
     for link in &binding.release_links {
-        println!(
-            "  - [{}] {} -> {}",
-            link.section, link.label, link.path
-        );
+        println!("  - [{}] {} -> {}", link.section, link.label, link.path);
     }
 
     Ok(())
@@ -1602,6 +1617,49 @@ fn print_friday_dashboard_product_ui_smoke(input_dir: &str) -> Result<()> {
         if check.status != crate::friday::FridayDashboardProductUiSmokeStatus::Passed {
             println!("    next: {}", check.next_action);
         }
+    }
+
+    Ok(())
+}
+
+fn print_friday_dashboard_host_command_bridge(input_dir: &str) -> Result<()> {
+    let report =
+        friday_dashboard_host_command_bridge_from_export(resolve_repo_relative_path(input_dir))?;
+
+    println!("Friday Dashboard Host Command Bridge");
+    println!("====================================");
+    println!("{}", report.summary);
+    println!("Route: {}", report.route);
+    println!("Source: {}", report.source_command);
+    println!(
+        "Commands: {}, awaiting approval: {}, blocked: {}, audit records: {}",
+        report.command_count,
+        report.awaiting_approval_count,
+        report.blocked_count,
+        report.audit_count
+    );
+    println!();
+
+    for record in &report.records {
+        println!(
+            "  - [{}] {} ({})",
+            record.status.label(),
+            record.label,
+            record.approval_state.label()
+        );
+        println!("    command: {}", record.command);
+        println!(
+            "    silent_execution_allowed={}, can_execute_after_approval={}",
+            yes_no(record.silent_execution_allowed),
+            yes_no(record.can_execute_after_approval)
+        );
+        if let Some(reason) = &record.blocked_reason {
+            println!("    blocked: {}", reason);
+        }
+        println!(
+            "    audit: {} | stdout={} | stderr={}",
+            record.audit.event, record.audit.stdout_summary, record.audit.stderr_summary
+        );
     }
 
     Ok(())
@@ -1660,7 +1718,10 @@ fn print_friday_browser_gate() {
         "Deploy allowed: {}",
         yes_no(report.deploy_gate.deployment_allowed)
     );
-    println!("Major feature: {}", report.deploy_gate.major_user_visible_feature);
+    println!(
+        "Major feature: {}",
+        report.deploy_gate.major_user_visible_feature
+    );
     println!(
         "Required check: {}",
         report.deploy_gate.required_verification_command
@@ -1669,11 +1730,7 @@ fn print_friday_browser_gate() {
     println!();
 
     for target in &report.targets {
-        println!(
-            "- [{}] {}",
-            target.status.label(),
-            target.surface
-        );
+        println!("- [{}] {}", target.status.label(), target.surface);
         println!("  command: {}", target.command);
         for item in &target.evidence {
             println!("  evidence: {}", item);
@@ -1718,7 +1775,13 @@ fn print_browser_extension_smoke() {
         );
         println!("  dist: {}", target.dist_dir);
         println!("  package: {}", target.package_zip);
-        println!("  browser: {}", target.detected_executable.as_deref().unwrap_or("<not detected>"));
+        println!(
+            "  browser: {}",
+            target
+                .detected_executable
+                .as_deref()
+                .unwrap_or("<not detected>")
+        );
         println!("  launch: {}", target.launch_command_hint);
         for item in &target.evidence {
             println!("  evidence: {}", item);
@@ -1755,8 +1818,14 @@ fn print_browser_extension_launch_smoke(execute: bool) {
             target.browser_name,
             target.extension_target
         );
-        println!("  executable: {}", target.executable.as_deref().unwrap_or("<not detected>"));
-        println!("  profile: {}", target.profile_dir.as_deref().unwrap_or("<none>"));
+        println!(
+            "  executable: {}",
+            target.executable.as_deref().unwrap_or("<not detected>")
+        );
+        println!(
+            "  profile: {}",
+            target.profile_dir.as_deref().unwrap_or("<none>")
+        );
         println!("  command: {}", target.command_preview);
         println!(
             "  executed={}, timed_out={}, exit_code={:?}, duration={}ms",
@@ -1939,7 +2008,14 @@ fn print_friday_ocr_smoke(report: &crate::friday::FridayOcrSmokeReport) {
     println!("Friday OCR Smoke");
     println!("================");
     println!("Status: {}", report.status.label());
-    println!("Mode: {}", if report.model_execution { "model" } else { "fixture" });
+    println!(
+        "Mode: {}",
+        if report.model_execution {
+            "model"
+        } else {
+            "fixture"
+        }
+    );
     println!("Source: {}", report.image_source);
     println!("Output dir: {}", report.output_dir);
     println!("Markdown: {}", report.output_markdown);
@@ -2032,9 +2108,7 @@ fn print_friday_multimodal_route(route: &crate::friday::FridayMultimodalRouteDec
     println!("Next: {}", route.next_action);
 }
 
-fn print_friday_multimodal_diagnostics(
-    diagnostics: &crate::friday::FridayMultimodalUiDiagnostics,
-) {
+fn print_friday_multimodal_diagnostics(diagnostics: &crate::friday::FridayMultimodalUiDiagnostics) {
     println!("Friday Multimodal Diagnostics");
     println!("=============================");
     println!("Route: {}", diagnostics.route);
@@ -2068,9 +2142,7 @@ fn print_friday_multimodal_diagnostics(
     }
 }
 
-fn print_friday_multimodal_visual_check(
-    report: &crate::friday::FridayMultimodalVisualCheckReport,
-) {
+fn print_friday_multimodal_visual_check(report: &crate::friday::FridayMultimodalVisualCheckReport) {
     println!("Friday Multimodal Visual Check");
     println!("==============================");
     println!("Route: {}", report.route);
@@ -2089,11 +2161,7 @@ fn print_friday_multimodal_visual_check(
     println!();
     println!("Requirements:");
     for requirement in &report.requirements {
-        println!(
-            "  - [{}] {}",
-            requirement.status.label(),
-            requirement.label
-        );
+        println!("  - [{}] {}", requirement.status.label(), requirement.label);
         for evidence in &requirement.evidence {
             println!("    evidence: {}", evidence);
         }
@@ -2110,9 +2178,7 @@ fn print_friday_multimodal_visual_check(
     }
 }
 
-fn print_friday_screenshot_vlm_handoff(
-    report: &crate::friday::FridayScreenshotVlmHandoffReport,
-) {
+fn print_friday_screenshot_vlm_handoff(report: &crate::friday::FridayScreenshotVlmHandoffReport) {
     println!("Friday Screenshot VLM Handoff");
     println!("=============================");
     println!("Source: {}", report.source.path);
@@ -2160,12 +2226,18 @@ fn print_friday_multimodal_artifact_import(
     println!("=================================");
     println!("Store: {}", report.store_dir);
     println!("Bundle: {}", report.import.bundle_dir);
-    println!("Artifacts: {}", report.import.imported_artifact_ids.join(", "));
+    println!(
+        "Artifacts: {}",
+        report.import.imported_artifact_ids.join(", ")
+    );
     println!(
         "Checkpoints: {}",
         report.import.imported_checkpoint_ids.join(", ")
     );
-    println!("Metadata records: {}", report.import.imported_metadata_count);
+    println!(
+        "Metadata records: {}",
+        report.import.imported_metadata_count
+    );
     println!("Metadata JSON: {}", report.multimodal_metadata_json);
     println!("Manifest: {}", report.manifest_json);
     if report.findings.is_empty() {

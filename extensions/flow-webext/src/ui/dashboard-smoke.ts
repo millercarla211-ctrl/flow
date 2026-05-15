@@ -2,7 +2,10 @@ import {
   defaultFridayDashboardBinding,
   normalizeFridayDashboardBinding,
 } from "../runtime/dashboard-binding";
-import { dispatchDashboardCommand } from "../runtime/dashboard-actions";
+import {
+  dispatchDashboardCommand,
+  normalizeDashboardHostCommandResults,
+} from "../runtime/dashboard-actions";
 import type { FlowDashboardProductUiBinding } from "../runtime/protocol";
 
 type DashboardSmokeCheck = {
@@ -141,6 +144,23 @@ export function dashboardSectionSmokeReport(
         { confirmed: true, now: "2026-05-15T00:00:03.000Z" },
       )
     : null;
+  const hostBridgeResults = normalizeDashboardHostCommandResults({
+    records: [
+      {
+        action_id: "host-open",
+        label: "Open host report",
+        kind: "open",
+        command: "flow --completion",
+        status: "awaiting-approval",
+        approval_state: "required",
+        audit: {
+          stdout_summary: "not executed; waiting for operator approval",
+          stderr_summary: "",
+          recorded_at_unix_ms: 1,
+        },
+      },
+    ],
+  });
   const checks = [
     check(
       "local-fallback-labelled",
@@ -197,6 +217,13 @@ export function dashboardSectionSmokeReport(
       "command-dispatch-failure",
       failedResult?.status === "failed" && failedResult.permission === "blocked",
       failedResult?.message ?? "missing failed result",
+    ),
+    check(
+      "host-bridge-importable",
+      hostBridgeResults.length === 1 &&
+        hostBridgeResults[0]?.permission === "confirmation-required" &&
+        hostBridgeResults[0]?.status === "prepared",
+      `${hostBridgeResults.length} host bridge record(s) normalized`,
     ),
     check(
       "history-rail-renderable",

@@ -1,4 +1,5 @@
 import type { FlowDashboardProductUiActionBinding } from "./protocol";
+import type { FlowDashboardActionKind } from "./protocol";
 
 export type FlowDashboardCommandPermission = "allowed" | "confirmation-required" | "blocked";
 export type FlowDashboardCommandStatus = "prepared" | "blocked" | "failed";
@@ -162,4 +163,83 @@ export function persistDashboardCommandResult(
   }
 
   return next;
+}
+
+export function normalizeDashboardHostCommandResults(value: unknown): FlowDashboardCommandResult[] {
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  const records = (value as { records?: unknown }).records;
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  return records
+    .map((item): FlowDashboardCommandResult | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const audit =
+        record.audit && typeof record.audit === "object"
+          ? (record.audit as Record<string, unknown>)
+          : {};
+      const actionId = stringValue(record.action_id, record.actionId);
+      const command = stringValue(record.command);
+      const status = stringValue(record.status);
+      const approvalState = stringValue(record.approval_state, record.approvalState);
+      const recordedAt = stringValue(audit.recorded_at_unix_ms, record.created_at, record.createdAt);
+
+      if (!actionId || !command) {
+        return null;
+      }
+
+      return {
+        resultId: `host.${actionId}.${recordedAt || "imported"}`,
+        actionId,
+        label: stringValue(record.label) || actionId,
+        command,
+        kind: dashboardKind(stringValue(record.kind)),
+        permission:
+          approvalState === "required"
+            ? "confirmation-required"
+            : approvalState === "blocked"
+              ? "blocked"
+              : "allowed",
+        status:
+          status === "awaiting-approval"
+            ? "prepared"
+            : status === "blocked"
+              ? "blocked"
+              : "failed",
+        message:
+          stringValue(audit.stdout_summary, audit.stdoutSummary, record.summary) ||
+          "Host bridge record imported.",
+        nextStep:
+          stringValue(record.blocked_reason, record.blockedReason, record.approval_prompt) ||
+          "Review this host bridge record before execution.",
+        createdAt: recordedAt || new Date().toISOString(),
+      };
+    })
+    .filter((item): item is FlowDashboardCommandResult => item !== null);
+}
+
+function stringValue(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string") {
+      return value;
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+  return "";
+}
+
+function dashboardKind(value: string): FlowDashboardActionKind {
+  if (value === "run-check" || value === "recover" || value === "capture" || value === "open") {
+    return value;
+  }
+  return "open";
 }

@@ -171,6 +171,10 @@ pub fn friday_dashboard_product_ui_binding_from_export(
     let panel = friday_dashboard_panel_from_export(export_dir.as_ref())?;
     let panel_json_command = format!("flow --friday-dashboard-panel-json {}", panel.export_dir);
     let export_command = format!("flow --friday-dashboard-export {}", panel.export_dir);
+    let host_bridge_command = format!(
+        "flow --friday-dashboard-host-bridge-json {}",
+        panel.export_dir
+    );
     let cards = panel
         .cards
         .iter()
@@ -268,6 +272,7 @@ pub fn friday_dashboard_product_ui_binding_from_export(
         data_bindings: dashboard_data_bindings(
             &panel_json_command,
             &export_command,
+            &host_bridge_command,
             &panel.export_history.history_json,
             release_review_json,
         ),
@@ -276,7 +281,7 @@ pub fn friday_dashboard_product_ui_binding_from_export(
         next_actions: vec![
             "Render these cards from the dashboard panel JSON instead of hard-coded product copy."
                 .to_string(),
-            "Connect enabled local-only actions to explicit UI buttons with loading and error states."
+            "Import host bridge JSON to review trusted desktop command handoffs before execution."
                 .to_string(),
             "Show dashboard history deltas and release-review links in the visible dashboard."
                 .to_string(),
@@ -496,10 +501,7 @@ fn score_smoke_checks(checks: &[FridayDashboardProductUiSmokeCheck]) -> u8 {
         return 0;
     }
 
-    let earned = checks
-        .iter()
-        .map(|check| check.status.score())
-        .sum::<f32>();
+    let earned = checks.iter().map(|check| check.status.score()).sum::<f32>();
     ((earned / checks.len() as f32) * 100.0)
         .round()
         .clamp(0.0, 100.0) as u8
@@ -552,6 +554,7 @@ fn action_button_state(
 fn dashboard_data_bindings(
     panel_json_command: &str,
     export_command: &str,
+    host_bridge_command: &str,
     history_json: &str,
     release_review_json: &str,
 ) -> Vec<FridayUiDataBinding> {
@@ -569,6 +572,13 @@ fn dashboard_data_bindings(
             export_command,
             "Friday dashboard export bundle",
             "Refreshes the local dashboard export before the product UI reads it.",
+        ),
+        ui_binding(
+            "dashboard-host-command-bridge",
+            "Friday trusted host command bridge",
+            host_bridge_command,
+            "Friday dashboard command results",
+            "Feeds approval-required trusted host command records into the dashboard result rail.",
         ),
         ui_binding(
             "dashboard-history-json",
