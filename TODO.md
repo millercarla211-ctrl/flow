@@ -428,16 +428,34 @@ Goal: make trusted-runner release packages comparable over time so operators can
 
 This set is complete. The next loop should open `Friday Release Operator Checklist` and turn package/timeline evidence into a signed checklist that operators can review before shipping.
 
-## Next Set: Friday Release Operator Checklist
+## Completed Set: Friday Release Operator Checklist
 
-Status: 0/100
+Status: 100/100
 
 Goal: turn release package and evidence-timeline data into a concise operator checklist with explicit signoff, unresolved-blocker copy, and local-only audit history.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed release checklist model that consumes release packages, timelines, TODO, changelog, and dashboard readiness.
+- [x] Add blocker categorization for missing evidence, warning regressions, stale live state, pending runner work, and unreviewed changes.
+- [x] Add CLI and JSON commands for creating checklist reports and appending local signoff records.
+- [x] Add dashboard checklist rendering with signoff controls, reason capture, and latest-check freshness copy.
+- [x] Add focused Rust/TypeScript coverage for checklist generation, signoff persistence, blocker copy, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release QA Command Center` and consolidate lightweight checks, checklist status, package/timeline status, and dashboard smoke into one local command center.
+
+## Next Set: Friday Release QA Command Center
+
+Status: 0/100
+
+Goal: provide a single local-first QA command center that runs or imports lightweight checks, summarizes release risk, and tells the operator exactly what must pass before a major Friday checkpoint.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed release checklist model that consumes release packages, timelines, TODO, changelog, and dashboard readiness.
-- [ ] Add blocker categorization for missing evidence, warning regressions, stale live state, pending runner work, and unreviewed changes.
-- [ ] Add CLI and JSON commands for creating checklist reports and appending local signoff records.
-- [ ] Add dashboard checklist rendering with signoff controls, reason capture, and latest-check freshness copy.
-- [ ] Add focused Rust/TypeScript coverage for checklist generation, signoff persistence, blocker copy, and dashboard rendering.
+- [ ] Add a typed QA command-center report that consumes checklist, package, timeline, dashboard smoke, Rust check status, and extension typecheck status.
+- [ ] Add local-only command descriptors for each lightweight check without silently running expensive builds.
+- [ ] Add CLI and JSON commands for creating QA command-center reports and importing check-result files.
+- [ ] Add dashboard QA rendering with pass/fail badges, copyable commands, and stale-result warnings.
+- [ ] Add focused Rust/TypeScript coverage for QA report scoring, stale result detection, command copy, and dashboard rendering.

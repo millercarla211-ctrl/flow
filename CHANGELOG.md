@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Operator Checklist at 100/100 with typed local release checklists, package/timeline/TODO/changelog/readiness blockers, checklist/signoff CLI commands, dashboard signoff controls, and focused Rust/TypeScript coverage
+- opened Friday Release QA Command Center as the next set for one local-first surface that summarizes lightweight checks, checklist/package/timeline status, stale results, and copyable verification commands
 - completed Friday Trusted Runner Evidence Timeline at 100/100 with typed package history, package-to-package diff/regression summaries, local-only archive/timeline CLI commands, dashboard timeline import rendering, and focused Rust/TypeScript coverage
 - opened Friday Release Operator Checklist as the next set for evidence-backed release signoff, blocker categorization, local audit history, and dashboard review controls
 - completed Friday Trusted Runner Release Package at 100/100 with a signed local-only evidence manifest, history/live-state/release-review merging, incident markdown, CLI/JSON generation commands, dashboard package import rendering, and focused Rust/TypeScript coverage

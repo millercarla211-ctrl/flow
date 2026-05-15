@@ -1,5 +1,6 @@
 import type { FlowDashboardProductUiActionBinding } from "./protocol";
 import type { FlowDashboardActionKind } from "./protocol";
+import type { FlowDashboardPanelStatus } from "./protocol";
 
 export type FlowDashboardCommandPermission = "allowed" | "confirmation-required" | "blocked";
 export type FlowDashboardCommandStatus =
@@ -316,6 +317,62 @@ export interface FlowDashboardRunnerReleaseTimeline {
   warnings: string[];
   entries: FlowDashboardRunnerReleaseTimelineEntry[];
   diffs: FlowDashboardRunnerReleaseTimelineDiff[];
+}
+
+export interface FlowReleaseChecklistBlocker {
+  id: string;
+  category: string;
+  severity: "warning" | "blocking";
+  title: string;
+  detail: string;
+  sourcePath: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseChecklistItem {
+  id: string;
+  title: string;
+  ready: boolean;
+  detail: string;
+  sourcePath: string;
+}
+
+export interface FlowReleaseChecklistSignoff {
+  id: string;
+  checklistId: string;
+  operator: string;
+  decision: "approved" | "needs-changes" | "blocked";
+  reason: string;
+  recordedAtUnixMs: string;
+  localOnly: boolean;
+}
+
+export interface FlowReleaseOperatorChecklistReport {
+  checklistId: string;
+  checklistJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  readyToShip: boolean;
+  summary: string;
+  packageJson: string;
+  timelineJson: string;
+  dashboardExportDir: string;
+  todoPath: string;
+  changelogPath: string;
+  signoffJson: string;
+  readyCount: number;
+  totalCount: number;
+  warningCount: number;
+  blockingCount: number;
+  signoffRequired: boolean;
+  signoffCount: number;
+  latestSignoff: FlowReleaseChecklistSignoff | null;
+  blockers: FlowReleaseChecklistBlocker[];
+  checklist: FlowReleaseChecklistItem[];
+  signoffs: FlowReleaseChecklistSignoff[];
+  commands: string[];
 }
 
 const RESULT_LIMIT = 8;
@@ -1287,6 +1344,120 @@ export function normalizeTrustedRunnerReleaseTimeline(
   };
 }
 
+export function normalizeReleaseOperatorChecklist(
+  value: unknown,
+): FlowReleaseOperatorChecklistReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const report =
+    root.release_checklist && typeof root.release_checklist === "object"
+      ? (root.release_checklist as Record<string, unknown>)
+      : root.releaseChecklist && typeof root.releaseChecklist === "object"
+        ? (root.releaseChecklist as Record<string, unknown>)
+        : root;
+  const checklistId = stringValue(report.checklist_id, report.checklistId);
+  const checklist = arrayValue(report.checklist)
+    .map((item): FlowReleaseChecklistItem | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const id = stringValue(record.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        title: stringValue(record.title) || id,
+        ready: booleanValue(record.ready),
+        detail: stringValue(record.detail),
+        sourcePath: stringValue(record.source_path, record.sourcePath),
+      };
+    })
+    .filter((item): item is FlowReleaseChecklistItem => item !== null);
+  const blockers = arrayValue(report.blockers)
+    .map((item): FlowReleaseChecklistBlocker | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const id = stringValue(record.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        category: stringValue(record.category),
+        severity: checklistSeverity(stringValue(record.severity)),
+        title: stringValue(record.title) || id,
+        detail: stringValue(record.detail),
+        sourcePath: stringValue(record.source_path, record.sourcePath),
+        nextAction: stringValue(record.next_action, record.nextAction),
+      };
+    })
+    .filter((item): item is FlowReleaseChecklistBlocker => item !== null);
+  const signoffs = arrayValue(report.signoffs)
+    .map(normalizeReleaseSignoff)
+    .filter((item): item is FlowReleaseChecklistSignoff => item !== null);
+
+  if (!checklistId && checklist.length === 0 && blockers.length === 0) {
+    return null;
+  }
+
+  return {
+    checklistId,
+    checklistJson: stringValue(report.checklist_json, report.checklistJson),
+    generatedAtUnixMs: stringValue(report.generated_at_unix_ms, report.generatedAtUnixMs),
+    productName: stringValue(report.product_name, report.productName),
+    localOnly: booleanValue(report.local_only, report.localOnly),
+    status: panelStatus(stringValue(report.status)),
+    readyToShip: booleanValue(report.ready_to_ship, report.readyToShip),
+    summary: stringValue(report.summary),
+    packageJson: stringValue(report.package_json, report.packageJson),
+    timelineJson: stringValue(report.timeline_json, report.timelineJson),
+    dashboardExportDir: stringValue(report.dashboard_export_dir, report.dashboardExportDir),
+    todoPath: stringValue(report.todo_path, report.todoPath),
+    changelogPath: stringValue(report.changelog_path, report.changelogPath),
+    signoffJson: stringValue(report.signoff_json, report.signoffJson),
+    readyCount: numberValue(report.ready_count, report.readyCount),
+    totalCount: numberValue(report.total_count, report.totalCount),
+    warningCount: numberValue(report.warning_count, report.warningCount),
+    blockingCount: numberValue(report.blocking_count, report.blockingCount),
+    signoffRequired: booleanValue(report.signoff_required, report.signoffRequired),
+    signoffCount: numberValue(report.signoff_count, report.signoffCount),
+    latestSignoff: normalizeReleaseSignoff(report.latest_signoff ?? report.latestSignoff),
+    blockers,
+    checklist,
+    signoffs,
+    commands: arrayValue(report.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
+function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const id = stringValue(record.id);
+  if (!id) {
+    return null;
+  }
+  return {
+    id,
+    checklistId: stringValue(record.checklist_id, record.checklistId),
+    operator: stringValue(record.operator),
+    decision: signoffDecision(stringValue(record.decision)),
+    reason: stringValue(record.reason),
+    recordedAtUnixMs: stringValue(record.recorded_at_unix_ms, record.recordedAtUnixMs),
+    localOnly: booleanValue(record.local_only, record.localOnly),
+  };
+}
+
 function stringValue(...values: unknown[]) {
   for (const value of values) {
     if (typeof value === "string") {
@@ -1348,6 +1519,24 @@ function dashboardKind(value: string): FlowDashboardActionKind {
     return value;
   }
   return "open";
+}
+
+function panelStatus(value: string): FlowDashboardPanelStatus {
+  if (value === "ready" || value === "warning" || value === "blocked") {
+    return value;
+  }
+  return "warning";
+}
+
+function checklistSeverity(value: string): FlowReleaseChecklistBlocker["severity"] {
+  return value === "blocking" ? "blocking" : "warning";
+}
+
+function signoffDecision(value: string): FlowReleaseChecklistSignoff["decision"] {
+  if (value === "approved" || value === "needs-changes" || value === "blocked") {
+    return value;
+  }
+  return "needs-changes";
 }
 
 function runnerStatus(value: string): FlowDashboardCommandStatus {

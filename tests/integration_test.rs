@@ -26,12 +26,14 @@ use flow::friday::{
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
+    FridayReleaseChecklistSignoffDecision,
     FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
     FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
     FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus, FridayVerificationStatus,
-    FridayWorkspaceStore, append_friday_trusted_host_runner_history,
+    FridayWorkspaceStore, append_friday_release_operator_signoff,
+    append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -42,7 +44,8 @@ use flow::friday::{
     friday_dashboard_release_review_from_export, friday_dashboard_screenshot_history,
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
-    friday_operator_readiness_report, friday_route_visual_report,
+    friday_operator_readiness_report, friday_release_operator_checklist_report,
+    friday_route_visual_report,
     friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
@@ -53,7 +56,8 @@ use flow::friday::{
     run_friday_screenshot_vlm_handoff,
     run_friday_trusted_host_command_bridge_with_executor,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
-    write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
+    write_friday_release_operator_checklist, write_friday_trusted_host_live_runner_state,
+    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -1793,6 +1797,60 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
             && diff.to_package_id == "trusted-runner-release-2"
             && diff.missing_delta > 0
     }));
+    write_friday_trusted_runner_release_timeline(&timeline_path, &timeline).unwrap();
+    let checklist_path = root.join("release-operator-checklist.json");
+    let signoff_path = root.join("release-signoffs.json");
+    let checklist = friday_release_operator_checklist_report(
+        &checklist_path,
+        &package_path,
+        &timeline_path,
+        &root,
+        "TODO.md",
+        "CHANGELOG.md",
+        &signoff_path,
+    );
+    assert_eq!(checklist.product_name, "Friday");
+    assert_eq!(checklist.status, FridayDashboardPanelStatus::Blocked);
+    assert!(!checklist.ready_to_ship);
+    assert!(checklist.blocking_count > 0);
+    assert!(checklist
+        .blockers
+        .iter()
+        .any(|blocker| blocker.category == "stale-live-state"));
+    assert!(checklist
+        .blockers
+        .iter()
+        .any(|blocker| blocker.category == "warning-regression"));
+    assert!(checklist
+        .checklist
+        .iter()
+        .any(|item| item.id == "operator-signoff" && !item.ready));
+    assert!(checklist
+        .commands
+        .iter()
+        .any(|command| command.contains("--friday-release-signoff")));
+    write_friday_release_operator_checklist(&checklist_path, &checklist).unwrap();
+    let signoffs = append_friday_release_operator_signoff(
+        &checklist_path,
+        &signoff_path,
+        "essencefromexistence",
+        FridayReleaseChecklistSignoffDecision::Approved,
+        "Reviewed the local package, timeline, TODO, and changelog.",
+    )
+    .unwrap();
+    assert_eq!(signoffs.len(), 1);
+    assert_eq!(signoffs[0].decision, FridayReleaseChecklistSignoffDecision::Approved);
+    let checklist_after_signoff = friday_release_operator_checklist_report(
+        &checklist_path,
+        &package_path,
+        &timeline_path,
+        &root,
+        "TODO.md",
+        "CHANGELOG.md",
+        &signoff_path,
+    );
+    assert_eq!(checklist_after_signoff.signoff_count, 1);
+    assert!(checklist_after_signoff.latest_signoff.is_some());
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

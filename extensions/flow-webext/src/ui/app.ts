@@ -2,6 +2,7 @@ import { requestQuickContext, replaceSelection, toggleOverlay } from "../runtime
 import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
+  normalizeReleaseOperatorChecklist,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
   normalizeTrustedHostRunnerCancellationUx,
@@ -24,6 +25,7 @@ import {
   type FlowDashboardRunnerReleaseTimeline,
   type FlowDashboardRunnerUxReport,
   type FlowDashboardCommandStatus,
+  type FlowReleaseOperatorChecklistReport,
 } from "../runtime/dashboard-actions";
 import { normalizeFridayDashboardBinding } from "../runtime/dashboard-binding";
 import { FlowBrowserEngine } from "../runtime/flow-engine";
@@ -66,6 +68,8 @@ type UiState = {
   dashboardRunnerOperatorReview: FlowDashboardRunnerOperatorReviewReport | null;
   dashboardRunnerReleasePackage: FlowDashboardRunnerReleasePackageReport | null;
   dashboardRunnerReleaseTimeline: FlowDashboardRunnerReleaseTimeline | null;
+  dashboardReleaseChecklist: FlowReleaseOperatorChecklistReport | null;
+  dashboardReleaseChecklistReason: string;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -200,7 +204,7 @@ function badgeTone(value: string) {
   if (value === "ready" || value === "on" || value === "enabled") {
     return "good";
   }
-  if (value === "partial" || value === "pending" || value === "optional") {
+  if (value === "partial" || value === "pending" || value === "optional" || value === "warning") {
     return "warn";
   }
   if (value === "corrupt" || value === "blocked" || value === "off") {
@@ -1383,6 +1387,82 @@ function renderRunnerReleaseTimeline(timeline: FlowDashboardRunnerReleaseTimelin
   `;
 }
 
+function renderReleaseChecklist(
+  checklist: FlowReleaseOperatorChecklistReport | null,
+  reason: string,
+) {
+  if (!checklist) {
+    return "";
+  }
+  const signoffCommand =
+    checklist.commands.find((command) => command.includes("--friday-release-signoff")) ?? "";
+
+  return `
+    <article class="feature-card dashboard-release-checklist">
+      <div class="card-topline">
+        <span class="eyebrow">Release operator checklist</span>
+        <span class="badge ${badgeTone(checklist.status)}">${escapeHtml(checklist.status)}</span>
+      </div>
+      <p>${escapeHtml(checklist.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${checklist.readyCount}/${checklist.totalCount}</strong><small>ready</small></span>
+        <span><strong>${checklist.blockingCount}</strong><small>blocking</small></span>
+        <span><strong>${checklist.signoffCount}</strong><small>signoffs</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Checklist</strong> ${escapeHtml(checklist.checklistJson)}</span>
+        <span><strong>Signoffs</strong> ${escapeHtml(checklist.signoffJson)}</span>
+        <span><strong>Ready</strong> ${checklist.readyToShip ? "yes" : "no"}</span>
+      </div>
+      <div class="note-list">
+        ${
+          checklist.blockers.length
+            ? checklist.blockers
+                .slice(0, 5)
+                .map(
+                  (blocker) =>
+                    `<span>${escapeHtml(blocker.title)}: ${escapeHtml(blocker.detail)}</span>`,
+                )
+                .join("")
+            : "<span>No blockers in the imported checklist.</span>"
+        }
+      </div>
+      <div class="runner-package-files">
+        ${checklist.checklist
+          .map(
+            (item) => `
+              <div class="runner-package-file ${item.ready ? "present" : "missing"}">
+                <strong>${escapeHtml(item.title)}</strong>
+                <small>${item.ready ? "ready" : "needs review"}</small>
+                <code>${escapeHtml(item.sourcePath)}</code>
+                <span>${escapeHtml(item.detail)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <label class="field-label" for="dashboard-release-checklist-reason">
+        Signoff reason
+        <textarea
+          id="dashboard-release-checklist-reason"
+          rows="3"
+          placeholder="Example: reviewed package, timeline, release review, TODO, and changelog."
+        >${escapeHtml(reason)}</textarea>
+      </label>
+      <div class="actions">
+        <button
+          type="button"
+          class="secondary"
+          data-action="dashboard-release-checklist-signoff"
+          ${signoffCommand ? "" : "disabled"}
+        >
+          Copy signoff command
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -1587,6 +1667,10 @@ function renderDashboard(state: UiState) {
       ${renderRunnerOperatorReview(state.dashboardRunnerOperatorReview)}
       ${renderRunnerReleasePackage(state.dashboardRunnerReleasePackage)}
       ${renderRunnerReleaseTimeline(state.dashboardRunnerReleaseTimeline)}
+      ${renderReleaseChecklist(
+        state.dashboardReleaseChecklist,
+        state.dashboardReleaseChecklistReason,
+      )}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1712,6 +1796,8 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardRunnerOperatorReview: null,
     dashboardRunnerReleasePackage: null,
     dashboardRunnerReleaseTimeline: null,
+    dashboardReleaseChecklist: null,
+    dashboardReleaseChecklistReason: "",
   };
 
   function render() {
@@ -2008,6 +2094,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const operatorReview = normalizeTrustedHostRunnerOperatorReview(parsed);
       const releasePackage = normalizeTrustedRunnerReleasePackage(parsed);
       const releaseTimeline = normalizeTrustedRunnerReleaseTimeline(parsed);
+      const releaseChecklist = normalizeReleaseOperatorChecklist(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2022,8 +2109,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releasePackage ?? state.dashboardRunnerReleasePackage;
       state.dashboardRunnerReleaseTimeline =
         releaseTimeline ?? state.dashboardRunnerReleaseTimeline;
+      state.dashboardReleaseChecklist =
+        releaseChecklist ?? state.dashboardReleaseChecklist;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseTimeline
+      state.status = releaseChecklist
+        ? `Imported release checklist with ${releaseChecklist.blockingCount} blocking issue(s) from ${file.name}.`
+        : releaseTimeline
         ? `Imported trusted runner release timeline with ${releaseTimeline.packageCount} package(s) from ${file.name}.`
         : releasePackage
         ? `Imported trusted runner release package with ${releasePackage.manifest.evidenceCount} evidence item(s) from ${file.name}.`
@@ -2203,6 +2294,39 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  function releaseChecklistSignoffCommand() {
+    const checklist = state.dashboardReleaseChecklist;
+    if (!checklist) {
+      return "";
+    }
+    const command = checklist.commands.find((item) => item.includes("--friday-release-signoff"));
+    if (!command) {
+      return "";
+    }
+    const reason =
+      state.dashboardReleaseChecklistReason.trim() ||
+      "Reviewed package, timeline, release review, TODO, and changelog.";
+    return command
+      .replace('"<signoff reason>"', `"${reason.replaceAll('"', "'")}"`)
+      .replace('"<operator>"', '"operator"');
+  }
+
+  async function copyReleaseChecklistSignoff() {
+    const command = releaseChecklistSignoffCommand();
+    if (!command) {
+      state.status = "No release checklist signoff command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release checklist signoff command copied.";
+    } catch {
+      state.status = `Release checklist signoff: ${command}`;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -2324,6 +2448,18 @@ export async function mountFlowApp(surfaceInput: string) {
             void copyRunnerIncidentNote(noteId);
           }
         });
+      });
+
+    mountRoot
+      .querySelector<HTMLTextAreaElement>("#dashboard-release-checklist-reason")
+      ?.addEventListener("input", (event) => {
+        state.dashboardReleaseChecklistReason = (event.currentTarget as HTMLTextAreaElement).value;
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-checklist-signoff']")
+      ?.addEventListener("click", () => {
+        void copyReleaseChecklistSignoff();
       });
 
     mountRoot

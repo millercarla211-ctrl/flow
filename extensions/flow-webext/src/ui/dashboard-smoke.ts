@@ -5,6 +5,7 @@ import {
 import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
+  normalizeReleaseOperatorChecklist,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
   normalizeTrustedHostRunnerCancellationUx,
@@ -621,6 +622,61 @@ export function dashboardSectionSmokeReport(
       },
     ],
   });
+  const releaseChecklist = normalizeReleaseOperatorChecklist({
+    checklist_id: "friday-release-checklist-smoke",
+    checklist_json: "tmp/friday-dashboard/release-operator-checklist.json",
+    generated_at_unix_ms: 4,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    ready_to_ship: false,
+    summary: "5/7 release checklist items ready; 1 warning, 1 blocking issue.",
+    package_json: "tmp/friday-dashboard/trusted-runner-release-package.json",
+    timeline_json: "tmp/friday-dashboard/trusted-runner-release-timeline.json",
+    dashboard_export_dir: "tmp/friday-dashboard",
+    todo_path: "TODO.md",
+    changelog_path: "CHANGELOG.md",
+    signoff_json: "tmp/friday-dashboard/release-signoffs.json",
+    ready_count: 5,
+    total_count: 7,
+    warning_count: 1,
+    blocking_count: 1,
+    signoff_required: true,
+    signoff_count: 0,
+    latest_signoff: null,
+    blockers: [
+      {
+        id: "active-loop-not-complete",
+        category: "unreviewed-changes",
+        severity: "blocking",
+        title: "Active TODO loop is not complete",
+        detail: "Friday Release Operator Checklist is still at 0 / 100.",
+        source_path: "TODO.md",
+        next_action: "Complete the current TODO loop.",
+      },
+    ],
+    checklist: [
+      {
+        id: "release-package",
+        title: "Trusted runner release package",
+        ready: true,
+        detail: "3 evidence item(s), 0 missing, 0 warning(s).",
+        source_path: "tmp/friday-dashboard/trusted-runner-release-package.json",
+      },
+      {
+        id: "operator-signoff",
+        title: "Operator signoff",
+        ready: false,
+        detail: "No operator signoff has been recorded yet.",
+        source_path: "tmp/friday-dashboard/release-signoffs.json",
+      },
+    ],
+    signoffs: [],
+    commands: [
+      "flow --friday-release-checklist tmp/friday-dashboard",
+      'flow --friday-release-signoff tmp/friday-dashboard/release-operator-checklist.json --signoffs tmp/friday-dashboard/release-signoffs.json --operator "<operator>" --decision approved --reason "<signoff reason>"',
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -870,6 +926,19 @@ export function dashboardSectionSmokeReport(
           (diff) => diff.regression && diff.newMissingEvidenceIds.includes("runner-live-state"),
         ),
       `${trustedReleaseTimeline?.missingEvidenceRegressions ?? 0} missing evidence regression(s)`,
+    ),
+    check(
+      "release-checklist-blockers",
+      releaseChecklist?.localOnly === true &&
+        releaseChecklist.blockingCount === 1 &&
+        releaseChecklist.blockers.some((blocker) => blocker.category === "unreviewed-changes"),
+      `${releaseChecklist?.blockingCount ?? 0} release checklist blocker(s)`,
+    ),
+    check(
+      "release-checklist-signoff-command",
+      releaseChecklist?.signoffRequired === true &&
+        releaseChecklist.commands.some((command) => command.includes("--friday-release-signoff")),
+      `${releaseChecklist?.commands.length ?? 0} release checklist command(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

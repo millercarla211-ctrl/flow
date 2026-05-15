@@ -33,8 +33,11 @@ use crate::friday::{
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult, FridayTrustedHostRunnerStatus,
-    FridayTrustedHostRunnerUxReport, FridayTrustedRunnerReleasePackageReport,
-    FridayTrustedRunnerReleaseTimeline, FridayUiIntegrationStatus, FridayWorkspaceStore,
+    FridayReleaseChecklistSignoff, FridayReleaseChecklistSignoffDecision,
+    FridayReleaseOperatorChecklistReport, FridayTrustedHostRunnerUxReport,
+    FridayTrustedRunnerReleasePackageReport, FridayTrustedRunnerReleaseTimeline,
+    FridayUiIntegrationStatus, FridayWorkspaceStore,
+    append_friday_release_operator_signoff,
     append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report,
@@ -44,7 +47,8 @@ use crate::friday::{
     friday_dashboard_product_ui_binding_from_export, friday_dashboard_product_ui_smoke_from_export,
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
-    friday_operator_readiness_report, friday_research_search_plan, friday_route_visual_report,
+    friday_operator_readiness_report, friday_release_operator_checklist_report,
+    friday_research_search_plan, friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
@@ -53,8 +57,8 @@ use crate::friday::{
     friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
     run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
     run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
-    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
-    write_friday_trusted_host_live_runner_state,
+    write_friday_release_operator_checklist, write_friday_trusted_runner_release_package,
+    write_friday_trusted_runner_release_timeline, write_friday_trusted_host_live_runner_state,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -743,6 +747,88 @@ pub async fn execute(command: Command) -> Result<()> {
             print_friday_trusted_runner_release_timeline(&timeline);
         }
 
+        Command::FridayReleaseChecklist {
+            checklist_file,
+            package_file,
+            timeline_file,
+            export_dir,
+            todo_file,
+            changelog_file,
+            signoff_file,
+        } => {
+            let report = friday_release_operator_checklist_report(
+                resolve_repo_relative_path(&checklist_file),
+                resolve_repo_relative_path(&package_file),
+                resolve_repo_relative_path(&timeline_file),
+                resolve_repo_relative_path(&export_dir),
+                resolve_repo_relative_path(&todo_file),
+                resolve_repo_relative_path(&changelog_file),
+                resolve_repo_relative_path(&signoff_file),
+            );
+            write_friday_release_operator_checklist(
+                resolve_repo_relative_path(&checklist_file),
+                &report,
+            )?;
+            print_friday_release_operator_checklist(&report);
+        }
+
+        Command::FridayReleaseChecklistJson {
+            checklist_file,
+            package_file,
+            timeline_file,
+            export_dir,
+            todo_file,
+            changelog_file,
+            signoff_file,
+        } => {
+            let report = friday_release_operator_checklist_report(
+                resolve_repo_relative_path(&checklist_file),
+                resolve_repo_relative_path(&package_file),
+                resolve_repo_relative_path(&timeline_file),
+                resolve_repo_relative_path(&export_dir),
+                resolve_repo_relative_path(&todo_file),
+                resolve_repo_relative_path(&changelog_file),
+                resolve_repo_relative_path(&signoff_file),
+            );
+            println!("{}", report.to_pretty_json()?);
+        }
+
+        Command::FridayReleaseSignoff {
+            checklist_file,
+            signoff_file,
+            operator,
+            decision,
+            reason,
+        } => {
+            let decision = friday_release_signoff_decision(&decision)?;
+            let signoffs = append_friday_release_operator_signoff(
+                resolve_repo_relative_path(&checklist_file),
+                resolve_repo_relative_path(&signoff_file),
+                &operator,
+                decision,
+                &reason,
+            )?;
+            print_friday_release_signoffs(&signoffs);
+        }
+
+        Command::FridayReleaseSignoffJson {
+            checklist_file,
+            signoff_file,
+            operator,
+            decision,
+            reason,
+        } => {
+            let decision = friday_release_signoff_decision(&decision)?;
+            let signoffs = append_friday_release_operator_signoff(
+                resolve_repo_relative_path(&checklist_file),
+                resolve_repo_relative_path(&signoff_file),
+                &operator,
+                decision,
+                &reason,
+            )?;
+            println!("{}", serde_json::to_string_pretty(&signoffs)?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1228,6 +1314,14 @@ fn print_interactive_help() {
     println!("                           Show and write trusted runner release package timeline");
     println!("  --friday-trusted-runner-release-timeline-json [timeline-file] [--package file]");
     println!("                           Print trusted runner release package timeline as JSON");
+    println!("  --friday-release-checklist [export-dir] [--output file]");
+    println!("                           Write Friday release operator checklist JSON");
+    println!("  --friday-release-checklist-json [export-dir]");
+    println!("                           Print Friday release operator checklist as JSON");
+    println!("  --friday-release-signoff [checklist-file] [--reason text]");
+    println!("                           Append a local Friday release signoff record");
+    println!("  --friday-release-signoff-json [checklist-file] [--reason text]");
+    println!("                           Append a local Friday release signoff and print JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -2397,6 +2491,83 @@ fn print_friday_trusted_runner_release_timeline(timeline: &FridayTrustedRunnerRe
             );
             println!("    {}", diff.summary);
         }
+    }
+}
+
+fn print_friday_release_operator_checklist(report: &FridayReleaseOperatorChecklistReport) {
+    println!("Friday Release Operator Checklist");
+    println!("=================================");
+    println!("{}", report.summary);
+    println!("Ready to ship: {}", yes_no(report.ready_to_ship));
+    println!("Checklist: {}", report.checklist_json);
+    println!(
+        "Items: {}/{} ready | warnings: {} | blocking: {} | signoffs: {}",
+        report.ready_count,
+        report.total_count,
+        report.warning_count,
+        report.blocking_count,
+        report.signoff_count
+    );
+    println!();
+    println!("Blockers:");
+    if report.blockers.is_empty() {
+        println!("  - none");
+    } else {
+        for blocker in &report.blockers {
+            println!(
+                "  - {} [{}:{}]",
+                blocker.title,
+                blocker.category,
+                blocker.severity.label()
+            );
+            println!("    {}", blocker.detail);
+            println!("    next: {}", blocker.next_action);
+        }
+    }
+    println!();
+    println!("Checklist:");
+    for item in &report.checklist {
+        println!(
+            "  - {} ready={} ({})",
+            item.title,
+            yes_no(item.ready),
+            item.source_path
+        );
+        println!("    {}", item.detail);
+    }
+    println!();
+    println!("Commands:");
+    for command in &report.commands {
+        println!("  - {}", command);
+    }
+}
+
+fn print_friday_release_signoffs(signoffs: &[FridayReleaseChecklistSignoff]) {
+    println!("Friday Release Signoffs");
+    println!("=======================");
+    println!("Records: {}", signoffs.len());
+    for signoff in signoffs.iter().rev().take(5) {
+        println!(
+            "  - {} by {} for {}",
+            signoff.decision.label(),
+            signoff.operator,
+            signoff.checklist_id
+        );
+        println!("    {}", signoff.reason);
+    }
+}
+
+fn friday_release_signoff_decision(value: &str) -> Result<FridayReleaseChecklistSignoffDecision> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "approved" | "approve" | "ready" => Ok(FridayReleaseChecklistSignoffDecision::Approved),
+        "needs-changes" | "changes" | "needs_changes" => {
+            Ok(FridayReleaseChecklistSignoffDecision::NeedsChanges)
+        }
+        "blocked" | "block" => Ok(FridayReleaseChecklistSignoffDecision::Blocked),
+        other => anyhow::bail!(
+            "Unknown Friday release signoff decision `{}`. Use approved, needs-changes, or blocked.",
+            other
+        ),
     }
 }
 

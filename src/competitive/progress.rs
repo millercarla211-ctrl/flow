@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "runner-release-timeline-model",
-            "Typed trusted runner release timeline",
+            "release-checklist-model",
+            "Typed release operator checklist",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedRunnerReleaseTimeline` loads multiple package entries and keeps package count, latest package, readiness, blocker, and freshness metadata",
-            "open the next release operator checklist set",
+            "`FridayReleaseOperatorChecklistReport` consumes package, timeline, dashboard release review, TODO, changelog, and signoff evidence",
+            "open the next release QA command center set",
         ),
         item(
-            "runner-release-timeline-diffs",
-            "Package comparison and regression summaries",
+            "release-checklist-blockers",
+            "Release blocker categorization",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedRunnerReleaseTimelineDiff` compares evidence count, missing evidence, warnings, stale warnings, signature changes, and regression state",
-            "open the next release operator checklist set",
+            "the checklist classifies missing evidence, warning regressions, stale live state, pending runner work, release-review issues, and unreviewed TODO/changelog gaps",
+            "open the next release QA command center set",
         ),
         item(
-            "runner-release-timeline-cli",
-            "Archive and timeline CLI commands",
+            "release-checklist-cli",
+            "Checklist and signoff CLI commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-trusted-runner-release-archive`, `--friday-trusted-runner-release-timeline`, and the JSON timeline command append or review packages without host execution",
-            "open the next release operator checklist set",
+            "`flow --friday-release-checklist`, `--friday-release-checklist-json`, `--friday-release-signoff`, and the JSON signoff command create review reports and append local signoffs",
+            "open the next release QA command center set",
         ),
         item(
-            "runner-release-timeline-dashboard",
-            "Dashboard timeline import rendering",
+            "release-checklist-dashboard",
+            "Dashboard checklist rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports timeline JSON and renders latest package, package counts, regression warnings, and recent package rows",
-            "open the next release operator checklist set",
+            "the visible dashboard imports release checklist JSON, renders blockers/items/freshness copy, captures a signoff reason, and copies the signoff command",
+            "open the next release QA command center set",
         ),
         item(
-            "runner-release-timeline-tests",
-            "Timeline diff and smoke coverage",
+            "release-checklist-tests",
+            "Checklist and signoff coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage and dashboard smoke checks verify timeline loading, diff regressions, archive writes, and dashboard normalization",
-            "open the next release operator checklist set",
+            "focused Rust integration coverage and dashboard smoke checks verify checklist generation, blocker copy, signoff persistence, and UI normalization",
+            "open the next release QA command center set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Trusted Runner Evidence Timeline".to_string(),
+        name: "Friday Release Operator Checklist".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Make trusted-runner release packages comparable over time so operators can spot regressions, stale evidence, missing artifacts, and recurring command failures before shipping.".to_string(),
+        loop_rule: "Turn release package and evidence-timeline data into a concise operator checklist with explicit signoff, unresolved-blocker copy, and local-only audit history.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_trusted_runner_evidence_timeline_loop() {
+    fn active_set_tracks_friday_release_operator_checklist_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Trusted Runner Evidence Timeline");
+        assert_eq!(set.name, "Friday Release Operator Checklist");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

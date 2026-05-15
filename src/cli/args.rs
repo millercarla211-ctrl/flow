@@ -211,6 +211,42 @@ pub enum Command {
         timeline_file: String,
         package_files: Vec<String>,
     },
+    /// Generate a Friday release operator checklist from local evidence
+    FridayReleaseChecklist {
+        checklist_file: String,
+        package_file: String,
+        timeline_file: String,
+        export_dir: String,
+        todo_file: String,
+        changelog_file: String,
+        signoff_file: String,
+    },
+    /// Print a Friday release operator checklist as JSON
+    FridayReleaseChecklistJson {
+        checklist_file: String,
+        package_file: String,
+        timeline_file: String,
+        export_dir: String,
+        todo_file: String,
+        changelog_file: String,
+        signoff_file: String,
+    },
+    /// Append a local operator signoff for a Friday release checklist
+    FridayReleaseSignoff {
+        checklist_file: String,
+        signoff_file: String,
+        operator: String,
+        decision: String,
+        reason: String,
+    },
+    /// Append a local operator signoff and print signoffs as JSON
+    FridayReleaseSignoffJson {
+        checklist_file: String,
+        signoff_file: String,
+        operator: String,
+        decision: String,
+        reason: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -867,6 +903,68 @@ impl Args {
                     package_files,
                 }
             }
+            "--friday-release-checklist" | "--friday-operator-release-checklist" => {
+                let (
+                    checklist_file,
+                    package_file,
+                    timeline_file,
+                    export_dir,
+                    todo_file,
+                    changelog_file,
+                    signoff_file,
+                ) = parse_friday_release_checklist_args(&args);
+                Command::FridayReleaseChecklist {
+                    checklist_file,
+                    package_file,
+                    timeline_file,
+                    export_dir,
+                    todo_file,
+                    changelog_file,
+                    signoff_file,
+                }
+            }
+            "--friday-release-checklist-json" | "--friday-operator-release-checklist-json" => {
+                let (
+                    checklist_file,
+                    package_file,
+                    timeline_file,
+                    export_dir,
+                    todo_file,
+                    changelog_file,
+                    signoff_file,
+                ) = parse_friday_release_checklist_args(&args);
+                Command::FridayReleaseChecklistJson {
+                    checklist_file,
+                    package_file,
+                    timeline_file,
+                    export_dir,
+                    todo_file,
+                    changelog_file,
+                    signoff_file,
+                }
+            }
+            "--friday-release-signoff" | "--friday-operator-release-signoff" => {
+                let (checklist_file, signoff_file, operator, decision, reason) =
+                    parse_friday_release_signoff_args(&args);
+                Command::FridayReleaseSignoff {
+                    checklist_file,
+                    signoff_file,
+                    operator,
+                    decision,
+                    reason,
+                }
+            }
+            "--friday-release-signoff-json" | "--friday-operator-release-signoff-json" => {
+                let (checklist_file, signoff_file, operator, decision, reason) =
+                    parse_friday_release_signoff_args(&args);
+                Command::FridayReleaseSignoffJson {
+                    checklist_file,
+                    signoff_file,
+                    operator,
+                    decision,
+                    reason,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -1428,6 +1526,52 @@ fn parse_friday_trusted_runner_release_timeline_args(args: &[String]) -> (String
         .chain(positional_packages)
         .collect::<Vec<_>>();
     (timeline_file, package_files)
+}
+
+fn parse_friday_release_checklist_args(
+    args: &[String],
+) -> (String, String, String, String, String, String, String) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let checklist_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--checklist"))
+        .unwrap_or_else(|| format!("{export_dir}/release-operator-checklist.json"));
+    let package_file = flag_value(args, "--package")
+        .unwrap_or_else(|| format!("{export_dir}/trusted-runner-release-package.json"));
+    let timeline_file = flag_value(args, "--timeline")
+        .unwrap_or_else(|| format!("{export_dir}/trusted-runner-release-timeline.json"));
+    let todo_file = flag_value(args, "--todo").unwrap_or_else(|| "TODO.md".to_string());
+    let changelog_file =
+        flag_value(args, "--changelog").unwrap_or_else(|| "CHANGELOG.md".to_string());
+    let signoff_file = flag_value(args, "--signoffs")
+        .unwrap_or_else(|| format!("{export_dir}/release-signoffs.json"));
+    (
+        checklist_file,
+        package_file,
+        timeline_file,
+        export_dir,
+        todo_file,
+        changelog_file,
+        signoff_file,
+    )
+}
+
+fn parse_friday_release_signoff_args(args: &[String]) -> (String, String, String, String, String) {
+    let checklist_file = flag_value(args, "--checklist")
+        .or_else(|| args.get(2).filter(|value| !value.starts_with("--")).cloned())
+        .unwrap_or_else(|| "tmp/friday-dashboard/release-operator-checklist.json".to_string());
+    let signoff_file = flag_value(args, "--signoffs")
+        .unwrap_or_else(|| "tmp/friday-dashboard/release-signoffs.json".to_string());
+    let operator = flag_value(args, "--operator").unwrap_or_else(|| "operator".to_string());
+    let decision = flag_value(args, "--decision").unwrap_or_else(|| "approved".to_string());
+    let reason = flag_value(args, "--reason").unwrap_or_else(|| {
+        "Operator reviewed the local release checklist evidence.".to_string()
+    });
+    (checklist_file, signoff_file, operator, decision, reason)
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

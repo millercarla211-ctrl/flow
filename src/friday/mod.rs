@@ -1,6 +1,7 @@
 pub mod artifacts;
 pub mod checks;
 pub mod dashboard_export;
+pub mod dashboard_release_checklist;
 pub mod dashboard_host_bridge;
 pub mod dashboard_host_runner;
 pub mod dashboard_product_ui;
@@ -19,6 +20,7 @@ pub mod workspace;
 pub use artifacts::*;
 pub use checks::*;
 pub use dashboard_export::*;
+pub use dashboard_release_checklist::*;
 pub use dashboard_host_bridge::*;
 pub use dashboard_host_runner::*;
 pub use dashboard_product_ui::*;
