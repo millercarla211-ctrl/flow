@@ -14,6 +14,7 @@ import {
   normalizeReleaseEvidenceAttachmentReview,
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
+  normalizeReleaseHandoffPacket,
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
   normalizeReleaseOwnerFollowUpBoard,
@@ -2298,6 +2299,98 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-evidence-attachment-review-json --output tmp/friday-dashboard/release-evidence-attachment-review.json --vault tmp/friday-dashboard/release-checkpoint-evidence-vault.json",
     ],
   });
+  const releaseHandoffPacket = normalizeReleaseHandoffPacket({
+    packet_id: "friday-release-handoff-packet-smoke",
+    packet_json: "tmp/friday-dashboard/release-handoff-packet.json",
+    generated_at_unix_ms: 23,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    ready_to_send: false,
+    attachment_review_id: "friday-release-evidence-attachment-review-smoke",
+    attachment_review_json: "tmp/friday-dashboard/release-evidence-attachment-review.json",
+    manifest_sha256: "smoke-vault-checksum",
+    section_count: 5,
+    included_count: 4,
+    attachable_file_count: 2,
+    inline_note_count: 1,
+    unresolved_blocker_count: 1,
+    checksum_count: 1,
+    missing_count: 1,
+    first_blocker: "Resolve blocking evidence for Acknowledgement evidence before release handoff.",
+    sections: [
+      {
+        id: "operator-summary",
+        kind: "operator-summary",
+        title: "Operator summary",
+        body: "Friday release evidence attachment review has 4 item(s), 2 attachable, 1 missing, 1 inline-only, 0 checksum-missing, and 1 blocked.",
+        path: "tmp/friday-dashboard/release-evidence-attachment-review.json",
+        source_id: "friday-release-evidence-attachment-review-smoke",
+        required: true,
+        included: true,
+        checksum: null,
+        next_action: "Resolve unresolved blockers before sending this handoff packet.",
+      },
+      {
+        id: "manifest-checksum",
+        kind: "manifest-checksum",
+        title: "Manifest checksum",
+        body: "smoke-vault-checksum",
+        path: "tmp/friday-dashboard/release-checkpoint-evidence-vault.json",
+        source_id: "friday-release-checkpoint-evidence-vault-smoke",
+        required: true,
+        included: true,
+        checksum: "smoke-vault-checksum",
+        next_action: "Include this checksum in the operator handoff note.",
+      },
+      {
+        id: "unresolved-blocker-attachment-review-acknowledgement-evidence-smoke",
+        kind: "unresolved-blocker",
+        title: "Acknowledgement evidence",
+        body: "Required evidence is missing: Acknowledgement evidence.",
+        path: "",
+        source_id: "friday-release-checkpoint-signoff-friday-release-checkpoint-review-smoke-20",
+        required: true,
+        included: false,
+        checksum: null,
+        next_action: "Resolve blocking evidence for Acknowledgement evidence before release handoff.",
+      },
+      {
+        id: "attachable-file-attachment-review-checkpoint-review-json",
+        kind: "attachable-file",
+        title: "Checkpoint review JSON",
+        body: "Release checkpoint review board used for this vault.",
+        path: "tmp/friday-dashboard/release-checkpoint-review.json",
+        source_id: "friday-release-checkpoint-review-smoke",
+        required: true,
+        included: true,
+        checksum: "review-checksum",
+        next_action: "Attach tmp/friday-dashboard/release-checkpoint-review.json to the release handoff.",
+      },
+      {
+        id: "inline-note-attachment-review-checkpoint-release-notes",
+        kind: "inline-note",
+        title: "Checkpoint release notes",
+        body: "Copyable release notes generated from checkpoint signoff history.",
+        path: "inline://release-notes/checkpoint-signoff-ledger",
+        source_id: "friday-release-checkpoint-signoff-ledger-smoke",
+        required: true,
+        included: true,
+        checksum: "release-notes-checksum",
+        next_action: "Review inline note Checkpoint release notes and paste it into the handoff.",
+      },
+    ],
+    file_checklist_copy:
+      "Friday release handoff file checklist\n- [ ] Checkpoint review JSON -> tmp/friday-dashboard/release-checkpoint-review.json (review-checksum)",
+    handoff_packet_copy:
+      "Friday release handoff packet: tmp/friday-dashboard/release-handoff-packet.json\nStatus: blocked before send\nManifest checksum: smoke-vault-checksum\nUnresolved blockers:\n- Acknowledgement evidence -> Resolve blocking evidence for Acknowledgement evidence before release handoff.",
+    summary:
+      "Friday release handoff packet has 5 section(s), 2 attachable file(s), 1 inline note(s), 1 unresolved blocker(s), and 1 checksum section(s).",
+    commands: [
+      "flow --friday-release-handoff-packet --output tmp/friday-dashboard/release-handoff-packet.json --attachment-review tmp/friday-dashboard/release-evidence-attachment-review.json",
+      "flow --friday-release-handoff-packet-json --output tmp/friday-dashboard/release-handoff-packet.json --attachment-review tmp/friday-dashboard/release-evidence-attachment-review.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -2960,6 +3053,35 @@ export function dashboardSectionSmokeReport(
           command.includes("--friday-release-evidence-attachment-review"),
         ),
       `${releaseEvidenceAttachmentReview?.releaseGateBlockingCount ?? 0} attachment gate blocker(s)`,
+    ),
+    check(
+      "release-handoff-packet-importable",
+      releaseHandoffPacket?.sectionCount === 5 &&
+        releaseHandoffPacket.attachableFileCount === 2 &&
+        releaseHandoffPacket.unresolvedBlockerCount === 1,
+      `${releaseHandoffPacket?.sectionCount ?? 0} handoff packet section(s)`,
+    ),
+    check(
+      "release-handoff-packet-copy",
+      releaseHandoffPacket !== null &&
+        releaseHandoffPacket.sections.some(
+          (section) => section.kind === "attachable-file" && section.included,
+        ) &&
+        releaseHandoffPacket.sections.some(
+          (section) =>
+            section.kind === "unresolved-blocker" &&
+            section.nextAction.includes("Resolve blocking evidence"),
+        ) &&
+        releaseHandoffPacket.fileChecklistCopy.includes(
+          "Friday release handoff file checklist",
+        ) &&
+        releaseHandoffPacket.handoffPacketCopy.includes(
+          "Friday release handoff packet",
+        ) &&
+        releaseHandoffPacket.commands.some((command) =>
+          command.includes("--friday-release-handoff-packet"),
+        ),
+      `${releaseHandoffPacket?.unresolvedBlockerCount ?? 0} handoff packet blocker(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

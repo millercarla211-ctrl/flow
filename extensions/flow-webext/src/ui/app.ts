@@ -11,6 +11,7 @@ import {
   normalizeReleaseEvidenceAttachmentReview,
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
+  normalizeReleaseHandoffPacket,
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
   normalizeReleaseOwnerFollowUpBoard,
@@ -52,6 +53,7 @@ import {
   type FlowReleaseEvidenceAttachmentReview,
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseEvidenceSlaMonitorReport,
+  type FlowReleaseHandoffPacket,
   type FlowReleaseIncidentArchive,
   type FlowReleaseOperatorChecklistReport,
   type FlowReleaseOwnerFollowUpBoardReport,
@@ -124,6 +126,7 @@ type UiState = {
   dashboardReleaseCheckpointSignoffLedger: FlowReleaseCheckpointSignoffLedger | null;
   dashboardReleaseCheckpointEvidenceVault: FlowReleaseCheckpointEvidenceVault | null;
   dashboardReleaseEvidenceAttachmentReview: FlowReleaseEvidenceAttachmentReview | null;
+  dashboardReleaseHandoffPacket: FlowReleaseHandoffPacket | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -2686,6 +2689,69 @@ function renderReleaseEvidenceAttachmentReview(
   `;
 }
 
+function renderReleaseHandoffPacket(packet: FlowReleaseHandoffPacket | null) {
+  if (!packet) {
+    return "";
+  }
+
+  const status =
+    !packet.readyToSend || packet.unresolvedBlockerCount > 0 || packet.missingCount > 0
+      ? "blocked"
+      : packet.inlineNoteCount > 0
+        ? "warning"
+        : "ready";
+
+  return `
+    <article class="feature-card dashboard-release-handoff-packet">
+      <div class="card-topline">
+        <span class="eyebrow">Release handoff packet</span>
+        <span class="badge ${badgeTone(status)}">${packet.readyToSend ? "ready" : "blocked"}</span>
+      </div>
+      <h3>${packet.readyToSend ? "Release handoff is ready" : "Release handoff needs work"}</h3>
+      <p>${escapeHtml(packet.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${packet.sectionCount}</strong><small>sections</small></span>
+        <span><strong>${packet.attachableFileCount}</strong><small>files</small></span>
+        <span><strong>${packet.inlineNoteCount}</strong><small>notes</small></span>
+        <span><strong>${packet.unresolvedBlockerCount}</strong><small>blockers</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Included</strong> ${packet.includedCount}</span>
+        <span><strong>Missing</strong> ${packet.missingCount}</span>
+        <span><strong>Manifest</strong> ${escapeHtml(packet.manifestSha256.slice(0, 16))}</span>
+        <span><strong>Packet</strong> ${escapeHtml(packet.packetJson)}</span>
+      </div>
+      ${packet.firstBlocker ? `<p class="soft-warning">${escapeHtml(packet.firstBlocker)}</p>` : ""}
+      <div class="runner-package-files">
+        ${packet.sections
+          .slice(0, 8)
+          .map(
+            (section) => `
+              <div class="runner-package-file ${section.included ? "present" : "missing"}">
+                <strong>${escapeHtml(section.title)}</strong>
+                <small>${escapeHtml(section.kind)}</small>
+                <code>${escapeHtml(section.path || "inline")}</code>
+                <span>${escapeHtml(section.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-packet-command">
+          Copy packet command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-packet-copy">
+          Copy handoff packet
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-file-checklist">
+          Copy file checklist
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2912,6 +2978,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseCheckpointSignoffLedger(state.dashboardReleaseCheckpointSignoffLedger)}
       ${renderReleaseCheckpointEvidenceVault(state.dashboardReleaseCheckpointEvidenceVault)}
       ${renderReleaseEvidenceAttachmentReview(state.dashboardReleaseEvidenceAttachmentReview)}
+      ${renderReleaseHandoffPacket(state.dashboardReleaseHandoffPacket)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3057,6 +3124,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseCheckpointSignoffLedger: null,
     dashboardReleaseCheckpointEvidenceVault: null,
     dashboardReleaseEvidenceAttachmentReview: null,
+    dashboardReleaseHandoffPacket: null,
   };
 
   function render() {
@@ -3375,6 +3443,7 @@ export async function mountFlowApp(surfaceInput: string) {
         normalizeReleaseCheckpointEvidenceVault(parsed);
       const releaseEvidenceAttachmentReview =
         normalizeReleaseEvidenceAttachmentReview(parsed);
+      const releaseHandoffPacket = normalizeReleaseHandoffPacket(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -3426,8 +3495,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseCheckpointEvidenceVault ?? state.dashboardReleaseCheckpointEvidenceVault;
       state.dashboardReleaseEvidenceAttachmentReview =
         releaseEvidenceAttachmentReview ?? state.dashboardReleaseEvidenceAttachmentReview;
+      state.dashboardReleaseHandoffPacket =
+        releaseHandoffPacket ?? state.dashboardReleaseHandoffPacket;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseEvidenceAttachmentReview
+      state.status = releaseHandoffPacket
+        ? `Imported release handoff packet with ${releaseHandoffPacket.sectionCount} section(s) from ${file.name}.`
+        : releaseEvidenceAttachmentReview
         ? `Imported evidence attachment review with ${releaseEvidenceAttachmentReview.itemCount} item(s) from ${file.name}.`
         : releaseCheckpointEvidenceVault
         ? `Imported checkpoint evidence vault with ${releaseCheckpointEvidenceVault.entryCount} entries from ${file.name}.`
@@ -4173,6 +4246,54 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseHandoffPacketCommand() {
+    const command = state.dashboardReleaseHandoffPacket?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release handoff packet command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release handoff packet command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseHandoffPacket() {
+    const copy = state.dashboardReleaseHandoffPacket?.handoffPacketCopy ?? "";
+    if (!copy) {
+      state.status = "No release handoff packet copy is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release handoff packet copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
+  async function copyReleaseHandoffFileChecklist() {
+    const copy = state.dashboardReleaseHandoffPacket?.fileChecklistCopy ?? "";
+    if (!copy) {
+      state.status = "No release handoff file checklist is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release handoff file checklist copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -4497,6 +4618,24 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-evidence-attachment-review-notes']")
       ?.addEventListener("click", () => {
         void copyReleaseEvidenceAttachmentReviewNotes();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-packet-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffPacketCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-packet-copy']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffPacket();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-file-checklist']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffFileChecklist();
       });
 
     mountRoot

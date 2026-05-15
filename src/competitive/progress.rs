@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-evidence-attachment-review-model",
-            "Typed release evidence attachment review model",
+            "release-handoff-packet-model",
+            "Typed release handoff packet model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseEvidenceAttachmentReview` consumes checkpoint evidence vaults and classifies handoff attachments",
-            "open the next Friday release handoff packet set",
+            "`FridayReleaseHandoffPacket` consumes evidence attachment reviews and creates a final local operator packet",
+            "open the next Friday release handoff audit trail set",
         ),
         item(
-            "release-evidence-attachment-review-states",
-            "Ready, missing, inline-only, checksum-missing, and blocked attachability states",
+            "release-handoff-packet-sections",
+            "Operator summary, attachable file, inline note, unresolved blocker, and checksum sections",
             20,
             CompletionItemStatus::Done,
-            "attachment review items preserve attachability state, gate blocking, source ids, checksums, and next actions",
-            "open the next Friday release handoff packet set",
+            "handoff sections preserve source ids, paths, required flags, inclusion state, checksums, and next actions",
+            "open the next Friday release handoff audit trail set",
         ),
         item(
-            "release-evidence-attachment-review-cli",
-            "Evidence attachment review CLI and JSON commands",
+            "release-handoff-packet-cli",
+            "Release handoff packet CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-evidence-attachment-review` writes local review JSON without uploading, deploying, building, or mutating external systems",
-            "open the next Friday release handoff packet set",
+            "`flow --friday-release-handoff-packet` writes local packet JSON without uploading, deploying, building, or mutating external systems",
+            "open the next Friday release handoff audit trail set",
         ),
         item(
-            "release-evidence-attachment-review-dashboard",
-            "Dashboard attachment review rendering",
+            "release-handoff-packet-dashboard",
+            "Dashboard handoff packet rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports attachment reviews and renders attachable files, inline notes, blockers, manifest checksum, and copyable handoff notes",
-            "open the next Friday release handoff packet set",
+            "the visible dashboard imports handoff packets and renders readiness, blockers, attachable files, inline notes, copyable packet text, and file checklist copy",
+            "open the next Friday release handoff audit trail set",
         ),
         item(
-            "release-evidence-attachment-review-coverage",
-            "Evidence attachment review Rust and TypeScript coverage",
+            "release-handoff-packet-coverage",
+            "Release handoff packet Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify attachability states, warning copy, command safety, and dashboard rendering",
-            "open the next Friday release handoff packet set",
+            "focused Rust integration coverage plus dashboard smoke checks verify packet assembly, blocker preservation, copy text, command safety, and dashboard rendering",
+            "open the next Friday release handoff audit trail set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Evidence Attachment Review".to_string(),
+        name: "Friday Release Handoff Packet".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Review Friday checkpoint evidence vault attachments before handoff so operators know which files are attachable, inline-only, missing, or blocked.".to_string(),
+        loop_rule: "Assemble Friday release attachment reviews into a final local handoff packet with operator summary, attachable files, inline notes, unresolved blockers, and manifest checksums.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_evidence_attachment_review_loop() {
+    fn active_set_tracks_friday_release_handoff_packet_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Evidence Attachment Review");
+        assert_eq!(set.name, "Friday Release Handoff Packet");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

@@ -1502,6 +1502,52 @@ export interface FlowReleaseEvidenceAttachmentReview {
   commands: string[];
 }
 
+export type FlowReleaseHandoffPacketSectionKind =
+  | "operator-summary"
+  | "attachable-file"
+  | "inline-note"
+  | "unresolved-blocker"
+  | "manifest-checksum";
+
+export interface FlowReleaseHandoffPacketSection {
+  id: string;
+  kind: FlowReleaseHandoffPacketSectionKind;
+  title: string;
+  body: string;
+  path: string;
+  sourceId: string;
+  required: boolean;
+  included: boolean;
+  checksum: string | null;
+  nextAction: string;
+}
+
+export interface FlowReleaseHandoffPacket {
+  packetId: string;
+  packetJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  readyToSend: boolean;
+  attachmentReviewId: string;
+  attachmentReviewJson: string;
+  manifestSha256: string;
+  sectionCount: number;
+  includedCount: number;
+  attachableFileCount: number;
+  inlineNoteCount: number;
+  unresolvedBlockerCount: number;
+  checksumCount: number;
+  missingCount: number;
+  firstBlocker: string | null;
+  sections: FlowReleaseHandoffPacketSection[];
+  fileChecklistCopy: string;
+  handoffPacketCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -4663,6 +4709,86 @@ export function normalizeReleaseEvidenceAttachmentReview(
   };
 }
 
+export function normalizeReleaseHandoffPacket(value: unknown): FlowReleaseHandoffPacket | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const packet =
+    root.release_handoff_packet && typeof root.release_handoff_packet === "object"
+      ? (root.release_handoff_packet as Record<string, unknown>)
+      : root.releaseHandoffPacket && typeof root.releaseHandoffPacket === "object"
+        ? (root.releaseHandoffPacket as Record<string, unknown>)
+        : root;
+  const packetId = stringValue(packet.packet_id, packet.packetId);
+  const sections = arrayValue(packet.sections)
+    .map((item): FlowReleaseHandoffPacketSection | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const section = item as Record<string, unknown>;
+      const id = stringValue(section.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        kind: releaseHandoffPacketSectionKind(stringValue(section.kind)),
+        title: stringValue(section.title),
+        body: stringValue(section.body),
+        path: stringValue(section.path),
+        sourceId: stringValue(section.source_id, section.sourceId),
+        required: booleanValue(section.required),
+        included: booleanValue(section.included),
+        checksum: stringValue(section.checksum) || null,
+        nextAction: stringValue(section.next_action, section.nextAction),
+      };
+    })
+    .filter((section): section is FlowReleaseHandoffPacketSection => section !== null);
+
+  if (!packetId && sections.length === 0) {
+    return null;
+  }
+
+  return {
+    packetId,
+    packetJson: stringValue(packet.packet_json, packet.packetJson),
+    generatedAtUnixMs: stringValue(packet.generated_at_unix_ms, packet.generatedAtUnixMs),
+    productName: stringValue(packet.product_name, packet.productName),
+    localOnly: booleanValue(packet.local_only, packet.localOnly),
+    status: panelStatus(stringValue(packet.status)),
+    readyToSend: booleanValue(packet.ready_to_send, packet.readyToSend),
+    attachmentReviewId: stringValue(packet.attachment_review_id, packet.attachmentReviewId),
+    attachmentReviewJson: stringValue(
+      packet.attachment_review_json,
+      packet.attachmentReviewJson,
+    ),
+    manifestSha256: stringValue(packet.manifest_sha256, packet.manifestSha256),
+    sectionCount: numberValue(packet.section_count, packet.sectionCount),
+    includedCount: numberValue(packet.included_count, packet.includedCount),
+    attachableFileCount: numberValue(
+      packet.attachable_file_count,
+      packet.attachableFileCount,
+    ),
+    inlineNoteCount: numberValue(packet.inline_note_count, packet.inlineNoteCount),
+    unresolvedBlockerCount: numberValue(
+      packet.unresolved_blocker_count,
+      packet.unresolvedBlockerCount,
+    ),
+    checksumCount: numberValue(packet.checksum_count, packet.checksumCount),
+    missingCount: numberValue(packet.missing_count, packet.missingCount),
+    firstBlocker: stringValue(packet.first_blocker, packet.firstBlocker) || null,
+    sections,
+    fileChecklistCopy: stringValue(packet.file_checklist_copy, packet.fileChecklistCopy),
+    handoffPacketCopy: stringValue(packet.handoff_packet_copy, packet.handoffPacketCopy),
+    summary: stringValue(packet.summary),
+    commands: arrayValue(packet.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -5101,6 +5227,19 @@ function releaseEvidenceAttachmentState(value: string): FlowReleaseEvidenceAttac
     return value;
   }
   return "missing";
+}
+
+function releaseHandoffPacketSectionKind(value: string): FlowReleaseHandoffPacketSectionKind {
+  if (
+    value === "operator-summary" ||
+    value === "attachable-file" ||
+    value === "inline-note" ||
+    value === "unresolved-blocker" ||
+    value === "manifest-checksum"
+  ) {
+    return value;
+  }
+  return "unresolved-blocker";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

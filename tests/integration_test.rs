@@ -31,20 +31,20 @@ use flow::friday::{
     FridayReleaseDeploymentTarget, FridayReleaseEscalationGateOutcome,
     FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceAttachmentState,
     FridayReleaseEvidenceEscalationLevel, FridayReleaseEvidenceSlaState,
-    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
-    FridayReleaseOwnerFollowUpCompletionState, FridayReleasePreventionActionKind,
-    FridayReleasePreventionFindingKind, FridayReleasePromotionDecision,
-    FridayReleasePromotionRecordRequest, FridayReleaseQaCheckStatus, FridayResearchWorkflow,
-    FridayRouteVisualStatus, FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor,
-    FridayTrustedHostCommandRawOutput, FridayTrustedHostLiveRunnerRecord,
-    FridayTrustedHostLiveRunnerStatus, FridayTrustedHostRunnerCancellationToken,
-    FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerRequest,
-    FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
-    FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
-    append_friday_release_candidate_to_archive, append_friday_release_checkpoint_signoff_to_ledger,
-    append_friday_release_escalation_to_ledger, append_friday_release_incident_to_archive,
-    append_friday_release_operator_signoff, append_friday_release_promotion_to_ledger,
-    append_friday_trusted_host_runner_history,
+    FridayReleaseHandoffPacketSectionKind, FridayReleaseIncidentOutcome,
+    FridayReleaseIncidentSeverity, FridayReleaseOwnerFollowUpCompletionState,
+    FridayReleasePreventionActionKind, FridayReleasePreventionFindingKind,
+    FridayReleasePromotionDecision, FridayReleasePromotionRecordRequest,
+    FridayReleaseQaCheckStatus, FridayResearchWorkflow, FridayRouteVisualStatus,
+    FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
+    FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
+    FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
+    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
+    FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus, FridayVerificationStatus,
+    FridayWorkspaceStore, append_friday_release_candidate_to_archive,
+    append_friday_release_checkpoint_signoff_to_ledger, append_friday_release_escalation_to_ledger,
+    append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
+    append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -59,13 +59,14 @@ use flow::friday::{
     friday_release_candidate_entry_from_gate, friday_release_checkpoint_evidence_vault_report,
     friday_release_checkpoint_review_board_report, friday_release_deployment_gate_report,
     friday_release_evidence_attachment_review_report, friday_release_evidence_export_kit_report,
-    friday_release_evidence_sla_monitor_report_at, friday_release_incident_archive_report,
-    friday_release_incident_entry_from_sources, friday_release_operator_checklist_report,
-    friday_release_owner_followup_board_report_at, friday_release_post_promotion_monitor_report,
-    friday_release_prevention_plan_report, friday_release_qa_command_center_report,
-    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
-    friday_release_stability_board_report, friday_route_visual_report,
-    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
+    friday_release_evidence_sla_monitor_report_at, friday_release_handoff_packet_report,
+    friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
+    friday_release_operator_checklist_report, friday_release_owner_followup_board_report_at,
+    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
+    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
+    friday_release_rollback_drill_report, friday_release_stability_board_report,
+    friday_route_visual_report, friday_route_visual_report_for_root,
+    friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -77,8 +78,8 @@ use flow::friday::{
     write_friday_release_checkpoint_evidence_vault,
     write_friday_release_checkpoint_review_board_report, write_friday_release_deployment_gate,
     write_friday_release_evidence_attachment_review, write_friday_release_evidence_export_kit,
-    write_friday_release_evidence_sla_monitor_report, write_friday_release_operator_checklist,
-    write_friday_release_owner_followup_board_report,
+    write_friday_release_evidence_sla_monitor_report, write_friday_release_handoff_packet,
+    write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_qa_command_center_report,
     write_friday_release_recovery_runbook_report, write_friday_release_rollback_drill_report,
@@ -2637,6 +2638,53 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert!(evidence_attachment_review.commands.iter().any(|command| {
         command.contains("--friday-release-evidence-attachment-review")
             && command.contains("--vault")
+    }));
+    let release_handoff_packet_path = root.join("release-handoff-packet.json");
+    let release_handoff_packet = friday_release_handoff_packet_report(
+        &release_handoff_packet_path,
+        &evidence_attachment_review_path,
+    );
+    write_friday_release_handoff_packet(&release_handoff_packet_path, &release_handoff_packet)
+        .unwrap();
+    assert!(!release_handoff_packet.ready_to_send);
+    assert_eq!(
+        release_handoff_packet.attachment_review_id,
+        evidence_attachment_review.review_id
+    );
+    assert_eq!(
+        release_handoff_packet.manifest_sha256,
+        evidence_attachment_review.manifest_sha256
+    );
+    assert!(release_handoff_packet.section_count >= evidence_attachment_review.item_count);
+    assert!(release_handoff_packet.attachable_file_count > 0);
+    assert!(release_handoff_packet.inline_note_count > 0);
+    assert!(release_handoff_packet.unresolved_blocker_count > 0);
+    assert!(release_handoff_packet.missing_count > 0);
+    assert!(release_handoff_packet.sections.iter().any(|section| {
+        section.kind == FridayReleaseHandoffPacketSectionKind::AttachableFile
+            && section.included
+            && section.checksum.is_some()
+    }));
+    assert!(release_handoff_packet.sections.iter().any(|section| {
+        section.kind == FridayReleaseHandoffPacketSectionKind::InlineNote && section.included
+    }));
+    assert!(release_handoff_packet.sections.iter().any(|section| {
+        section.kind == FridayReleaseHandoffPacketSectionKind::UnresolvedBlocker
+            && !section.included
+    }));
+    assert!(
+        release_handoff_packet
+            .file_checklist_copy
+            .contains("Friday release handoff file checklist")
+    );
+    assert!(
+        release_handoff_packet
+            .handoff_packet_copy
+            .contains("Friday release handoff packet")
+    );
+    assert!(release_handoff_packet.commands.iter().any(|command| {
+        command.contains("--friday-release-handoff-packet")
+            && command.contains("--attachment-review")
     }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
