@@ -34,15 +34,15 @@ use crate::friday::{
     FridayReleaseCheckpointSignoffRequest, FridayReleaseDeploymentGateReport,
     FridayReleaseDeploymentTarget, FridayReleaseEscalationGateOutcome,
     FridayReleaseEscalationLedger, FridayReleaseEscalationOwnerResponse,
-    FridayReleaseEvidenceExportKitReport, FridayReleaseEvidenceSlaMonitorReport,
-    FridayReleaseIncidentArchive, FridayReleaseIncidentOutcome,
-    FridayReleaseOperatorChecklistReport, FridayReleaseOwnerFollowUpBoardReport,
-    FridayReleasePostPromotionMonitorReport, FridayReleasePreventionPlanReport,
-    FridayReleasePromotionDecision, FridayReleasePromotionLedger,
-    FridayReleasePromotionRecordRequest, FridayReleaseQaCommandCenterReport,
-    FridayReleaseRecoveryRunbookReport, FridayReleaseRollbackDrillReport,
-    FridayReleaseStabilityBoardReport, FridayResearchReport, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleaseEvidenceAttachmentReview, FridayReleaseEvidenceExportKitReport,
+    FridayReleaseEvidenceSlaMonitorReport, FridayReleaseIncidentArchive,
+    FridayReleaseIncidentOutcome, FridayReleaseOperatorChecklistReport,
+    FridayReleaseOwnerFollowUpBoardReport, FridayReleasePostPromotionMonitorReport,
+    FridayReleasePreventionPlanReport, FridayReleasePromotionDecision,
+    FridayReleasePromotionLedger, FridayReleasePromotionRecordRequest,
+    FridayReleaseQaCommandCenterReport, FridayReleaseRecoveryRunbookReport,
+    FridayReleaseRollbackDrillReport, FridayReleaseStabilityBoardReport, FridayResearchReport,
+    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
@@ -66,13 +66,14 @@ use crate::friday::{
     friday_release_checkpoint_review_board_report, friday_release_checkpoint_signoff_ledger_report,
     friday_release_checkpoint_signoff_record_from_review, friday_release_deployment_gate_report,
     friday_release_escalation_entries_from_monitor, friday_release_escalation_ledger_report,
-    friday_release_evidence_export_kit_report, friday_release_evidence_sla_monitor_report,
-    friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
-    friday_release_operator_checklist_report, friday_release_owner_followup_board_report,
-    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
-    friday_release_promotion_ledger_report, friday_release_qa_command_center_report,
-    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
-    friday_release_stability_board_report, friday_research_search_plan, friday_route_visual_report,
+    friday_release_evidence_attachment_review_report, friday_release_evidence_export_kit_report,
+    friday_release_evidence_sla_monitor_report, friday_release_incident_archive_report,
+    friday_release_incident_entry_from_sources, friday_release_operator_checklist_report,
+    friday_release_owner_followup_board_report, friday_release_post_promotion_monitor_report,
+    friday_release_prevention_plan_report, friday_release_promotion_ledger_report,
+    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
+    friday_release_rollback_drill_report, friday_release_stability_board_report,
+    friday_research_search_plan, friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
@@ -86,9 +87,10 @@ use crate::friday::{
     run_friday_vlm_contract, write_friday_release_checkpoint_evidence_vault,
     write_friday_release_checkpoint_review_board_report,
     write_friday_release_checkpoint_signoff_ledger, write_friday_release_deployment_gate,
-    write_friday_release_escalation_ledger, write_friday_release_evidence_export_kit,
-    write_friday_release_evidence_sla_monitor_report, write_friday_release_incident_archive,
-    write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
+    write_friday_release_escalation_ledger, write_friday_release_evidence_attachment_review,
+    write_friday_release_evidence_export_kit, write_friday_release_evidence_sla_monitor_report,
+    write_friday_release_incident_archive, write_friday_release_operator_checklist,
+    write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_qa_command_center_report,
     write_friday_release_recovery_runbook_report, write_friday_release_rollback_drill_report,
@@ -1647,6 +1649,32 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", vault.to_pretty_json()?);
         }
 
+        Command::FridayReleaseEvidenceAttachmentReview {
+            review_file,
+            vault_file,
+        } => {
+            let review = friday_release_evidence_attachment_review_report(
+                resolve_repo_relative_path(&review_file),
+                resolve_repo_relative_path(&vault_file),
+            );
+            write_friday_release_evidence_attachment_review(
+                resolve_repo_relative_path(&review_file),
+                &review,
+            )?;
+            print_friday_release_evidence_attachment_review(&review);
+        }
+
+        Command::FridayReleaseEvidenceAttachmentReviewJson {
+            review_file,
+            vault_file,
+        } => {
+            let review = friday_release_evidence_attachment_review_report(
+                resolve_repo_relative_path(&review_file),
+                resolve_repo_relative_path(&vault_file),
+            );
+            println!("{}", review.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -2226,6 +2254,10 @@ fn print_interactive_help() {
     );
     println!("  --friday-release-checkpoint-evidence-vault-json [export-dir]");
     println!("                           Print checkpoint evidence vault as JSON");
+    println!("  --friday-release-evidence-attachment-review [export-dir]");
+    println!("                           Write evidence attachment review JSON without uploading");
+    println!("  --friday-release-evidence-attachment-review-json [export-dir]");
+    println!("                           Print evidence attachment review as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -4419,6 +4451,46 @@ fn print_friday_release_checkpoint_evidence_vault(vault: &FridayReleaseCheckpoin
     println!();
     println!("Commands:");
     for command in &vault.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_evidence_attachment_review(review: &FridayReleaseEvidenceAttachmentReview) {
+    println!("Friday Release Evidence Attachment Review");
+    println!("=========================================");
+    println!(
+        "Ready for handoff: {} | items: {} | attachable: {} | missing: {} | blocked: {}",
+        yes_no(review.ready_for_handoff),
+        review.item_count,
+        review.attachable_count,
+        review.missing_count,
+        review.blocked_count
+    );
+    println!(
+        "Inline only: {} | checksum missing: {} | gate blocks: {}",
+        review.inline_only_count, review.checksum_missing_count, review.release_gate_blocking_count
+    );
+    println!("Review: {}", review.review_json);
+    println!("Vault: {}", review.vault_json);
+    println!("Manifest checksum: {}", review.manifest_sha256);
+    if let Some(blocker) = &review.first_blocker {
+        println!("First blocker: {blocker}");
+    }
+    println!();
+    println!("Attachment items:");
+    for item in &review.items {
+        println!(
+            "  - {} [{}] {}",
+            item.label,
+            item.kind.label(),
+            item.state.label()
+        );
+        println!("    path: {}", item.path);
+        println!("    next: {}", item.next_action);
+    }
+    println!();
+    println!("Commands:");
+    for command in &review.commands {
         println!("  - {command}");
     }
 }

@@ -755,16 +755,34 @@ Goal: package checkpoint review and signoff evidence into a durable local vault 
 
 This set is complete. The next loop should open `Friday Release Evidence Attachment Review` and verify that vault attachments are operator-ready before any release note, deployment note, or handoff.
 
-## Next Set: Friday Release Evidence Attachment Review
+## Completed Set: Friday Release Evidence Attachment Review
 
-Status: 0/100
+Status: 100/100
 
 Goal: review checkpoint evidence vault attachments before handoff so Friday can show exactly which files are attachable, which inline notes need review, and which evidence blockers remain.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed evidence attachment review model that consumes checkpoint evidence vaults.
+- [x] Add attachability states for ready, missing, inline-only, checksum-missing, and blocked evidence.
+- [x] Add CLI and JSON commands that review attachments without uploading, deploying, building, or mutating external systems.
+- [x] Add dashboard import/rendering for attachment readiness, first missing blocker, manifest checksum, and copyable handoff notes.
+- [x] Add focused Rust/TypeScript coverage for attachment readiness, warning copy, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Handoff Packet` and assemble attachment reviews into a final local handoff packet with operator summary, attachable files, inline notes, and unresolved blockers.
+
+## Next Set: Friday Release Handoff Packet
+
+Status: 0/100
+
+Goal: assemble the attachment review into one final local release handoff packet that can be copied into an operator note without losing attachable files, inline release notes, blockers, or manifest checksums.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed evidence attachment review model that consumes checkpoint evidence vaults.
-- [ ] Add attachability states for ready, missing, inline-only, checksum-missing, and blocked evidence.
-- [ ] Add CLI and JSON commands that review attachments without uploading, deploying, building, or mutating external systems.
-- [ ] Add dashboard import/rendering for attachment readiness, first missing blocker, manifest checksum, and copyable handoff notes.
-- [ ] Add focused Rust/TypeScript coverage for attachment readiness, warning copy, command safety, and dashboard rendering.
+- [ ] Add a typed release handoff packet model that consumes evidence attachment reviews.
+- [ ] Add packet sections for operator summary, attachable files, inline notes, unresolved blockers, and manifest checksums.
+- [ ] Add CLI and JSON commands that create handoff packets without uploading, deploying, building, or mutating external systems.
+- [ ] Add dashboard import/rendering for packet readiness, blocker summary, copyable handoff packet, and file checklist.
+- [ ] Add focused Rust/TypeScript coverage for packet assembly, blocker preservation, copy text, command safety, and dashboard rendering.

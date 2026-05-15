@@ -1452,6 +1452,56 @@ export interface FlowReleaseCheckpointEvidenceVault {
   commands: string[];
 }
 
+export type FlowReleaseEvidenceAttachmentState =
+  | "ready"
+  | "missing"
+  | "inline-only"
+  | "checksum-missing"
+  | "blocked";
+
+export interface FlowReleaseEvidenceAttachmentReviewItem {
+  id: string;
+  vaultEntryId: string;
+  label: string;
+  kind: FlowReleaseCheckpointEvidenceVaultEntryKind;
+  path: string;
+  state: FlowReleaseEvidenceAttachmentState;
+  required: boolean;
+  present: boolean;
+  attachable: boolean;
+  bytes: number;
+  sha256: string | null;
+  sourceId: string;
+  releaseGateBlocking: boolean;
+  summary: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseEvidenceAttachmentReview {
+  reviewId: string;
+  reviewJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  readyForHandoff: boolean;
+  vaultId: string;
+  vaultJson: string;
+  manifestSha256: string;
+  itemCount: number;
+  attachableCount: number;
+  missingCount: number;
+  inlineOnlyCount: number;
+  checksumMissingCount: number;
+  blockedCount: number;
+  releaseGateBlockingCount: number;
+  firstBlocker: string | null;
+  items: FlowReleaseEvidenceAttachmentReviewItem[];
+  handoffNotesCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -4525,6 +4575,94 @@ export function normalizeReleaseCheckpointEvidenceVault(
   };
 }
 
+export function normalizeReleaseEvidenceAttachmentReview(
+  value: unknown,
+): FlowReleaseEvidenceAttachmentReview | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const review =
+    root.release_evidence_attachment_review &&
+    typeof root.release_evidence_attachment_review === "object"
+      ? (root.release_evidence_attachment_review as Record<string, unknown>)
+      : root.releaseEvidenceAttachmentReview &&
+          typeof root.releaseEvidenceAttachmentReview === "object"
+        ? (root.releaseEvidenceAttachmentReview as Record<string, unknown>)
+        : root;
+  const reviewId = stringValue(review.review_id, review.reviewId);
+  const items = arrayValue(review.items)
+    .map((item): FlowReleaseEvidenceAttachmentReviewItem | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const id = stringValue(record.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        vaultEntryId: stringValue(record.vault_entry_id, record.vaultEntryId),
+        label: stringValue(record.label),
+        kind: releaseCheckpointEvidenceVaultEntryKind(stringValue(record.kind)),
+        path: stringValue(record.path),
+        state: releaseEvidenceAttachmentState(stringValue(record.state)),
+        required: booleanValue(record.required),
+        present: booleanValue(record.present),
+        attachable: booleanValue(record.attachable),
+        bytes: numberValue(record.bytes),
+        sha256: stringValue(record.sha256) || null,
+        sourceId: stringValue(record.source_id, record.sourceId),
+        releaseGateBlocking: booleanValue(
+          record.release_gate_blocking,
+          record.releaseGateBlocking,
+        ),
+        summary: stringValue(record.summary),
+        nextAction: stringValue(record.next_action, record.nextAction),
+      };
+    })
+    .filter((item): item is FlowReleaseEvidenceAttachmentReviewItem => item !== null);
+
+  if (!reviewId && items.length === 0) {
+    return null;
+  }
+
+  return {
+    reviewId,
+    reviewJson: stringValue(review.review_json, review.reviewJson),
+    generatedAtUnixMs: stringValue(review.generated_at_unix_ms, review.generatedAtUnixMs),
+    productName: stringValue(review.product_name, review.productName),
+    localOnly: booleanValue(review.local_only, review.localOnly),
+    status: panelStatus(stringValue(review.status)),
+    readyForHandoff: booleanValue(review.ready_for_handoff, review.readyForHandoff),
+    vaultId: stringValue(review.vault_id, review.vaultId),
+    vaultJson: stringValue(review.vault_json, review.vaultJson),
+    manifestSha256: stringValue(review.manifest_sha256, review.manifestSha256),
+    itemCount: numberValue(review.item_count, review.itemCount),
+    attachableCount: numberValue(review.attachable_count, review.attachableCount),
+    missingCount: numberValue(review.missing_count, review.missingCount),
+    inlineOnlyCount: numberValue(review.inline_only_count, review.inlineOnlyCount),
+    checksumMissingCount: numberValue(
+      review.checksum_missing_count,
+      review.checksumMissingCount,
+    ),
+    blockedCount: numberValue(review.blocked_count, review.blockedCount),
+    releaseGateBlockingCount: numberValue(
+      review.release_gate_blocking_count,
+      review.releaseGateBlockingCount,
+    ),
+    firstBlocker: stringValue(review.first_blocker, review.firstBlocker) || null,
+    items,
+    handoffNotesCopy: stringValue(review.handoff_notes_copy, review.handoffNotesCopy),
+    summary: stringValue(review.summary),
+    commands: arrayValue(review.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -4950,6 +5088,19 @@ function releaseCheckpointEvidenceVaultEntryKind(
     return value;
   }
   return "acknowledgement-evidence";
+}
+
+function releaseEvidenceAttachmentState(value: string): FlowReleaseEvidenceAttachmentState {
+  if (
+    value === "ready" ||
+    value === "missing" ||
+    value === "inline-only" ||
+    value === "checksum-missing" ||
+    value === "blocked"
+  ) {
+    return value;
+  }
+  return "missing";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

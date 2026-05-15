@@ -8,6 +8,7 @@ import {
   normalizeReleaseCheckpointSignoffLedger,
   normalizeReleaseDeploymentGate,
   normalizeReleaseEscalationLedger,
+  normalizeReleaseEvidenceAttachmentReview,
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseIncidentArchive,
@@ -48,6 +49,7 @@ import {
   type FlowReleaseCheckpointSignoffLedger,
   type FlowReleaseDeploymentGateReport,
   type FlowReleaseEscalationLedger,
+  type FlowReleaseEvidenceAttachmentReview,
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseEvidenceSlaMonitorReport,
   type FlowReleaseIncidentArchive,
@@ -121,6 +123,7 @@ type UiState = {
   dashboardReleaseCheckpointReview: FlowReleaseCheckpointReviewBoardReport | null;
   dashboardReleaseCheckpointSignoffLedger: FlowReleaseCheckpointSignoffLedger | null;
   dashboardReleaseCheckpointEvidenceVault: FlowReleaseCheckpointEvidenceVault | null;
+  dashboardReleaseEvidenceAttachmentReview: FlowReleaseEvidenceAttachmentReview | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -2614,6 +2617,75 @@ function renderReleaseCheckpointEvidenceVault(
   `;
 }
 
+function renderReleaseEvidenceAttachmentReview(
+  review: FlowReleaseEvidenceAttachmentReview | null,
+) {
+  if (!review) {
+    return "";
+  }
+
+  const status =
+    !review.readyForHandoff ||
+    review.blockedCount > 0 ||
+    review.missingCount > 0 ||
+    review.releaseGateBlockingCount > 0
+      ? "blocked"
+      : review.inlineOnlyCount > 0 || review.checksumMissingCount > 0
+        ? "warning"
+        : "ready";
+
+  return `
+    <article class="feature-card dashboard-release-evidence-attachment-review">
+      <div class="card-topline">
+        <span class="eyebrow">Attachment review</span>
+        <span class="badge ${badgeTone(status)}">${review.readyForHandoff ? "ready" : "needs review"}</span>
+      </div>
+      <h3>${review.readyForHandoff ? "Evidence attachments are handoff-ready" : "Evidence attachments need review"}</h3>
+      <p>${escapeHtml(review.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${review.itemCount}</strong><small>items</small></span>
+        <span><strong>${review.attachableCount}</strong><small>attachable</small></span>
+        <span><strong>${review.missingCount}</strong><small>missing</small></span>
+        <span><strong>${review.inlineOnlyCount}</strong><small>inline</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Blocked</strong> ${review.blockedCount}</span>
+        <span><strong>Checksum missing</strong> ${review.checksumMissingCount}</span>
+        <span><strong>Manifest</strong> ${escapeHtml(review.manifestSha256.slice(0, 16))}</span>
+        <span><strong>Vault</strong> ${escapeHtml(review.vaultJson)}</span>
+      </div>
+      ${
+        review.firstBlocker
+          ? `<p class="soft-warning">${escapeHtml(review.firstBlocker)}</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${review.items
+          .slice(0, 8)
+          .map(
+            (item) => `
+              <div class="runner-package-file ${item.attachable ? "present" : "missing"}">
+                <strong>${escapeHtml(item.label)}</strong>
+                <small>${escapeHtml(item.kind)} - ${escapeHtml(item.state)}</small>
+                <code>${escapeHtml(item.path || "missing")}</code>
+                <span>${escapeHtml(item.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-evidence-attachment-review-command">
+          Copy review command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-evidence-attachment-review-notes">
+          Copy handoff notes
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2839,6 +2911,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseCheckpointReview(state.dashboardReleaseCheckpointReview)}
       ${renderReleaseCheckpointSignoffLedger(state.dashboardReleaseCheckpointSignoffLedger)}
       ${renderReleaseCheckpointEvidenceVault(state.dashboardReleaseCheckpointEvidenceVault)}
+      ${renderReleaseEvidenceAttachmentReview(state.dashboardReleaseEvidenceAttachmentReview)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2983,6 +3056,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseCheckpointReview: null,
     dashboardReleaseCheckpointSignoffLedger: null,
     dashboardReleaseCheckpointEvidenceVault: null,
+    dashboardReleaseEvidenceAttachmentReview: null,
   };
 
   function render() {
@@ -3299,6 +3373,8 @@ export async function mountFlowApp(surfaceInput: string) {
         normalizeReleaseCheckpointSignoffLedger(parsed);
       const releaseCheckpointEvidenceVault =
         normalizeReleaseCheckpointEvidenceVault(parsed);
+      const releaseEvidenceAttachmentReview =
+        normalizeReleaseEvidenceAttachmentReview(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -3348,8 +3424,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseCheckpointSignoffLedger ?? state.dashboardReleaseCheckpointSignoffLedger;
       state.dashboardReleaseCheckpointEvidenceVault =
         releaseCheckpointEvidenceVault ?? state.dashboardReleaseCheckpointEvidenceVault;
+      state.dashboardReleaseEvidenceAttachmentReview =
+        releaseEvidenceAttachmentReview ?? state.dashboardReleaseEvidenceAttachmentReview;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseCheckpointEvidenceVault
+      state.status = releaseEvidenceAttachmentReview
+        ? `Imported evidence attachment review with ${releaseEvidenceAttachmentReview.itemCount} item(s) from ${file.name}.`
+        : releaseCheckpointEvidenceVault
         ? `Imported checkpoint evidence vault with ${releaseCheckpointEvidenceVault.entryCount} entries from ${file.name}.`
         : releaseCheckpointSignoffLedger
         ? `Imported checkpoint signoff ledger with ${releaseCheckpointSignoffLedger.recordCount} record(s) from ${file.name}.`
@@ -4061,6 +4141,38 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseEvidenceAttachmentReviewCommand() {
+    const command = state.dashboardReleaseEvidenceAttachmentReview?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release evidence attachment review command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release evidence attachment review command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseEvidenceAttachmentReviewNotes() {
+    const copy = state.dashboardReleaseEvidenceAttachmentReview?.handoffNotesCopy ?? "";
+    if (!copy) {
+      state.status = "No release evidence attachment review notes are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release evidence attachment handoff notes copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -4373,6 +4485,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-checkpoint-evidence-vault-notes']")
       ?.addEventListener("click", () => {
         void copyReleaseCheckpointEvidenceVaultNotes();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-evidence-attachment-review-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseEvidenceAttachmentReviewCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-evidence-attachment-review-notes']")
+      ?.addEventListener("click", () => {
+        void copyReleaseEvidenceAttachmentReviewNotes();
       });
 
     mountRoot

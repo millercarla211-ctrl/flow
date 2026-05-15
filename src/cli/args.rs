@@ -580,6 +580,16 @@ pub enum Command {
         review_file: String,
         signoff_ledger_file: String,
     },
+    /// Write a Friday release evidence attachment review
+    FridayReleaseEvidenceAttachmentReview {
+        review_file: String,
+        vault_file: String,
+    },
+    /// Print a Friday release evidence attachment review as JSON
+    FridayReleaseEvidenceAttachmentReviewJson {
+        review_file: String,
+        vault_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1939,6 +1949,24 @@ impl Args {
                     signoff_ledger_file,
                 }
             }
+            "--friday-release-evidence-attachment-review"
+            | "--friday-evidence-attachment-review" => {
+                let (review_file, vault_file) =
+                    parse_friday_release_evidence_attachment_review_args(&args);
+                Command::FridayReleaseEvidenceAttachmentReview {
+                    review_file,
+                    vault_file,
+                }
+            }
+            "--friday-release-evidence-attachment-review-json"
+            | "--friday-evidence-attachment-review-json" => {
+                let (review_file, vault_file) =
+                    parse_friday_release_evidence_attachment_review_args(&args);
+                Command::FridayReleaseEvidenceAttachmentReviewJson {
+                    review_file,
+                    vault_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -3246,6 +3274,23 @@ fn parse_friday_release_checkpoint_evidence_vault_args(
         .unwrap_or_else(|| format!("{export_dir}/release-checkpoint-signoff-ledger.json"));
 
     (vault_file, review_file, signoff_ledger_file)
+}
+
+fn parse_friday_release_evidence_attachment_review_args(args: &[String]) -> (String, String) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let review_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--review"))
+        .unwrap_or_else(|| format!("{export_dir}/release-evidence-attachment-review.json"));
+    let vault_file = flag_value(args, "--vault")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-checkpoint-evidence-vault.json"));
+
+    (review_file, vault_file)
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

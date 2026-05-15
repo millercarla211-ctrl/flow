@@ -11,6 +11,7 @@ import {
   normalizeReleaseCheckpointSignoffLedger,
   normalizeReleaseDeploymentGate,
   normalizeReleaseEscalationLedger,
+  normalizeReleaseEvidenceAttachmentReview,
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseIncidentArchive,
@@ -2199,6 +2200,104 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-checkpoint-evidence-vault-json --output tmp/friday-dashboard/release-checkpoint-evidence-vault.json --review tmp/friday-dashboard/release-checkpoint-review.json --signoff-ledger tmp/friday-dashboard/release-checkpoint-signoff-ledger.json",
     ],
   });
+  const releaseEvidenceAttachmentReview = normalizeReleaseEvidenceAttachmentReview({
+    review_id: "friday-release-evidence-attachment-review-smoke",
+    review_json: "tmp/friday-dashboard/release-evidence-attachment-review.json",
+    generated_at_unix_ms: 22,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    ready_for_handoff: false,
+    vault_id: "friday-release-checkpoint-evidence-vault-smoke",
+    vault_json: "tmp/friday-dashboard/release-checkpoint-evidence-vault.json",
+    manifest_sha256: "smoke-vault-checksum",
+    item_count: 4,
+    attachable_count: 2,
+    missing_count: 1,
+    inline_only_count: 1,
+    checksum_missing_count: 0,
+    blocked_count: 1,
+    release_gate_blocking_count: 1,
+    first_blocker: "Resolve blocking evidence for Acknowledgement evidence before release handoff.",
+    items: [
+      {
+        id: "attachment-review-acknowledgement-evidence-smoke",
+        vault_entry_id: "acknowledgement-evidence-smoke",
+        label: "Acknowledgement evidence",
+        kind: "acknowledgement-evidence",
+        path: "",
+        state: "blocked",
+        required: true,
+        present: false,
+        attachable: false,
+        bytes: 0,
+        sha256: null,
+        source_id: "friday-release-checkpoint-signoff-friday-release-checkpoint-review-smoke-20",
+        release_gate_blocking: true,
+        summary: "Required evidence is missing: Acknowledgement evidence.",
+        next_action: "Resolve blocking evidence for Acknowledgement evidence before release handoff.",
+      },
+      {
+        id: "attachment-review-checkpoint-release-notes",
+        vault_entry_id: "checkpoint-release-notes",
+        label: "Checkpoint release notes",
+        kind: "release-notes",
+        path: "inline://release-notes/checkpoint-signoff-ledger",
+        state: "inline-only",
+        required: true,
+        present: true,
+        attachable: false,
+        bytes: 160,
+        sha256: "release-notes-checksum",
+        source_id: "friday-release-checkpoint-signoff-ledger-smoke",
+        release_gate_blocking: false,
+        summary: "Copyable release notes generated from checkpoint signoff history.",
+        next_action: "Review inline note Checkpoint release notes and paste it into the handoff.",
+      },
+      {
+        id: "attachment-review-checkpoint-review-json",
+        vault_entry_id: "checkpoint-review-json",
+        label: "Checkpoint review JSON",
+        kind: "checkpoint-review-json",
+        path: "tmp/friday-dashboard/release-checkpoint-review.json",
+        state: "ready",
+        required: true,
+        present: true,
+        attachable: true,
+        bytes: 300,
+        sha256: "review-checksum",
+        source_id: "friday-release-checkpoint-review-smoke",
+        release_gate_blocking: false,
+        summary: "Release checkpoint review board used for this vault.",
+        next_action: "Attach tmp/friday-dashboard/release-checkpoint-review.json to the release handoff.",
+      },
+      {
+        id: "attachment-review-checkpoint-signoff-ledger-json",
+        vault_entry_id: "checkpoint-signoff-ledger-json",
+        label: "Checkpoint signoff ledger JSON",
+        kind: "checkpoint-signoff-ledger-json",
+        path: "tmp/friday-dashboard/release-checkpoint-signoff-ledger.json",
+        state: "ready",
+        required: true,
+        present: true,
+        attachable: true,
+        bytes: 220,
+        sha256: "signoff-checksum",
+        source_id: "friday-release-checkpoint-signoff-ledger-smoke",
+        release_gate_blocking: false,
+        summary: "Checkpoint signoff history used for this vault.",
+        next_action: "Attach tmp/friday-dashboard/release-checkpoint-signoff-ledger.json to the release handoff.",
+      },
+    ],
+    handoff_notes_copy:
+      "Friday release evidence attachment review: tmp/friday-dashboard/release-evidence-attachment-review.json\nStatus: needs attachment review\nManifest checksum: smoke-vault-checksum",
+    summary:
+      "Friday release evidence attachment review has 4 item(s), 2 attachable, 1 missing, 1 inline-only, 0 checksum-missing, and 1 blocked.",
+    commands: [
+      "flow --friday-release-evidence-attachment-review --output tmp/friday-dashboard/release-evidence-attachment-review.json --vault tmp/friday-dashboard/release-checkpoint-evidence-vault.json",
+      "flow --friday-release-evidence-attachment-review-json --output tmp/friday-dashboard/release-evidence-attachment-review.json --vault tmp/friday-dashboard/release-checkpoint-evidence-vault.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -2832,6 +2931,35 @@ export function dashboardSectionSmokeReport(
           command.includes("--friday-release-checkpoint-evidence-vault"),
         ),
       `${releaseCheckpointEvidenceVault?.missingCount ?? 0} vault missing evidence item(s)`,
+    ),
+    check(
+      "release-evidence-attachment-review-importable",
+      releaseEvidenceAttachmentReview?.itemCount === 4 &&
+        releaseEvidenceAttachmentReview.attachableCount === 2 &&
+        releaseEvidenceAttachmentReview.blockedCount === 1,
+      `${releaseEvidenceAttachmentReview?.itemCount ?? 0} attachment review item(s)`,
+    ),
+    check(
+      "release-evidence-attachment-review-handoff",
+      releaseEvidenceAttachmentReview !== null &&
+        releaseEvidenceAttachmentReview.items.some(
+          (item) =>
+            item.state === "inline-only" &&
+            item.nextAction.includes("paste it into the handoff"),
+        ) &&
+        releaseEvidenceAttachmentReview.items.some(
+          (item) =>
+            item.state === "blocked" &&
+            item.releaseGateBlocking &&
+            item.nextAction.includes("Resolve blocking evidence"),
+        ) &&
+        releaseEvidenceAttachmentReview.handoffNotesCopy.includes(
+          "Friday release evidence attachment review",
+        ) &&
+        releaseEvidenceAttachmentReview.commands.some((command) =>
+          command.includes("--friday-release-evidence-attachment-review"),
+        ),
+      `${releaseEvidenceAttachmentReview?.releaseGateBlockingCount ?? 0} attachment gate blocker(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

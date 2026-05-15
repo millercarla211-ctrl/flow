@@ -29,8 +29,9 @@ use flow::friday::{
     FridayReleaseCheckpointDecision, FridayReleaseCheckpointSignoffDecision,
     FridayReleaseCheckpointSignoffRequest, FridayReleaseDeploymentGateDecision,
     FridayReleaseDeploymentTarget, FridayReleaseEscalationGateOutcome,
-    FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceEscalationLevel,
-    FridayReleaseEvidenceSlaState, FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
+    FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceAttachmentState,
+    FridayReleaseEvidenceEscalationLevel, FridayReleaseEvidenceSlaState,
+    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
     FridayReleaseOwnerFollowUpCompletionState, FridayReleasePreventionActionKind,
     FridayReleasePreventionFindingKind, FridayReleasePromotionDecision,
     FridayReleasePromotionRecordRequest, FridayReleaseQaCheckStatus, FridayResearchWorkflow,
@@ -57,14 +58,14 @@ use flow::friday::{
     friday_operator_readiness_report, friday_release_candidate_archive_report,
     friday_release_candidate_entry_from_gate, friday_release_checkpoint_evidence_vault_report,
     friday_release_checkpoint_review_board_report, friday_release_deployment_gate_report,
-    friday_release_evidence_export_kit_report, friday_release_evidence_sla_monitor_report_at,
-    friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
-    friday_release_operator_checklist_report, friday_release_owner_followup_board_report_at,
-    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
-    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
-    friday_release_rollback_drill_report, friday_release_stability_board_report,
-    friday_route_visual_report, friday_route_visual_report_for_root,
-    friday_trusted_host_live_runner_state_from_history,
+    friday_release_evidence_attachment_review_report, friday_release_evidence_export_kit_report,
+    friday_release_evidence_sla_monitor_report_at, friday_release_incident_archive_report,
+    friday_release_incident_entry_from_sources, friday_release_operator_checklist_report,
+    friday_release_owner_followup_board_report_at, friday_release_post_promotion_monitor_report,
+    friday_release_prevention_plan_report, friday_release_qa_command_center_report,
+    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
+    friday_release_stability_board_report, friday_route_visual_report,
+    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -75,8 +76,9 @@ use flow::friday::{
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
     write_friday_release_checkpoint_evidence_vault,
     write_friday_release_checkpoint_review_board_report, write_friday_release_deployment_gate,
-    write_friday_release_evidence_export_kit, write_friday_release_evidence_sla_monitor_report,
-    write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
+    write_friday_release_evidence_attachment_review, write_friday_release_evidence_export_kit,
+    write_friday_release_evidence_sla_monitor_report, write_friday_release_operator_checklist,
+    write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_qa_command_center_report,
     write_friday_release_recovery_runbook_report, write_friday_release_rollback_drill_report,
@@ -2587,6 +2589,54 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert!(checkpoint_evidence_vault.commands.iter().any(|command| {
         command.contains("--friday-release-checkpoint-evidence-vault")
             && command.contains("--signoff-ledger")
+    }));
+    let evidence_attachment_review_path = root.join("release-evidence-attachment-review.json");
+    let evidence_attachment_review = friday_release_evidence_attachment_review_report(
+        &evidence_attachment_review_path,
+        &checkpoint_evidence_vault_path,
+    );
+    write_friday_release_evidence_attachment_review(
+        &evidence_attachment_review_path,
+        &evidence_attachment_review,
+    )
+    .unwrap();
+    assert!(!evidence_attachment_review.ready_for_handoff);
+    assert_eq!(
+        evidence_attachment_review.vault_id,
+        checkpoint_evidence_vault.vault_id
+    );
+    assert_eq!(
+        evidence_attachment_review.manifest_sha256,
+        checkpoint_evidence_vault.manifest_sha256
+    );
+    assert!(evidence_attachment_review.item_count >= checkpoint_evidence_vault.entry_count);
+    assert!(evidence_attachment_review.attachable_count > 0);
+    assert!(evidence_attachment_review.missing_count > 0);
+    assert!(evidence_attachment_review.inline_only_count > 0);
+    assert!(evidence_attachment_review.blocked_count > 0);
+    assert!(evidence_attachment_review.release_gate_blocking_count > 0);
+    assert!(
+        evidence_attachment_review
+            .first_blocker
+            .as_deref()
+            .unwrap_or_default()
+            .contains("blocking evidence")
+    );
+    assert!(evidence_attachment_review.items.iter().any(|item| {
+        item.state == FridayReleaseEvidenceAttachmentState::InlineOnly
+            && item.next_action.contains("paste it into the handoff")
+    }));
+    assert!(evidence_attachment_review.items.iter().any(|item| {
+        item.state == FridayReleaseEvidenceAttachmentState::Blocked && item.release_gate_blocking
+    }));
+    assert!(
+        evidence_attachment_review
+            .handoff_notes_copy
+            .contains("Friday release evidence attachment review")
+    );
+    assert!(evidence_attachment_review.commands.iter().any(|command| {
+        command.contains("--friday-release-evidence-attachment-review")
+            && command.contains("--vault")
     }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Evidence Attachment Review at 100/100 with typed local-only attachment readiness, ready/missing/inline-only/checksum-missing/blocked states, non-uploading CLI/JSON commands, dashboard import/rendering, copyable handoff notes, and focused Rust/TypeScript coverage
+- opened Friday Release Handoff Packet as the next set for assembling attachment reviews into final local operator handoff packets
 - completed Friday Release Checkpoint Evidence Vault at 100/100 with typed local-only checkpoint evidence manifests, review/signoff/acknowledgement/carryover/release-note entries, checksum tracking, non-executing CLI/JSON commands, dashboard import/rendering, copyable attachment notes, and focused Rust/TypeScript coverage
 - opened Friday Release Evidence Attachment Review as the next set for verifying attachability and handoff readiness before any release note, deployment note, or external handoff
 - completed Friday Release Checkpoint Signoff Ledger at 100/100 with typed local-only signoff history, signed-off/held/carried-over/superseded/revoked states, operator reason capture, non-executing append/list/export CLI commands, dashboard import/rendering, copyable release notes, and focused Rust/TypeScript coverage

@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-checkpoint-evidence-vault-model",
-            "Typed release checkpoint evidence vault model",
+            "release-evidence-attachment-review-model",
+            "Typed release evidence attachment review model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseCheckpointEvidenceVault` consumes checkpoint reviews and signoff ledgers into one local evidence manifest",
-            "open the next Friday release evidence attachment review set",
+            "`FridayReleaseEvidenceAttachmentReview` consumes checkpoint evidence vaults and classifies handoff attachments",
+            "open the next Friday release handoff packet set",
         ),
         item(
-            "release-checkpoint-evidence-vault-manifest",
-            "Manifest entries for review, signoff, acknowledgement, carryover, and notes",
+            "release-evidence-attachment-review-states",
+            "Ready, missing, inline-only, checksum-missing, and blocked attachability states",
             20,
             CompletionItemStatus::Done,
-            "vault entries classify checkpoint review JSON, signoff ledger JSON, acknowledgement evidence, carryover commitments, and release notes with presence and checksum state",
-            "open the next Friday release evidence attachment review set",
+            "attachment review items preserve attachability state, gate blocking, source ids, checksums, and next actions",
+            "open the next Friday release handoff packet set",
         ),
         item(
-            "release-checkpoint-evidence-vault-cli",
-            "Checkpoint evidence vault write and JSON commands",
+            "release-evidence-attachment-review-cli",
+            "Evidence attachment review CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-checkpoint-evidence-vault` writes local manifest JSON without running builds, deployments, or remediation commands",
-            "open the next Friday release evidence attachment review set",
+            "`flow --friday-release-evidence-attachment-review` writes local review JSON without uploading, deploying, building, or mutating external systems",
+            "open the next Friday release handoff packet set",
         ),
         item(
-            "release-checkpoint-evidence-vault-dashboard",
-            "Dashboard evidence vault rendering",
+            "release-evidence-attachment-review-dashboard",
+            "Dashboard attachment review rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports vault JSON and renders completeness, missing evidence, checksums, manifest hash, and copyable attachment notes",
-            "open the next Friday release evidence attachment review set",
+            "the visible dashboard imports attachment reviews and renders attachable files, inline notes, blockers, manifest checksum, and copyable handoff notes",
+            "open the next Friday release handoff packet set",
         ),
         item(
-            "release-checkpoint-evidence-vault-coverage",
-            "Checkpoint evidence vault Rust and TypeScript coverage",
+            "release-evidence-attachment-review-coverage",
+            "Evidence attachment review Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify vault completeness, missing-evidence warnings, command safety, checksums, and dashboard rendering",
-            "open the next Friday release evidence attachment review set",
+            "focused Rust integration coverage plus dashboard smoke checks verify attachability states, warning copy, command safety, and dashboard rendering",
+            "open the next Friday release handoff packet set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Checkpoint Evidence Vault".to_string(),
+        name: "Friday Release Evidence Attachment Review".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Package Friday checkpoint review and signoff evidence into a durable local vault with checksums and operator-ready attachment notes.".to_string(),
+        loop_rule: "Review Friday checkpoint evidence vault attachments before handoff so operators know which files are attachable, inline-only, missing, or blocked.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_checkpoint_evidence_vault_loop() {
+    fn active_set_tracks_friday_release_evidence_attachment_review_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Checkpoint Evidence Vault");
+        assert_eq!(set.name, "Friday Release Evidence Attachment Review");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items
