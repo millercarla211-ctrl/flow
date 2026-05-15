@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-post-promotion-monitor-model",
-            "Typed post-promotion monitor model",
+            "release-rollback-drill-model",
+            "Typed rollback drill model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleasePostPromotionMonitorReport` consumes the promotion ledger, release QA, dashboard smoke output, and incident-note evidence",
-            "open the next rollback drill set",
+            "`FridayReleaseRollbackDrillReport` consumes the post-promotion monitor, promotion ledger, candidate archive, and deployment gate",
+            "open the next stability evidence board set",
         ),
         item(
-            "release-post-promotion-monitor-warnings",
-            "Post-promotion stale and missing evidence warnings",
+            "release-rollback-drill-readiness",
+            "Rollback readiness checks",
             20,
             CompletionItemStatus::Done,
-            "monitor checks classify passed, warning, failed, missing, and stale evidence while preserving active rollback references",
-            "open the next rollback drill set",
+            "rollback drill checks detect missing rollback references, stale monitor evidence, missing evidence, and unresolved post-promotion blockers",
+            "open the next stability evidence board set",
         ),
         item(
-            "release-post-promotion-monitor-cli",
-            "Post-promotion monitor CLI and JSON commands",
+            "release-rollback-drill-cli",
+            "Rollback drill CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-post-promotion-monitor` and JSON mode generate local-only monitor reports without running deployments",
-            "open the next rollback drill set",
+            "`flow --friday-release-rollback-drill` and JSON mode generate local-only dry-run readiness reports without executing rollback commands",
+            "open the next stability evidence board set",
         ),
         item(
-            "release-post-promotion-monitor-dashboard",
-            "Dashboard post-promotion monitor rendering",
+            "release-rollback-drill-dashboard",
+            "Dashboard rollback drill rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports monitor JSON and renders stability status, rollback readiness, incident notes, stale checks, and copyable monitor command",
-            "open the next rollback drill set",
+            "the visible dashboard imports rollback drill JSON and renders readiness, dry-run commands, and blocked rollback reasons",
+            "open the next stability evidence board set",
         ),
         item(
-            "release-post-promotion-monitor-coverage",
-            "Post-promotion monitor Rust and TypeScript coverage",
+            "release-rollback-drill-coverage",
+            "Rollback drill Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify monitor scoring, stale warnings, incident-note evidence, command copy, and visible dashboard import/rendering",
-            "open the next rollback drill set",
+            "focused Rust integration coverage plus dashboard smoke checks verify drill scoring, blocked reasons, dry-run command copy, and visible dashboard import/rendering",
+            "open the next stability evidence board set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Post-Promotion Monitor".to_string(),
+        name: "Friday Release Rollback Drill".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Make Friday's post-promotion status visible with verification freshness, rollback readiness, incident notes, and follow-up evidence.".to_string(),
+        loop_rule: "Make Friday rollback readiness testable with active rollback references, dry-run commands, and blocked-reason evidence.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_post_promotion_monitor_loop() {
+    fn active_set_tracks_friday_release_rollback_drill_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Post-Promotion Monitor");
+        assert_eq!(set.name, "Friday Release Rollback Drill");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

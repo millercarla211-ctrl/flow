@@ -557,16 +557,34 @@ Goal: make Friday's post-promotion state visible after a candidate is promoted, 
 
 This set is complete. The next loop should open `Friday Release Rollback Drill` and prove that rollback references can produce a local-only drill report before any promoted candidate is treated as stable.
 
-## Next Set: Friday Release Rollback Drill
+## Completed Set: Friday Release Rollback Drill
 
-Status: 0/100
+Status: 100/100
 
 Goal: make rollback readiness testable by turning active rollback references, promotion records, deployment gates, and post-promotion monitor evidence into a dry-run drill report.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed rollback drill model that consumes the post-promotion monitor, promotion ledger, candidate archive, and deployment gate.
+- [x] Add rollback readiness checks for missing rollback references, stale monitor evidence, and unresolved post-promotion blockers.
+- [x] Add CLI and JSON commands for generating rollback drill reports without executing rollback commands.
+- [x] Add dashboard import/rendering for rollback drill status, dry-run commands, and blocked rollback reasons.
+- [x] Add focused Rust/TypeScript coverage for rollback drill scoring, blocked reasons, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Stability Evidence Board` and consolidate release QA, candidate archive, promotion ledger, post-promotion monitor, rollback drill, and deployment gate evidence into one operator-facing stability surface.
+
+## Next Set: Friday Release Stability Evidence Board
+
+Status: 0/100
+
+Goal: consolidate all major Friday release evidence into one local-first stability board that tells the operator whether the current candidate is deployable, stable, recoverable, and ready for the next major checkpoint.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed rollback drill model that consumes the post-promotion monitor, promotion ledger, candidate archive, and deployment gate.
-- [ ] Add rollback readiness checks for missing rollback references, stale monitor evidence, and unresolved post-promotion blockers.
-- [ ] Add CLI and JSON commands for generating rollback drill reports without executing rollback commands.
-- [ ] Add dashboard import/rendering for rollback drill status, dry-run commands, and blocked rollback reasons.
-- [ ] Add focused Rust/TypeScript coverage for rollback drill scoring, blocked reasons, and dashboard rendering.
+- [ ] Add a typed stability evidence board model that consumes release QA, candidate archive, promotion ledger, post-promotion monitor, rollback drill, and deployment gate reports.
+- [ ] Add stability score categories for deployment readiness, post-promotion freshness, rollback recovery, candidate regression, and QA health.
+- [ ] Add CLI and JSON commands for generating the stability board without running builds, deployments, or rollback commands.
+- [ ] Add dashboard import/rendering for stability score, active risks, evidence links, and next operator actions.
+- [ ] Add focused Rust/TypeScript coverage for board scoring, stale evidence, blocked categories, and dashboard rendering.

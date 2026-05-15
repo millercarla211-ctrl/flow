@@ -12,6 +12,7 @@ import {
   normalizeReleasePostPromotionMonitor,
   normalizeReleasePromotionLedger,
   normalizeReleaseQaCommandCenter,
+  normalizeReleaseRollbackDrill,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
   normalizeTrustedHostRunnerCancellationUx,
@@ -1137,6 +1138,84 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-post-promotion-monitor --output tmp/friday-dashboard/release-post-promotion-monitor.json --promotion-ledger tmp/friday-dashboard/release-promotion-ledger.json",
     ],
   });
+  const releaseRollbackDrill = normalizeReleaseRollbackDrill({
+    drill_id: "friday-release-rollback-drill-smoke",
+    drill_json: "tmp/friday-dashboard/release-rollback-drill.json",
+    generated_at_unix_ms: 11,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    score_out_of_100: 75,
+    ready_to_rollback: false,
+    ready_for_stable: false,
+    active_candidate_id: "candidate-promoted",
+    active_promotion_id: "promotion-candidate-promoted",
+    active_rollback_reference: "candidate-initial",
+    latest_promotion_decision: "promoted",
+    deployment_gate_decision: "no-go",
+    post_promotion_monitor_json: "tmp/friday-dashboard/release-post-promotion-monitor.json",
+    promotion_ledger_json: "tmp/friday-dashboard/release-promotion-ledger.json",
+    candidate_archive_json: "tmp/friday-dashboard/release-candidate-archive.json",
+    deployment_gate_json: "tmp/friday-dashboard/release-deployment-gate.json",
+    rollback_command:
+      "flow --friday-release-rollback-drill-json --output tmp/friday-dashboard/release-rollback-drill.json",
+    dry_run_command:
+      "flow --friday-release-rollback-drill-json --output tmp/friday-dashboard/release-rollback-drill.json",
+    operator: "essencefromexistence",
+    reason: "Smoke rollback drill.",
+    blocking_count: 1,
+    warning_count: 1,
+    stale_count: 1,
+    missing_evidence_count: 0,
+    checks: [
+      {
+        id: "rollback-reference",
+        label: "Rollback reference",
+        source_path: "inline",
+        required: true,
+        present: true,
+        stale: false,
+        bytes: 0,
+        status: "passed",
+        summary: "Active rollback reference is candidate-initial.",
+        next_action: "Keep this reference attached.",
+      },
+      {
+        id: "post-promotion-monitor",
+        label: "Post-promotion monitor",
+        source_path: "tmp/friday-dashboard/release-post-promotion-monitor.json",
+        required: true,
+        present: true,
+        stale: false,
+        bytes: 1500,
+        status: "failed",
+        summary: "Monitor has 1 blocking issue.",
+        next_action: "Resolve post-promotion blockers.",
+      },
+      {
+        id: "dashboard-smoke",
+        label: "Dashboard smoke",
+        source_path: "tmp/friday-dashboard/dashboard-smoke.txt",
+        required: true,
+        present: true,
+        stale: true,
+        bytes: 1400,
+        status: "stale",
+        summary: "Dashboard smoke is stale.",
+        next_action: "Refresh dashboard smoke.",
+      },
+    ],
+    blocked_reasons: [
+      "Post-promotion monitor: Monitor has 1 blocking issue.",
+      "Dashboard smoke: Dashboard smoke is stale.",
+    ],
+    summary:
+      "Friday rollback drill is 75/100 with 1 blocking issue, 1 warning, and 1 stale check.",
+    commands: [
+      "flow --friday-release-rollback-drill --output tmp/friday-dashboard/release-rollback-drill.json",
+      "flow --friday-release-rollback-drill-json --output tmp/friday-dashboard/release-rollback-drill.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -1502,8 +1581,26 @@ export function dashboardSectionSmokeReport(
         releasePostPromotionMonitor.incidentNotes.some((note) => note.present) &&
         releasePostPromotionMonitor.commands.some((command) =>
           command.includes("--friday-release-post-promotion-monitor"),
-        ),
+      ),
       `${releasePostPromotionMonitor?.incidentNoteCount ?? 0} incident note(s)`,
+    ),
+    check(
+      "release-rollback-drill-importable",
+      releaseRollbackDrill?.scoreOutOf100 === 75 &&
+        releaseRollbackDrill.activeRollbackReference === "candidate-initial" &&
+        releaseRollbackDrill.dryRunCommand.includes("--friday-release-rollback-drill-json"),
+      `${releaseRollbackDrill?.scoreOutOf100 ?? 0}/100 rollback drill score`,
+    ),
+    check(
+      "release-rollback-drill-blockers",
+      releaseRollbackDrill?.blockedReasons.length === 2 &&
+        releaseRollbackDrill.checks.some(
+          (item) => item.status === "failed" && item.id === "post-promotion-monitor",
+        ) &&
+        releaseRollbackDrill.commands.some((command) =>
+          command.includes("--friday-release-rollback-drill"),
+        ),
+      `${releaseRollbackDrill?.blockedReasons.length ?? 0} rollback drill blocker(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

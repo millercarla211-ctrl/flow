@@ -9,6 +9,7 @@ import {
   normalizeReleasePostPromotionMonitor,
   normalizeReleasePromotionLedger,
   normalizeReleaseQaCommandCenter,
+  normalizeReleaseRollbackDrill,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
   normalizeTrustedHostRunnerCancellationUx,
@@ -38,6 +39,7 @@ import {
   type FlowReleasePostPromotionMonitorReport,
   type FlowReleasePromotionLedger,
   type FlowReleaseQaCommandCenterReport,
+  type FlowReleaseRollbackDrillReport,
 } from "../runtime/dashboard-actions";
 import { normalizeFridayDashboardBinding } from "../runtime/dashboard-binding";
 import { FlowBrowserEngine } from "../runtime/flow-engine";
@@ -88,6 +90,7 @@ type UiState = {
   dashboardReleaseCandidateArchive: FlowReleaseCandidateArchive | null;
   dashboardReleasePromotionLedger: FlowReleasePromotionLedger | null;
   dashboardReleasePostPromotionMonitor: FlowReleasePostPromotionMonitorReport | null;
+  dashboardReleaseRollbackDrill: FlowReleaseRollbackDrillReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -1862,6 +1865,69 @@ function renderReleasePostPromotionMonitor(
   `;
 }
 
+function renderReleaseRollbackDrill(drill: FlowReleaseRollbackDrillReport | null) {
+  if (!drill) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-release-rollback-drill">
+      <div class="card-topline">
+        <span class="eyebrow">Rollback drill</span>
+        <span class="badge ${badgeTone(drill.status)}">${drill.scoreOutOf100} / 100</span>
+      </div>
+      <h3>${drill.activeRollbackReference ? escapeHtml(drill.activeRollbackReference) : "Rollback not ready"}</h3>
+      <p>${escapeHtml(drill.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${drill.blockingCount}</strong><small>blocking</small></span>
+        <span><strong>${drill.warningCount}</strong><small>warnings</small></span>
+        <span><strong>${drill.staleCount}</strong><small>stale</small></span>
+        <span><strong>${drill.missingEvidenceCount}</strong><small>missing</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Rollback</strong> ${drill.readyToRollback ? "ready" : "blocked"}</span>
+        <span><strong>Stable</strong> ${drill.readyForStable ? "ready" : "not ready"}</span>
+        <span><strong>Candidate</strong> ${escapeHtml(drill.activeCandidateId ?? "not recorded")}</span>
+        <span><strong>Operator</strong> ${escapeHtml(drill.operator)}</span>
+      </div>
+      <div class="runner-package-files">
+        ${drill.checks
+          .slice(0, 6)
+          .map(
+            (check) => `
+              <div class="runner-package-file ${
+                check.status === "passed" ? "present" : "missing"
+              }">
+                <strong>${escapeHtml(check.label)}</strong>
+                <small>${escapeHtml(check.status)} - ${check.required ? "required" : "optional"}</small>
+                <code>${escapeHtml(check.sourcePath)}</code>
+                <span>${escapeHtml(check.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      ${
+        drill.blockedReasons.length
+          ? `<div class="note-list">${drill.blockedReasons
+              .slice(0, 5)
+              .map((reason) => `<span>${escapeHtml(reason)}</span>`)
+              .join("")}</div>`
+          : ""
+      }
+      <div class="command-preview">${escapeHtml(drill.dryRunCommand)}</div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-rollback-drill-command">
+          Copy drill command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-rollback-drill-dry-run">
+          Copy dry run
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2076,6 +2142,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseCandidateArchive(state.dashboardReleaseCandidateArchive)}
       ${renderReleasePromotionLedger(state.dashboardReleasePromotionLedger)}
       ${renderReleasePostPromotionMonitor(state.dashboardReleasePostPromotionMonitor)}
+      ${renderReleaseRollbackDrill(state.dashboardReleaseRollbackDrill)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2209,6 +2276,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseCandidateArchive: null,
     dashboardReleasePromotionLedger: null,
     dashboardReleasePostPromotionMonitor: null,
+    dashboardReleaseRollbackDrill: null,
   };
 
   function render() {
@@ -2512,6 +2580,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseCandidateArchive = normalizeReleaseCandidateArchive(parsed);
       const releasePromotionLedger = normalizeReleasePromotionLedger(parsed);
       const releasePostPromotionMonitor = normalizeReleasePostPromotionMonitor(parsed);
+      const releaseRollbackDrill = normalizeReleaseRollbackDrill(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2539,8 +2608,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releasePromotionLedger ?? state.dashboardReleasePromotionLedger;
       state.dashboardReleasePostPromotionMonitor =
         releasePostPromotionMonitor ?? state.dashboardReleasePostPromotionMonitor;
+      state.dashboardReleaseRollbackDrill =
+        releaseRollbackDrill ?? state.dashboardReleaseRollbackDrill;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releasePostPromotionMonitor
+      state.status = releaseRollbackDrill
+        ? `Imported rollback drill at ${releaseRollbackDrill.scoreOutOf100}/100 from ${file.name}.`
+        : releasePostPromotionMonitor
         ? `Imported post-promotion monitor at ${releasePostPromotionMonitor.scoreOutOf100}/100 from ${file.name}.`
         : releasePromotionLedger
         ? `Imported release promotion ledger with ${releasePromotionLedger.recordCount} record(s) from ${file.name}.`
@@ -2890,6 +2963,38 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseRollbackDrillCommand() {
+    const command = state.dashboardReleaseRollbackDrill?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No rollback drill command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Rollback drill command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseRollbackDryRunCommand() {
+    const command = state.dashboardReleaseRollbackDrill?.dryRunCommand ?? "";
+    if (!command) {
+      state.status = "No rollback dry-run command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Rollback dry-run command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -3076,6 +3181,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-post-promotion-monitor-command']")
       ?.addEventListener("click", () => {
         void copyReleasePostPromotionMonitorCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-rollback-drill-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseRollbackDrillCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-rollback-drill-dry-run']")
+      ?.addEventListener("click", () => {
+        void copyReleaseRollbackDryRunCommand();
       });
 
     mountRoot

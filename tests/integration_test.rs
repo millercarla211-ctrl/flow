@@ -51,8 +51,8 @@ use flow::friday::{
     friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
     friday_release_evidence_export_kit_report, friday_release_operator_checklist_report,
     friday_release_post_promotion_monitor_report, friday_release_qa_command_center_report,
-    friday_route_visual_report, friday_route_visual_report_for_root,
-    friday_trusted_host_live_runner_state_from_history,
+    friday_release_rollback_drill_report, friday_route_visual_report,
+    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -63,8 +63,9 @@ use flow::friday::{
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
     write_friday_release_deployment_gate, write_friday_release_evidence_export_kit,
     write_friday_release_operator_checklist, write_friday_release_post_promotion_monitor_report,
-    write_friday_release_qa_command_center_report, write_friday_trusted_host_live_runner_state,
-    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
+    write_friday_release_qa_command_center_report, write_friday_release_rollback_drill_report,
+    write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
+    write_friday_trusted_runner_release_timeline,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -2142,6 +2143,42 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
             .commands
             .iter()
             .any(|command| { command.contains("--friday-release-post-promotion-monitor") })
+    );
+    let rollback_drill_path = root.join("release-rollback-drill.json");
+    let rollback_drill = friday_release_rollback_drill_report(
+        &rollback_drill_path,
+        &post_promotion_monitor_path,
+        &promotion_ledger_path,
+        &candidate_archive_path,
+        &deployment_gate_path,
+        "flow rollback previous-stable-friday --dry-run",
+        "essencefromexistence",
+        "Verify rollback before stable promotion.",
+    );
+    write_friday_release_rollback_drill_report(&rollback_drill_path, &rollback_drill).unwrap();
+    assert_eq!(
+        rollback_drill.active_rollback_reference.as_deref(),
+        Some("previous-stable-friday")
+    );
+    assert!(rollback_drill.blocking_count > 0);
+    assert!(!rollback_drill.ready_to_rollback);
+    assert!(!rollback_drill.ready_for_stable);
+    assert!(
+        rollback_drill
+            .blocked_reasons
+            .iter()
+            .any(|reason| reason.contains("Post-promotion monitor"))
+    );
+    assert!(
+        rollback_drill.checks.iter().any(|check| {
+            check.id == "post-promotion-monitor" && check.status.label() == "failed"
+        })
+    );
+    assert!(
+        rollback_drill
+            .commands
+            .iter()
+            .any(|command| { command.contains("--friday-release-rollback-drill") })
     );
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);

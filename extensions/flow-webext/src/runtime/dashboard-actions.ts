@@ -697,6 +697,59 @@ export interface FlowReleasePostPromotionMonitorReport {
   commands: string[];
 }
 
+export type FlowReleaseRollbackDrillCheckStatus =
+  | "passed"
+  | "warning"
+  | "failed"
+  | "missing"
+  | "stale";
+
+export interface FlowReleaseRollbackDrillCheck {
+  id: string;
+  label: string;
+  sourcePath: string;
+  required: boolean;
+  present: boolean;
+  stale: boolean;
+  bytes: number;
+  status: FlowReleaseRollbackDrillCheckStatus;
+  summary: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseRollbackDrillReport {
+  drillId: string;
+  drillJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  readyToRollback: boolean;
+  readyForStable: boolean;
+  activeCandidateId: string | null;
+  activePromotionId: string | null;
+  activeRollbackReference: string | null;
+  latestPromotionDecision: FlowReleasePromotionDecision | null;
+  deploymentGateDecision: FlowReleaseDeploymentGateDecision | null;
+  postPromotionMonitorJson: string;
+  promotionLedgerJson: string;
+  candidateArchiveJson: string;
+  deploymentGateJson: string;
+  rollbackCommand: string;
+  dryRunCommand: string;
+  operator: string;
+  reason: string;
+  blockingCount: number;
+  warningCount: number;
+  staleCount: number;
+  missingEvidenceCount: number;
+  checks: FlowReleaseRollbackDrillCheck[];
+  blockedReasons: string[];
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -2416,6 +2469,105 @@ export function normalizeReleasePostPromotionMonitor(
   };
 }
 
+export function normalizeReleaseRollbackDrill(
+  value: unknown,
+): FlowReleaseRollbackDrillReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const drill =
+    root.release_rollback_drill && typeof root.release_rollback_drill === "object"
+      ? (root.release_rollback_drill as Record<string, unknown>)
+      : root.releaseRollbackDrill && typeof root.releaseRollbackDrill === "object"
+        ? (root.releaseRollbackDrill as Record<string, unknown>)
+        : root;
+  const drillId = stringValue(drill.drill_id, drill.drillId);
+  const checks = arrayValue(drill.checks)
+    .map((item): FlowReleaseRollbackDrillCheck | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const check = item as Record<string, unknown>;
+      const id = stringValue(check.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        label: stringValue(check.label),
+        sourcePath: stringValue(check.source_path, check.sourcePath),
+        required: booleanValue(check.required),
+        present: booleanValue(check.present),
+        stale: booleanValue(check.stale),
+        bytes: numberValue(check.bytes),
+        status: rollbackDrillCheckStatus(stringValue(check.status)),
+        summary: stringValue(check.summary),
+        nextAction: stringValue(check.next_action, check.nextAction),
+      };
+    })
+    .filter((check): check is FlowReleaseRollbackDrillCheck => check !== null);
+
+  if (!drillId && checks.length === 0) {
+    return null;
+  }
+
+  return {
+    drillId,
+    drillJson: stringValue(drill.drill_json, drill.drillJson),
+    generatedAtUnixMs: stringValue(drill.generated_at_unix_ms, drill.generatedAtUnixMs),
+    productName: stringValue(drill.product_name, drill.productName),
+    localOnly: booleanValue(drill.local_only, drill.localOnly),
+    status: panelStatus(stringValue(drill.status)),
+    scoreOutOf100: numberValue(drill.score_out_of_100, drill.scoreOutOf100),
+    readyToRollback: booleanValue(drill.ready_to_rollback, drill.readyToRollback),
+    readyForStable: booleanValue(drill.ready_for_stable, drill.readyForStable),
+    activeCandidateId: stringValue(drill.active_candidate_id, drill.activeCandidateId) || null,
+    activePromotionId: stringValue(drill.active_promotion_id, drill.activePromotionId) || null,
+    activeRollbackReference:
+      stringValue(drill.active_rollback_reference, drill.activeRollbackReference) || null,
+    latestPromotionDecision:
+      drill.latest_promotion_decision == null && drill.latestPromotionDecision == null
+        ? null
+        : promotionDecision(
+            stringValue(drill.latest_promotion_decision, drill.latestPromotionDecision),
+          ),
+    deploymentGateDecision:
+      drill.deployment_gate_decision == null && drill.deploymentGateDecision == null
+        ? null
+        : deploymentDecision(
+            stringValue(drill.deployment_gate_decision, drill.deploymentGateDecision),
+          ),
+    postPromotionMonitorJson: stringValue(
+      drill.post_promotion_monitor_json,
+      drill.postPromotionMonitorJson,
+    ),
+    promotionLedgerJson: stringValue(drill.promotion_ledger_json, drill.promotionLedgerJson),
+    candidateArchiveJson: stringValue(drill.candidate_archive_json, drill.candidateArchiveJson),
+    deploymentGateJson: stringValue(drill.deployment_gate_json, drill.deploymentGateJson),
+    rollbackCommand: stringValue(drill.rollback_command, drill.rollbackCommand),
+    dryRunCommand: stringValue(drill.dry_run_command, drill.dryRunCommand),
+    operator: stringValue(drill.operator),
+    reason: stringValue(drill.reason),
+    blockingCount: numberValue(drill.blocking_count, drill.blockingCount),
+    warningCount: numberValue(drill.warning_count, drill.warningCount),
+    staleCount: numberValue(drill.stale_count, drill.staleCount),
+    missingEvidenceCount: numberValue(
+      drill.missing_evidence_count,
+      drill.missingEvidenceCount,
+    ),
+    checks,
+    blockedReasons: arrayValue(drill.blocked_reasons, drill.blockedReasons)
+      .map((reason) => stringValue(reason))
+      .filter(Boolean),
+    summary: stringValue(drill.summary),
+    commands: arrayValue(drill.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -2563,6 +2715,19 @@ function qaCheckStatus(value: string): FlowReleaseQaCheckStatus {
 }
 
 function postPromotionCheckStatus(value: string): FlowReleasePostPromotionCheckStatus {
+  if (
+    value === "passed" ||
+    value === "warning" ||
+    value === "failed" ||
+    value === "missing" ||
+    value === "stale"
+  ) {
+    return value;
+  }
+  return "warning";
+}
+
+function rollbackDrillCheckStatus(value: string): FlowReleaseRollbackDrillCheckStatus {
   if (
     value === "passed" ||
     value === "warning" ||

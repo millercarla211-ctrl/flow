@@ -381,6 +381,28 @@ pub enum Command {
         dashboard_smoke_result_file: String,
         incident_note_files: Vec<String>,
     },
+    /// Write the Friday rollback drill report
+    FridayReleaseRollbackDrill {
+        drill_file: String,
+        post_promotion_monitor_file: String,
+        promotion_ledger_file: String,
+        candidate_archive_file: String,
+        deployment_gate_file: String,
+        rollback_command: String,
+        operator: String,
+        reason: String,
+    },
+    /// Print the Friday rollback drill report as JSON
+    FridayReleaseRollbackDrillJson {
+        drill_file: String,
+        post_promotion_monitor_file: String,
+        promotion_ledger_file: String,
+        candidate_archive_file: String,
+        deployment_gate_file: String,
+        rollback_command: String,
+        operator: String,
+        reason: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1362,6 +1384,50 @@ impl Args {
                     incident_note_files,
                 }
             }
+            "--friday-release-rollback-drill" | "--friday-rollback-drill" => {
+                let (
+                    drill_file,
+                    post_promotion_monitor_file,
+                    promotion_ledger_file,
+                    candidate_archive_file,
+                    deployment_gate_file,
+                    rollback_command,
+                    operator,
+                    reason,
+                ) = parse_friday_release_rollback_drill_args(&args);
+                Command::FridayReleaseRollbackDrill {
+                    drill_file,
+                    post_promotion_monitor_file,
+                    promotion_ledger_file,
+                    candidate_archive_file,
+                    deployment_gate_file,
+                    rollback_command,
+                    operator,
+                    reason,
+                }
+            }
+            "--friday-release-rollback-drill-json" | "--friday-rollback-drill-json" => {
+                let (
+                    drill_file,
+                    post_promotion_monitor_file,
+                    promotion_ledger_file,
+                    candidate_archive_file,
+                    deployment_gate_file,
+                    rollback_command,
+                    operator,
+                    reason,
+                ) = parse_friday_release_rollback_drill_args(&args);
+                Command::FridayReleaseRollbackDrillJson {
+                    drill_file,
+                    post_promotion_monitor_file,
+                    promotion_ledger_file,
+                    candidate_archive_file,
+                    deployment_gate_file,
+                    rollback_command,
+                    operator,
+                    reason,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -2264,6 +2330,67 @@ fn parse_friday_release_post_promotion_monitor_args(
         qa_file,
         dashboard_smoke_result_file,
         incident_note_files,
+    )
+}
+
+#[allow(clippy::type_complexity)]
+fn parse_friday_release_rollback_drill_args(
+    args: &[String],
+) -> (
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let drill_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--drill"))
+        .unwrap_or_else(|| format!("{export_dir}/release-rollback-drill.json"));
+    let post_promotion_monitor_file = flag_value(args, "--post-promotion-monitor")
+        .or_else(|| flag_value(args, "--monitor"))
+        .unwrap_or_else(|| format!("{export_dir}/release-post-promotion-monitor.json"));
+    let promotion_ledger_file = flag_value(args, "--promotion-ledger")
+        .or_else(|| flag_value(args, "--ledger"))
+        .unwrap_or_else(|| format!("{export_dir}/release-promotion-ledger.json"));
+    let candidate_archive_file = flag_value(args, "--candidate-archive")
+        .or_else(|| flag_value(args, "--archive"))
+        .unwrap_or_else(|| format!("{export_dir}/release-candidate-archive.json"));
+    let deployment_gate_file = flag_value(args, "--deployment-gate")
+        .or_else(|| flag_value(args, "--gate"))
+        .unwrap_or_else(|| format!("{export_dir}/release-deployment-gate.json"));
+    let rollback_command = flag_value(args, "--rollback-command").unwrap_or_else(|| {
+        format!(
+            "flow --friday-release-rollback-drill-json --output {} --post-promotion-monitor {} --promotion-ledger {} --candidate-archive {} --deployment-gate {}",
+            drill_file,
+            post_promotion_monitor_file,
+            promotion_ledger_file,
+            candidate_archive_file,
+            deployment_gate_file
+        )
+    });
+    let operator =
+        flag_value(args, "--operator").unwrap_or_else(|| "essencefromexistence".to_string());
+    let reason = flag_value(args, "--reason")
+        .unwrap_or_else(|| "Rollback drill generated for the active Friday promotion.".to_string());
+
+    (
+        drill_file,
+        post_promotion_monitor_file,
+        promotion_ledger_file,
+        candidate_archive_file,
+        deployment_gate_file,
+        rollback_command,
+        operator,
+        reason,
     )
 }
 
