@@ -27,18 +27,20 @@ use crate::experience::{
     FlowFileStateStore, FlowStateStore, NativeSelectionBridge, OperatingSystemFamily,
 };
 use crate::friday::{
-    FridayArtifactStore, FridayFeatureStatus, FridayReleaseChecklistSignoff,
-    FridayReleaseChecklistSignoffDecision, FridayReleaseDeploymentGateReport,
-    FridayReleaseDeploymentTarget, FridayReleaseEvidenceExportKitReport,
-    FridayReleaseOperatorChecklistReport, FridayReleaseQaCommandCenterReport, FridayResearchReport,
-    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayArtifactStore, FridayFeatureStatus, FridayReleaseCandidateArchive,
+    FridayReleaseChecklistSignoff, FridayReleaseChecklistSignoffDecision,
+    FridayReleaseDeploymentGateReport, FridayReleaseDeploymentTarget,
+    FridayReleaseEvidenceExportKitReport, FridayReleaseOperatorChecklistReport,
+    FridayReleaseQaCommandCenterReport, FridayResearchReport, FridayResearchWorkflow,
+    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult, FridayTrustedHostRunnerStatus,
     FridayTrustedHostRunnerUxReport, FridayTrustedRunnerReleasePackageReport,
     FridayTrustedRunnerReleaseTimeline, FridayUiIntegrationStatus, FridayWorkspaceStore,
-    append_friday_release_operator_signoff, append_friday_trusted_host_runner_history,
+    append_friday_release_candidate_to_archive, append_friday_release_operator_signoff,
+    append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -47,21 +49,21 @@ use crate::friday::{
     friday_dashboard_product_ui_binding_from_export, friday_dashboard_product_ui_smoke_from_export,
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
-    friday_operator_readiness_report, friday_release_deployment_gate_report,
+    friday_operator_readiness_report, friday_release_candidate_archive_report,
+    friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
     friday_release_evidence_export_kit_report, friday_release_operator_checklist_report,
-    friday_release_qa_command_center_report,
-    friday_research_search_plan, friday_route_visual_report,
-    friday_trusted_host_live_runner_state_from_history_file,
+    friday_release_qa_command_center_report, friday_research_search_plan,
+    friday_route_visual_report, friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
     friday_trusted_host_runner_operator_review_report_from_history_file,
     friday_trusted_host_runner_ux_report_from_history_file,
     friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
-    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
-    run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
-    write_friday_release_deployment_gate, write_friday_release_evidence_export_kit,
-    write_friday_release_operator_checklist, write_friday_release_qa_command_center_report,
-    write_friday_trusted_host_live_runner_state,
+    read_friday_release_candidate_archive, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
+    run_friday_trusted_host_command, run_friday_trusted_host_command_bridge,
+    run_friday_vlm_contract, write_friday_release_deployment_gate,
+    write_friday_release_evidence_export_kit, write_friday_release_operator_checklist,
+    write_friday_release_qa_command_center_report, write_friday_trusted_host_live_runner_state,
     write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
 };
 use crate::models::{
@@ -1022,6 +1024,22 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayReleaseCandidateArchive {
+            archive_file,
+            gate_files,
+        } => {
+            let archive = run_friday_release_candidate_archive(&archive_file, &gate_files, true)?;
+            print_friday_release_candidate_archive(&archive);
+        }
+
+        Command::FridayReleaseCandidateArchiveJson {
+            archive_file,
+            gate_files,
+        } => {
+            let archive = run_friday_release_candidate_archive(&archive_file, &gate_files, false)?;
+            println!("{}", archive.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1527,6 +1545,10 @@ fn print_interactive_help() {
     println!("                           Write Friday release go/no-go deployment gate JSON");
     println!("  --friday-release-deployment-gate-json [export-dir]");
     println!("                           Print Friday release deployment gate as JSON");
+    println!("  --friday-release-candidate-archive [archive-file] [--gate file]");
+    println!("                           Append deployment gate(s) to candidate archive");
+    println!("  --friday-release-candidate-archive-json [archive-file] [--gate file]");
+    println!("                           Print release candidate archive as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -2857,10 +2879,7 @@ fn print_friday_release_deployment_gate(report: &FridayReleaseDeploymentGateRepo
     );
     println!(
         "Reasons: {} blocking, {} warning(s) | Checklist: {}/{} ready",
-        report.no_deploy_reason_count,
-        report.warning_count,
-        report.ready_count,
-        report.total_count
+        report.no_deploy_reason_count, report.warning_count, report.ready_count, report.total_count
     );
     println!("Gate: {}", report.gate_json);
     println!();
@@ -2897,6 +2916,111 @@ fn print_friday_release_deployment_gate(report: &FridayReleaseDeploymentGateRepo
     println!();
     println!("Commands:");
     for command in &report.commands {
+        println!("  - {command}");
+    }
+}
+
+fn run_friday_release_candidate_archive(
+    archive_file: &str,
+    gate_files: &[String],
+    write_archive: bool,
+) -> Result<FridayReleaseCandidateArchive> {
+    let archive_path = resolve_repo_relative_path(archive_file);
+    if gate_files.is_empty() {
+        return Ok(
+            read_friday_release_candidate_archive(&archive_path).unwrap_or_else(|_| {
+                friday_release_candidate_archive_report(&archive_path, Vec::new())
+            }),
+        );
+    }
+
+    let mut archive = read_friday_release_candidate_archive(&archive_path)
+        .unwrap_or_else(|_| friday_release_candidate_archive_report(&archive_path, Vec::new()));
+    for gate_file in gate_files {
+        archive = if write_archive {
+            append_friday_release_candidate_to_archive(
+                &archive_path,
+                resolve_repo_relative_path(gate_file),
+            )?
+        } else {
+            let mut entries = archive.entries;
+            entries.push(friday_release_candidate_entry_from_gate(
+                resolve_repo_relative_path(gate_file),
+            )?);
+            friday_release_candidate_archive_report(&archive_path, entries)
+        };
+    }
+    Ok(archive)
+}
+
+fn print_friday_release_candidate_archive(archive: &FridayReleaseCandidateArchive) {
+    println!("Friday Release Candidate Archive");
+    println!("================================");
+    println!(
+        "Candidates: {} | go: {} | no-go: {} | draft: {} | regressions: {}",
+        archive.candidate_count,
+        archive.go_count,
+        archive.no_go_count,
+        archive.draft_count,
+        archive.regression_count
+    );
+    println!("Archive: {}", archive.archive_json);
+    if let Some(latest) = &archive.latest_candidate_id {
+        println!("Latest: {}", latest);
+    }
+    if let Some(decision) = archive.latest_decision {
+        println!("Latest decision: {}", decision.label());
+    }
+    if let Some(score) = archive.latest_score_out_of_100 {
+        println!("Latest score: {} / 100", score);
+    }
+    println!();
+    println!("Candidates:");
+    if archive.entries.is_empty() {
+        println!("  - none");
+    } else {
+        for entry in archive.entries.iter().rev().take(5) {
+            println!(
+                "  - {} [{}] score={} blockers={} target={}",
+                entry.candidate_id,
+                entry.decision.label(),
+                entry.score_out_of_100,
+                entry.no_deploy_reason_count,
+                entry.target.label
+            );
+            println!("    gate: {}", entry.gate_json);
+            println!("    export kit: {}", entry.export_kit_json);
+            println!("    rollback: {}", entry.rollback_note);
+        }
+    }
+    println!();
+    println!("Diffs:");
+    if archive.diffs.is_empty() {
+        println!("  - none");
+    } else {
+        for diff in archive.diffs.iter().rev().take(5) {
+            println!(
+                "  - {} -> {} delta={} regression={}",
+                diff.from_candidate_id,
+                diff.to_candidate_id,
+                diff.score_delta,
+                yes_no(diff.regression)
+            );
+            println!("    {}", diff.summary);
+            if !diff.new_blocker_ids.is_empty() {
+                println!("    new blockers: {}", diff.new_blocker_ids.join(", "));
+            }
+            if !diff.resolved_blocker_ids.is_empty() {
+                println!(
+                    "    resolved blockers: {}",
+                    diff.resolved_blocker_ids.join(", ")
+                );
+            }
+        }
+    }
+    println!();
+    println!("Commands:");
+    for command in &archive.commands {
         println!("  - {command}");
     }
 }

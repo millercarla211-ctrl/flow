@@ -331,6 +331,16 @@ pub enum Command {
         expected_product_name: String,
         rollback_note: String,
     },
+    /// Append deployment gates to a Friday release candidate archive
+    FridayReleaseCandidateArchive {
+        archive_file: String,
+        gate_files: Vec<String>,
+    },
+    /// Print a Friday release candidate archive as JSON
+    FridayReleaseCandidateArchiveJson {
+        archive_file: String,
+        gate_files: Vec<String>,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1217,6 +1227,20 @@ impl Args {
                     rollback_note,
                 }
             }
+            "--friday-release-candidate-archive" | "--friday-candidate-archive" => {
+                let (archive_file, gate_files) = parse_friday_release_candidate_archive_args(&args);
+                Command::FridayReleaseCandidateArchive {
+                    archive_file,
+                    gate_files,
+                }
+            }
+            "--friday-release-candidate-archive-json" | "--friday-candidate-archive-json" => {
+                let (archive_file, gate_files) = parse_friday_release_candidate_archive_args(&args);
+                Command::FridayReleaseCandidateArchiveJson {
+                    archive_file,
+                    gate_files,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -1964,8 +1988,8 @@ fn parse_friday_release_deployment_gate_args(
         .unwrap_or_else(|| format!("{export_dir}/trusted-runner-release-timeline.json"));
     let target_id =
         flag_value(args, "--target-id").unwrap_or_else(|| "local-friday-checkpoint".to_string());
-    let target_label = flag_value(args, "--target-label")
-        .unwrap_or_else(|| "Local Friday checkpoint".to_string());
+    let target_label =
+        flag_value(args, "--target-label").unwrap_or_else(|| "Local Friday checkpoint".to_string());
     let environment = flag_value(args, "--environment").unwrap_or_else(|| "local".to_string());
     let provider = flag_value(args, "--provider").unwrap_or_else(|| "local".to_string());
     let target_url = flag_value(args, "--url").or_else(|| flag_value(args, "--target-url"));
@@ -1995,6 +2019,25 @@ fn parse_friday_release_deployment_gate_args(
         expected_product_name,
         rollback_note,
     )
+}
+
+fn parse_friday_release_candidate_archive_args(args: &[String]) -> (String, Vec<String>) {
+    let positional = positional_values(args, &["--archive", "--gate"]);
+    let archive_from_flag = flag_value(args, "--archive");
+    let archive_file = archive_from_flag
+        .clone()
+        .or_else(|| positional.first().cloned())
+        .unwrap_or_else(|| "tmp/friday-dashboard/release-candidate-archive.json".to_string());
+    let positional_gates = if archive_from_flag.is_some() {
+        positional
+    } else {
+        positional.into_iter().skip(1).collect::<Vec<_>>()
+    };
+    let gate_files = repeated_flag_values(args, "--gate")
+        .into_iter()
+        .chain(positional_gates)
+        .collect::<Vec<_>>();
+    (archive_file, gate_files)
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

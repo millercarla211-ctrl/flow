@@ -507,7 +507,8 @@ pub fn friday_release_deployment_gate_report(
             FridayReleaseDeploymentGateReasonCategory::DashboardState,
             FridayReleaseDeploymentGateReasonSeverity::Blocking,
             "Dashboard state is missing",
-            "Friday could not read the dashboard product UI binding from the export directory.".to_string(),
+            "Friday could not read the dashboard product UI binding from the export directory."
+                .to_string(),
             dashboard_export_dir,
             "Run flow --friday-dashboard-export and import/check the resulting dashboard state.",
         );
@@ -517,8 +518,16 @@ pub fn friday_release_deployment_gate_report(
         .as_ref()
         .map(|report| report.manifest.product_name.clone())
         .or_else(|| qa.as_ref().map(|report| report.product_name.clone()))
-        .or_else(|| checklist_report.as_ref().map(|report| report.product_name.clone()))
-        .or_else(|| package.as_ref().map(|report| report.manifest.product_name.clone()))
+        .or_else(|| {
+            checklist_report
+                .as_ref()
+                .map(|report| report.product_name.clone())
+        })
+        .or_else(|| {
+            package
+                .as_ref()
+                .map(|report| report.manifest.product_name.clone())
+        })
         .unwrap_or_else(|| "Friday".to_string());
     let target_product_match = product_name == target.expected_product_name;
     let target_local_match = !target.local_only_required
@@ -582,7 +591,10 @@ pub fn friday_release_deployment_gate_report(
             FridayReleaseDeploymentGateReasonCategory::TargetMismatch,
             FridayReleaseDeploymentGateReasonSeverity::Blocking,
             "Deployment target provider mismatch",
-            format!("Target requires Vercel, but provider is `{}`.", target.provider),
+            format!(
+                "Target requires Vercel, but provider is `{}`.",
+                target.provider
+            ),
             gate_path,
             "Set --provider vercel or remove --vercel for a local checkpoint gate.",
         );
@@ -622,7 +634,12 @@ pub fn friday_release_deployment_gate_report(
         FridayReleaseDeploymentGateDecision::Draft => FridayDashboardPanelStatus::Warning,
         FridayReleaseDeploymentGateDecision::NoGo => FridayDashboardPanelStatus::Blocked,
     };
-    let score_out_of_100 = score_gate(ready_count, total_count, no_deploy_reason_count, warning_count);
+    let score_out_of_100 = score_gate(
+        ready_count,
+        total_count,
+        no_deploy_reason_count,
+        warning_count,
+    );
     let gate_json = path_string(gate_path);
     let commands = vec![
         format!(

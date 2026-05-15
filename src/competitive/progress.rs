@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-deployment-gate-model",
-            "Typed release deployment-gate model",
+            "release-candidate-archive-model",
+            "Typed release candidate archive model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseDeploymentGateReport` consumes export-kit, QA, checklist, package, timeline, dashboard state, and target metadata",
-            "open the next release candidate archive set",
+            "`FridayReleaseCandidateArchive` stores deployment gate path, export kit path/checksum, target profile, score, decision, blocker ids, and rollback note",
+            "add dashboard candidate-history rendering",
         ),
         item(
-            "release-deployment-gate-reasons",
-            "No-deploy reason categories",
+            "release-candidate-archive-diffs",
+            "Candidate diff summaries",
             20,
             CompletionItemStatus::Done,
-            "deployment gates classify missing evidence, stale checks, blocked QA, unsigned releases, dashboard state, and target mismatch as warning or blocking reasons",
-            "open the next release candidate archive set",
+            "candidate diffs track score deltas, decision changes, target changes, evidence checksum changes, new blockers, resolved blockers, and regressions",
+            "add dashboard candidate-history rendering",
         ),
         item(
-            "release-deployment-gate-cli",
-            "Deployment-gate CLI and JSON commands",
+            "release-candidate-archive-cli",
+            "Candidate archive CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-deployment-gate` writes the go/no-go report and `--friday-release-deployment-gate-json` previews it without running builds or deployments",
-            "open the next release candidate archive set",
+            "`flow --friday-release-candidate-archive` appends gates and `--friday-release-candidate-archive-json` previews candidate history without running builds or deployments",
+            "add dashboard candidate-history rendering",
         ),
         item(
-            "release-deployment-gate-dashboard",
-            "Dashboard deployment-gate rendering",
+            "release-candidate-archive-dashboard",
+            "Dashboard candidate archive rendering",
             20,
-            CompletionItemStatus::Done,
-            "the visible dashboard imports deployment-gate JSON, renders go/no-go status, target profile, rollback note, reasons, and deploy checklist",
-            "open the next release candidate archive set",
+            CompletionItemStatus::Planned,
+            "not wired yet; candidate archives need visible latest-candidate, history, and compare-to-previous controls",
+            "render candidate archives in the dashboard import flow",
         ),
         item(
-            "release-deployment-gate-coverage",
-            "Deployment-gate Rust and TypeScript coverage",
+            "release-candidate-archive-coverage",
+            "Candidate archive Rust and TypeScript coverage",
             20,
-            CompletionItemStatus::Done,
-            "focused Rust integration coverage and dashboard smoke checks verify no-go scoring, target policy, operator copy, commands, and UI normalization",
-            "open the next release candidate archive set",
+            CompletionItemStatus::Planned,
+            "Rust integration coverage exists for archive/diff behavior; dashboard normalization and smoke coverage are still needed",
+            "add TypeScript normalization and dashboard smoke coverage",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Deployment Gate".to_string(),
+        name: "Friday Release Candidate Archive".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Turn release evidence, QA, checklist, dashboard state, and deployment target metadata into one explicit local-first go/no-go gate before major Friday checkpoints.".to_string(),
+        loop_rule: "Preserve every Friday major-checkpoint candidate as comparable local records with deployment gates, evidence kits, target metadata, rollback notes, and promotion history.".to_string(),
         items,
     }
 }
@@ -137,14 +137,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_deployment_gate_loop() {
+    fn active_set_tracks_friday_release_candidate_archive_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Deployment Gate");
-        assert_eq!(set.current_score_out_of_100, 100);
+        assert_eq!(set.name, "Friday Release Candidate Archive");
+        assert_eq!(set.current_score_out_of_100, 60);
         assert!(
             set.items
                 .iter()
-                .all(|item| item.status == CompletionItemStatus::Done)
+                .any(|item| item.status == CompletionItemStatus::Planned)
         );
     }
 

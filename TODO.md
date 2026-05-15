@@ -502,14 +502,17 @@ This set is complete. The next loop should open `Friday Release Candidate Archiv
 
 ## Next Set: Friday Release Candidate Archive
 
-Status: 0/100
+Status: 60/100
 
 Goal: preserve every Friday major-checkpoint candidate as a comparable local record so operators can see deployment gates, evidence kits, targets, rollback notes, and promotion history without digging through loose JSON files.
 
+### Completed Toward 100/100
+
+- [x] Add a typed release-candidate archive model that stores deployment gate JSON, export kit JSON, target profile, score, decision, and rollback note.
+- [x] Add candidate diff summaries for score changes, new blockers, resolved blockers, target changes, and evidence checksum changes.
+- [x] Add CLI and JSON commands for appending candidates and printing candidate history without running builds or deployments.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed release-candidate archive model that stores deployment gate JSON, export kit JSON, target profile, score, decision, and rollback note.
-- [ ] Add candidate diff summaries for score changes, new blockers, resolved blockers, target changes, and evidence checksum changes.
-- [ ] Add CLI and JSON commands for appending candidates and printing candidate history without running builds or deployments.
 - [ ] Add dashboard import/rendering for candidate history, latest-candidate status, and compare-to-previous guidance.
 - [ ] Add focused Rust/TypeScript coverage for candidate archive writes, diff warnings, and dashboard rendering.

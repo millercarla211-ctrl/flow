@@ -25,16 +25,16 @@ use flow::friday::{
     FridayDashboardScreenshotStatus, FridayExecutionHandoffStatus, FridayLiveUiBindingStatus,
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
-    FridayPreviewRunner, FridayReleaseChecklistSignoffDecision, FridayReleaseQaCheckStatus,
-    FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget, FridayResearchWorkflow,
-    FridayRouteVisualStatus, FridayRuntimeSurfaceStore,
+    FridayPreviewRunner, FridayReleaseCandidateArchiveEntry, FridayReleaseChecklistSignoffDecision,
+    FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget, FridayReleaseQaCheckStatus,
+    FridayResearchWorkflow, FridayRouteVisualStatus, FridayRuntimeSurfaceStore,
     FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
     FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
     FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus, FridayVerificationStatus,
-    FridayWorkspaceStore, append_friday_release_operator_signoff,
-    append_friday_trusted_host_runner_history,
+    FridayWorkspaceStore, append_friday_release_candidate_to_archive,
+    append_friday_release_operator_signoff, append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -45,11 +45,11 @@ use flow::friday::{
     friday_dashboard_release_review_from_export, friday_dashboard_screenshot_history,
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
-    friday_operator_readiness_report, friday_release_evidence_export_kit_report,
-    friday_release_deployment_gate_report, friday_release_operator_checklist_report,
+    friday_operator_readiness_report, friday_release_candidate_archive_report,
+    friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
+    friday_release_evidence_export_kit_report, friday_release_operator_checklist_report,
     friday_release_qa_command_center_report, friday_route_visual_report,
-    friday_route_visual_report_for_root,
-    friday_trusted_host_live_runner_state_from_history,
+    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -1996,6 +1996,52 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     );
     write_friday_release_deployment_gate(&deployment_gate_path, &deployment_gate).unwrap();
     assert!(deployment_gate_path.exists());
+    let candidate_archive_path = root.join("release-candidate-archive.json");
+    let candidate_archive =
+        append_friday_release_candidate_to_archive(&candidate_archive_path, &deployment_gate_path)
+            .unwrap();
+    assert_eq!(candidate_archive.candidate_count, 1);
+    assert_eq!(
+        candidate_archive.latest_decision,
+        Some(FridayReleaseDeploymentGateDecision::NoGo)
+    );
+    assert_eq!(candidate_archive.no_go_count, 1);
+    assert!(
+        candidate_archive
+            .entries
+            .iter()
+            .any(|entry| entry.export_kit_manifest_sha256.is_some())
+    );
+    let mut loaded_candidate =
+        friday_release_candidate_entry_from_gate(&deployment_gate_path).unwrap();
+    loaded_candidate.score_out_of_100 = 80;
+    let mut regressed_candidate: FridayReleaseCandidateArchiveEntry = loaded_candidate.clone();
+    regressed_candidate.candidate_id = "candidate-regressed".to_string();
+    regressed_candidate.gate_json = root
+        .join("release-deployment-gate-regressed.json")
+        .to_string_lossy()
+        .replace('\\', "/");
+    regressed_candidate.generated_at_unix_ms += 1;
+    regressed_candidate.score_out_of_100 = 70;
+    regressed_candidate.no_deploy_reason_count += 1;
+    regressed_candidate
+        .reason_ids
+        .push("new-deploy-blocker".to_string());
+    regressed_candidate.export_kit_manifest_sha256 = Some("changed".to_string());
+    let compared_archive = friday_release_candidate_archive_report(
+        &candidate_archive_path,
+        vec![loaded_candidate, regressed_candidate],
+    );
+    assert_eq!(compared_archive.candidate_count, 2);
+    assert_eq!(compared_archive.regression_count, 1);
+    assert!(compared_archive.diffs.iter().any(|diff| {
+        diff.regression
+            && diff.score_delta < 0
+            && diff
+                .new_blocker_ids
+                .contains(&"new-deploy-blocker".to_string())
+            && diff.evidence_checksum_changed
+    }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);
