@@ -6,6 +6,7 @@ import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
   normalizeReleaseCandidateArchive,
+  normalizeReleaseCheckpointEvidenceVault,
   normalizeReleaseCheckpointReview,
   normalizeReleaseCheckpointSignoffLedger,
   normalizeReleaseDeploymentGate,
@@ -2111,6 +2112,93 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-checkpoint-signoff-list --ledger tmp/friday-dashboard/release-checkpoint-signoff-ledger.json",
     ],
   });
+  const releaseCheckpointEvidenceVault = normalizeReleaseCheckpointEvidenceVault({
+    vault_id: "friday-release-checkpoint-evidence-vault-smoke",
+    vault_json: "tmp/friday-dashboard/release-checkpoint-evidence-vault.json",
+    generated_at_unix_ms: 21,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    ready_to_archive: false,
+    review_id: "friday-release-checkpoint-review-smoke",
+    review_decision: "hold",
+    review_score_out_of_100: 0,
+    signoff_ledger_id: "friday-release-checkpoint-signoff-ledger-smoke",
+    active_signoff_id: "friday-release-checkpoint-signoff-friday-release-checkpoint-review-smoke-20",
+    active_decision: "held",
+    entry_count: 4,
+    required_count: 4,
+    present_count: 3,
+    missing_count: 1,
+    checksum_count: 3,
+    acknowledgement_evidence_missing_count: 1,
+    active_hold_count: 1,
+    active_carryover_count: 1,
+    release_gate_blocking_count: 1,
+    manifest_sha256: "smoke-vault-checksum",
+    entries: [
+      {
+        id: "checkpoint-review-json",
+        label: "Checkpoint review JSON",
+        kind: "checkpoint-review-json",
+        path: "tmp/friday-dashboard/release-checkpoint-review.json",
+        required: true,
+        present: true,
+        bytes: 300,
+        sha256: "review-checksum",
+        source_id: "friday-release-checkpoint-review-smoke",
+        summary: "Release checkpoint review board used for this vault.",
+        warning: null,
+      },
+      {
+        id: "checkpoint-signoff-ledger-json",
+        label: "Checkpoint signoff ledger JSON",
+        kind: "checkpoint-signoff-ledger-json",
+        path: "tmp/friday-dashboard/release-checkpoint-signoff-ledger.json",
+        required: true,
+        present: true,
+        bytes: 220,
+        sha256: "signoff-checksum",
+        source_id: "friday-release-checkpoint-signoff-ledger-smoke",
+        summary: "Checkpoint signoff history used for this vault.",
+        warning: null,
+      },
+      {
+        id: "acknowledgement-evidence-smoke",
+        label: "Acknowledgement evidence",
+        kind: "acknowledgement-evidence",
+        path: "",
+        required: true,
+        present: false,
+        bytes: 0,
+        sha256: null,
+        source_id: "friday-release-checkpoint-signoff-friday-release-checkpoint-review-smoke-20",
+        summary: "Operator acknowledgement evidence attached to a checkpoint signoff.",
+        warning: "Required evidence is missing: Acknowledgement evidence.",
+      },
+      {
+        id: "checkpoint-release-notes",
+        label: "Checkpoint release notes",
+        kind: "release-notes",
+        path: "inline://release-notes/checkpoint-signoff-ledger",
+        required: true,
+        present: true,
+        bytes: 160,
+        sha256: "release-notes-checksum",
+        source_id: "friday-release-checkpoint-signoff-ledger-smoke",
+        summary: "Copyable release notes generated from checkpoint signoff history.",
+        warning: null,
+      },
+    ],
+    attachment_notes_copy:
+      "Friday checkpoint evidence vault: tmp/friday-dashboard/release-checkpoint-evidence-vault.json\nManifest checksum: smoke-vault-checksum\nMissing required evidence: 1",
+    summary:
+      "Friday checkpoint evidence vault has 4 entries, 1 missing required item(s), 3 checksum(s), and 1 release gate block(s).",
+    commands: [
+      "flow --friday-release-checkpoint-evidence-vault --output tmp/friday-dashboard/release-checkpoint-evidence-vault.json --review tmp/friday-dashboard/release-checkpoint-review.json --signoff-ledger tmp/friday-dashboard/release-checkpoint-signoff-ledger.json",
+      "flow --friday-release-checkpoint-evidence-vault-json --output tmp/friday-dashboard/release-checkpoint-evidence-vault.json --review tmp/friday-dashboard/release-checkpoint-review.json --signoff-ledger tmp/friday-dashboard/release-checkpoint-signoff-ledger.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -2719,6 +2807,31 @@ export function dashboardSectionSmokeReport(
           command.includes("--friday-release-checkpoint-signoff"),
         ),
       `${releaseCheckpointSignoffLedger?.activeHoldCount ?? 0} active signoff hold(s)`,
+    ),
+    check(
+      "release-checkpoint-evidence-vault-importable",
+      releaseCheckpointEvidenceVault?.entryCount === 4 &&
+        releaseCheckpointEvidenceVault.missingCount === 1 &&
+        releaseCheckpointEvidenceVault.manifestSha256 === "smoke-vault-checksum",
+      `${releaseCheckpointEvidenceVault?.entryCount ?? 0} checkpoint vault entries`,
+    ),
+    check(
+      "release-checkpoint-evidence-vault-attachments",
+      releaseCheckpointEvidenceVault !== null &&
+        releaseCheckpointEvidenceVault.entries.some(
+          (entry) =>
+            entry.kind === "acknowledgement-evidence" &&
+            entry.required &&
+            !entry.present &&
+            entry.warning?.includes("Required evidence"),
+        ) &&
+        releaseCheckpointEvidenceVault.attachmentNotesCopy.includes(
+          "Friday checkpoint evidence vault",
+        ) &&
+        releaseCheckpointEvidenceVault.commands.some((command) =>
+          command.includes("--friday-release-checkpoint-evidence-vault"),
+        ),
+      `${releaseCheckpointEvidenceVault?.missingCount ?? 0} vault missing evidence item(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

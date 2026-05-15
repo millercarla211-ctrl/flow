@@ -737,16 +737,34 @@ Goal: turn checkpoint review decisions into auditable signoff records that captu
 
 This set is complete. The next loop should open `Friday Release Checkpoint Evidence Vault` and package checkpoint reviews, signoff ledgers, acknowledgement evidence, carryover commitments, and release notes into one local evidence bundle.
 
-## Next Set: Friday Release Checkpoint Evidence Vault
+## Completed Set: Friday Release Checkpoint Evidence Vault
 
-Status: 0/100
+Status: 100/100
 
 Goal: package checkpoint review and signoff evidence into a durable local vault so every release-control decision has attached evidence, checksums, and operator-ready export notes.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed checkpoint evidence vault model that consumes checkpoint reviews and signoff ledgers.
+- [x] Add manifest entries for review JSON, signoff ledger JSON, acknowledgement evidence files, carryover commitments, and release notes.
+- [x] Add CLI and JSON commands for generating vault bundles without running deployments, builds, or remediation commands.
+- [x] Add dashboard import/rendering for vault completeness, missing evidence, checksums, and copyable attachment notes.
+- [x] Add focused Rust/TypeScript coverage for vault completeness, checksum copy, missing-evidence warnings, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Evidence Attachment Review` and verify that vault attachments are operator-ready before any release note, deployment note, or handoff.
+
+## Next Set: Friday Release Evidence Attachment Review
+
+Status: 0/100
+
+Goal: review checkpoint evidence vault attachments before handoff so Friday can show exactly which files are attachable, which inline notes need review, and which evidence blockers remain.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed checkpoint evidence vault model that consumes checkpoint reviews and signoff ledgers.
-- [ ] Add manifest entries for review JSON, signoff ledger JSON, acknowledgement evidence files, carryover commitments, and release notes.
-- [ ] Add CLI and JSON commands for generating vault bundles without running deployments, builds, or remediation commands.
-- [ ] Add dashboard import/rendering for vault completeness, missing evidence, checksums, and copyable attachment notes.
-- [ ] Add focused Rust/TypeScript coverage for vault completeness, checksum copy, missing-evidence warnings, command safety, and dashboard rendering.
+- [ ] Add a typed evidence attachment review model that consumes checkpoint evidence vaults.
+- [ ] Add attachability states for ready, missing, inline-only, checksum-missing, and blocked evidence.
+- [ ] Add CLI and JSON commands that review attachments without uploading, deploying, building, or mutating external systems.
+- [ ] Add dashboard import/rendering for attachment readiness, first missing blocker, manifest checksum, and copyable handoff notes.
+- [ ] Add focused Rust/TypeScript coverage for attachment readiness, warning copy, command safety, and dashboard rendering.

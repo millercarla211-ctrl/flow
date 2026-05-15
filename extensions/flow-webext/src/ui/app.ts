@@ -3,6 +3,7 @@ import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
   normalizeReleaseCandidateArchive,
+  normalizeReleaseCheckpointEvidenceVault,
   normalizeReleaseCheckpointReview,
   normalizeReleaseCheckpointSignoffLedger,
   normalizeReleaseDeploymentGate,
@@ -42,6 +43,7 @@ import {
   type FlowDashboardRunnerUxReport,
   type FlowDashboardCommandStatus,
   type FlowReleaseCandidateArchive,
+  type FlowReleaseCheckpointEvidenceVault,
   type FlowReleaseCheckpointReviewBoardReport,
   type FlowReleaseCheckpointSignoffLedger,
   type FlowReleaseDeploymentGateReport,
@@ -118,6 +120,7 @@ type UiState = {
   dashboardReleaseEscalationLedger: FlowReleaseEscalationLedger | null;
   dashboardReleaseCheckpointReview: FlowReleaseCheckpointReviewBoardReport | null;
   dashboardReleaseCheckpointSignoffLedger: FlowReleaseCheckpointSignoffLedger | null;
+  dashboardReleaseCheckpointEvidenceVault: FlowReleaseCheckpointEvidenceVault | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -2547,6 +2550,70 @@ function renderReleaseCheckpointSignoffLedger(
   `;
 }
 
+function renderReleaseCheckpointEvidenceVault(
+  vault: FlowReleaseCheckpointEvidenceVault | null,
+) {
+  if (!vault) {
+    return "";
+  }
+
+  const status =
+    !vault.readyToArchive ||
+    vault.missingCount > 0 ||
+    vault.releaseGateBlockingCount > 0 ||
+    vault.activeHoldCount > 0
+      ? "blocked"
+      : vault.activeCarryoverCount > 0
+        ? "warning"
+        : "ready";
+
+  return `
+    <article class="feature-card dashboard-release-checkpoint-evidence-vault">
+      <div class="card-topline">
+        <span class="eyebrow">Checkpoint evidence vault</span>
+        <span class="badge ${badgeTone(status)}">${vault.readyToArchive ? "ready" : "needs evidence"}</span>
+      </div>
+      <h3>${vault.readyToArchive ? "Checkpoint evidence is archived" : "Checkpoint evidence needs attention"}</h3>
+      <p>${escapeHtml(vault.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${vault.entryCount}</strong><small>entries</small></span>
+        <span><strong>${vault.presentCount}</strong><small>present</small></span>
+        <span><strong>${vault.missingCount}</strong><small>missing</small></span>
+        <span><strong>${vault.checksumCount}</strong><small>checksums</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Review</strong> ${escapeHtml(vault.reviewId ?? "missing")}</span>
+        <span><strong>Active signoff</strong> ${escapeHtml(vault.activeDecision ?? "none")}</span>
+        <span><strong>Manifest</strong> ${escapeHtml(vault.manifestSha256.slice(0, 16))}</span>
+        <span><strong>Vault</strong> ${escapeHtml(vault.vaultJson)}</span>
+      </div>
+      <div class="runner-package-files">
+        ${vault.entries
+          .slice(0, 8)
+          .map(
+            (entry) => `
+              <div class="runner-package-file ${entry.present ? "present" : "missing"}">
+                <strong>${escapeHtml(entry.label)}</strong>
+                <small>${escapeHtml(entry.kind)} - ${entry.bytes} bytes</small>
+                <code>${escapeHtml(entry.path || "missing")}</code>
+                <span>${escapeHtml(entry.warning ?? entry.summary)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-checkpoint-evidence-vault-command">
+          Copy vault command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-checkpoint-evidence-vault-notes">
+          Copy attachment notes
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2771,6 +2838,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseEscalationLedger(state.dashboardReleaseEscalationLedger)}
       ${renderReleaseCheckpointReview(state.dashboardReleaseCheckpointReview)}
       ${renderReleaseCheckpointSignoffLedger(state.dashboardReleaseCheckpointSignoffLedger)}
+      ${renderReleaseCheckpointEvidenceVault(state.dashboardReleaseCheckpointEvidenceVault)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2914,6 +2982,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseEscalationLedger: null,
     dashboardReleaseCheckpointReview: null,
     dashboardReleaseCheckpointSignoffLedger: null,
+    dashboardReleaseCheckpointEvidenceVault: null,
   };
 
   function render() {
@@ -3228,6 +3297,8 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseCheckpointReview = normalizeReleaseCheckpointReview(parsed);
       const releaseCheckpointSignoffLedger =
         normalizeReleaseCheckpointSignoffLedger(parsed);
+      const releaseCheckpointEvidenceVault =
+        normalizeReleaseCheckpointEvidenceVault(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -3275,8 +3346,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseCheckpointReview ?? state.dashboardReleaseCheckpointReview;
       state.dashboardReleaseCheckpointSignoffLedger =
         releaseCheckpointSignoffLedger ?? state.dashboardReleaseCheckpointSignoffLedger;
+      state.dashboardReleaseCheckpointEvidenceVault =
+        releaseCheckpointEvidenceVault ?? state.dashboardReleaseCheckpointEvidenceVault;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseCheckpointSignoffLedger
+      state.status = releaseCheckpointEvidenceVault
+        ? `Imported checkpoint evidence vault with ${releaseCheckpointEvidenceVault.entryCount} entries from ${file.name}.`
+        : releaseCheckpointSignoffLedger
         ? `Imported checkpoint signoff ledger with ${releaseCheckpointSignoffLedger.recordCount} record(s) from ${file.name}.`
         : releaseCheckpointReview
         ? `Imported release checkpoint review ${releaseCheckpointReview.decision} at ${releaseCheckpointReview.scoreOutOf100}/100 from ${file.name}.`
@@ -3954,6 +4029,38 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseCheckpointEvidenceVaultCommand() {
+    const command = state.dashboardReleaseCheckpointEvidenceVault?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release checkpoint evidence vault command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release checkpoint evidence vault command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseCheckpointEvidenceVaultNotes() {
+    const copy = state.dashboardReleaseCheckpointEvidenceVault?.attachmentNotesCopy ?? "";
+    if (!copy) {
+      state.status = "No release checkpoint evidence vault notes are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release checkpoint evidence vault notes copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -4254,6 +4361,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-checkpoint-signoff-notes']")
       ?.addEventListener("click", () => {
         void copyReleaseCheckpointSignoffNotes();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-checkpoint-evidence-vault-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseCheckpointEvidenceVaultCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-checkpoint-evidence-vault-notes']")
+      ?.addEventListener("click", () => {
+        void copyReleaseCheckpointEvidenceVaultNotes();
       });
 
     mountRoot

@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-checkpoint-signoff-model",
-            "Typed release checkpoint signoff ledger model",
+            "release-checkpoint-evidence-vault-model",
+            "Typed release checkpoint evidence vault model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseCheckpointSignoffLedger` consumes checkpoint review boards and preserves signoff history",
-            "open the next release checkpoint evidence vault set",
+            "`FridayReleaseCheckpointEvidenceVault` consumes checkpoint reviews and signoff ledgers into one local evidence manifest",
+            "open the next Friday release evidence attachment review set",
         ),
         item(
-            "release-checkpoint-signoff-states",
-            "Signed-off, held, carried-over, superseded, and revoked states",
+            "release-checkpoint-evidence-vault-manifest",
+            "Manifest entries for review, signoff, acknowledgement, carryover, and notes",
             20,
             CompletionItemStatus::Done,
-            "signoff records capture operator, reason, acknowledgement evidence, active holds, and carryover commitments",
-            "open the next release checkpoint evidence vault set",
+            "vault entries classify checkpoint review JSON, signoff ledger JSON, acknowledgement evidence, carryover commitments, and release notes with presence and checksum state",
+            "open the next Friday release evidence attachment review set",
         ),
         item(
-            "release-checkpoint-signoff-cli",
-            "Checkpoint signoff append, list, export, and JSON commands",
+            "release-checkpoint-evidence-vault-cli",
+            "Checkpoint evidence vault write and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-checkpoint-signoff` appends audit records without running builds, deployments, or remediation commands",
-            "open the next release checkpoint evidence vault set",
+            "`flow --friday-release-checkpoint-evidence-vault` writes local manifest JSON without running builds, deployments, or remediation commands",
+            "open the next Friday release evidence attachment review set",
         ),
         item(
-            "release-checkpoint-signoff-dashboard",
-            "Dashboard signoff history rendering",
+            "release-checkpoint-evidence-vault-dashboard",
+            "Dashboard evidence vault rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports checkpoint signoff ledgers and renders signoff history, active holds, carryover commitments, and copyable release notes",
-            "open the next release checkpoint evidence vault set",
+            "the visible dashboard imports vault JSON and renders completeness, missing evidence, checksums, manifest hash, and copyable attachment notes",
+            "open the next Friday release evidence attachment review set",
         ),
         item(
-            "release-checkpoint-signoff-coverage",
-            "Checkpoint signoff Rust and TypeScript coverage",
+            "release-checkpoint-evidence-vault-coverage",
+            "Checkpoint evidence vault Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify signoff writes, decision history, carryover commitments, command safety, and dashboard rendering",
-            "open the next release checkpoint evidence vault set",
+            "focused Rust integration coverage plus dashboard smoke checks verify vault completeness, missing-evidence warnings, command safety, checksums, and dashboard rendering",
+            "open the next Friday release evidence attachment review set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Checkpoint Signoff Ledger".to_string(),
+        name: "Friday Release Checkpoint Evidence Vault".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Preserve Friday checkpoint decisions, operator signoffs, acknowledgement evidence, and carryover commitments as searchable local release history.".to_string(),
+        loop_rule: "Package Friday checkpoint review and signoff evidence into a durable local vault with checksums and operator-ready attachment notes.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_checkpoint_signoff_loop() {
+    fn active_set_tracks_friday_release_checkpoint_evidence_vault_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Checkpoint Signoff Ledger");
+        assert_eq!(set.name, "Friday Release Checkpoint Evidence Vault");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

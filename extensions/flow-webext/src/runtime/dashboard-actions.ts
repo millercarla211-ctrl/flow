@@ -1401,6 +1401,57 @@ export interface FlowReleaseCheckpointSignoffLedger {
   commands: string[];
 }
 
+export type FlowReleaseCheckpointEvidenceVaultEntryKind =
+  | "checkpoint-review-json"
+  | "checkpoint-signoff-ledger-json"
+  | "acknowledgement-evidence"
+  | "carryover-commitment"
+  | "release-notes";
+
+export interface FlowReleaseCheckpointEvidenceVaultEntry {
+  id: string;
+  label: string;
+  kind: FlowReleaseCheckpointEvidenceVaultEntryKind;
+  path: string;
+  required: boolean;
+  present: boolean;
+  bytes: number;
+  sha256: string | null;
+  sourceId: string;
+  summary: string;
+  warning: string | null;
+}
+
+export interface FlowReleaseCheckpointEvidenceVault {
+  vaultId: string;
+  vaultJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  readyToArchive: boolean;
+  reviewId: string | null;
+  reviewDecision: FlowReleaseCheckpointDecision | null;
+  reviewScoreOutOf100: number | null;
+  signoffLedgerId: string | null;
+  activeSignoffId: string | null;
+  activeDecision: FlowReleaseCheckpointSignoffDecision | null;
+  entryCount: number;
+  requiredCount: number;
+  presentCount: number;
+  missingCount: number;
+  checksumCount: number;
+  acknowledgementEvidenceMissingCount: number;
+  activeHoldCount: number;
+  activeCarryoverCount: number;
+  releaseGateBlockingCount: number;
+  manifestSha256: string;
+  entries: FlowReleaseCheckpointEvidenceVaultEntry[];
+  attachmentNotesCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -4377,6 +4428,103 @@ export function normalizeReleaseCheckpointSignoffLedger(
   };
 }
 
+export function normalizeReleaseCheckpointEvidenceVault(
+  value: unknown,
+): FlowReleaseCheckpointEvidenceVault | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const vault =
+    root.release_checkpoint_evidence_vault &&
+    typeof root.release_checkpoint_evidence_vault === "object"
+      ? (root.release_checkpoint_evidence_vault as Record<string, unknown>)
+      : root.releaseCheckpointEvidenceVault &&
+          typeof root.releaseCheckpointEvidenceVault === "object"
+        ? (root.releaseCheckpointEvidenceVault as Record<string, unknown>)
+        : root;
+  const vaultId = stringValue(vault.vault_id, vault.vaultId);
+  const entries = arrayValue(vault.entries)
+    .map((item): FlowReleaseCheckpointEvidenceVaultEntry | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const entry = item as Record<string, unknown>;
+      const id = stringValue(entry.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        label: stringValue(entry.label),
+        kind: releaseCheckpointEvidenceVaultEntryKind(stringValue(entry.kind)),
+        path: stringValue(entry.path),
+        required: booleanValue(entry.required),
+        present: booleanValue(entry.present),
+        bytes: numberValue(entry.bytes),
+        sha256: stringValue(entry.sha256) || null,
+        sourceId: stringValue(entry.source_id, entry.sourceId),
+        summary: stringValue(entry.summary),
+        warning: stringValue(entry.warning) || null,
+      };
+    })
+    .filter((entry): entry is FlowReleaseCheckpointEvidenceVaultEntry => entry !== null);
+
+  if (!vaultId && entries.length === 0) {
+    return null;
+  }
+
+  return {
+    vaultId,
+    vaultJson: stringValue(vault.vault_json, vault.vaultJson),
+    generatedAtUnixMs: stringValue(vault.generated_at_unix_ms, vault.generatedAtUnixMs),
+    productName: stringValue(vault.product_name, vault.productName),
+    localOnly: booleanValue(vault.local_only, vault.localOnly),
+    status: panelStatus(stringValue(vault.status)),
+    readyToArchive: booleanValue(vault.ready_to_archive, vault.readyToArchive),
+    reviewId: stringValue(vault.review_id, vault.reviewId) || null,
+    reviewDecision:
+      vault.review_decision == null && vault.reviewDecision == null
+        ? null
+        : releaseCheckpointDecision(stringValue(vault.review_decision, vault.reviewDecision)),
+    reviewScoreOutOf100: nullableNumber(
+      vault.review_score_out_of_100,
+      vault.reviewScoreOutOf100,
+    ),
+    signoffLedgerId: stringValue(vault.signoff_ledger_id, vault.signoffLedgerId) || null,
+    activeSignoffId: stringValue(vault.active_signoff_id, vault.activeSignoffId) || null,
+    activeDecision:
+      vault.active_decision == null && vault.activeDecision == null
+        ? null
+        : releaseCheckpointSignoffDecision(
+            stringValue(vault.active_decision, vault.activeDecision),
+          ),
+    entryCount: numberValue(vault.entry_count, vault.entryCount),
+    requiredCount: numberValue(vault.required_count, vault.requiredCount),
+    presentCount: numberValue(vault.present_count, vault.presentCount),
+    missingCount: numberValue(vault.missing_count, vault.missingCount),
+    checksumCount: numberValue(vault.checksum_count, vault.checksumCount),
+    acknowledgementEvidenceMissingCount: numberValue(
+      vault.acknowledgement_evidence_missing_count,
+      vault.acknowledgementEvidenceMissingCount,
+    ),
+    activeHoldCount: numberValue(vault.active_hold_count, vault.activeHoldCount),
+    activeCarryoverCount: numberValue(vault.active_carryover_count, vault.activeCarryoverCount),
+    releaseGateBlockingCount: numberValue(
+      vault.release_gate_blocking_count,
+      vault.releaseGateBlockingCount,
+    ),
+    manifestSha256: stringValue(vault.manifest_sha256, vault.manifestSha256),
+    entries,
+    attachmentNotesCopy: stringValue(vault.attachment_notes_copy, vault.attachmentNotesCopy),
+    summary: stringValue(vault.summary),
+    commands: arrayValue(vault.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -4787,6 +4935,21 @@ function releaseCheckpointSignoffDecision(
     return value;
   }
   return "held";
+}
+
+function releaseCheckpointEvidenceVaultEntryKind(
+  value: string,
+): FlowReleaseCheckpointEvidenceVaultEntryKind {
+  if (
+    value === "checkpoint-review-json" ||
+    value === "checkpoint-signoff-ledger-json" ||
+    value === "acknowledgement-evidence" ||
+    value === "carryover-commitment" ||
+    value === "release-notes"
+  ) {
+    return value;
+  }
+  return "acknowledgement-evidence";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

@@ -29,19 +29,20 @@ use crate::experience::{
 use crate::friday::{
     FridayArtifactStore, FridayFeatureStatus, FridayReleaseCandidateArchive,
     FridayReleaseChecklistSignoff, FridayReleaseChecklistSignoffDecision,
-    FridayReleaseCheckpointReviewBoardReport, FridayReleaseCheckpointSignoffDecision,
-    FridayReleaseCheckpointSignoffLedger, FridayReleaseCheckpointSignoffRequest,
-    FridayReleaseDeploymentGateReport, FridayReleaseDeploymentTarget,
-    FridayReleaseEscalationGateOutcome, FridayReleaseEscalationLedger,
-    FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceExportKitReport,
-    FridayReleaseEvidenceSlaMonitorReport, FridayReleaseIncidentArchive,
-    FridayReleaseIncidentOutcome, FridayReleaseOperatorChecklistReport,
-    FridayReleaseOwnerFollowUpBoardReport, FridayReleasePostPromotionMonitorReport,
-    FridayReleasePreventionPlanReport, FridayReleasePromotionDecision,
-    FridayReleasePromotionLedger, FridayReleasePromotionRecordRequest,
-    FridayReleaseQaCommandCenterReport, FridayReleaseRecoveryRunbookReport,
-    FridayReleaseRollbackDrillReport, FridayReleaseStabilityBoardReport, FridayResearchReport,
-    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleaseCheckpointEvidenceVault, FridayReleaseCheckpointReviewBoardReport,
+    FridayReleaseCheckpointSignoffDecision, FridayReleaseCheckpointSignoffLedger,
+    FridayReleaseCheckpointSignoffRequest, FridayReleaseDeploymentGateReport,
+    FridayReleaseDeploymentTarget, FridayReleaseEscalationGateOutcome,
+    FridayReleaseEscalationLedger, FridayReleaseEscalationOwnerResponse,
+    FridayReleaseEvidenceExportKitReport, FridayReleaseEvidenceSlaMonitorReport,
+    FridayReleaseIncidentArchive, FridayReleaseIncidentOutcome,
+    FridayReleaseOperatorChecklistReport, FridayReleaseOwnerFollowUpBoardReport,
+    FridayReleasePostPromotionMonitorReport, FridayReleasePreventionPlanReport,
+    FridayReleasePromotionDecision, FridayReleasePromotionLedger,
+    FridayReleasePromotionRecordRequest, FridayReleaseQaCommandCenterReport,
+    FridayReleaseRecoveryRunbookReport, FridayReleaseRollbackDrillReport,
+    FridayReleaseStabilityBoardReport, FridayResearchReport, FridayResearchWorkflow,
+    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
@@ -61,8 +62,8 @@ use crate::friday::{
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_release_candidate_archive_report,
-    friday_release_candidate_entry_from_gate, friday_release_checkpoint_review_board_report,
-    friday_release_checkpoint_signoff_ledger_report,
+    friday_release_candidate_entry_from_gate, friday_release_checkpoint_evidence_vault_report,
+    friday_release_checkpoint_review_board_report, friday_release_checkpoint_signoff_ledger_report,
     friday_release_checkpoint_signoff_record_from_review, friday_release_deployment_gate_report,
     friday_release_escalation_entries_from_monitor, friday_release_escalation_ledger_report,
     friday_release_evidence_export_kit_report, friday_release_evidence_sla_monitor_report,
@@ -82,7 +83,8 @@ use crate::friday::{
     read_friday_release_escalation_ledger, read_friday_release_incident_archive,
     read_friday_release_promotion_ledger, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
     run_friday_trusted_host_command, run_friday_trusted_host_command_bridge,
-    run_friday_vlm_contract, write_friday_release_checkpoint_review_board_report,
+    run_friday_vlm_contract, write_friday_release_checkpoint_evidence_vault,
+    write_friday_release_checkpoint_review_board_report,
     write_friday_release_checkpoint_signoff_ledger, write_friday_release_deployment_gate,
     write_friday_release_escalation_ledger, write_friday_release_evidence_export_kit,
     write_friday_release_evidence_sla_monitor_report, write_friday_release_incident_archive,
@@ -1615,6 +1617,36 @@ pub async fn execute(command: Command) -> Result<()> {
             print_friday_release_checkpoint_signoff_ledger(&ledger);
         }
 
+        Command::FridayReleaseCheckpointEvidenceVault {
+            vault_file,
+            review_file,
+            signoff_ledger_file,
+        } => {
+            let vault = friday_release_checkpoint_evidence_vault_report(
+                resolve_repo_relative_path(&vault_file),
+                resolve_repo_relative_path(&review_file),
+                resolve_repo_relative_path(&signoff_ledger_file),
+            );
+            write_friday_release_checkpoint_evidence_vault(
+                resolve_repo_relative_path(&vault_file),
+                &vault,
+            )?;
+            print_friday_release_checkpoint_evidence_vault(&vault);
+        }
+
+        Command::FridayReleaseCheckpointEvidenceVaultJson {
+            vault_file,
+            review_file,
+            signoff_ledger_file,
+        } => {
+            let vault = friday_release_checkpoint_evidence_vault_report(
+                resolve_repo_relative_path(&vault_file),
+                resolve_repo_relative_path(&review_file),
+                resolve_repo_relative_path(&signoff_ledger_file),
+            );
+            println!("{}", vault.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -2188,6 +2220,12 @@ fn print_interactive_help() {
     println!("                           List an existing checkpoint signoff ledger");
     println!("  --friday-release-checkpoint-signoff-export [--ledger file] [--output file]");
     println!("                           Export an existing checkpoint signoff ledger JSON");
+    println!("  --friday-release-checkpoint-evidence-vault [export-dir]");
+    println!(
+        "                           Write checkpoint evidence vault JSON without running commands"
+    );
+    println!("  --friday-release-checkpoint-evidence-vault-json [export-dir]");
+    println!("                           Print checkpoint evidence vault as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -4338,6 +4376,49 @@ fn print_friday_release_checkpoint_signoff_ledger(ledger: &FridayReleaseCheckpoi
     println!();
     println!("Commands:");
     for command in &ledger.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_checkpoint_evidence_vault(vault: &FridayReleaseCheckpointEvidenceVault) {
+    println!("Friday Release Checkpoint Evidence Vault");
+    println!("========================================");
+    println!(
+        "Ready to archive: {} | entries: {} | missing: {} | checksums: {}",
+        yes_no(vault.ready_to_archive),
+        vault.entry_count,
+        vault.missing_count,
+        vault.checksum_count
+    );
+    println!(
+        "Active holds: {} | carryovers: {} | gate blocks: {} | missing ack evidence: {}",
+        vault.active_hold_count,
+        vault.active_carryover_count,
+        vault.release_gate_blocking_count,
+        vault.acknowledgement_evidence_missing_count
+    );
+    println!("Vault: {}", vault.vault_json);
+    println!("Manifest checksum: {}", vault.manifest_sha256);
+    println!();
+    println!("Evidence entries:");
+    for entry in &vault.entries {
+        println!(
+            "  - {} [{}] {}",
+            entry.label,
+            entry.kind.label(),
+            if entry.present { "present" } else { "missing" }
+        );
+        println!("    path: {}", entry.path);
+        if let Some(sha256) = &entry.sha256 {
+            println!("    sha256: {sha256}");
+        }
+        if let Some(warning) = &entry.warning {
+            println!("    warning: {warning}");
+        }
+    }
+    println!();
+    println!("Commands:");
+    for command in &vault.commands {
         println!("  - {command}");
     }
 }
