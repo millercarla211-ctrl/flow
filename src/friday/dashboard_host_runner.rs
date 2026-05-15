@@ -1,0 +1,476 @@
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
+
+use super::{
+    FridayDashboardHostApprovalState, FridayDashboardHostCommandRecord,
+    FridayDashboardHostCommandStatus,
+};
+
+const DEFAULT_TIMEOUT_MS: u64 = 30_000;
+const DEFAULT_OUTPUT_LIMIT_BYTES: usize = 4_096;
+const HISTORY_LIMIT: usize = 50;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayTrustedHostRunnerStatus {
+    Succeeded,
+    Failed,
+    TimedOut,
+    Cancelled,
+    Denied,
+}
+
+impl FridayTrustedHostRunnerStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+            Self::TimedOut => "timed-out",
+            Self::Cancelled => "cancelled",
+            Self::Denied => "denied",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerRequest {
+    pub approved: bool,
+    pub cancel_requested: bool,
+    pub timeout_ms: u64,
+    pub stdout_limit_bytes: usize,
+    pub stderr_limit_bytes: usize,
+}
+
+impl Default for FridayTrustedHostRunnerRequest {
+    fn default() -> Self {
+        Self {
+            approved: false,
+            cancel_requested: false,
+            timeout_ms: DEFAULT_TIMEOUT_MS,
+            stdout_limit_bytes: DEFAULT_OUTPUT_LIMIT_BYTES,
+            stderr_limit_bytes: DEFAULT_OUTPUT_LIMIT_BYTES,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostCommandRawOutput {
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub duration_ms: u64,
+    pub timed_out: bool,
+}
+
+pub trait FridayTrustedHostCommandExecutor {
+    fn execute(
+        &self,
+        command: &str,
+        timeout_ms: u64,
+    ) -> std::result::Result<FridayTrustedHostCommandRawOutput, String>;
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct FridayProcessTrustedHostCommandExecutor;
+
+impl FridayTrustedHostCommandExecutor for FridayProcessTrustedHostCommandExecutor {
+    fn execute(
+        &self,
+        command: &str,
+        timeout_ms: u64,
+    ) -> std::result::Result<FridayTrustedHostCommandRawOutput, String> {
+        execute_local_flow_command(command, timeout_ms)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerResult {
+    pub action_id: String,
+    pub card_id: String,
+    pub label: String,
+    pub command: String,
+    pub status: FridayTrustedHostRunnerStatus,
+    pub exit_code: Option<i32>,
+    pub stdout_summary: String,
+    pub stderr_summary: String,
+    pub stdout_truncated: bool,
+    pub stderr_truncated: bool,
+    pub duration_ms: u64,
+    pub timeout_ms: u64,
+    pub approved: bool,
+    pub cancelled: bool,
+    pub audit_event: String,
+    pub recorded_at_unix_ms: u128,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerHistory {
+    pub history_json: String,
+    pub result_count: usize,
+    pub latest: Option<FridayTrustedHostRunnerResult>,
+    pub records: Vec<FridayTrustedHostRunnerResult>,
+}
+
+impl FridayTrustedHostRunnerHistory {
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
+pub fn run_friday_trusted_host_command(
+    record: &FridayDashboardHostCommandRecord,
+    request: &FridayTrustedHostRunnerRequest,
+) -> FridayTrustedHostRunnerResult {
+    run_friday_trusted_host_command_with_executor(
+        record,
+        request,
+        &FridayProcessTrustedHostCommandExecutor,
+    )
+}
+
+pub fn run_friday_trusted_host_command_with_executor(
+    record: &FridayDashboardHostCommandRecord,
+    request: &FridayTrustedHostRunnerRequest,
+    executor: &impl FridayTrustedHostCommandExecutor,
+) -> FridayTrustedHostRunnerResult {
+    if !request.approved {
+        return runner_result(
+            record,
+            request,
+            FridayTrustedHostRunnerStatus::Denied,
+            None,
+            "",
+            "Operator approval is required before running this command.",
+            0,
+        );
+    }
+
+    if request.cancel_requested {
+        return runner_result(
+            record,
+            request,
+            FridayTrustedHostRunnerStatus::Cancelled,
+            None,
+            "",
+            "Execution was cancelled before the command started.",
+            0,
+        );
+    }
+
+    if let Some(reason) = runner_denial_reason(record) {
+        return runner_result(
+            record,
+            request,
+            FridayTrustedHostRunnerStatus::Denied,
+            None,
+            "",
+            &reason,
+            0,
+        );
+    }
+
+    if let Some(reason) = command_allowlist_denial(&record.command) {
+        return runner_result(
+            record,
+            request,
+            FridayTrustedHostRunnerStatus::Denied,
+            None,
+            "",
+            &reason,
+            0,
+        );
+    }
+
+    match executor.execute(&record.command, request.timeout_ms.max(1)) {
+        Ok(raw) if raw.timed_out => runner_result(
+            record,
+            request,
+            FridayTrustedHostRunnerStatus::TimedOut,
+            raw.exit_code,
+            &raw.stdout,
+            &raw.stderr,
+            raw.duration_ms,
+        ),
+        Ok(raw) if raw.exit_code == Some(0) => runner_result(
+            record,
+            request,
+            FridayTrustedHostRunnerStatus::Succeeded,
+            raw.exit_code,
+            &raw.stdout,
+            &raw.stderr,
+            raw.duration_ms,
+        ),
+        Ok(raw) => runner_result(
+            record,
+            request,
+            FridayTrustedHostRunnerStatus::Failed,
+            raw.exit_code,
+            &raw.stdout,
+            &raw.stderr,
+            raw.duration_ms,
+        ),
+        Err(error) => runner_result(
+            record,
+            request,
+            FridayTrustedHostRunnerStatus::Failed,
+            None,
+            "",
+            &error,
+            0,
+        ),
+    }
+}
+
+pub fn append_friday_trusted_host_runner_history(
+    history_path: impl AsRef<Path>,
+    result: FridayTrustedHostRunnerResult,
+) -> Result<FridayTrustedHostRunnerHistory> {
+    let history_path = history_path.as_ref();
+    let mut records = read_friday_trusted_host_runner_history(history_path)?.records;
+    records.insert(0, result);
+    records.truncate(HISTORY_LIMIT);
+    write_friday_trusted_host_runner_history(history_path, records)
+}
+
+pub fn read_friday_trusted_host_runner_history(
+    history_path: impl AsRef<Path>,
+) -> Result<FridayTrustedHostRunnerHistory> {
+    let history_path = history_path.as_ref();
+    if !history_path.exists() {
+        return Ok(history_from_records(history_path, Vec::new()));
+    }
+
+    let text = fs::read_to_string(history_path)
+        .with_context(|| format!("Could not read trusted host runner history {}", history_path.display()))?;
+    let history = serde_json::from_str::<FridayTrustedHostRunnerHistory>(&text)
+        .with_context(|| format!("Could not parse trusted host runner history {}", history_path.display()))?;
+    Ok(history)
+}
+
+fn write_friday_trusted_host_runner_history(
+    history_path: &Path,
+    records: Vec<FridayTrustedHostRunnerResult>,
+) -> Result<FridayTrustedHostRunnerHistory> {
+    if let Some(parent) = history_path.parent() {
+        fs::create_dir_all(parent).with_context(|| {
+            format!(
+                "Could not create trusted host runner history directory {}",
+                parent.display()
+            )
+        })?;
+    }
+    let history = history_from_records(history_path, records);
+    let json = serde_json::to_string_pretty(&history)?;
+    fs::write(history_path, json).with_context(|| {
+        format!(
+            "Could not write trusted host runner history {}",
+            history_path.display()
+        )
+    })?;
+    Ok(history)
+}
+
+fn history_from_records(
+    history_path: &Path,
+    records: Vec<FridayTrustedHostRunnerResult>,
+) -> FridayTrustedHostRunnerHistory {
+    FridayTrustedHostRunnerHistory {
+        history_json: path_string(history_path),
+        result_count: records.len(),
+        latest: records.first().cloned(),
+        records,
+    }
+}
+
+fn runner_result(
+    record: &FridayDashboardHostCommandRecord,
+    request: &FridayTrustedHostRunnerRequest,
+    status: FridayTrustedHostRunnerStatus,
+    exit_code: Option<i32>,
+    stdout: &str,
+    stderr: &str,
+    duration_ms: u64,
+) -> FridayTrustedHostRunnerResult {
+    let (stdout_summary, stdout_truncated) = summarize_output(stdout, request.stdout_limit_bytes);
+    let (stderr_summary, stderr_truncated) = summarize_output(stderr, request.stderr_limit_bytes);
+    FridayTrustedHostRunnerResult {
+        action_id: record.action_id.clone(),
+        card_id: record.card_id.clone(),
+        label: record.label.clone(),
+        command: record.command.clone(),
+        status,
+        exit_code,
+        stdout_summary,
+        stderr_summary,
+        stdout_truncated,
+        stderr_truncated,
+        duration_ms,
+        timeout_ms: request.timeout_ms,
+        approved: request.approved,
+        cancelled: request.cancel_requested || status == FridayTrustedHostRunnerStatus::Cancelled,
+        audit_event: format!("trusted-host-runner-{}", status.label()),
+        recorded_at_unix_ms: unix_ms(),
+    }
+}
+
+fn runner_denial_reason(record: &FridayDashboardHostCommandRecord) -> Option<String> {
+    if record.status != FridayDashboardHostCommandStatus::AwaitingApproval {
+        return Some(
+            record
+                .blocked_reason
+                .clone()
+                .unwrap_or_else(|| "Host bridge record is not awaiting approval.".to_string()),
+        );
+    }
+    if record.approval_state != FridayDashboardHostApprovalState::Required {
+        return Some("Host bridge record does not request approval.".to_string());
+    }
+    if !record.can_execute_after_approval {
+        return Some("Host bridge record cannot execute after approval.".to_string());
+    }
+    if record.silent_execution_allowed {
+        return Some("Silent dashboard host execution is forbidden.".to_string());
+    }
+    if record.destructive {
+        return Some("Destructive host command execution requires a separate runner.".to_string());
+    }
+    if !record.local_only {
+        return Some("Remote host commands are blocked in local-only mode.".to_string());
+    }
+    None
+}
+
+fn command_allowlist_denial(command: &str) -> Option<String> {
+    let parts = match parse_command_line(command) {
+        Ok(parts) => parts,
+        Err(error) => return Some(error),
+    };
+    let executable = parts.first().map(String::as_str).unwrap_or_default();
+    let first_arg = parts.get(1).map(String::as_str).unwrap_or_default();
+    if !matches!(executable, "flow" | "flow.exe") {
+        return Some("Trusted host runner only executes the local flow binary.".to_string());
+    }
+    if !(first_arg.starts_with("--friday-")
+        || matches!(first_arg, "--completion" | "--progress" | "--next-100"))
+    {
+        return Some("Trusted host runner only accepts Friday dashboard or completion commands.".to_string());
+    }
+    None
+}
+
+fn execute_local_flow_command(
+    command: &str,
+    timeout_ms: u64,
+) -> std::result::Result<FridayTrustedHostCommandRawOutput, String> {
+    let parts = parse_command_line(command)?;
+    let executable = if matches!(parts.first().map(String::as_str), Some("flow" | "flow.exe")) {
+        std::env::current_exe().map_err(|error| error.to_string())?
+    } else {
+        PathBuf::from(parts.first().cloned().unwrap_or_default())
+    };
+    let started = Instant::now();
+    let mut child = Command::new(executable)
+        .args(parts.iter().skip(1))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| error.to_string())?;
+    let timeout = Duration::from_millis(timeout_ms.max(1));
+
+    loop {
+        match child.try_wait().map_err(|error| error.to_string())? {
+            Some(_) => {
+                let output = child.wait_with_output().map_err(|error| error.to_string())?;
+                return Ok(FridayTrustedHostCommandRawOutput {
+                    exit_code: output.status.code(),
+                    stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                    stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+                    duration_ms: started.elapsed().as_millis() as u64,
+                    timed_out: false,
+                });
+            }
+            None if started.elapsed() >= timeout => {
+                let _ = child.kill();
+                let output = child.wait_with_output().map_err(|error| error.to_string())?;
+                return Ok(FridayTrustedHostCommandRawOutput {
+                    exit_code: output.status.code(),
+                    stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                    stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+                    duration_ms: started.elapsed().as_millis() as u64,
+                    timed_out: true,
+                });
+            }
+            None => thread::sleep(Duration::from_millis(10)),
+        }
+    }
+}
+
+fn parse_command_line(command: &str) -> std::result::Result<Vec<String>, String> {
+    if command
+        .chars()
+        .any(|ch| matches!(ch, ';' | '&' | '|' | '<' | '>' | '`'))
+    {
+        return Err("Trusted host runner rejects shell metacharacters.".to_string());
+    }
+
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut in_quotes = false;
+
+    for ch in command.chars() {
+        match ch {
+            '"' => in_quotes = !in_quotes,
+            ch if ch.is_whitespace() && !in_quotes => {
+                if !current.is_empty() {
+                    parts.push(std::mem::take(&mut current));
+                }
+            }
+            ch => current.push(ch),
+        }
+    }
+
+    if in_quotes {
+        return Err("Trusted host runner rejects unterminated quotes.".to_string());
+    }
+    if !current.is_empty() {
+        parts.push(current);
+    }
+    if parts.is_empty() {
+        return Err("Trusted host runner command is empty.".to_string());
+    }
+    Ok(parts)
+}
+
+fn summarize_output(value: &str, limit: usize) -> (String, bool) {
+    let limit = limit.max(1);
+    if value.len() <= limit {
+        return (value.to_string(), false);
+    }
+
+    let mut output = String::new();
+    for ch in value.chars() {
+        if output.len() + ch.len_utf8() > limit {
+            break;
+        }
+        output.push(ch);
+    }
+    output.push_str("...");
+    (output, true)
+}
+
+fn unix_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0)
+}
+
+fn path_string(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}

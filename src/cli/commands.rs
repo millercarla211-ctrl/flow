@@ -37,7 +37,9 @@ use crate::friday::{
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_research_search_plan, friday_route_visual_report,
-    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_vlm_contract,
+    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
+    run_friday_vlm_contract, append_friday_trusted_host_runner_history,
+    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -511,6 +513,44 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayTrustedHostRunner {
+            input_dir,
+            action_id,
+            approve,
+            execute,
+            cancel,
+            history_file,
+        } => {
+            let result = run_friday_trusted_host_runner_command(
+                &input_dir,
+                action_id.as_deref(),
+                approve,
+                execute,
+                cancel,
+                &history_file,
+            )?;
+            print_friday_trusted_host_runner_result(&result);
+        }
+
+        Command::FridayTrustedHostRunnerJson {
+            input_dir,
+            action_id,
+            approve,
+            execute,
+            cancel,
+            history_file,
+        } => {
+            let result = run_friday_trusted_host_runner_command(
+                &input_dir,
+                action_id.as_deref(),
+                approve,
+                execute,
+                cancel,
+                &history_file,
+            )?;
+            println!("{}", serde_json::to_string_pretty(&result)?);
+        }
+
         Command::FridayLocalChecks => {
             print_friday_local_execution_checks();
         }
@@ -904,6 +944,10 @@ fn print_interactive_help() {
     println!("                           Show trusted host command bridge handoffs");
     println!("  --friday-dashboard-host-bridge-json [dir]");
     println!("                           Print trusted host command bridge handoffs as JSON");
+    println!("  --friday-trusted-host-runner [dir] [--action-id id] [--approve] [--execute]");
+    println!("                           Run or dry-run one approved trusted host command");
+    println!("  --friday-trusted-host-runner-json [dir] [--action-id id] [--approve] [--execute]");
+    println!("                           Print trusted host runner result as JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
@@ -1663,6 +1707,63 @@ fn print_friday_dashboard_host_command_bridge(input_dir: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn run_friday_trusted_host_runner_command(
+    input_dir: &str,
+    action_id: Option<&str>,
+    approve: bool,
+    execute: bool,
+    cancel: bool,
+    history_file: &str,
+) -> Result<FridayTrustedHostRunnerResult> {
+    let bridge =
+        friday_dashboard_host_command_bridge_from_export(resolve_repo_relative_path(input_dir))?;
+    let record = if let Some(action_id) = action_id {
+        bridge
+            .records
+            .iter()
+            .find(|record| record.action_id == action_id)
+            .with_context(|| format!("No trusted host command record found for `{action_id}`"))?
+    } else {
+        bridge
+            .records
+            .first()
+            .context("No trusted host command records are available")?
+    };
+    let request = FridayTrustedHostRunnerRequest {
+        approved: approve && execute,
+        cancel_requested: cancel,
+        ..Default::default()
+    };
+    let result = run_friday_trusted_host_command(record, &request);
+    append_friday_trusted_host_runner_history(resolve_repo_relative_path(history_file), result.clone())?;
+    Ok(result)
+}
+
+fn print_friday_trusted_host_runner_result(result: &FridayTrustedHostRunnerResult) {
+    println!("Friday Trusted Host Runner");
+    println!("==========================");
+    println!("Action: {} ({})", result.label, result.action_id);
+    println!("Status: {}", result.status.label());
+    println!("Command: {}", result.command);
+    println!("Approved: {}", yes_no(result.approved));
+    println!("Cancelled: {}", yes_no(result.cancelled));
+    println!("Exit code: {}", result.exit_code.map_or("n/a".to_string(), |code| code.to_string()));
+    println!(
+        "Duration: {}ms / timeout {}ms",
+        result.duration_ms, result.timeout_ms
+    );
+    println!(
+        "Stdout: {}{}",
+        result.stdout_summary,
+        if result.stdout_truncated { " [truncated]" } else { "" }
+    );
+    println!(
+        "Stderr: {}{}",
+        result.stderr_summary,
+        if result.stderr_truncated { " [truncated]" } else { "" }
+    );
 }
 
 fn print_friday_local_execution_checks() {

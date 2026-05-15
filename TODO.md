@@ -266,16 +266,34 @@ Goal: bridge prepared dashboard command handoffs into trusted desktop execution 
 
 This set is complete. The next loop should open `Friday Trusted Host Runner` and implement the approved desktop/Tauri execution worker with bounded stdout/stderr capture, cancellation, and persistent audit history.
 
-## Next Set: Friday Trusted Host Runner
+## Completed Set: Friday Trusted Host Runner
 
-Status: 0/100
+Status: 100/100
 
 Goal: execute approved dashboard host commands through a bounded trusted runner while preserving cancellation, auditability, and local-only safety.
 
+### Done
+
+- [x] Add a bounded trusted command runner that accepts only approved bridge records.
+- [x] Add timeout, cancellation, stdout/stderr size limits, and process error mapping.
+- [x] Persist host execution audit history separately from prepared handoff history.
+- [x] Add tests for approved success, timeout, cancellation, and denied commands.
+- [x] Surface trusted runner status in the dashboard with non-blocking progress updates.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Dashboard Runner UX` and make approved runner progress, history, retry, and cancellation states feel excellent in the product UI.
+
+## Next Set: Friday Dashboard Runner UX
+
+Status: 0/100
+
+Goal: make trusted runner history and live progress easy to understand, retry, cancel, and audit from the dashboard without clutter or blocking the UI.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a bounded trusted command runner that accepts only approved bridge records.
-- [ ] Add timeout, cancellation, stdout/stderr size limits, and process error mapping.
-- [ ] Persist host execution audit history separately from prepared handoff history.
-- [ ] Add tests for approved success, timeout, cancellation, and denied commands.
-- [ ] Surface trusted runner status in the dashboard with non-blocking progress updates.
+- [ ] Add grouped runner history summaries for success, failure, timeout, cancelled, and denied states.
+- [ ] Add retry and copy-command affordances that preserve explicit approval requirements.
+- [ ] Add cancellation and timeout status copy that explains what happened clearly.
+- [ ] Add focused UI smoke checks for runner history rendering and status grouping.
+- [ ] Add compact operator export notes linking runner history to release review.

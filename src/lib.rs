@@ -130,7 +130,10 @@ pub use friday::{
     FridayRouteVisualStatus, FridayRouteVisualTarget, FridayRuntimeFinding,
     FridayRuntimeRecordStatus, FridayRuntimeSurfaceManifest, FridayRuntimeSurfaceSnapshot,
     FridayRuntimeSurfaceStore, FridayScreenshotSourceRecord, FridayScreenshotVlmHandoffReport,
-    FridaySearchPolicy, FridaySourceGroup, FridaySynthesizedAnswer, FridayUiDataBinding,
+    FridaySearchPolicy, FridaySourceGroup, FridaySynthesizedAnswer,
+    FridayTrustedHostCommandRawOutput, FridayTrustedHostRunnerHistory,
+    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult,
+    FridayTrustedHostRunnerStatus, FridayUiDataBinding,
     FridayUiIntegrationPlan, FridayUiIntegrationStatus, FridayUiRouteContract,
     FridayUiSourceControl, FridayUiState, FridayUiStateKind, FridayUiStateTone,
     FridayUiVisualCheckStatus, FridayUiVisualRequirement, FridayUiVisualViewport,
@@ -148,8 +151,10 @@ pub use friday::{
     friday_live_ui_route_binding_report_for_root, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_research_search_plan, friday_route_visual_report,
-    friday_route_visual_report_for_root, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    run_friday_vlm_contract,
+    friday_route_visual_report_for_root, read_friday_trusted_host_runner_history,
+    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
+    run_friday_trusted_host_command, run_friday_trusted_host_command_with_executor,
+    run_friday_vlm_contract, append_friday_trusted_host_runner_history,
 };
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
 pub use models::{KokoroTTS, LocalLlm, LocalSttEngine, MoonshineSTT};

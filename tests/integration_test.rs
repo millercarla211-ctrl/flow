@@ -26,7 +26,9 @@ use flow::friday::{
     FridayLiveUiBindingStatus, FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind,
     FridayMultimodalRouteStatus, FridayMultimodalSurface, FridayOperatorReadinessStatus,
     FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
-    FridayRuntimeSurfaceStore, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
+    FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor,
+    FridayTrustedHostCommandRawOutput, FridayTrustedHostRunnerRequest,
+    FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
     FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -41,7 +43,8 @@ use flow::friday::{
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
     friday_multimodal_visual_check, friday_operator_readiness_report, friday_route_visual_report,
     friday_route_visual_report_for_root, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    run_friday_vlm_contract,
+    run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
+    append_friday_trusted_host_runner_history, read_friday_trusted_host_runner_history,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -946,14 +949,14 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
 
     assert_eq!(
         bundle.completion.name,
-        "Friday Dashboard Host Command Bridge"
+        "Friday Trusted Host Runner"
     );
     assert_eq!(bundle.completion.current_score_out_of_100, 100);
     assert_eq!(bundle.manifest.score_out_of_100, 100);
     assert_eq!(bundle.export_history.record_count, 1);
     assert_eq!(
         bundle.release_review.loop_name,
-        "Friday Dashboard Host Command Bridge"
+        "Friday Trusted Host Runner"
     );
     assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
     assert!(PathBuf::from(&bundle.manifest.release_review_json).exists());
@@ -993,7 +996,7 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     export_friday_dashboard_bundle(&root).unwrap();
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
-    assert_eq!(panel.loop_name, "Friday Dashboard Host Command Bridge");
+    assert_eq!(panel.loop_name, "Friday Trusted Host Runner");
     assert_eq!(panel.score_out_of_100, 100);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
     assert_eq!(panel.cards.len(), 8);
@@ -1088,7 +1091,7 @@ fn friday_dashboard_export_history_tracks_checkpoints() {
     assert_eq!(history.score_delta_from_previous, 0);
     assert_eq!(history.readiness_delta_from_previous, 0);
     assert!(history.records.iter().all(|record| {
-        record.loop_name == "Friday Dashboard Host Command Bridge"
+        record.loop_name == "Friday Trusted Host Runner"
             && record.manifest_json.ends_with("manifest.json")
     }));
 
@@ -1107,7 +1110,7 @@ fn friday_dashboard_release_review_links_release_artifacts() {
     export_friday_dashboard_bundle(&root).unwrap();
 
     let review = friday_dashboard_release_review_from_export(&root).unwrap();
-    assert_eq!(review.loop_name, "Friday Dashboard Host Command Bridge");
+    assert_eq!(review.loop_name, "Friday Trusted Host Runner");
     assert_eq!(review.score_out_of_100, 100);
     assert!(review.total_count >= 6);
     assert!(review
@@ -1259,6 +1262,132 @@ fn friday_dashboard_host_command_bridge_requires_approval_and_blocks_unsafe_comm
         .blocked_reason
         .unwrap()
         .contains("empty"));
+
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[derive(Debug, Clone)]
+struct StubTrustedHostExecutor {
+    output: Result<FridayTrustedHostCommandRawOutput, String>,
+}
+
+impl FridayTrustedHostCommandExecutor for StubTrustedHostExecutor {
+    fn execute(
+        &self,
+        _command: &str,
+        _timeout_ms: u64,
+    ) -> Result<FridayTrustedHostCommandRawOutput, String> {
+        self.output.clone()
+    }
+}
+
+#[test]
+fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands() {
+    let root = temp_root("friday-trusted-host-runner");
+    export_friday_dashboard_bundle(&root).unwrap();
+    let bridge = friday_dashboard_host_command_bridge_from_export(&root).unwrap();
+    let record = bridge.records[0].clone();
+    let approved = FridayTrustedHostRunnerRequest {
+        approved: true,
+        timeout_ms: 25,
+        stdout_limit_bytes: 8,
+        stderr_limit_bytes: 8,
+        ..Default::default()
+    };
+    let success = run_friday_trusted_host_command_with_executor(
+        &record,
+        &approved,
+        &StubTrustedHostExecutor {
+            output: Ok(FridayTrustedHostCommandRawOutput {
+                exit_code: Some(0),
+                stdout: "hello from trusted runner".to_string(),
+                stderr: String::new(),
+                duration_ms: 4,
+                timed_out: false,
+            }),
+        },
+    );
+    assert_eq!(success.status, FridayTrustedHostRunnerStatus::Succeeded);
+    assert_eq!(success.exit_code, Some(0));
+    assert!(success.stdout_truncated);
+    assert_eq!(success.timeout_ms, 25);
+
+    let denied = run_friday_trusted_host_command_with_executor(
+        &record,
+        &FridayTrustedHostRunnerRequest::default(),
+        &StubTrustedHostExecutor {
+            output: Err("executor should not run".to_string()),
+        },
+    );
+    assert_eq!(denied.status, FridayTrustedHostRunnerStatus::Denied);
+    assert!(denied.stderr_summary.contains("approval"));
+
+    let cancelled = run_friday_trusted_host_command_with_executor(
+        &record,
+        &FridayTrustedHostRunnerRequest {
+            approved: true,
+            cancel_requested: true,
+            ..Default::default()
+        },
+        &StubTrustedHostExecutor {
+            output: Err("executor should not run".to_string()),
+        },
+    );
+    assert_eq!(cancelled.status, FridayTrustedHostRunnerStatus::Cancelled);
+    assert!(cancelled.cancelled);
+
+    let timed_out = run_friday_trusted_host_command_with_executor(
+        &record,
+        &approved,
+        &StubTrustedHostExecutor {
+            output: Ok(FridayTrustedHostCommandRawOutput {
+                exit_code: None,
+                stdout: String::new(),
+                stderr: "late".to_string(),
+                duration_ms: 25,
+                timed_out: true,
+            }),
+        },
+    );
+    assert_eq!(timed_out.status, FridayTrustedHostRunnerStatus::TimedOut);
+
+    let mut remote = record.clone();
+    remote.local_only = false;
+    let remote_denied = run_friday_trusted_host_command_with_executor(
+        &remote,
+        &approved,
+        &StubTrustedHostExecutor {
+            output: Err("executor should not run".to_string()),
+        },
+    );
+    assert_eq!(remote_denied.status, FridayTrustedHostRunnerStatus::Denied);
+    assert!(remote_denied.stderr_summary.contains("Remote"));
+
+    let mut malformed = record;
+    malformed.command = "flow --completion; whoami".to_string();
+    let roomy_approved = FridayTrustedHostRunnerRequest {
+        approved: true,
+        timeout_ms: 25,
+        stdout_limit_bytes: 128,
+        stderr_limit_bytes: 128,
+        ..Default::default()
+    };
+    let malformed_denied = run_friday_trusted_host_command_with_executor(
+        &malformed,
+        &roomy_approved,
+        &StubTrustedHostExecutor {
+            output: Err("executor should not run".to_string()),
+        },
+    );
+    assert_eq!(malformed_denied.status, FridayTrustedHostRunnerStatus::Denied);
+    assert!(malformed_denied.stderr_summary.contains("metacharacters"));
+
+    let history_path = root.join("trusted-host-runner-history.json");
+    let history = append_friday_trusted_host_runner_history(&history_path, success).unwrap();
+    assert_eq!(history.result_count, 1);
+    assert!(history.latest.is_some());
+    let loaded = read_friday_trusted_host_runner_history(&history_path).unwrap();
+    assert_eq!(loaded.result_count, 1);
 
     let _ = fs::remove_dir_all(&root);
 }

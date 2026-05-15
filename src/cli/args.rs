@@ -120,6 +120,24 @@ pub enum Command {
     FridayDashboardHostCommandBridge { input_dir: String },
     /// Print trusted host command bridge data as JSON
     FridayDashboardHostCommandBridgeJson { input_dir: String },
+    /// Run or dry-run one approved trusted host command from dashboard bridge data
+    FridayTrustedHostRunner {
+        input_dir: String,
+        action_id: Option<String>,
+        approve: bool,
+        execute: bool,
+        cancel: bool,
+        history_file: String,
+    },
+    /// Run or dry-run one approved trusted host command and print JSON
+    FridayTrustedHostRunnerJson {
+        input_dir: String,
+        action_id: Option<String>,
+        approve: bool,
+        execute: bool,
+        cancel: bool,
+        history_file: String,
+    },
     /// Run low-resource Friday local execution readiness checks
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
@@ -599,6 +617,30 @@ impl Args {
                         .unwrap_or_else(|| "tmp/friday-dashboard".to_string()),
                 }
             }
+            "--friday-trusted-host-runner" | "--friday-dashboard-trusted-runner" => {
+                let (input_dir, action_id, approve, execute, cancel, history_file) =
+                    parse_friday_trusted_host_runner_args(&args);
+                Command::FridayTrustedHostRunner {
+                    input_dir,
+                    action_id,
+                    approve,
+                    execute,
+                    cancel,
+                    history_file,
+                }
+            }
+            "--friday-trusted-host-runner-json" | "--friday-dashboard-trusted-runner-json" => {
+                let (input_dir, action_id, approve, execute, cancel, history_file) =
+                    parse_friday_trusted_host_runner_args(&args);
+                Command::FridayTrustedHostRunnerJson {
+                    input_dir,
+                    action_id,
+                    approve,
+                    execute,
+                    cancel,
+                    history_file,
+                }
+            }
             "--friday-local-checks" | "--friday-execution-checks" => Command::FridayLocalChecks,
             "--friday-local-checks-json" | "--friday-execution-checks-json" => {
                 Command::FridayLocalChecksJson
@@ -975,6 +1017,29 @@ fn parse_friday_screenshot_vlm_args(args: &[String]) -> (String, String, Option<
         None
     };
     (output_dir, screenshot, prompt)
+}
+
+fn parse_friday_trusted_host_runner_args(
+    args: &[String],
+) -> (String, Option<String>, bool, bool, bool, String) {
+    let input_dir = args
+        .get(2)
+        .filter(|value| !value.starts_with("--"))
+        .cloned()
+        .unwrap_or_else(|| "tmp/friday-dashboard".to_string());
+    let action_id = flag_value(args, "--action-id").or_else(|| flag_value(args, "--action"));
+    let approve = args.iter().any(|value| value == "--approve");
+    let execute = args.iter().any(|value| value == "--execute");
+    let cancel = args.iter().any(|value| value == "--cancel");
+    let history_file = flag_value(args, "--history")
+        .unwrap_or_else(|| format!("{input_dir}/trusted-host-runner-history.json"));
+    (input_dir, action_id, approve, execute, cancel, history_file)
+}
+
+fn flag_value(args: &[String], flag: &str) -> Option<String> {
+    args.windows(2)
+        .find(|window| window[0] == flag)
+        .map(|window| window[1].clone())
 }
 
 fn parse_two_path_args(args: &[String], usage: &str) -> (String, String) {

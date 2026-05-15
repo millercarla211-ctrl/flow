@@ -5,6 +5,7 @@ import {
 import {
   dispatchDashboardCommand,
   normalizeDashboardHostCommandResults,
+  normalizeTrustedHostRunnerResults,
 } from "../runtime/dashboard-actions";
 import type { FlowDashboardProductUiBinding } from "../runtime/protocol";
 
@@ -161,6 +162,16 @@ export function dashboardSectionSmokeReport(
       },
     ],
   });
+  const trustedRunnerResults = normalizeTrustedHostRunnerResults({
+    action_id: "host-open",
+    label: "Open host report",
+    command: "flow --completion",
+    status: "succeeded",
+    approved: true,
+    stdout_summary: "Flow Completion Loop",
+    stderr_summary: "",
+    recorded_at_unix_ms: 2,
+  });
   const checks = [
     check(
       "local-fallback-labelled",
@@ -224,6 +235,13 @@ export function dashboardSectionSmokeReport(
         hostBridgeResults[0]?.permission === "confirmation-required" &&
         hostBridgeResults[0]?.status === "prepared",
       `${hostBridgeResults.length} host bridge record(s) normalized`,
+    ),
+    check(
+      "trusted-runner-importable",
+      trustedRunnerResults.length === 1 &&
+        trustedRunnerResults[0]?.permission === "allowed" &&
+        trustedRunnerResults[0]?.status === "succeeded",
+      `${trustedRunnerResults.length} trusted runner result(s) normalized`,
     ),
     check(
       "history-rail-renderable",

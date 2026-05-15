@@ -2,7 +2,14 @@ import type { FlowDashboardProductUiActionBinding } from "./protocol";
 import type { FlowDashboardActionKind } from "./protocol";
 
 export type FlowDashboardCommandPermission = "allowed" | "confirmation-required" | "blocked";
-export type FlowDashboardCommandStatus = "prepared" | "blocked" | "failed";
+export type FlowDashboardCommandStatus =
+  | "prepared"
+  | "blocked"
+  | "failed"
+  | "succeeded"
+  | "timed-out"
+  | "cancelled"
+  | "denied";
 
 export interface FlowDashboardCommandDispatchOptions {
   confirmed?: boolean;
@@ -225,12 +232,56 @@ export function normalizeDashboardHostCommandResults(value: unknown): FlowDashbo
     .filter((item): item is FlowDashboardCommandResult => item !== null);
 }
 
+export function normalizeTrustedHostRunnerResults(value: unknown): FlowDashboardCommandResult[] {
+  const records = Array.isArray((value as { records?: unknown })?.records)
+    ? ((value as { records: unknown[] }).records)
+    : [value];
+
+  return records
+    .map((item): FlowDashboardCommandResult | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const actionId = stringValue(record.action_id, record.actionId);
+      const command = stringValue(record.command);
+      const status = runnerStatus(stringValue(record.status));
+
+      if (!actionId || !command) {
+        return null;
+      }
+
+      return {
+        resultId: `runner.${actionId}.${stringValue(record.recorded_at_unix_ms, record.recordedAtUnixMs) || "imported"}`,
+        actionId,
+        label: stringValue(record.label) || actionId,
+        command,
+        kind: "run-check",
+        permission: stringValue(record.approved) === "true" ? "allowed" : "blocked",
+        status,
+        message:
+          stringValue(record.stdout_summary, record.stdoutSummary) ||
+          stringValue(record.stderr_summary, record.stderrSummary) ||
+          "Trusted host runner result imported.",
+        nextStep:
+          status === "succeeded"
+            ? "Review the persisted trusted host runner history."
+            : "Review the failure, approval, timeout, or cancellation state before retrying.",
+        createdAt: stringValue(record.recorded_at_unix_ms, record.recordedAtUnixMs) || new Date().toISOString(),
+      };
+    })
+    .filter((item): item is FlowDashboardCommandResult => item !== null);
+}
+
 function stringValue(...values: unknown[]) {
   for (const value of values) {
     if (typeof value === "string") {
       return value;
     }
     if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+    if (typeof value === "boolean") {
       return String(value);
     }
   }
@@ -242,4 +293,17 @@ function dashboardKind(value: string): FlowDashboardActionKind {
     return value;
   }
   return "open";
+}
+
+function runnerStatus(value: string): FlowDashboardCommandStatus {
+  if (
+    value === "succeeded" ||
+    value === "timed-out" ||
+    value === "cancelled" ||
+    value === "denied" ||
+    value === "failed"
+  ) {
+    return value;
+  }
+  return "failed";
 }

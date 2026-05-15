@@ -2,6 +2,7 @@ import { requestQuickContext, replaceSelection, toggleOverlay } from "../runtime
 import {
   dispatchDashboardCommand,
   normalizeDashboardHostCommandResults,
+  normalizeTrustedHostRunnerResults,
   persistDashboardCommandResult,
   readDashboardCommandResults,
   type FlowDashboardCommandResult,
@@ -839,6 +840,12 @@ function dashboardResultTone(status: FlowDashboardCommandStatus) {
   if (status === "prepared") {
     return "ready";
   }
+  if (status === "succeeded") {
+    return "ready";
+  }
+  if (status === "timed-out" || status === "cancelled" || status === "denied") {
+    return "blocked";
+  }
   return status === "failed" ? "off" : "blocked";
 }
 
@@ -1018,11 +1025,20 @@ function renderDashboard(state: UiState) {
             accept="application/json,.json"
             hidden
           />
+          <input
+            id="dashboard-import-runner-json"
+            type="file"
+            accept="application/json,.json"
+            hidden
+          />
           <button type="button" class="secondary" data-action="dashboard-import-click">
             Import JSON
           </button>
           <button type="button" class="secondary" data-action="dashboard-host-bridge-import-click">
             Import host bridge
+          </button>
+          <button type="button" class="secondary" data-action="dashboard-runner-import-click">
+            Import runner
           </button>
           <span class="badge ${badgeTone(binding.status)}">${binding.scoreOutOf100} / 100</span>
         </div>
@@ -1459,6 +1475,19 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function importDashboardRunnerJson(file: File) {
+    try {
+      const text = await file.text();
+      const results = normalizeTrustedHostRunnerResults(JSON.parse(text));
+      state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
+      state.status = `Imported ${results.length} trusted runner result(s) from ${file.name}.`;
+    } catch (error) {
+      state.status = `Trusted runner import failed: ${String(error)}`;
+    }
+
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -1470,6 +1499,12 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-host-bridge-import-click']")
       ?.addEventListener("click", () => {
         mountRoot.querySelector<HTMLInputElement>("#dashboard-import-host-bridge-json")?.click();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-runner-import-click']")
+      ?.addEventListener("click", () => {
+        mountRoot.querySelector<HTMLInputElement>("#dashboard-import-runner-json")?.click();
       });
 
     mountRoot
@@ -1489,6 +1524,16 @@ export async function mountFlowApp(surfaceInput: string) {
         const file = input.files?.[0];
         if (file) {
           void importDashboardHostBridgeJson(file);
+        }
+      });
+
+    mountRoot
+      .querySelector<HTMLInputElement>("#dashboard-import-runner-json")
+      ?.addEventListener("change", (event) => {
+        const input = event.currentTarget as HTMLInputElement;
+        const file = input.files?.[0];
+        if (file) {
+          void importDashboardRunnerJson(file);
         }
       });
 

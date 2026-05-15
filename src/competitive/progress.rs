@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "dashboard-command-dispatcher-contract",
-            "Trusted host command bridge contract",
+            "trusted-host-runner-contract",
+            "Bounded trusted host runner",
             20,
             CompletionItemStatus::Done,
-            "`src/friday/dashboard_host_bridge.rs` maps product UI dashboard actions into trusted host command bridge records",
-            "require explicit operator approval before desktop/Tauri command execution",
+            "`src/friday/dashboard_host_runner.rs` executes only approved trusted host bridge records through a bounded runner",
+            "add timeout, cancellation, stdout/stderr size limits, and process error mapping",
         ),
         item(
-            "dashboard-command-permissions",
-            "Explicit host command approval",
+            "trusted-host-runner-bounds",
+            "Runner timeout, cancellation, and output limits",
             20,
             CompletionItemStatus::Done,
-            "`FridayDashboardHostCommandRecord` sets `silent_execution_allowed=false` and `approval_state=required` for executable commands",
-            "write command execution audit records with stdout/stderr summaries and duration",
+            "`FridayTrustedHostRunnerRequest` carries approval, cancellation, timeout, and stdout/stderr byte limits",
+            "persist host execution audit history separately from prepared handoff history",
         ),
         item(
-            "dashboard-command-result-history",
-            "Host command audit records",
+            "trusted-host-runner-history",
+            "Trusted runner audit history",
             20,
             CompletionItemStatus::Done,
-            "`FridayDashboardHostCommandAudit` records stdout/stderr summaries, duration, action id, event, and timestamp for every bridge record",
-            "add blocked-command tests for remote, destructive, and malformed commands",
+            "`append_friday_trusted_host_runner_history` writes bounded trusted runner history separate from host bridge handoff history",
+            "add tests for approved success, timeout, cancellation, and denied commands",
         ),
         item(
-            "dashboard-command-dispatch-tests",
-            "Host command blocked-state tests",
+            "trusted-host-runner-tests",
+            "Trusted runner status tests",
             20,
             CompletionItemStatus::Done,
-            "`cargo test friday_dashboard -- --nocapture` covers local approval, remote, destructive, disabled, and malformed command states",
-            "surface trusted host execution results in the dashboard without freezing the UI",
+            "`cargo test friday_dashboard -- --nocapture` covers approved success, timeout, cancellation, remote denial, malformed denial, and history persistence",
+            "surface trusted runner status in the dashboard with non-blocking progress updates",
         ),
         item(
-            "dashboard-command-visible-results",
-            "Visible host bridge results",
+            "trusted-host-runner-visible-results",
+            "Visible trusted runner results",
             20,
             CompletionItemStatus::Done,
-            "`extensions/flow-webext/src/ui/app.ts` imports host bridge JSON and renders the normalized command records in the dashboard result rail",
-            "open the next trusted host runner implementation set",
+            "`extensions/flow-webext/src/ui/app.ts` imports trusted runner JSON and renders non-blocking runner states in the dashboard result rail",
+            "open the next durable desktop runner UI set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Dashboard Host Command Bridge".to_string(),
+        name: "Friday Trusted Host Runner".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Bridge prepared dashboard command handoffs into trusted desktop execution with operator approval, audit logs, and safe failure recovery.".to_string(),
+        loop_rule: "Execute approved dashboard host commands through a bounded trusted runner while preserving cancellation, auditability, and local-only safety.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_dashboard_host_command_bridge_loop() {
+    fn active_set_tracks_friday_trusted_host_runner_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Dashboard Host Command Bridge");
+        assert_eq!(set.name, "Friday Trusted Host Runner");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items
