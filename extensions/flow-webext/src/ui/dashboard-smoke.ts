@@ -1,4 +1,7 @@
-import { defaultFridayDashboardBinding } from "../runtime/dashboard-binding";
+import {
+  defaultFridayDashboardBinding,
+  normalizeFridayDashboardBinding,
+} from "../runtime/dashboard-binding";
 import type { FlowDashboardProductUiBinding } from "../runtime/protocol";
 
 type DashboardSmokeCheck = {
@@ -28,8 +31,92 @@ function score(checks: DashboardSmokeCheck[]) {
 export function dashboardSectionSmokeReport(
   binding: FlowDashboardProductUiBinding = defaultFridayDashboardBinding(),
 ): DashboardSmokeReport {
+  const imported = normalizeFridayDashboardBinding(
+    {
+      product_name: "Friday",
+      route: "/dashboard",
+      title: "Imported dashboard",
+      source_file: "extensions/flow-webext/src/ui/app.ts",
+      export_dir: "tmp/friday-dashboard",
+      status: "ready",
+      score_out_of_100: 100,
+      summary: "Imported local JSON.",
+      panel_json_command: "flow --friday-dashboard-panel-json tmp/friday-dashboard",
+      export_command: "flow --friday-dashboard-export tmp/friday-dashboard",
+      card_count: 1,
+      bound_card_count: 1,
+      action_count: 1,
+      warning_count: 0,
+      blocking_count: 0,
+      cards: [
+        {
+          card_id: "imported-card",
+          title: "Imported card",
+          status: "ready",
+          score_out_of_100: 100,
+          primary_metric: "Imported from local JSON.",
+          source_json: "tmp/friday-dashboard/imported.json",
+          action_count: 1,
+        },
+      ],
+      action_bindings: [
+        {
+          card_id: "imported-card",
+          action_id: "imported-action",
+          label: "Open imported",
+          kind: "open",
+          command: "flow --completion",
+          local_only: true,
+          enabled: true,
+        },
+      ],
+      history: {
+        record_count: 1,
+        score_delta_from_previous: 0,
+        readiness_delta_from_previous: 0,
+        latest_score_out_of_100: 100,
+        previous_score_out_of_100: 100,
+        trend_label: "steady",
+      },
+      release_links: [
+        {
+          id: "summary",
+          label: "Summary",
+          kind: "markdown",
+          path: "tmp/friday-dashboard/summary.md",
+          section: "release-notes",
+          local_only: true,
+        },
+      ],
+      screenshot_prompts: [
+        {
+          route: "/dashboard",
+          title: "Dashboard desktop",
+          viewport_id: "desktop",
+          status: "missing",
+          prompt: "Capture dashboard.",
+          capture_command: "agent-browser screenshot --route /dashboard",
+        },
+      ],
+      next_actions: ["Review imported dashboard."],
+    },
+    "smoke-import.json",
+  );
   const actionCount = binding.cards.reduce((total, card) => total + card.actions.length, 0);
   const checks = [
+    check(
+      "local-fallback-labelled",
+      binding.localOnly && binding.fallback && binding.sourceKind === "embedded-snapshot",
+      `${binding.sourceKind}: ${binding.sourceLabel}`,
+    ),
+    check(
+      "local-json-importable",
+      imported.localOnly &&
+        !imported.fallback &&
+        imported.sourceKind === "imported-json" &&
+        imported.cards[0]?.actions.length === 1,
+      `${imported.sourceKind}: ${imported.sourceLabel}`,
+    ),
     check(
       "cards-renderable",
       binding.cards.length === binding.cardCount && binding.boundCardCount === binding.cardCount,

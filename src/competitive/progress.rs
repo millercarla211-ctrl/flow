@@ -85,9 +85,9 @@ pub fn active_completion_set() -> CompletionSet {
             "dashboard-local-only-no-dummy-copy",
             "Local-only dashboard copy cleanup",
             20,
-            CompletionItemStatus::Planned,
-            "not started",
-            "keep local-only fallback behavior and remove dummy product copy from this dashboard surface",
+            CompletionItemStatus::Done,
+            "`extensions/flow-webext/src/ui/app.ts` imports local dashboard JSON explicitly and labels the bundled dashboard data as a local-only fallback snapshot",
+            "open the next 100-point dashboard command-execution set",
         ),
     ];
 
@@ -140,11 +140,11 @@ mod tests {
     fn active_set_tracks_friday_dashboard_product_ui_wiring_loop() {
         let set = active_completion_set();
         assert_eq!(set.name, "Friday Dashboard Visible UI Execution");
-        assert_eq!(set.current_score_out_of_100, 80);
+        assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items
                 .iter()
-                .any(|item| item.status == CompletionItemStatus::Planned)
+                .all(|item| item.status == CompletionItemStatus::Done)
         );
     }
 

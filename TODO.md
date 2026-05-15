@@ -212,9 +212,9 @@ Goal: make the visible Friday desktop/web dashboard consume the live Rust dashbo
 
 This set is complete. The next loop should open `Friday Dashboard Visible UI Execution` and render the typed dashboard binding inside the visible web extension/desktop UI without dummy product copy.
 
-## Active Set: Friday Dashboard Visible UI Execution
+## Completed Set: Friday Dashboard Visible UI Execution
 
-Status: 80/100
+Status: 100/100
 
 Goal: wire the visible Friday dashboard to render the typed dashboard binding and execute local-only actions from the UI layer.
 
@@ -224,7 +224,22 @@ Goal: wire the visible Friday dashboard to render the typed dashboard binding an
 - [x] Add visible disabled/loading/success/error button states for dashboard actions.
 - [x] Render export history, release-review links, and screenshot prompts in the visible dashboard.
 - [x] Add a small TypeScript smoke/typecheck path for dashboard section rendering.
+- [x] Keep local-only fallback behavior and remove any dummy product copy from this dashboard surface.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Dashboard Command Execution` and turn the visible dashboard action buttons from safe local command labels into a permission-aware command dispatch surface.
+
+## Next Set: Friday Dashboard Command Execution
+
+Status: 0/100
+
+Goal: execute dashboard actions through explicit local command handoffs while preserving user control, permissions, and low-resource behavior.
 
 ### Remaining To Reach 100/100
 
-- [ ] Keep local-only fallback behavior and remove any dummy product copy from this dashboard surface.
+- [ ] Add a local command dispatcher contract for dashboard actions.
+- [ ] Add confirmation and permission states for risky dashboard commands.
+- [ ] Persist recent dashboard action results for operator review.
+- [ ] Add focused tests for command dispatch success, failure, and blocked states.
+- [ ] Surface command execution results in the visible dashboard without auto-running anything silently.

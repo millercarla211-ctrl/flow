@@ -1,4 +1,5 @@
 import { requestQuickContext, replaceSelection, toggleOverlay } from "../runtime/browser-api";
+import { normalizeFridayDashboardBinding } from "../runtime/dashboard-binding";
 import { FlowBrowserEngine } from "../runtime/flow-engine";
 import type {
   BrowserPackManifest,
@@ -957,7 +958,13 @@ function renderDashboard(state: UiState) {
           <h2>${escapeHtml(binding.title)}</h2>
           <p>${escapeHtml(binding.summary)}</p>
         </div>
-        <span class="badge ${badgeTone(binding.status)}">${binding.scoreOutOf100} / 100</span>
+        <div class="actions">
+          <input id="dashboard-import-json" type="file" accept="application/json,.json" hidden />
+          <button type="button" class="secondary" data-action="dashboard-import-click">
+            Import JSON
+          </button>
+          <span class="badge ${badgeTone(binding.status)}">${binding.scoreOutOf100} / 100</span>
+        </div>
       </div>
 
       <article class="hero-card dashboard-hero">
@@ -972,6 +979,9 @@ function renderDashboard(state: UiState) {
           next wiring pass.
         </p>
         <div class="hero-facts">
+          <span class="pill">${escapeHtml(binding.sourceLabel)}</span>
+          <span class="pill">${binding.localOnly ? "Local only" : "Remote allowed"}</span>
+          <span class="pill">${binding.fallback ? "Offline fallback" : "Imported JSON"}</span>
           <span class="pill">${escapeHtml(binding.sourceFile)}</span>
           <span class="pill">${escapeHtml(binding.panelJsonCommand)}</span>
           <span class="pill">${escapeHtml(binding.exportCommand)}</span>
@@ -1332,7 +1342,36 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function importDashboardJson(file: File) {
+    try {
+      const text = await file.text();
+      state.dashboardBinding = normalizeFridayDashboardBinding(JSON.parse(text), file.name);
+      state.dashboardActionStates = {};
+      state.status = `Imported local dashboard JSON from ${file.name}.`;
+    } catch (error) {
+      state.status = `Dashboard import failed: ${String(error)}`;
+    }
+
+    render();
+  }
+
   function bind() {
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
+      ?.addEventListener("click", () => {
+        mountRoot.querySelector<HTMLInputElement>("#dashboard-import-json")?.click();
+      });
+
+    mountRoot
+      .querySelector<HTMLInputElement>("#dashboard-import-json")
+      ?.addEventListener("change", (event) => {
+        const input = event.currentTarget as HTMLInputElement;
+        const file = input.files?.[0];
+        if (file) {
+          void importDashboardJson(file);
+        }
+      });
+
     mountRoot
       .querySelectorAll<HTMLButtonElement>("[data-action='dashboard-action']")
       .forEach((button) => {

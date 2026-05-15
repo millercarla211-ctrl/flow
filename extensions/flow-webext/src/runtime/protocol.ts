@@ -132,6 +132,7 @@ export interface QuickContextPayload {
 
 export type FlowDashboardPanelStatus = "ready" | "warning" | "blocked";
 export type FlowDashboardActionKind = "open" | "run-check" | "recover" | "capture";
+export type FlowDashboardBindingSource = "embedded-snapshot" | "imported-json";
 
 export interface FlowDashboardProductUiButtonState {
   disabled: boolean;
@@ -207,6 +208,10 @@ export interface FlowDashboardProductUiBinding {
   summary: string;
   panelJsonCommand: string;
   exportCommand: string;
+  sourceKind: FlowDashboardBindingSource;
+  sourceLabel: string;
+  localOnly: boolean;
+  fallback: boolean;
   cardCount: number;
   boundCardCount: number;
   actionCount: number;

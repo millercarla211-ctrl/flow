@@ -123,6 +123,9 @@
 - added visible dashboard rails for export history deltas, release-review artifact links, and screenshot capture prompts
 - advanced Friday Dashboard Visible UI Execution to 80/100
 - added `npm run smoke:dashboard` for a focused TypeScript dashboard section smoke check without a full extension build
+- advanced Friday Dashboard Visible UI Execution to 100/100
+- added explicit local dashboard JSON import with an offline fallback snapshot label so the visible dashboard no longer presents bundled data as live product state
+- completed Friday Dashboard Visible UI Execution at 100/100 and listed Friday Dashboard Command Execution as the next set
 
 ## 2026-04-26
 
