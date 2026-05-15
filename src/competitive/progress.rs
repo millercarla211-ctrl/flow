@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-handoff-packet-model",
-            "Typed release handoff packet model",
+            "release-handoff-audit-trail-model",
+            "Typed release handoff audit trail model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseHandoffPacket` consumes evidence attachment reviews and creates a final local operator packet",
-            "open the next Friday release handoff audit trail set",
+            "`FridayReleaseHandoffAuditTrail` consumes release handoff packets and preserves local audit records",
+            "open the next Friday release handoff governance review set",
         ),
         item(
-            "release-handoff-packet-sections",
-            "Operator summary, attachable file, inline note, unresolved blocker, and checksum sections",
+            "release-handoff-audit-trail-states",
+            "Draft, ready, sent, superseded, revoked, and blocked audit states",
             20,
             CompletionItemStatus::Done,
-            "handoff sections preserve source ids, paths, required flags, inclusion state, checksums, and next actions",
-            "open the next Friday release handoff audit trail set",
+            "audit records preserve packet readiness, status, superseded packet ids, active state, acknowledgements, and blocker carryover",
+            "open the next Friday release handoff governance review set",
         ),
         item(
-            "release-handoff-packet-cli",
-            "Release handoff packet CLI and JSON commands",
+            "release-handoff-audit-trail-cli",
+            "Release handoff audit append, list, export, and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-handoff-packet` writes local packet JSON without uploading, deploying, building, or mutating external systems",
-            "open the next Friday release handoff audit trail set",
+            "`flow --friday-release-handoff-audit` appends local audit records without sending, deploying, building, or mutating external systems",
+            "open the next Friday release handoff governance review set",
         ),
         item(
-            "release-handoff-packet-dashboard",
-            "Dashboard handoff packet rendering",
+            "release-handoff-audit-trail-dashboard",
+            "Dashboard handoff audit trail rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports handoff packets and renders readiness, blockers, attachable files, inline notes, copyable packet text, and file checklist copy",
-            "open the next Friday release handoff audit trail set",
+            "the visible dashboard imports audit trails and renders packet history, latest state, active packet, blocker carryover, copyable audit command, and audit summary",
+            "open the next Friday release handoff governance review set",
         ),
         item(
-            "release-handoff-packet-coverage",
-            "Release handoff packet Rust and TypeScript coverage",
+            "release-handoff-audit-trail-coverage",
+            "Release handoff audit trail Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify packet assembly, blocker preservation, copy text, command safety, and dashboard rendering",
-            "open the next Friday release handoff audit trail set",
+            "focused Rust integration coverage plus dashboard smoke checks verify append/list behavior, state preservation, blocker carryover, command safety, and dashboard rendering",
+            "open the next Friday release handoff governance review set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Handoff Packet".to_string(),
+        name: "Friday Release Handoff Audit Trail".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Assemble Friday release attachment reviews into a final local handoff packet with operator summary, attachable files, inline notes, unresolved blockers, and manifest checksums.".to_string(),
+        loop_rule: "Preserve every Friday release handoff packet as a local audit trail with draft, ready, sent, superseded, revoked, and blocked states before any external handoff.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_handoff_packet_loop() {
+    fn active_set_tracks_friday_release_handoff_audit_trail_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Handoff Packet");
+        assert_eq!(set.name, "Friday Release Handoff Audit Trail");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

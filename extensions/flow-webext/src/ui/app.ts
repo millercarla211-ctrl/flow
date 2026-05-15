@@ -11,6 +11,7 @@ import {
   normalizeReleaseEvidenceAttachmentReview,
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
+  normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffPacket,
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
@@ -53,6 +54,7 @@ import {
   type FlowReleaseEvidenceAttachmentReview,
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseEvidenceSlaMonitorReport,
+  type FlowReleaseHandoffAuditTrail,
   type FlowReleaseHandoffPacket,
   type FlowReleaseIncidentArchive,
   type FlowReleaseOperatorChecklistReport,
@@ -127,6 +129,7 @@ type UiState = {
   dashboardReleaseCheckpointEvidenceVault: FlowReleaseCheckpointEvidenceVault | null;
   dashboardReleaseEvidenceAttachmentReview: FlowReleaseEvidenceAttachmentReview | null;
   dashboardReleaseHandoffPacket: FlowReleaseHandoffPacket | null;
+  dashboardReleaseHandoffAuditTrail: FlowReleaseHandoffAuditTrail | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -2752,6 +2755,71 @@ function renderReleaseHandoffPacket(packet: FlowReleaseHandoffPacket | null) {
   `;
 }
 
+function renderReleaseHandoffAuditTrail(trail: FlowReleaseHandoffAuditTrail | null) {
+  if (!trail) {
+    return "";
+  }
+
+  const status =
+    trail.unresolvedBlockerCount > 0 || trail.blockedCount > 0
+      ? "blocked"
+      : trail.sentCount > 0 || trail.readyCount > 0
+        ? "ready"
+        : "warning";
+
+  return `
+    <article class="feature-card dashboard-release-handoff-audit-trail">
+      <div class="card-topline">
+        <span class="eyebrow">Release handoff audit trail</span>
+        <span class="badge ${badgeTone(status)}">${trail.latestState ?? "draft"}</span>
+      </div>
+      <h3>${trail.activePacketId ? "Handoff history is recorded" : "No active handoff packet"}</h3>
+      <p>${escapeHtml(trail.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${trail.recordCount}</strong><small>records</small></span>
+        <span><strong>${trail.readyCount}</strong><small>ready</small></span>
+        <span><strong>${trail.sentCount}</strong><small>sent</small></span>
+        <span><strong>${trail.blockedCount}</strong><small>blocked</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Active packet</strong> ${escapeHtml(trail.activePacketId ?? "none")}</span>
+        <span><strong>Latest packet</strong> ${escapeHtml(trail.latestPacketId ?? "none")}</span>
+        <span><strong>Carryover</strong> ${trail.blockerCarryoverCount}</span>
+        <span><strong>Trail</strong> ${escapeHtml(trail.trailJson)}</span>
+      </div>
+      ${
+        trail.unresolvedBlockerCount > 0
+          ? `<p class="soft-warning">${trail.unresolvedBlockerCount} unresolved blocker(s) remain on the active handoff packet.</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${trail.records
+          .slice(-8)
+          .reverse()
+          .map(
+            (record) => `
+              <div class="runner-package-file ${record.blockerCarryover > 0 ? "missing" : "present"}">
+                <strong>${escapeHtml(record.packetId)}</strong>
+                <small>${escapeHtml(record.state)} - ${escapeHtml(record.operator)}</small>
+                <code>${escapeHtml(record.packetJson)}</code>
+                <span>${escapeHtml(record.acknowledgementNote)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-audit-command">
+          Copy audit command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-audit-summary">
+          Copy audit summary
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2979,6 +3047,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseCheckpointEvidenceVault(state.dashboardReleaseCheckpointEvidenceVault)}
       ${renderReleaseEvidenceAttachmentReview(state.dashboardReleaseEvidenceAttachmentReview)}
       ${renderReleaseHandoffPacket(state.dashboardReleaseHandoffPacket)}
+      ${renderReleaseHandoffAuditTrail(state.dashboardReleaseHandoffAuditTrail)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3125,6 +3194,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseCheckpointEvidenceVault: null,
     dashboardReleaseEvidenceAttachmentReview: null,
     dashboardReleaseHandoffPacket: null,
+    dashboardReleaseHandoffAuditTrail: null,
   };
 
   function render() {
@@ -3444,6 +3514,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseEvidenceAttachmentReview =
         normalizeReleaseEvidenceAttachmentReview(parsed);
       const releaseHandoffPacket = normalizeReleaseHandoffPacket(parsed);
+      const releaseHandoffAuditTrail = normalizeReleaseHandoffAuditTrail(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -3497,8 +3568,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseEvidenceAttachmentReview ?? state.dashboardReleaseEvidenceAttachmentReview;
       state.dashboardReleaseHandoffPacket =
         releaseHandoffPacket ?? state.dashboardReleaseHandoffPacket;
+      state.dashboardReleaseHandoffAuditTrail =
+        releaseHandoffAuditTrail ?? state.dashboardReleaseHandoffAuditTrail;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseHandoffPacket
+      state.status = releaseHandoffAuditTrail
+        ? `Imported release handoff audit trail with ${releaseHandoffAuditTrail.recordCount} record(s) from ${file.name}.`
+        : releaseHandoffPacket
         ? `Imported release handoff packet with ${releaseHandoffPacket.sectionCount} section(s) from ${file.name}.`
         : releaseEvidenceAttachmentReview
         ? `Imported evidence attachment review with ${releaseEvidenceAttachmentReview.itemCount} item(s) from ${file.name}.`
@@ -4294,6 +4369,38 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseHandoffAuditCommand() {
+    const command = state.dashboardReleaseHandoffAuditTrail?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release handoff audit command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release handoff audit command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseHandoffAuditSummary() {
+    const copy = state.dashboardReleaseHandoffAuditTrail?.auditSummaryCopy ?? "";
+    if (!copy) {
+      state.status = "No release handoff audit summary is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release handoff audit summary copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -4636,6 +4743,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-file-checklist']")
       ?.addEventListener("click", () => {
         void copyReleaseHandoffFileChecklist();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-audit-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffAuditCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-audit-summary']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffAuditSummary();
       });
 
     mountRoot

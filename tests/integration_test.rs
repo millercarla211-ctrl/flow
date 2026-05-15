@@ -31,6 +31,7 @@ use flow::friday::{
     FridayReleaseDeploymentTarget, FridayReleaseEscalationGateOutcome,
     FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceAttachmentState,
     FridayReleaseEvidenceEscalationLevel, FridayReleaseEvidenceSlaState,
+    FridayReleaseHandoffAuditRequest, FridayReleaseHandoffAuditState,
     FridayReleaseHandoffPacketSectionKind, FridayReleaseIncidentOutcome,
     FridayReleaseIncidentSeverity, FridayReleaseOwnerFollowUpCompletionState,
     FridayReleasePreventionActionKind, FridayReleasePreventionFindingKind,
@@ -43,8 +44,9 @@ use flow::friday::{
     FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus, FridayVerificationStatus,
     FridayWorkspaceStore, append_friday_release_candidate_to_archive,
     append_friday_release_checkpoint_signoff_to_ledger, append_friday_release_escalation_to_ledger,
-    append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
-    append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
+    append_friday_release_handoff_audit_to_trail, append_friday_release_incident_to_archive,
+    append_friday_release_operator_signoff, append_friday_release_promotion_to_ledger,
+    append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -2685,6 +2687,52 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert!(release_handoff_packet.commands.iter().any(|command| {
         command.contains("--friday-release-handoff-packet")
             && command.contains("--attachment-review")
+    }));
+    let release_handoff_audit_trail_path = root.join("release-handoff-audit-trail.json");
+    let release_handoff_audit_trail = append_friday_release_handoff_audit_to_trail(
+        &release_handoff_audit_trail_path,
+        &release_handoff_packet_path,
+        FridayReleaseHandoffAuditRequest {
+            state: FridayReleaseHandoffAuditState::Blocked,
+            operator: "operator".to_string(),
+            acknowledgement_note: "Blocked packet stays local until evidence is attached."
+                .to_string(),
+            supersedes_packet_id: Some("previous-packet".to_string()),
+        },
+    )
+    .unwrap();
+    assert_eq!(release_handoff_audit_trail.record_count, 1);
+    assert_eq!(release_handoff_audit_trail.blocked_count, 1);
+    assert_eq!(
+        release_handoff_audit_trail.latest_state,
+        Some(FridayReleaseHandoffAuditState::Blocked)
+    );
+    assert_eq!(
+        release_handoff_audit_trail.latest_packet_id.as_deref(),
+        Some(release_handoff_packet.packet_id.as_str())
+    );
+    assert_eq!(
+        release_handoff_audit_trail.active_packet_id.as_deref(),
+        Some(release_handoff_packet.packet_id.as_str())
+    );
+    assert!(!release_handoff_audit_trail.latest_ready_to_send);
+    assert!(release_handoff_audit_trail.unresolved_blocker_count > 0);
+    assert_eq!(release_handoff_audit_trail.blocker_carryover_count, 1);
+    assert_eq!(release_handoff_audit_trail.acknowledgement_count, 1);
+    assert!(release_handoff_audit_trail.records.iter().any(|record| {
+        record.state == FridayReleaseHandoffAuditState::Blocked
+            && record.blocker_carryover > 0
+            && record
+                .acknowledgement_note
+                .contains("Blocked packet stays local")
+    }));
+    assert!(
+        release_handoff_audit_trail
+            .audit_summary_copy
+            .contains("Friday release handoff audit trail")
+    );
+    assert!(release_handoff_audit_trail.commands.iter().any(|command| {
+        command.contains("--friday-release-handoff-audit-list") && command.contains("--trail")
     }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);

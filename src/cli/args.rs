@@ -600,6 +600,31 @@ pub enum Command {
         packet_file: String,
         attachment_review_file: String,
     },
+    /// Append a Friday release handoff audit record
+    FridayReleaseHandoffAudit {
+        trail_file: String,
+        packet_file: String,
+        state: String,
+        operator: String,
+        acknowledgement_note: String,
+        supersedes_packet_id: Option<String>,
+    },
+    /// Print a Friday release handoff audit trail as JSON
+    FridayReleaseHandoffAuditJson {
+        trail_file: String,
+        packet_file: String,
+        state: String,
+        operator: String,
+        acknowledgement_note: String,
+        supersedes_packet_id: Option<String>,
+    },
+    /// List an existing Friday release handoff audit trail
+    FridayReleaseHandoffAuditList { trail_file: String },
+    /// Export an existing Friday release handoff audit trail
+    FridayReleaseHandoffAuditExport {
+        trail_file: String,
+        output_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1993,6 +2018,57 @@ impl Args {
                     attachment_review_file,
                 }
             }
+            "--friday-release-handoff-audit" | "--friday-handoff-audit" => {
+                let (
+                    trail_file,
+                    packet_file,
+                    state,
+                    operator,
+                    acknowledgement_note,
+                    supersedes_packet_id,
+                ) = parse_friday_release_handoff_audit_args(&args);
+                Command::FridayReleaseHandoffAudit {
+                    trail_file,
+                    packet_file,
+                    state,
+                    operator,
+                    acknowledgement_note,
+                    supersedes_packet_id,
+                }
+            }
+            "--friday-release-handoff-audit-json" | "--friday-handoff-audit-json" => {
+                let (
+                    trail_file,
+                    packet_file,
+                    state,
+                    operator,
+                    acknowledgement_note,
+                    supersedes_packet_id,
+                ) = parse_friday_release_handoff_audit_args(&args);
+                Command::FridayReleaseHandoffAuditJson {
+                    trail_file,
+                    packet_file,
+                    state,
+                    operator,
+                    acknowledgement_note,
+                    supersedes_packet_id,
+                }
+            }
+            "--friday-release-handoff-audit-list" | "--friday-handoff-audit-list" => {
+                Command::FridayReleaseHandoffAuditList {
+                    trail_file: parse_friday_release_handoff_audit_trail_file_arg(&args),
+                }
+            }
+            "--friday-release-handoff-audit-export" | "--friday-handoff-audit-export" => {
+                let trail_file = parse_friday_release_handoff_audit_trail_file_arg(&args);
+                let output_file = flag_value(&args, "--output").unwrap_or_else(|| {
+                    "tmp/friday-dashboard/release-handoff-audit-trail-export.json".to_string()
+                });
+                Command::FridayReleaseHandoffAuditExport {
+                    trail_file,
+                    output_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -3335,6 +3411,55 @@ fn parse_friday_release_handoff_packet_args(args: &[String]) -> (String, String)
         .unwrap_or_else(|| format!("{export_dir}/release-evidence-attachment-review.json"));
 
     (packet_file, attachment_review_file)
+}
+
+fn parse_friday_release_handoff_audit_args(
+    args: &[String],
+) -> (String, String, String, String, String, Option<String>) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let trail_file = flag_value(args, "--trail")
+        .or_else(|| flag_value(args, "--ledger"))
+        .or_else(|| flag_value(args, "--output"))
+        .unwrap_or_else(|| format!("{export_dir}/release-handoff-audit-trail.json"));
+    let packet_file = flag_value(args, "--packet")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-handoff-packet.json"));
+    let state = flag_value(args, "--state").unwrap_or_else(|| "draft".to_string());
+    let operator = flag_value(args, "--operator").unwrap_or_else(|| "operator".to_string());
+    let acknowledgement_note = flag_value(args, "--acknowledgement-note")
+        .or_else(|| flag_value(args, "--ack-note"))
+        .or_else(|| flag_value(args, "--note"))
+        .unwrap_or_else(|| "Recorded local handoff packet state.".to_string());
+    let supersedes_packet_id = flag_value(args, "--supersedes")
+        .or_else(|| flag_value(args, "--supersedes-packet"))
+        .filter(|value| !value.trim().is_empty());
+
+    (
+        trail_file,
+        packet_file,
+        state,
+        operator,
+        acknowledgement_note,
+        supersedes_packet_id,
+    )
+}
+
+fn parse_friday_release_handoff_audit_trail_file_arg(args: &[String]) -> String {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    flag_value(args, "--trail")
+        .or_else(|| flag_value(args, "--ledger"))
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-handoff-audit-trail.json"))
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

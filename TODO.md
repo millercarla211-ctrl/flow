@@ -791,16 +791,34 @@ Goal: assemble the attachment review into one final local release handoff packet
 
 This set is complete. The next loop should open `Friday Release Handoff Audit Trail` and preserve draft, ready, sent, superseded, revoked, and blocked handoff packet history without sending, deploying, or mutating external systems.
 
-## Next Set: Friday Release Handoff Audit Trail
+## Completed Set: Friday Release Handoff Audit Trail
 
-Status: 0/100
+Status: 100/100
 
 Goal: preserve every generated release handoff packet as a local audit trail so Friday can show packet history, latest readiness, operator acknowledgement state, superseded packet lineage, and unresolved blocker carryover.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed handoff audit trail model that consumes release handoff packets.
+- [x] Add audit states for draft, ready, sent, superseded, revoked, and blocked packets.
+- [x] Add append, list, export, and JSON commands that never send, deploy, build, or mutate external systems.
+- [x] Add dashboard import/rendering for packet history, latest packet, unresolved blockers, acknowledgement notes, and copyable audit summary.
+- [x] Add focused Rust/TypeScript coverage for trail append/list behavior, state preservation, blocker carryover, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Handoff Governance Review` and validate audit trails before any release note, public handoff, deployment note, or external send.
+
+## Next Set: Friday Release Handoff Governance Review
+
+Status: 0/100
+
+Goal: review release handoff audit trails before external communication so Friday can prove the latest packet is ready or sent, no blocker carryover remains, superseded/revoked packets are not active, and acknowledgement notes are present.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed handoff audit trail model that consumes release handoff packets.
-- [ ] Add audit states for draft, ready, sent, superseded, revoked, and blocked packets.
-- [ ] Add append, list, export, and JSON commands that never send, deploy, build, or mutate external systems.
-- [ ] Add dashboard import/rendering for packet history, latest packet, unresolved blockers, acknowledgement notes, and copyable audit summary.
-- [ ] Add focused Rust/TypeScript coverage for trail append/list behavior, state preservation, blocker carryover, command safety, and dashboard rendering.
+- [ ] Add a typed handoff governance review model that consumes handoff audit trails.
+- [ ] Add review states for approved, held, needs-acknowledgement, stale-active-packet, and blocked-carryover.
+- [ ] Add CLI and JSON commands that create governance reviews without sending, deploying, building, or mutating external systems.
+- [ ] Add dashboard import/rendering for approval state, latest packet, stale/superseded/revoked warnings, acknowledgement gaps, and copyable governance notes.
+- [ ] Add focused Rust/TypeScript coverage for review scoring, stale packet detection, acknowledgement enforcement, command safety, and dashboard rendering.

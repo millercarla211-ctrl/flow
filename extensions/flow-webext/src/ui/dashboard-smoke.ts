@@ -14,6 +14,7 @@ import {
   normalizeReleaseEvidenceAttachmentReview,
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
+  normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffPacket,
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
@@ -2391,6 +2392,67 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-handoff-packet-json --output tmp/friday-dashboard/release-handoff-packet.json --attachment-review tmp/friday-dashboard/release-evidence-attachment-review.json",
     ],
   });
+  const releaseHandoffAuditTrail = normalizeReleaseHandoffAuditTrail({
+    trail_id: "friday-release-handoff-audit-trail-smoke",
+    trail_json: "tmp/friday-dashboard/release-handoff-audit-trail.json",
+    generated_at_unix_ms: 24,
+    product_name: "Friday",
+    local_only: true,
+    record_count: 1,
+    draft_count: 0,
+    ready_count: 0,
+    sent_count: 0,
+    superseded_count: 0,
+    revoked_count: 0,
+    blocked_count: 1,
+    active_audit_id: "friday-release-handoff-audit-friday-release-handoff-packet-smoke-24",
+    active_packet_id: "friday-release-handoff-packet-smoke",
+    latest_audit_id: "friday-release-handoff-audit-friday-release-handoff-packet-smoke-24",
+    latest_packet_id: "friday-release-handoff-packet-smoke",
+    latest_state: "blocked",
+    latest_ready_to_send: false,
+    unresolved_blocker_count: 2,
+    blocker_carryover_count: 1,
+    acknowledgement_count: 1,
+    records: [
+      {
+        audit_id: "friday-release-handoff-audit-friday-release-handoff-packet-smoke-24",
+        packet_id: "friday-release-handoff-packet-smoke",
+        packet_json: "tmp/friday-dashboard/release-handoff-packet.json",
+        recorded_at_unix_ms: 24,
+        product_name: "Friday",
+        local_only: true,
+        state: "blocked",
+        operator: "operator",
+        acknowledgement_note: "Blocked packet stays local until acknowledgement evidence is attached.",
+        supersedes_packet_id: "previous-packet",
+        packet_ready_to_send: false,
+        packet_status: "blocked",
+        packet_section_count: 5,
+        attachable_file_count: 2,
+        inline_note_count: 1,
+        unresolved_blocker_count: 1,
+        missing_count: 1,
+        manifest_sha256: "smoke-vault-checksum",
+        active: true,
+        blocker_carryover: 2,
+        audit_notes:
+          "Friday handoff audit: blocked\nOperator: operator\nPacket: friday-release-handoff-packet-smoke\nAcknowledgement: Blocked packet stays local until acknowledgement evidence is attached.\nBlocker carryover: 2",
+        summary:
+          "operator recorded packet friday-release-handoff-packet-smoke as blocked with 1 unresolved blocker(s) and 1 missing item(s).",
+      },
+    ],
+    audit_summary_copy:
+      "Friday release handoff audit trail\n- operator [blocked] friday-release-handoff-packet-smoke -> Blocked packet stays local until acknowledgement evidence is attached.\n  carryover blockers: 2",
+    summary:
+      "Friday release handoff audit trail has 1 record(s), 0 ready, 0 sent, 1 blocked, and 1 blocker carryover record(s).",
+    commands: [
+      "flow --friday-release-handoff-audit --trail tmp/friday-dashboard/release-handoff-audit-trail.json --packet <release-handoff-packet.json> --state draft --operator <name>",
+      "flow --friday-release-handoff-audit-list --trail tmp/friday-dashboard/release-handoff-audit-trail.json",
+      "flow --friday-release-handoff-audit-export --trail tmp/friday-dashboard/release-handoff-audit-trail.json --output tmp/friday-dashboard/release-handoff-audit-trail.json",
+      "flow --friday-release-handoff-audit-json --trail tmp/friday-dashboard/release-handoff-audit-trail.json --packet <release-handoff-packet.json>",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -3082,6 +3144,30 @@ export function dashboardSectionSmokeReport(
           command.includes("--friday-release-handoff-packet"),
         ),
       `${releaseHandoffPacket?.unresolvedBlockerCount ?? 0} handoff packet blocker(s)`,
+    ),
+    check(
+      "release-handoff-audit-trail-importable",
+      releaseHandoffAuditTrail?.recordCount === 1 &&
+        releaseHandoffAuditTrail.blockedCount === 1 &&
+        releaseHandoffAuditTrail.activePacketId === "friday-release-handoff-packet-smoke",
+      `${releaseHandoffAuditTrail?.recordCount ?? 0} handoff audit record(s)`,
+    ),
+    check(
+      "release-handoff-audit-trail-copy",
+      releaseHandoffAuditTrail !== null &&
+        releaseHandoffAuditTrail.records.some(
+          (record) =>
+            record.state === "blocked" &&
+            record.blockerCarryover === 2 &&
+            record.acknowledgementNote.includes("Blocked packet stays local"),
+        ) &&
+        releaseHandoffAuditTrail.auditSummaryCopy.includes(
+          "Friday release handoff audit trail",
+        ) &&
+        releaseHandoffAuditTrail.commands.some((command) =>
+          command.includes("--friday-release-handoff-audit"),
+        ),
+      `${releaseHandoffAuditTrail?.blockerCarryoverCount ?? 0} audit carryover record(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

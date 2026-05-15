@@ -35,7 +35,8 @@ use crate::friday::{
     FridayReleaseDeploymentTarget, FridayReleaseEscalationGateOutcome,
     FridayReleaseEscalationLedger, FridayReleaseEscalationOwnerResponse,
     FridayReleaseEvidenceAttachmentReview, FridayReleaseEvidenceExportKitReport,
-    FridayReleaseEvidenceSlaMonitorReport, FridayReleaseHandoffPacket,
+    FridayReleaseEvidenceSlaMonitorReport, FridayReleaseHandoffAuditRequest,
+    FridayReleaseHandoffAuditState, FridayReleaseHandoffAuditTrail, FridayReleaseHandoffPacket,
     FridayReleaseIncidentArchive, FridayReleaseIncidentOutcome,
     FridayReleaseOperatorChecklistReport, FridayReleaseOwnerFollowUpBoardReport,
     FridayReleasePostPromotionMonitorReport, FridayReleasePreventionPlanReport,
@@ -51,9 +52,9 @@ use crate::friday::{
     FridayTrustedHostRunnerUxReport, FridayTrustedRunnerReleasePackageReport,
     FridayTrustedRunnerReleaseTimeline, FridayUiIntegrationStatus, FridayWorkspaceStore,
     append_friday_release_candidate_to_archive, append_friday_release_checkpoint_signoff_to_ledger,
-    append_friday_release_escalation_to_ledger, append_friday_release_incident_to_archive,
-    append_friday_release_operator_signoff, append_friday_release_promotion_to_ledger,
-    append_friday_trusted_host_runner_history,
+    append_friday_release_escalation_to_ledger, append_friday_release_handoff_audit_to_trail,
+    append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
+    append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -68,7 +69,8 @@ use crate::friday::{
     friday_release_checkpoint_signoff_record_from_review, friday_release_deployment_gate_report,
     friday_release_escalation_entries_from_monitor, friday_release_escalation_ledger_report,
     friday_release_evidence_attachment_review_report, friday_release_evidence_export_kit_report,
-    friday_release_evidence_sla_monitor_report, friday_release_handoff_packet_report,
+    friday_release_evidence_sla_monitor_report, friday_release_handoff_audit_record_from_packet,
+    friday_release_handoff_audit_trail_report, friday_release_handoff_packet_report,
     friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
     friday_release_operator_checklist_report, friday_release_owner_followup_board_report,
     friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
@@ -82,16 +84,18 @@ use crate::friday::{
     friday_trusted_host_runner_ux_report_from_history_file,
     friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
     read_friday_release_candidate_archive, read_friday_release_checkpoint_signoff_ledger,
-    read_friday_release_escalation_ledger, read_friday_release_incident_archive,
-    read_friday_release_promotion_ledger, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    run_friday_trusted_host_command, run_friday_trusted_host_command_bridge,
-    run_friday_vlm_contract, write_friday_release_checkpoint_evidence_vault,
+    read_friday_release_escalation_ledger, read_friday_release_handoff_audit_trail,
+    read_friday_release_incident_archive, read_friday_release_promotion_ledger,
+    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
+    run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
+    write_friday_release_checkpoint_evidence_vault,
     write_friday_release_checkpoint_review_board_report,
     write_friday_release_checkpoint_signoff_ledger, write_friday_release_deployment_gate,
     write_friday_release_escalation_ledger, write_friday_release_evidence_attachment_review,
     write_friday_release_evidence_export_kit, write_friday_release_evidence_sla_monitor_report,
-    write_friday_release_handoff_packet, write_friday_release_incident_archive,
-    write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
+    write_friday_release_handoff_audit_trail, write_friday_release_handoff_packet,
+    write_friday_release_incident_archive, write_friday_release_operator_checklist,
+    write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_qa_command_center_report,
     write_friday_release_recovery_runbook_report, write_friday_release_rollback_drill_report,
@@ -1699,6 +1703,72 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", packet.to_pretty_json()?);
         }
 
+        Command::FridayReleaseHandoffAudit {
+            trail_file,
+            packet_file,
+            state,
+            operator,
+            acknowledgement_note,
+            supersedes_packet_id,
+        } => {
+            let trail = append_friday_release_handoff_audit_to_trail(
+                resolve_repo_relative_path(&trail_file),
+                resolve_repo_relative_path(&packet_file),
+                FridayReleaseHandoffAuditRequest {
+                    state: FridayReleaseHandoffAuditState::parse(&state)?,
+                    operator,
+                    acknowledgement_note,
+                    supersedes_packet_id,
+                },
+            )?;
+            print_friday_release_handoff_audit_trail(&trail);
+        }
+
+        Command::FridayReleaseHandoffAuditJson {
+            trail_file,
+            packet_file,
+            state,
+            operator,
+            acknowledgement_note,
+            supersedes_packet_id,
+        } => {
+            let trail_path = resolve_repo_relative_path(&trail_file);
+            let packet_path = resolve_repo_relative_path(&packet_file);
+            let mut records = read_friday_release_handoff_audit_trail(&trail_path)
+                .map(|trail| trail.records)
+                .unwrap_or_default();
+            records.push(friday_release_handoff_audit_record_from_packet(
+                &packet_path,
+                FridayReleaseHandoffAuditRequest {
+                    state: FridayReleaseHandoffAuditState::parse(&state)?,
+                    operator,
+                    acknowledgement_note,
+                    supersedes_packet_id,
+                },
+            )?);
+            let trail = friday_release_handoff_audit_trail_report(&trail_path, records);
+            println!("{}", trail.to_pretty_json()?);
+        }
+
+        Command::FridayReleaseHandoffAuditList { trail_file } => {
+            let trail =
+                read_friday_release_handoff_audit_trail(resolve_repo_relative_path(&trail_file))?;
+            print_friday_release_handoff_audit_trail(&trail);
+        }
+
+        Command::FridayReleaseHandoffAuditExport {
+            trail_file,
+            output_file,
+        } => {
+            let trail =
+                read_friday_release_handoff_audit_trail(resolve_repo_relative_path(&trail_file))?;
+            write_friday_release_handoff_audit_trail(
+                resolve_repo_relative_path(&output_file),
+                &trail,
+            )?;
+            print_friday_release_handoff_audit_trail(&trail);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -2286,6 +2356,14 @@ fn print_interactive_help() {
     println!("                           Write release handoff packet JSON without uploading");
     println!("  --friday-release-handoff-packet-json [export-dir]");
     println!("                           Print release handoff packet as JSON");
+    println!("  --friday-release-handoff-audit [--trail file] [--packet file]");
+    println!("                           Append a local release handoff audit record");
+    println!("  --friday-release-handoff-audit-json [--trail file] [--packet file]");
+    println!("                           Print release handoff audit preview as JSON");
+    println!("  --friday-release-handoff-audit-list [--trail file]");
+    println!("                           List an existing release handoff audit trail");
+    println!("  --friday-release-handoff-audit-export [--trail file] [--output file]");
+    println!("                           Export an existing release handoff audit trail JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -4563,6 +4641,52 @@ fn print_friday_release_handoff_packet(packet: &FridayReleaseHandoffPacket) {
     println!();
     println!("Commands:");
     for command in &packet.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_handoff_audit_trail(trail: &FridayReleaseHandoffAuditTrail) {
+    println!("Friday Release Handoff Audit Trail");
+    println!("===================================");
+    println!(
+        "Records: {} | ready: {} | sent: {} | blocked: {} | carryover records: {}",
+        trail.record_count,
+        trail.ready_count,
+        trail.sent_count,
+        trail.blocked_count,
+        trail.blocker_carryover_count
+    );
+    println!(
+        "Draft: {} | superseded: {} | revoked: {} | acknowledgements: {}",
+        trail.draft_count, trail.superseded_count, trail.revoked_count, trail.acknowledgement_count
+    );
+    if let Some(state) = trail.latest_state {
+        println!("Latest state: {}", state.label());
+    }
+    if let Some(packet_id) = &trail.active_packet_id {
+        println!("Active packet: {packet_id}");
+    }
+    println!(
+        "Unresolved carryover blockers: {}",
+        trail.unresolved_blocker_count
+    );
+    println!("Trail: {}", trail.trail_json);
+    println!();
+    println!("Audit records:");
+    for record in &trail.records {
+        println!(
+            "  - {} [{}] {}",
+            record.operator,
+            record.state.label(),
+            record.packet_id
+        );
+        println!("    packet: {}", record.packet_json);
+        println!("    acknowledgement: {}", record.acknowledgement_note);
+        println!("    carryover blockers: {}", record.blocker_carryover);
+    }
+    println!();
+    println!("Commands:");
+    for command in &trail.commands {
         println!("  - {command}");
     }
 }
