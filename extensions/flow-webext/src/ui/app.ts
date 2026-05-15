@@ -3,6 +3,7 @@ import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
   normalizeReleaseOperatorChecklist,
+  normalizeReleaseQaCommandCenter,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
   normalizeTrustedHostRunnerCancellationUx,
@@ -26,6 +27,7 @@ import {
   type FlowDashboardRunnerUxReport,
   type FlowDashboardCommandStatus,
   type FlowReleaseOperatorChecklistReport,
+  type FlowReleaseQaCommandCenterReport,
 } from "../runtime/dashboard-actions";
 import { normalizeFridayDashboardBinding } from "../runtime/dashboard-binding";
 import { FlowBrowserEngine } from "../runtime/flow-engine";
@@ -70,6 +72,7 @@ type UiState = {
   dashboardRunnerReleaseTimeline: FlowDashboardRunnerReleaseTimeline | null;
   dashboardReleaseChecklist: FlowReleaseOperatorChecklistReport | null;
   dashboardReleaseChecklistReason: string;
+  dashboardReleaseQa: FlowReleaseQaCommandCenterReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -1463,6 +1466,51 @@ function renderReleaseChecklist(
   `;
 }
 
+function renderReleaseQa(qa: FlowReleaseQaCommandCenterReport | null) {
+  if (!qa) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-release-qa">
+      <div class="card-topline">
+        <span class="eyebrow">Release QA command center</span>
+        <span class="badge ${badgeTone(qa.status)}">${escapeHtml(qa.status)}</span>
+      </div>
+      <p>${escapeHtml(qa.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${qa.scoreOutOf100}</strong><small>score</small></span>
+        <span><strong>${qa.blockingCount}</strong><small>blocking</small></span>
+        <span><strong>${qa.staleCount}</strong><small>stale</small></span>
+      </div>
+      <div class="runner-package-files">
+        ${qa.checks
+          .map(
+            (check) => `
+              <div class="runner-package-file ${
+                check.status === "passed" ? "present" : "missing"
+              }">
+                <strong>${escapeHtml(check.label)}</strong>
+                <small>${escapeHtml(check.status)} - ${check.bytes} bytes</small>
+                <code>${escapeHtml(check.resultPath)}</code>
+                <span>${escapeHtml(check.summary)}</span>
+                <button
+                  type="button"
+                  class="secondary"
+                  data-action="dashboard-release-qa-command"
+                  data-release-qa-command-id="${escapeHtml(check.id)}"
+                >
+                  Copy command
+                </button>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -1671,6 +1719,7 @@ function renderDashboard(state: UiState) {
         state.dashboardReleaseChecklist,
         state.dashboardReleaseChecklistReason,
       )}
+      ${renderReleaseQa(state.dashboardReleaseQa)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1798,6 +1847,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardRunnerReleaseTimeline: null,
     dashboardReleaseChecklist: null,
     dashboardReleaseChecklistReason: "",
+    dashboardReleaseQa: null,
   };
 
   function render() {
@@ -2095,6 +2145,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releasePackage = normalizeTrustedRunnerReleasePackage(parsed);
       const releaseTimeline = normalizeTrustedRunnerReleaseTimeline(parsed);
       const releaseChecklist = normalizeReleaseOperatorChecklist(parsed);
+      const releaseQa = normalizeReleaseQaCommandCenter(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2111,8 +2162,11 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseTimeline ?? state.dashboardRunnerReleaseTimeline;
       state.dashboardReleaseChecklist =
         releaseChecklist ?? state.dashboardReleaseChecklist;
+      state.dashboardReleaseQa = releaseQa ?? state.dashboardReleaseQa;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseChecklist
+      state.status = releaseQa
+        ? `Imported release QA command center at ${releaseQa.scoreOutOf100}/100 from ${file.name}.`
+        : releaseChecklist
         ? `Imported release checklist with ${releaseChecklist.blockingCount} blocking issue(s) from ${file.name}.`
         : releaseTimeline
         ? `Imported trusted runner release timeline with ${releaseTimeline.packageCount} package(s) from ${file.name}.`
@@ -2327,6 +2381,20 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseQaCommand(checkId: string) {
+    const check = state.dashboardReleaseQa?.checks.find((item) => item.id === checkId);
+    if (!check) {
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(check.command);
+      state.status = `${check.label}: command copied.`;
+    } catch {
+      state.status = `${check.label}: ${check.command}`;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -2460,6 +2528,17 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-checklist-signoff']")
       ?.addEventListener("click", () => {
         void copyReleaseChecklistSignoff();
+      });
+
+    mountRoot
+      .querySelectorAll<HTMLButtonElement>("[data-action='dashboard-release-qa-command']")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          const checkId = button.dataset.releaseQaCommandId;
+          if (checkId) {
+            void copyReleaseQaCommand(checkId);
+          }
+        });
       });
 
     mountRoot

@@ -34,7 +34,8 @@ use crate::friday::{
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult, FridayTrustedHostRunnerStatus,
     FridayReleaseChecklistSignoff, FridayReleaseChecklistSignoffDecision,
-    FridayReleaseOperatorChecklistReport, FridayTrustedHostRunnerUxReport,
+    FridayReleaseOperatorChecklistReport, FridayReleaseQaCommandCenterReport,
+    FridayTrustedHostRunnerUxReport,
     FridayTrustedRunnerReleasePackageReport, FridayTrustedRunnerReleaseTimeline,
     FridayUiIntegrationStatus, FridayWorkspaceStore,
     append_friday_release_operator_signoff,
@@ -48,7 +49,8 @@ use crate::friday::{
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_release_operator_checklist_report,
-    friday_research_search_plan, friday_route_visual_report,
+    friday_release_qa_command_center_report, friday_research_search_plan,
+    friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
@@ -57,8 +59,9 @@ use crate::friday::{
     friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
     run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
     run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
-    write_friday_release_operator_checklist, write_friday_trusted_runner_release_package,
-    write_friday_trusted_runner_release_timeline, write_friday_trusted_host_live_runner_state,
+    write_friday_release_operator_checklist, write_friday_release_qa_command_center_report,
+    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
+    write_friday_trusted_host_live_runner_state,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -829,6 +832,52 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&signoffs)?);
         }
 
+        Command::FridayReleaseQa {
+            report_file,
+            checklist_file,
+            package_file,
+            timeline_file,
+            cargo_check_result_file,
+            extension_typecheck_result_file,
+            dashboard_smoke_result_file,
+        } => {
+            let report = friday_release_qa_command_center_report(
+                resolve_repo_relative_path(&report_file),
+                resolve_repo_relative_path(&checklist_file),
+                resolve_repo_relative_path(&package_file),
+                resolve_repo_relative_path(&timeline_file),
+                resolve_repo_relative_path(&cargo_check_result_file),
+                resolve_repo_relative_path(&extension_typecheck_result_file),
+                resolve_repo_relative_path(&dashboard_smoke_result_file),
+            );
+            write_friday_release_qa_command_center_report(
+                resolve_repo_relative_path(&report_file),
+                &report,
+            )?;
+            print_friday_release_qa_command_center(&report);
+        }
+
+        Command::FridayReleaseQaJson {
+            report_file,
+            checklist_file,
+            package_file,
+            timeline_file,
+            cargo_check_result_file,
+            extension_typecheck_result_file,
+            dashboard_smoke_result_file,
+        } => {
+            let report = friday_release_qa_command_center_report(
+                resolve_repo_relative_path(&report_file),
+                resolve_repo_relative_path(&checklist_file),
+                resolve_repo_relative_path(&package_file),
+                resolve_repo_relative_path(&timeline_file),
+                resolve_repo_relative_path(&cargo_check_result_file),
+                resolve_repo_relative_path(&extension_typecheck_result_file),
+                resolve_repo_relative_path(&dashboard_smoke_result_file),
+            );
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1322,6 +1371,10 @@ fn print_interactive_help() {
     println!("                           Append a local Friday release signoff record");
     println!("  --friday-release-signoff-json [checklist-file] [--reason text]");
     println!("                           Append a local Friday release signoff and print JSON");
+    println!("  --friday-release-qa [export-dir] [--output file]");
+    println!("                           Write Friday release QA command center JSON");
+    println!("  --friday-release-qa-json [export-dir]");
+    println!("                           Print Friday release QA command center as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -2554,6 +2607,37 @@ fn print_friday_release_signoffs(signoffs: &[FridayReleaseChecklistSignoff]) {
             signoff.checklist_id
         );
         println!("    {}", signoff.reason);
+    }
+}
+
+fn print_friday_release_qa_command_center(report: &FridayReleaseQaCommandCenterReport) {
+    println!("Friday Release QA Command Center");
+    println!("================================");
+    println!("{}", report.summary);
+    println!("Ready to ship: {}", yes_no(report.ready_to_ship));
+    println!("Score: {} / 100", report.score_out_of_100);
+    println!(
+        "Warnings: {} | blocking: {} | stale: {} | missing: {}",
+        report.warning_count, report.blocking_count, report.stale_count, report.missing_count
+    );
+    println!();
+    println!("Checks:");
+    for check in &report.checks {
+        println!(
+            "  - {} [{}] present={} stale={}",
+            check.label,
+            check.status.label(),
+            yes_no(check.present),
+            yes_no(check.stale)
+        );
+        println!("    command: {}", check.command);
+        println!("    result: {}", check.result_path);
+        println!("    next: {}", check.next_action);
+    }
+    println!();
+    println!("Commands:");
+    for command in &report.commands {
+        println!("  - {}", command);
     }
 }
 

@@ -375,6 +375,43 @@ export interface FlowReleaseOperatorChecklistReport {
   commands: string[];
 }
 
+export type FlowReleaseQaCheckStatus = "passed" | "warning" | "failed" | "missing" | "stale";
+
+export interface FlowReleaseQaCheck {
+  id: string;
+  label: string;
+  command: string;
+  resultPath: string;
+  required: boolean;
+  present: boolean;
+  stale: boolean;
+  bytes: number;
+  status: FlowReleaseQaCheckStatus;
+  summary: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseQaCommandCenterReport {
+  reportId: string;
+  reportJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  readyToShip: boolean;
+  summary: string;
+  checklistJson: string;
+  packageJson: string;
+  timelineJson: string;
+  warningCount: number;
+  blockingCount: number;
+  staleCount: number;
+  missingCount: number;
+  checks: FlowReleaseQaCheck[];
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -1438,6 +1475,75 @@ export function normalizeReleaseOperatorChecklist(
   };
 }
 
+export function normalizeReleaseQaCommandCenter(
+  value: unknown,
+): FlowReleaseQaCommandCenterReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const report =
+    root.release_qa && typeof root.release_qa === "object"
+      ? (root.release_qa as Record<string, unknown>)
+      : root.releaseQa && typeof root.releaseQa === "object"
+        ? (root.releaseQa as Record<string, unknown>)
+        : root;
+  const reportId = stringValue(report.report_id, report.reportId);
+  const checks = arrayValue(report.checks)
+    .map((item): FlowReleaseQaCheck | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const check = item as Record<string, unknown>;
+      const id = stringValue(check.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        label: stringValue(check.label) || id,
+        command: stringValue(check.command),
+        resultPath: stringValue(check.result_path, check.resultPath),
+        required: booleanValue(check.required),
+        present: booleanValue(check.present),
+        stale: booleanValue(check.stale),
+        bytes: numberValue(check.bytes),
+        status: qaCheckStatus(stringValue(check.status)),
+        summary: stringValue(check.summary),
+        nextAction: stringValue(check.next_action, check.nextAction),
+      };
+    })
+    .filter((item): item is FlowReleaseQaCheck => item !== null);
+
+  if (!reportId && checks.length === 0) {
+    return null;
+  }
+
+  return {
+    reportId,
+    reportJson: stringValue(report.report_json, report.reportJson),
+    generatedAtUnixMs: stringValue(report.generated_at_unix_ms, report.generatedAtUnixMs),
+    productName: stringValue(report.product_name, report.productName),
+    localOnly: booleanValue(report.local_only, report.localOnly),
+    status: panelStatus(stringValue(report.status)),
+    scoreOutOf100: numberValue(report.score_out_of_100, report.scoreOutOf100),
+    readyToShip: booleanValue(report.ready_to_ship, report.readyToShip),
+    summary: stringValue(report.summary),
+    checklistJson: stringValue(report.checklist_json, report.checklistJson),
+    packageJson: stringValue(report.package_json, report.packageJson),
+    timelineJson: stringValue(report.timeline_json, report.timelineJson),
+    warningCount: numberValue(report.warning_count, report.warningCount),
+    blockingCount: numberValue(report.blocking_count, report.blockingCount),
+    staleCount: numberValue(report.stale_count, report.staleCount),
+    missingCount: numberValue(report.missing_count, report.missingCount),
+    checks,
+    commands: arrayValue(report.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -1537,6 +1643,19 @@ function signoffDecision(value: string): FlowReleaseChecklistSignoff["decision"]
     return value;
   }
   return "needs-changes";
+}
+
+function qaCheckStatus(value: string): FlowReleaseQaCheckStatus {
+  if (
+    value === "passed" ||
+    value === "warning" ||
+    value === "failed" ||
+    value === "missing" ||
+    value === "stale"
+  ) {
+    return value;
+  }
+  return "warning";
 }
 
 function runnerStatus(value: string): FlowDashboardCommandStatus {

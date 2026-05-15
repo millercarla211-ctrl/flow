@@ -26,7 +26,7 @@ use flow::friday::{
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
-    FridayReleaseChecklistSignoffDecision,
+    FridayReleaseChecklistSignoffDecision, FridayReleaseQaCheckStatus,
     FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
     FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
@@ -45,7 +45,7 @@ use flow::friday::{
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_release_operator_checklist_report,
-    friday_route_visual_report,
+    friday_release_qa_command_center_report, friday_route_visual_report,
     friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
@@ -1851,6 +1851,37 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     );
     assert_eq!(checklist_after_signoff.signoff_count, 1);
     assert!(checklist_after_signoff.latest_signoff.is_some());
+    let cargo_check_result_path = root.join("cargo-check.txt");
+    let extension_typecheck_result_path = root.join("extension-typecheck.txt");
+    let dashboard_smoke_result_path = root.join("dashboard-smoke.txt");
+    fs::write(&cargo_check_result_path, "cargo check passed").unwrap();
+    fs::write(&extension_typecheck_result_path, "typecheck passed").unwrap();
+    fs::write(&dashboard_smoke_result_path, "Friday dashboard UI smoke: 100/100").unwrap();
+    let qa_report = friday_release_qa_command_center_report(
+        root.join("release-qa-command-center.json"),
+        &checklist_path,
+        &package_path,
+        &timeline_path,
+        &cargo_check_result_path,
+        &extension_typecheck_result_path,
+        &dashboard_smoke_result_path,
+    );
+    assert_eq!(qa_report.product_name, "Friday");
+    assert!(qa_report.score_out_of_100 > 0);
+    assert!(qa_report
+        .checks
+        .iter()
+        .any(|check| check.id == "rust-cargo-check"
+            && check.status == FridayReleaseQaCheckStatus::Passed));
+    assert!(qa_report
+        .checks
+        .iter()
+        .any(|check| check.id == "release-checklist"
+            && check.status == FridayReleaseQaCheckStatus::Failed));
+    assert!(qa_report
+        .commands
+        .iter()
+        .any(|command| command.contains("--friday-release-qa")));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

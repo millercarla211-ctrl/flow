@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-checklist-model",
-            "Typed release operator checklist",
+            "release-qa-report",
+            "Typed release QA command-center report",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseOperatorChecklistReport` consumes package, timeline, dashboard release review, TODO, changelog, and signoff evidence",
-            "open the next release QA command center set",
+            "`FridayReleaseQaCommandCenterReport` consumes checklist, release package, evidence timeline, Rust check result, extension typecheck result, and dashboard smoke result paths",
+            "open the next release evidence export kit set",
         ),
         item(
-            "release-checklist-blockers",
-            "Release blocker categorization",
+            "release-qa-command-descriptors",
+            "Local-only QA command descriptors",
             20,
             CompletionItemStatus::Done,
-            "the checklist classifies missing evidence, warning regressions, stale live state, pending runner work, release-review issues, and unreviewed TODO/changelog gaps",
-            "open the next release QA command center set",
+            "the QA report lists copyable lightweight commands for cargo check, extension typecheck, dashboard smoke, and QA report regeneration without running expensive builds silently",
+            "open the next release evidence export kit set",
         ),
         item(
-            "release-checklist-cli",
-            "Checklist and signoff CLI commands",
+            "release-qa-cli",
+            "Release QA CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-checklist`, `--friday-release-checklist-json`, `--friday-release-signoff`, and the JSON signoff command create review reports and append local signoffs",
-            "open the next release QA command center set",
+            "`flow --friday-release-qa` writes the command-center JSON and `--friday-release-qa-json` previews the same report",
+            "open the next release evidence export kit set",
         ),
         item(
-            "release-checklist-dashboard",
-            "Dashboard checklist rendering",
+            "release-qa-dashboard",
+            "Dashboard QA rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports release checklist JSON, renders blockers/items/freshness copy, captures a signoff reason, and copies the signoff command",
-            "open the next release QA command center set",
+            "the visible dashboard imports release QA JSON, renders pass/fail/stale check cards, and copies each lightweight command",
+            "open the next release evidence export kit set",
         ),
         item(
-            "release-checklist-tests",
-            "Checklist and signoff coverage",
+            "release-qa-tests",
+            "QA report coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage and dashboard smoke checks verify checklist generation, blocker copy, signoff persistence, and UI normalization",
-            "open the next release QA command center set",
+            "focused Rust integration coverage and dashboard smoke checks verify QA scoring, check-result presence, stale warnings, command copy, and UI normalization",
+            "open the next release evidence export kit set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Operator Checklist".to_string(),
+        name: "Friday Release QA Command Center".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Turn release package and evidence-timeline data into a concise operator checklist with explicit signoff, unresolved-blocker copy, and local-only audit history.".to_string(),
+        loop_rule: "Provide a single local-first QA command center that runs or imports lightweight checks, summarizes release risk, and tells the operator exactly what must pass before a major Friday checkpoint.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_operator_checklist_loop() {
+    fn active_set_tracks_friday_release_qa_command_center_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Operator Checklist");
+        assert_eq!(set.name, "Friday Release QA Command Center");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

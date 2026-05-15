@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- completed Friday Release QA Command Center at 100/100 with dashboard QA import/rendering, stale-result badges, copyable lightweight-check commands, and TypeScript smoke coverage
+- opened Friday Release Evidence Export Kit as the next set for one local-only release-review bundle with manifests, checksums, signoffs, QA outputs, and dashboard guidance
+- advanced Friday Release QA Command Center to 80/100 with a typed local QA report, lightweight check-result inputs, copyable check commands, CLI/JSON report commands, and focused Rust coverage
 - completed Friday Release Operator Checklist at 100/100 with typed local release checklists, package/timeline/TODO/changelog/readiness blockers, checklist/signoff CLI commands, dashboard signoff controls, and focused Rust/TypeScript coverage
 - opened Friday Release QA Command Center as the next set for one local-first surface that summarizes lightweight checks, checklist/package/timeline status, stale results, and copyable verification commands
 - completed Friday Trusted Runner Evidence Timeline at 100/100 with typed package history, package-to-package diff/regression summaries, local-only archive/timeline CLI commands, dashboard timeline import rendering, and focused Rust/TypeScript coverage

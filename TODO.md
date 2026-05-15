@@ -446,16 +446,34 @@ Goal: turn release package and evidence-timeline data into a concise operator ch
 
 This set is complete. The next loop should open `Friday Release QA Command Center` and consolidate lightweight checks, checklist status, package/timeline status, and dashboard smoke into one local command center.
 
-## Next Set: Friday Release QA Command Center
+## Completed Set: Friday Release QA Command Center
 
-Status: 0/100
+Status: 100/100
 
 Goal: provide a single local-first QA command center that runs or imports lightweight checks, summarizes release risk, and tells the operator exactly what must pass before a major Friday checkpoint.
 
+### Completed Toward 100/100
+
+- [x] Add a typed QA command-center report that consumes checklist, package, timeline, dashboard smoke, Rust check status, and extension typecheck status.
+- [x] Add local-only command descriptors for each lightweight check without silently running expensive builds.
+- [x] Add CLI and JSON commands for creating QA command-center reports and importing check-result files.
+- [x] Add dashboard QA rendering with pass/fail badges, copyable commands, and stale-result warnings.
+- [x] Add focused Rust/TypeScript coverage for QA report scoring, stale result detection, command copy, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Evidence Export Kit` and make the release checklist, QA command center, package, timeline, signoffs, and lightweight check outputs exportable as one review bundle.
+
+## Next Set: Friday Release Evidence Export Kit
+
+Status: 0/100
+
+Goal: bundle the release checklist, QA command center, package, timeline, signoffs, and lightweight check outputs into one local-only review kit with manifests, checksums, and dashboard import guidance.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed QA command-center report that consumes checklist, package, timeline, dashboard smoke, Rust check status, and extension typecheck status.
-- [ ] Add local-only command descriptors for each lightweight check without silently running expensive builds.
-- [ ] Add CLI and JSON commands for creating QA command-center reports and importing check-result files.
-- [ ] Add dashboard QA rendering with pass/fail badges, copyable commands, and stale-result warnings.
-- [ ] Add focused Rust/TypeScript coverage for QA report scoring, stale result detection, command copy, and dashboard rendering.
+- [ ] Add a typed release evidence export-kit model with manifest checksums for checklist, QA, package, timeline, signoffs, and check-result files.
+- [ ] Add CLI and JSON commands for generating the export kit without running host commands or full builds.
+- [ ] Add dashboard import/rendering for export-kit completeness, stale result warnings, and missing artifact guidance.
+- [ ] Add operator copy for attaching the export kit to major checkpoints and deployment notes.
+- [ ] Add focused Rust/TypeScript coverage for export-kit completeness, checksum copy, stale warnings, and dashboard rendering.

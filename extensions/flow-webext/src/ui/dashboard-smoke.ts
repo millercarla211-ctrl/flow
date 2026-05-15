@@ -6,6 +6,7 @@ import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
   normalizeReleaseOperatorChecklist,
+  normalizeReleaseQaCommandCenter,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostLiveRunnerState,
   normalizeTrustedHostRunnerCancellationUx,
@@ -677,6 +678,53 @@ export function dashboardSectionSmokeReport(
       'flow --friday-release-signoff tmp/friday-dashboard/release-operator-checklist.json --signoffs tmp/friday-dashboard/release-signoffs.json --operator "<operator>" --decision approved --reason "<signoff reason>"',
     ],
   });
+  const releaseQa = normalizeReleaseQaCommandCenter({
+    report_id: "friday-release-qa-smoke",
+    report_json: "tmp/friday-dashboard/release-qa-command-center.json",
+    generated_at_unix_ms: 5,
+    product_name: "Friday",
+    local_only: true,
+    status: "warning",
+    score_out_of_100: 83,
+    ready_to_ship: false,
+    summary: "Friday release QA is 83/100 with 1 stale result.",
+    checklist_json: "tmp/friday-dashboard/release-operator-checklist.json",
+    package_json: "tmp/friday-dashboard/trusted-runner-release-package.json",
+    timeline_json: "tmp/friday-dashboard/trusted-runner-release-timeline.json",
+    warning_count: 1,
+    blocking_count: 0,
+    stale_count: 1,
+    missing_count: 0,
+    checks: [
+      {
+        id: "rust-cargo-check",
+        label: "Rust cargo check",
+        command: "cargo check",
+        result_path: "tmp/friday-dashboard/cargo-check.txt",
+        required: true,
+        present: true,
+        stale: false,
+        bytes: 42,
+        status: "passed",
+        summary: "cargo check passed",
+        next_action: "Refresh after code changes.",
+      },
+      {
+        id: "dashboard-smoke",
+        label: "Dashboard smoke",
+        command: "npm run smoke:dashboard",
+        result_path: "tmp/friday-dashboard/dashboard-smoke.txt",
+        required: true,
+        present: true,
+        stale: true,
+        bytes: 84,
+        status: "stale",
+        summary: "Dashboard smoke result is stale.",
+        next_action: "Rerun dashboard smoke.",
+      },
+    ],
+    commands: ["flow --friday-release-qa tmp/friday-dashboard"],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -939,6 +987,19 @@ export function dashboardSectionSmokeReport(
       releaseChecklist?.signoffRequired === true &&
         releaseChecklist.commands.some((command) => command.includes("--friday-release-signoff")),
       `${releaseChecklist?.commands.length ?? 0} release checklist command(s)`,
+    ),
+    check(
+      "release-qa-importable",
+      releaseQa?.localOnly === true &&
+        releaseQa.scoreOutOf100 === 83 &&
+        releaseQa.checks.some((check) => check.id === "rust-cargo-check" && check.status === "passed"),
+      `${releaseQa?.scoreOutOf100 ?? 0}/100 release QA score`,
+    ),
+    check(
+      "release-qa-stale-warning",
+      releaseQa?.staleCount === 1 &&
+        releaseQa.checks.some((check) => check.id === "dashboard-smoke" && check.stale),
+      `${releaseQa?.staleCount ?? 0} stale release QA result(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",
