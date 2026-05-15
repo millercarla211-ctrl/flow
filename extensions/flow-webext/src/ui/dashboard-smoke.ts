@@ -2,6 +2,7 @@ import {
   defaultFridayDashboardBinding,
   normalizeFridayDashboardBinding,
 } from "../runtime/dashboard-binding";
+import { dispatchDashboardCommand } from "../runtime/dashboard-actions";
 import type { FlowDashboardProductUiBinding } from "../runtime/protocol";
 
 type DashboardSmokeCheck = {
@@ -103,6 +104,43 @@ export function dashboardSectionSmokeReport(
     "smoke-import.json",
   );
   const actionCount = binding.cards.reduce((total, card) => total + card.actions.length, 0);
+  const executableAction = imported.cards[0]?.actions[0];
+  const preparedResult = executableAction
+    ? dispatchDashboardCommand(executableAction, {
+        confirmed: true,
+        now: "2026-05-15T00:00:00.000Z",
+      })
+    : null;
+  const confirmationResult = executableAction
+    ? dispatchDashboardCommand(
+        {
+          ...executableAction,
+          buttonState: {
+            ...executableAction.buttonState,
+            requiresConfirmation: true,
+          },
+        },
+        { now: "2026-05-15T00:00:01.000Z" },
+      )
+    : null;
+  const blockedResult = executableAction
+    ? dispatchDashboardCommand(
+        {
+          ...executableAction,
+          localOnly: false,
+        },
+        { confirmed: true, now: "2026-05-15T00:00:02.000Z" },
+      )
+    : null;
+  const failedResult = executableAction
+    ? dispatchDashboardCommand(
+        {
+          ...executableAction,
+          command: "",
+        },
+        { confirmed: true, now: "2026-05-15T00:00:03.000Z" },
+      )
+    : null;
   const checks = [
     check(
       "local-fallback-labelled",
@@ -138,6 +176,27 @@ export function dashboardSectionSmokeReport(
           ),
         ),
       `${actionCount}/${binding.actionCount} actions renderable`,
+    ),
+    check(
+      "command-dispatch-success",
+      preparedResult?.status === "prepared" && preparedResult.permission === "allowed",
+      preparedResult?.message ?? "missing dispatch result",
+    ),
+    check(
+      "command-dispatch-confirmation",
+      confirmationResult?.status === "blocked" &&
+        confirmationResult.permission === "confirmation-required",
+      confirmationResult?.message ?? "missing confirmation result",
+    ),
+    check(
+      "command-dispatch-blocked",
+      blockedResult?.status === "blocked" && blockedResult.permission === "blocked",
+      blockedResult?.message ?? "missing blocked result",
+    ),
+    check(
+      "command-dispatch-failure",
+      failedResult?.status === "failed" && failedResult.permission === "blocked",
+      failedResult?.message ?? "missing failed result",
     ),
     check(
       "history-rail-renderable",

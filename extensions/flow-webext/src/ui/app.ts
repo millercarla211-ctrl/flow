@@ -1,4 +1,11 @@
 import { requestQuickContext, replaceSelection, toggleOverlay } from "../runtime/browser-api";
+import {
+  dispatchDashboardCommand,
+  persistDashboardCommandResult,
+  readDashboardCommandResults,
+  type FlowDashboardCommandResult,
+  type FlowDashboardCommandStatus,
+} from "../runtime/dashboard-actions";
 import { normalizeFridayDashboardBinding } from "../runtime/dashboard-binding";
 import { FlowBrowserEngine } from "../runtime/flow-engine";
 import type {
@@ -29,7 +36,8 @@ type UiState = {
   running: boolean;
   lastPlan: FlowExecutionPlan | null;
   lastPack: BrowserPackManifest | null;
-  dashboardActionStates: Record<string, "idle" | "loading" | "success" | "error">;
+  dashboardActionStates: Record<string, "idle" | "loading" | "success" | "error" | "blocked">;
+  dashboardActionResults: FlowDashboardCommandResult[];
 };
 
 const TASK_OPTIONS: Array<{ task: FlowTask; label: string; detail: string }> = [
@@ -820,7 +828,50 @@ function dashboardActionLabel(
   if (state === "error") {
     return action.buttonState.errorLabel;
   }
+  if (state === "blocked") {
+    return "Blocked";
+  }
   return action.buttonState.idleLabel;
+}
+
+function dashboardResultTone(status: FlowDashboardCommandStatus) {
+  if (status === "prepared") {
+    return "ready";
+  }
+  return status === "failed" ? "off" : "blocked";
+}
+
+function renderDashboardActionResults(results: FlowDashboardCommandResult[]) {
+  return `
+    <article class="feature-card dashboard-command-results">
+      <div class="card-topline">
+        <span class="eyebrow">Command results</span>
+        <span class="badge ${badgeTone(results.length > 0 ? "ready" : "pending")}">
+          ${results.length} recent
+        </span>
+      </div>
+      ${
+        results.length === 0
+          ? "<p>No dashboard command handoffs have been prepared in this browser yet.</p>"
+          : `<div class="note-list">
+              ${results
+                .map(
+                  (result) => `
+                    <span>
+                      <strong>${escapeHtml(result.label)}</strong>
+                      <em class="badge ${badgeTone(dashboardResultTone(result.status))}">
+                        ${escapeHtml(result.permission)}
+                      </em>
+                      ${escapeHtml(result.message)}
+                      <code>${escapeHtml(result.command)}</code>
+                    </span>
+                  `,
+                )
+                .join("")}
+            </div>`
+      }
+    </article>
+  `;
 }
 
 function renderDashboardCard(
@@ -996,6 +1047,8 @@ function renderDashboard(state: UiState) {
 
       ${renderDashboardRail(state)}
 
+      ${renderDashboardActionResults(state.dashboardActionResults)}
+
       <article class="feature-card">
         <div class="card-topline">
           <span class="eyebrow">Next wiring targets</span>
@@ -1092,6 +1145,7 @@ export async function mountFlowApp(surfaceInput: string) {
   ]);
 
   const initialTask = draft.task || settings.defaultTask;
+  const dashboardBinding = engine.dashboardBinding();
   const state: UiState = {
     settings,
     draft: {
@@ -1101,7 +1155,7 @@ export async function mountFlowApp(surfaceInput: string) {
     },
     readiness,
     quickContext: null,
-    dashboardBinding: engine.dashboardBinding(),
+    dashboardBinding,
     activeSection: defaultSection(surface),
     status: "Ready. Flow will stay local-first unless you deliberately wire remote providers later.",
     output: "",
@@ -1109,6 +1163,7 @@ export async function mountFlowApp(surfaceInput: string) {
     lastPlan: null,
     lastPack: null,
     dashboardActionStates: {},
+    dashboardActionResults: readDashboardCommandResults(dashboardBinding.route),
   };
 
   function render() {
@@ -1313,12 +1368,37 @@ export async function mountFlowApp(surfaceInput: string) {
     }
 
     state.dashboardActionStates = { ...state.dashboardActionStates, [actionId]: "loading" };
-    state.status = `Preparing local dashboard action: ${action.command}`;
+    state.status = `Checking local dashboard permission: ${action.command}`;
     render();
 
-    await new Promise((resolve) => setTimeout(resolve, 180));
-    state.dashboardActionStates = { ...state.dashboardActionStates, [actionId]: "success" };
-    state.status = `Ready to run locally: ${action.command}`;
+    const needsConfirmation =
+      action.buttonState.requiresConfirmation || action.buttonState.destructive;
+    const confirmed =
+      !needsConfirmation ||
+      globalThis.confirm?.(`Prepare this local dashboard command?\n\n${action.command}`) === true;
+    const result = dispatchDashboardCommand(action, { confirmed });
+
+    if (result.status === "prepared") {
+      try {
+        await navigator.clipboard?.writeText(result.command);
+        state.status = `${result.message} Command copied to clipboard.`;
+      } catch {
+        state.status = `${result.message} Clipboard copy is unavailable here.`;
+      }
+    } else {
+      state.status = result.message;
+    }
+
+    state.dashboardActionStates = {
+      ...state.dashboardActionStates,
+      [actionId]:
+        result.status === "prepared" ? "success" : result.status === "failed" ? "error" : "blocked",
+    };
+    state.dashboardActionResults = persistDashboardCommandResult(
+      state.dashboardBinding.route,
+      result,
+      state.dashboardActionResults,
+    );
     render();
   }
 
@@ -1347,6 +1427,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const text = await file.text();
       state.dashboardBinding = normalizeFridayDashboardBinding(JSON.parse(text), file.name);
       state.dashboardActionStates = {};
+      state.dashboardActionResults = readDashboardCommandResults(state.dashboardBinding.route);
       state.status = `Imported local dashboard JSON from ${file.name}.`;
     } catch (error) {
       state.status = `Dashboard import failed: ${String(error)}`;

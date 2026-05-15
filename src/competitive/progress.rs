@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "dashboard-visible-card-rendering",
-            "Visible dashboard card rendering",
+            "dashboard-command-dispatcher-contract",
+            "Dashboard command dispatcher contract",
             20,
             CompletionItemStatus::Done,
-            "`extensions/flow-webext/src/ui/app.ts` renders typed dashboard cards from `FlowDashboardProductUiBinding` through `FlowBrowserEngine.dashboardBinding()`",
-            "wire visible action buttons to the local command handoff metadata",
+            "`extensions/flow-webext/src/runtime/dashboard-actions.ts` defines typed local command dispatch results for dashboard actions",
+            "add confirmation and permission states for risky dashboard commands",
         ),
         item(
-            "dashboard-visible-action-buttons",
-            "Visible dashboard action buttons",
+            "dashboard-command-permissions",
+            "Dashboard command confirmation and permissions",
             20,
             CompletionItemStatus::Done,
-            "`extensions/flow-webext/src/ui/app.ts` renders local dashboard action buttons with idle/loading/success/error labels from typed button state metadata",
-            "render export history deltas, release-review links, and screenshot prompts in the dashboard",
+            "`dispatchDashboardCommand` blocks remote/disabled actions and requires explicit confirmation before risky local handoffs",
+            "persist recent dashboard action results for operator review",
         ),
         item(
-            "dashboard-history-release-rail",
-            "Dashboard history and release rail",
+            "dashboard-command-result-history",
+            "Dashboard command result history",
             20,
             CompletionItemStatus::Done,
-            "`extensions/flow-webext/src/ui/app.ts` renders export history deltas, release-review artifact links, and screenshot prompt controls from the dashboard binding",
-            "add a small TypeScript smoke/typecheck path for dashboard section rendering",
+            "`extensions/flow-webext/src/runtime/dashboard-actions.ts` persists recent command handoff results in a bounded local browser cache",
+            "add focused tests for command dispatch success, failure, and blocked states",
         ),
         item(
-            "dashboard-typescript-smoke",
-            "Dashboard TypeScript smoke path",
+            "dashboard-command-dispatch-tests",
+            "Dashboard command dispatch smoke tests",
             20,
             CompletionItemStatus::Done,
-            "`npm run smoke:dashboard` bundles and runs the focused dashboard section smoke report without a full extension build",
-            "keep local-only fallback behavior and remove dummy product copy from this dashboard surface",
+            "`npm run smoke:dashboard` verifies prepared, confirmation-required, blocked, and failed dashboard command dispatch states",
+            "surface command execution results in the visible dashboard without auto-running anything silently",
         ),
         item(
-            "dashboard-local-only-no-dummy-copy",
-            "Local-only dashboard copy cleanup",
+            "dashboard-command-visible-results",
+            "Visible dashboard command results",
             20,
             CompletionItemStatus::Done,
-            "`extensions/flow-webext/src/ui/app.ts` imports local dashboard JSON explicitly and labels the bundled dashboard data as a local-only fallback snapshot",
-            "open the next 100-point dashboard command-execution set",
+            "`extensions/flow-webext/src/ui/app.ts` renders recent command handoff results and copies prepared local commands without silently running them",
+            "open the next host-command bridge set for trusted desktop execution",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Dashboard Visible UI Execution".to_string(),
+        name: "Friday Dashboard Command Execution".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Render the typed Friday dashboard contract inside the visible browser/desktop UI, keep actions local-only, and remove dashboard dummy copy as the UI becomes real.".to_string(),
+        loop_rule: "Execute dashboard actions through explicit local command handoffs while preserving user control, permissions, and low-resource behavior.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_dashboard_product_ui_wiring_loop() {
+    fn active_set_tracks_friday_dashboard_command_execution_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Dashboard Visible UI Execution");
+        assert_eq!(set.name, "Friday Dashboard Command Execution");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

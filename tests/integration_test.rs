@@ -941,11 +941,11 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
     let root = temp_root("friday-dashboard-export");
     let bundle = export_friday_dashboard_bundle(&root).unwrap();
 
-    assert_eq!(bundle.completion.name, "Friday Dashboard Visible UI Execution");
+    assert_eq!(bundle.completion.name, "Friday Dashboard Command Execution");
     assert_eq!(bundle.completion.current_score_out_of_100, 100);
     assert_eq!(bundle.manifest.score_out_of_100, 100);
     assert_eq!(bundle.export_history.record_count, 1);
-    assert_eq!(bundle.release_review.loop_name, "Friday Dashboard Visible UI Execution");
+    assert_eq!(bundle.release_review.loop_name, "Friday Dashboard Command Execution");
     assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
     assert!(PathBuf::from(&bundle.manifest.release_review_json).exists());
     assert_eq!(bundle.readiness.blocking_count, 0);
@@ -984,7 +984,7 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     export_friday_dashboard_bundle(&root).unwrap();
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
-    assert_eq!(panel.loop_name, "Friday Dashboard Visible UI Execution");
+    assert_eq!(panel.loop_name, "Friday Dashboard Command Execution");
     assert_eq!(panel.score_out_of_100, 100);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
     assert_eq!(panel.cards.len(), 8);
@@ -1079,7 +1079,7 @@ fn friday_dashboard_export_history_tracks_checkpoints() {
     assert_eq!(history.score_delta_from_previous, 0);
     assert_eq!(history.readiness_delta_from_previous, 0);
     assert!(history.records.iter().all(|record| {
-        record.loop_name == "Friday Dashboard Visible UI Execution"
+        record.loop_name == "Friday Dashboard Command Execution"
             && record.manifest_json.ends_with("manifest.json")
     }));
 
@@ -1098,7 +1098,7 @@ fn friday_dashboard_release_review_links_release_artifacts() {
     export_friday_dashboard_bundle(&root).unwrap();
 
     let review = friday_dashboard_release_review_from_export(&root).unwrap();
-    assert_eq!(review.loop_name, "Friday Dashboard Visible UI Execution");
+    assert_eq!(review.loop_name, "Friday Dashboard Command Execution");
     assert_eq!(review.score_out_of_100, 100);
     assert!(review.total_count >= 6);
     assert!(review

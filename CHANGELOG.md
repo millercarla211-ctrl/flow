@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Dashboard Command Execution at 100/100 with a typed local dashboard command dispatcher, permission-aware handoffs, persisted recent results, and visible command result rendering
+- opened Friday Dashboard Host Command Bridge as the next set so trusted desktop execution can be added without silent background commands
 - added an active completion-control loop to `TODO.md` with a conservative 75/100 score for the current feature set
 - added `flow --completion`, `flow --progress`, and `flow --next-100` for a CLI-visible current set, evidence, and next actions
 - added `flow --completion-json`, `flow --progress-json`, and `flow --next-100-json` for machine-readable completion status

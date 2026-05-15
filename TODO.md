@@ -230,16 +230,34 @@ Goal: wire the visible Friday dashboard to render the typed dashboard binding an
 
 This set is complete. The next loop should open `Friday Dashboard Command Execution` and turn the visible dashboard action buttons from safe local command labels into a permission-aware command dispatch surface.
 
-## Next Set: Friday Dashboard Command Execution
+## Completed Set: Friday Dashboard Command Execution
 
-Status: 0/100
+Status: 100/100
 
 Goal: execute dashboard actions through explicit local command handoffs while preserving user control, permissions, and low-resource behavior.
 
+### Done
+
+- [x] Add a local command dispatcher contract for dashboard actions.
+- [x] Add confirmation and permission states for risky dashboard commands.
+- [x] Persist recent dashboard action results for operator review.
+- [x] Add focused tests for command dispatch success, failure, and blocked states.
+- [x] Surface command execution results in the visible dashboard without auto-running anything silently.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Dashboard Host Command Bridge` and connect trusted desktop/Tauri command execution to the dispatcher without allowing silent background commands.
+
+## Next Set: Friday Dashboard Host Command Bridge
+
+Status: 0/100
+
+Goal: bridge prepared dashboard command handoffs into trusted desktop execution with operator approval, audit logs, and safe failure recovery.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a local command dispatcher contract for dashboard actions.
-- [ ] Add confirmation and permission states for risky dashboard commands.
-- [ ] Persist recent dashboard action results for operator review.
-- [ ] Add focused tests for command dispatch success, failure, and blocked states.
-- [ ] Surface command execution results in the visible dashboard without auto-running anything silently.
+- [ ] Add a trusted host command bridge contract for prepared dashboard command results.
+- [ ] Require explicit operator approval before desktop/Tauri command execution.
+- [ ] Write command execution audit records with stdout/stderr summaries and duration.
+- [ ] Add blocked-command tests for remote, destructive, and malformed commands.
+- [ ] Surface trusted host execution results in the dashboard without freezing the UI.
