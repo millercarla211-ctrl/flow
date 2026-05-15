@@ -5,6 +5,7 @@ import {
 import {
   dispatchDashboardCommand,
   normalizeDashboardHostCommandResults,
+  normalizeTrustedHostLiveRunnerState,
   normalizeTrustedHostRunnerApprovalUi,
   normalizeTrustedHostRunnerResults,
   normalizeTrustedHostRunnerUx,
@@ -314,6 +315,78 @@ export function dashboardSectionSmokeReport(
     undo_note: "Undo only clears the draft.",
     release_review_path: "tmp/friday-dashboard/release-review.json",
   });
+  const trustedLiveRunnerState = normalizeTrustedHostLiveRunnerState({
+    state_json: "tmp/friday-dashboard/trusted-host-live-state.json",
+    generated_at_unix_ms: 1,
+    record_count: 3,
+    pending_count: 1,
+    running_count: 1,
+    finished_count: 0,
+    stale_count: 1,
+    stale_recovery_copy: "Refresh live runner state before trusting this dashboard.",
+    records: [
+      {
+        job_id: "runner-pending",
+        action_id: "host-open",
+        label: "Open host report",
+        command: "flow --completion",
+        status: "pending",
+        message: "Waiting for approval.",
+        local_only: true,
+        approved: false,
+        timeout_ms: 30000,
+        stale_after_ms: 120000,
+        created_at_unix_ms: 1,
+        updated_at_unix_ms: 1,
+        finished_at_unix_ms: null,
+        history_json: null,
+        recovery_command:
+          "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id host-open --cancel",
+        cleanup_command:
+          "flow --friday-trusted-host-live-state tmp/friday-dashboard/trusted-host-live-state.json",
+      },
+      {
+        job_id: "runner-running",
+        action_id: "host-run",
+        label: "Run host report",
+        command: "flow --friday-readiness",
+        status: "running",
+        message: "Executing.",
+        local_only: true,
+        approved: true,
+        timeout_ms: 30000,
+        stale_after_ms: 120000,
+        created_at_unix_ms: 1,
+        updated_at_unix_ms: 1,
+        finished_at_unix_ms: null,
+        history_json: null,
+        recovery_command:
+          "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id host-run --cancel",
+        cleanup_command:
+          "flow --friday-trusted-host-live-state tmp/friday-dashboard/trusted-host-live-state.json",
+      },
+      {
+        job_id: "runner-stale",
+        action_id: "host-stale",
+        label: "Stale host report",
+        command: "flow --friday-route-visuals",
+        status: "stale",
+        message: "Refresh before trusting.",
+        local_only: true,
+        approved: true,
+        timeout_ms: 30000,
+        stale_after_ms: 120000,
+        created_at_unix_ms: 1,
+        updated_at_unix_ms: 1,
+        finished_at_unix_ms: 1,
+        history_json: null,
+        recovery_command:
+          "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id host-stale --cancel",
+        cleanup_command:
+          "flow --friday-trusted-host-live-state tmp/friday-dashboard/trusted-host-live-state.json",
+      },
+    ],
+  });
   const checks = [
     check(
       "local-fallback-labelled",
@@ -426,6 +499,20 @@ export function dashboardSectionSmokeReport(
         trustedRunnerApprovalUi?.controls.some((control) => control.kind === "undo") === true &&
         trustedRunnerApprovalUi.auditReasonRequired,
       `${trustedRunnerApprovalUi?.snoozeOptions.length ?? 0} snooze option(s)`,
+    ),
+    check(
+      "trusted-live-runner-state",
+      trustedLiveRunnerState?.pendingCount === 1 &&
+        trustedLiveRunnerState.runningCount === 1 &&
+        trustedLiveRunnerState.staleCount === 1 &&
+        trustedLiveRunnerState.records.some((record) => record.status === "stale"),
+      `${trustedLiveRunnerState?.recordCount ?? 0} live runner state record(s)`,
+    ),
+    check(
+      "trusted-live-runner-recovery",
+      trustedLiveRunnerState?.staleRecoveryCopy.includes("Refresh") === true &&
+        trustedLiveRunnerState.records.every((record) => record.cleanupCommand.trim().length > 0),
+      trustedLiveRunnerState?.staleRecoveryCopy ?? "missing stale recovery copy",
     ),
     check(
       "history-rail-renderable",

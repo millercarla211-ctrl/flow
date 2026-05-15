@@ -320,16 +320,34 @@ Goal: turn trusted runner UX metadata into a polished dashboard approval surface
 
 This set is complete. The next loop should open `Friday Live Runner State` and make pending, running, cancelled, timed-out, failed, and completed runner states update from a live desktop host without polling brittle CLI text.
 
-## Next Set: Friday Live Runner State
+## Completed Set: Friday Live Runner State
 
-Status: 0/100
+Status: 100/100
 
 Goal: connect trusted runner approval and history UX to live state transitions so the dashboard can show pending, running, completed, failed, timed-out, cancelled, and denied work without confusing stale imports for live execution.
 
+### Done
+
+- [x] Add a typed live runner state record separate from immutable history.
+- [x] Add a local-only state writer/reader for pending, running, finished, and stale runner jobs.
+- [x] Add dashboard rendering for live runner progress without blocking the UI.
+- [x] Add stale-state recovery copy and cleanup affordances.
+- [x] Add focused tests for state transitions and stale import handling.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Desktop Runner Bridge` and connect live runner state updates to the trusted desktop host process instead of only projected/imported JSON.
+
+## Next Set: Friday Desktop Runner Bridge
+
+Status: 0/100
+
+Goal: make the trusted desktop host produce live runner state updates during real approved command execution while keeping all host execution local-only, auditable, cancellable, and bounded.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed live runner state record separate from immutable history.
-- [ ] Add a local-only state writer/reader for pending, running, finished, and stale runner jobs.
-- [ ] Add dashboard rendering for live runner progress without blocking the UI.
-- [ ] Add stale-state recovery copy and cleanup affordances.
-- [ ] Add focused tests for state transitions and stale import handling.
+- [ ] Add a desktop-host runner bridge interface that emits pending, running, and finished state updates.
+- [ ] Write live state before execution starts and after completion, denial, timeout, or cancellation.
+- [ ] Add cancellation token plumbing for live host commands.
+- [ ] Add dashboard import guidance that distinguishes live host state from static history exports.
+- [ ] Add focused tests for bridge state emission and cancellation boundaries.

@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "runner-approval-modal-contract",
-            "Approval modal contract",
+            "live-runner-state-record",
+            "Typed live runner state record",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostRunnerApprovalUiReport` exposes a typed approval dialog contract with reason fields, command preview, controls, snooze, undo, and release-review paths",
-            "open the next live runner state set",
+            "`FridayTrustedHostLiveRunnerRecord` separates pending/running/stale live state from immutable trusted runner history",
+            "open the next desktop-host bridge set",
         ),
         item(
-            "runner-keyboard-controls",
-            "Keyboard-accessible controls",
+            "live-runner-state-store",
+            "Local live state reader and writer",
             20,
             CompletionItemStatus::Done,
-            "`extensions/flow-webext/src/ui/app.ts` renders approve, deny, copy, retry, cancel, snooze, and undo controls with keyboard shortcut metadata and button handlers",
-            "open the next live runner state set",
+            "`read_friday_trusted_host_live_runner_state` and `write_friday_trusted_host_live_runner_state` persist local-only pending, running, finished, and stale records",
+            "open the next desktop-host bridge set",
         ),
         item(
-            "runner-audit-reasons",
-            "Approval and denial audit reasons",
+            "live-runner-dashboard-rendering",
+            "Dashboard live progress rendering",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostRunnerRequest` and `FridayTrustedHostRunnerResult` persist operator reasons for approved, denied, and cancelled runner records",
-            "open the next live runner state set",
+            "`extensions/flow-webext/src/ui/app.ts` imports and renders live runner state separately from history and approval imports",
+            "open the next desktop-host bridge set",
         ),
         item(
-            "runner-undo-snooze-affordances",
-            "Undo and snooze affordances",
+            "live-runner-stale-recovery",
+            "Stale-state recovery copy",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostRunnerApprovalUiReport` includes snooze options and immutable-history undo copy for pending approval drafts",
-            "open the next live runner state set",
+            "`refresh_friday_trusted_host_live_runner_state` marks old active records stale and exposes recovery and cleanup commands",
+            "open the next desktop-host bridge set",
         ),
         item(
-            "runner-approval-smoke",
-            "Approval modal smoke checks",
+            "live-runner-state-tests",
+            "Live state transition tests",
             20,
             CompletionItemStatus::Done,
-            "`npm run smoke:dashboard` covers approval modal normalization, reason requirements, keyboard shortcuts, snooze, and undo controls",
-            "open the next live runner state set",
+            "`cargo test friday_dashboard -- --nocapture` and `npm run smoke:dashboard` cover live runner state normalization, stale handling, and dashboard rendering",
+            "open the next desktop-host bridge set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Runner Approval UI".to_string(),
+        name: "Friday Live Runner State".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Turn trusted runner UX metadata into a polished dashboard approval surface with keyboard-accessible controls, audit reasons, and live-safe affordances.".to_string(),
+        loop_rule: "Connect trusted runner approval and history UX to live state transitions so the dashboard can show pending, running, completed, failed, timed-out, cancelled, and denied work without confusing stale imports for live execution.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_runner_approval_ui_loop() {
+    fn active_set_tracks_friday_live_runner_state_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Runner Approval UI");
+        assert_eq!(set.name, "Friday Live Runner State");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

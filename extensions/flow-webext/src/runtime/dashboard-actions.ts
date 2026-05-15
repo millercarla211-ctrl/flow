@@ -11,6 +11,16 @@ export type FlowDashboardCommandStatus =
   | "cancelled"
   | "denied";
 
+export type FlowDashboardLiveRunnerStatus =
+  | "pending"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "timed-out"
+  | "cancelled"
+  | "denied"
+  | "stale";
+
 export interface FlowDashboardCommandDispatchOptions {
   confirmed?: boolean;
   now?: string;
@@ -99,6 +109,37 @@ export interface FlowDashboardRunnerUxReport {
   statusSummaries: FlowDashboardRunnerStatusSummary[];
   affordances: FlowDashboardRunnerAffordance[];
   operatorNotes: FlowDashboardRunnerOperatorNote[];
+}
+
+export interface FlowDashboardLiveRunnerRecord {
+  jobId: string;
+  actionId: string;
+  label: string;
+  command: string;
+  status: FlowDashboardLiveRunnerStatus;
+  message: string;
+  localOnly: boolean;
+  approved: boolean;
+  timeoutMs: number;
+  staleAfterMs: number;
+  createdAtUnixMs: string;
+  updatedAtUnixMs: string;
+  finishedAtUnixMs: string | null;
+  historyJson: string | null;
+  recoveryCommand: string;
+  cleanupCommand: string;
+}
+
+export interface FlowDashboardLiveRunnerState {
+  stateJson: string;
+  generatedAtUnixMs: string;
+  recordCount: number;
+  pendingCount: number;
+  runningCount: number;
+  finishedCount: number;
+  staleCount: number;
+  records: FlowDashboardLiveRunnerRecord[];
+  staleRecoveryCopy: string;
 }
 
 const RESULT_LIMIT = 8;
@@ -517,6 +558,64 @@ export function normalizeTrustedHostRunnerApprovalUi(
   };
 }
 
+export function normalizeTrustedHostLiveRunnerState(
+  value: unknown,
+): FlowDashboardLiveRunnerState | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const state = value as Record<string, unknown>;
+  const records = arrayValue(state.records)
+    .map((item): FlowDashboardLiveRunnerRecord | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const jobId = stringValue(record.job_id, record.jobId);
+      const actionId = stringValue(record.action_id, record.actionId);
+      if (!jobId || !actionId) {
+        return null;
+      }
+      return {
+        jobId,
+        actionId,
+        label: stringValue(record.label) || actionId,
+        command: stringValue(record.command),
+        status: liveRunnerStatus(stringValue(record.status)),
+        message: stringValue(record.message),
+        localOnly: booleanValue(record.local_only, record.localOnly),
+        approved: booleanValue(record.approved),
+        timeoutMs: numberValue(record.timeout_ms, record.timeoutMs),
+        staleAfterMs: numberValue(record.stale_after_ms, record.staleAfterMs),
+        createdAtUnixMs: stringValue(record.created_at_unix_ms, record.createdAtUnixMs),
+        updatedAtUnixMs: stringValue(record.updated_at_unix_ms, record.updatedAtUnixMs),
+        finishedAtUnixMs:
+          stringValue(record.finished_at_unix_ms, record.finishedAtUnixMs) || null,
+        historyJson: stringValue(record.history_json, record.historyJson) || null,
+        recoveryCommand: stringValue(record.recovery_command, record.recoveryCommand),
+        cleanupCommand: stringValue(record.cleanup_command, record.cleanupCommand),
+      };
+    })
+    .filter((item): item is FlowDashboardLiveRunnerRecord => item !== null);
+
+  if (records.length === 0 && !stringValue(state.state_json, state.stateJson)) {
+    return null;
+  }
+
+  return {
+    stateJson: stringValue(state.state_json, state.stateJson),
+    generatedAtUnixMs: stringValue(state.generated_at_unix_ms, state.generatedAtUnixMs),
+    recordCount: numberValue(state.record_count, state.recordCount),
+    pendingCount: numberValue(state.pending_count, state.pendingCount),
+    runningCount: numberValue(state.running_count, state.runningCount),
+    finishedCount: numberValue(state.finished_count, state.finishedCount),
+    staleCount: numberValue(state.stale_count, state.staleCount),
+    records,
+    staleRecoveryCopy: stringValue(state.stale_recovery_copy, state.staleRecoveryCopy),
+  };
+}
+
 function stringValue(...values: unknown[]) {
   for (const value of values) {
     if (typeof value === "string") {
@@ -591,4 +690,20 @@ function runnerStatus(value: string): FlowDashboardCommandStatus {
     return value;
   }
   return "failed";
+}
+
+function liveRunnerStatus(value: string): FlowDashboardLiveRunnerStatus {
+  if (
+    value === "pending" ||
+    value === "running" ||
+    value === "succeeded" ||
+    value === "failed" ||
+    value === "timed-out" ||
+    value === "cancelled" ||
+    value === "denied" ||
+    value === "stale"
+  ) {
+    return value;
+  }
+  return "stale";
 }

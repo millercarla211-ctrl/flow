@@ -27,7 +27,8 @@ use flow::friday::{
     FridayMultimodalRouteStatus, FridayMultimodalSurface, FridayOperatorReadinessStatus,
     FridayPermissionScope, FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
     FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor,
-    FridayTrustedHostCommandRawOutput, FridayTrustedHostRunnerRequest,
+    FridayTrustedHostCommandRawOutput, FridayTrustedHostLiveRunnerRecord,
+    FridayTrustedHostLiveRunnerStatus, FridayTrustedHostRunnerRequest,
     FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
     FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
@@ -43,9 +44,12 @@ use flow::friday::{
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
     friday_multimodal_visual_check, friday_operator_readiness_report, friday_route_visual_report,
     friday_route_visual_report_for_root, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
+    friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report, friday_trusted_host_runner_ux_report,
+    read_friday_trusted_host_live_runner_state, refresh_friday_trusted_host_live_runner_state,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
     append_friday_trusted_host_runner_history, read_friday_trusted_host_runner_history,
+    write_friday_trusted_host_live_runner_state,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -950,14 +954,14 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
 
     assert_eq!(
         bundle.completion.name,
-        "Friday Runner Approval UI"
+        "Friday Live Runner State"
     );
     assert_eq!(bundle.completion.current_score_out_of_100, 100);
     assert_eq!(bundle.manifest.score_out_of_100, 100);
     assert_eq!(bundle.export_history.record_count, 1);
     assert_eq!(
         bundle.release_review.loop_name,
-        "Friday Runner Approval UI"
+        "Friday Live Runner State"
     );
     assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
     assert!(PathBuf::from(&bundle.manifest.release_review_json).exists());
@@ -997,7 +1001,7 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     export_friday_dashboard_bundle(&root).unwrap();
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
-    assert_eq!(panel.loop_name, "Friday Runner Approval UI");
+    assert_eq!(panel.loop_name, "Friday Live Runner State");
     assert_eq!(panel.score_out_of_100, 100);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
     assert_eq!(panel.cards.len(), 8);
@@ -1092,7 +1096,7 @@ fn friday_dashboard_export_history_tracks_checkpoints() {
     assert_eq!(history.score_delta_from_previous, 0);
     assert_eq!(history.readiness_delta_from_previous, 0);
     assert!(history.records.iter().all(|record| {
-        record.loop_name == "Friday Runner Approval UI"
+        record.loop_name == "Friday Live Runner State"
             && record.manifest_json.ends_with("manifest.json")
     }));
 
@@ -1111,7 +1115,7 @@ fn friday_dashboard_release_review_links_release_artifacts() {
     export_friday_dashboard_bundle(&root).unwrap();
 
     let review = friday_dashboard_release_review_from_export(&root).unwrap();
-    assert_eq!(review.loop_name, "Friday Runner Approval UI");
+    assert_eq!(review.loop_name, "Friday Live Runner State");
     assert_eq!(review.score_out_of_100, 100);
     assert!(review.total_count >= 6);
     assert!(review
@@ -1468,6 +1472,70 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert!(approval_ui
         .release_review_path
         .ends_with("release-review.json"));
+    let live_state_path = root.join("trusted-host-live-state.json");
+    let live_from_history =
+        friday_trusted_host_live_runner_state_from_history(&loaded, &live_state_path);
+    assert_eq!(live_from_history.record_count, 5);
+    assert_eq!(live_from_history.finished_count, 5);
+    assert_eq!(live_from_history.pending_count, 0);
+    assert_eq!(live_from_history.running_count, 0);
+    assert!(live_from_history.records.iter().any(|record| {
+        record.status == FridayTrustedHostLiveRunnerStatus::TimedOut
+            && record.recovery_command.contains("--cancel")
+            && record.cleanup_command.contains("--friday-trusted-host-live-state")
+    }));
+
+    let pending = FridayTrustedHostLiveRunnerRecord {
+        job_id: "pending-job".to_string(),
+        action_id: "open-completion".to_string(),
+        label: "Open completion".to_string(),
+        command: "flow --completion".to_string(),
+        status: FridayTrustedHostLiveRunnerStatus::Pending,
+        message: "Waiting for approval.".to_string(),
+        local_only: true,
+        approved: false,
+        timeout_ms: 30_000,
+        stale_after_ms: u128::MAX,
+        created_at_unix_ms: 1,
+        updated_at_unix_ms: 1,
+        finished_at_unix_ms: None,
+        history_json: None,
+        recovery_command: "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id open-completion --cancel".to_string(),
+        cleanup_command: "flow --friday-trusted-host-live-state tmp/friday-dashboard/trusted-host-live-state.json".to_string(),
+    };
+    let running = FridayTrustedHostLiveRunnerRecord {
+        job_id: "running-job".to_string(),
+        action_id: "readiness".to_string(),
+        label: "Readiness".to_string(),
+        command: "flow --friday-readiness".to_string(),
+        status: FridayTrustedHostLiveRunnerStatus::Running,
+        message: "Running.".to_string(),
+        local_only: true,
+        approved: true,
+        timeout_ms: 30_000,
+        stale_after_ms: 1,
+        created_at_unix_ms: 1,
+        updated_at_unix_ms: 1,
+        finished_at_unix_ms: None,
+        history_json: None,
+        recovery_command: "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id readiness --cancel".to_string(),
+        cleanup_command: "flow --friday-trusted-host-live-state tmp/friday-dashboard/trusted-host-live-state.json".to_string(),
+    };
+    let live_written =
+        write_friday_trusted_host_live_runner_state(&live_state_path, vec![pending, running])
+            .unwrap();
+    assert_eq!(live_written.record_count, 2);
+    assert_eq!(live_written.pending_count, 1);
+    assert_eq!(live_written.stale_count, 1);
+    assert!(live_written.stale_recovery_copy.contains("Stale"));
+    let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
+    assert_eq!(live_loaded.record_count, 2);
+    let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);
+    assert_eq!(live_refreshed.stale_count, 1);
+    assert!(live_refreshed
+        .records
+        .iter()
+        .any(|record| record.status == FridayTrustedHostLiveRunnerStatus::Stale));
 
     let _ = fs::remove_dir_all(&root);
 }

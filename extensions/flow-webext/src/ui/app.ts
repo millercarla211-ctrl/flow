@@ -2,12 +2,14 @@ import { requestQuickContext, replaceSelection, toggleOverlay } from "../runtime
 import {
   dispatchDashboardCommand,
   normalizeDashboardHostCommandResults,
+  normalizeTrustedHostLiveRunnerState,
   normalizeTrustedHostRunnerApprovalUi,
   normalizeTrustedHostRunnerResults,
   normalizeTrustedHostRunnerUx,
   persistDashboardCommandResult,
   readDashboardCommandResults,
   type FlowDashboardCommandResult,
+  type FlowDashboardLiveRunnerState,
   type FlowDashboardRunnerApprovalControl,
   type FlowDashboardRunnerApprovalUiReport,
   type FlowDashboardRunnerUxReport,
@@ -48,6 +50,7 @@ type UiState = {
   dashboardRunnerUx: FlowDashboardRunnerUxReport | null;
   dashboardRunnerApprovalUi: FlowDashboardRunnerApprovalUiReport | null;
   dashboardRunnerApprovalReason: string;
+  dashboardLiveRunnerState: FlowDashboardLiveRunnerState | null;
 };
 
 const TASK_OPTIONS: Array<{ task: FlowTask; label: string; detail: string }> = [
@@ -1022,6 +1025,55 @@ function renderRunnerApprovalModal(
   `;
 }
 
+function renderLiveRunnerState(liveState: FlowDashboardLiveRunnerState | null) {
+  if (!liveState) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-live-runner-state">
+      <div class="card-topline">
+        <span class="eyebrow">Live runner state</span>
+        <span class="badge ${badgeTone(liveState.staleCount > 0 ? "blocked" : "ready")}">
+          ${liveState.recordCount} tracked
+        </span>
+      </div>
+      <div class="dashboard-history-metrics">
+        <span><strong>${liveState.pendingCount}</strong><small>pending</small></span>
+        <span><strong>${liveState.runningCount}</strong><small>running</small></span>
+        <span><strong>${liveState.finishedCount}</strong><small>finished</small></span>
+        <span><strong>${liveState.staleCount}</strong><small>stale</small></span>
+      </div>
+      ${
+        liveState.staleCount > 0
+          ? `<p>${escapeHtml(liveState.staleRecoveryCopy)}</p>`
+          : "<p>Live runner state is current. Imported history is shown separately from active host work.</p>"
+      }
+      <div class="note-list">
+        ${liveState.records
+          .map(
+            (record) => `
+              <span>
+                <strong>${escapeHtml(record.label)}</strong>
+                <em class="badge ${badgeTone(record.status === "stale" ? "blocked" : record.status === "running" ? "pending" : "ready")}">
+                  ${escapeHtml(record.status)}
+                </em>
+                ${escapeHtml(record.message)}
+                <code>${escapeHtml(record.command)}</code>
+                ${
+                  record.status === "stale"
+                    ? `<code>${escapeHtml(record.cleanupCommand || record.recoveryCommand)}</code>`
+                    : ""
+                }
+              </span>
+            `,
+          )
+          .join("")}
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -1218,6 +1270,7 @@ function renderDashboard(state: UiState) {
         state.dashboardRunnerApprovalUi,
         state.dashboardRunnerApprovalReason,
       )}
+      ${renderLiveRunnerState(state.dashboardLiveRunnerState)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1337,6 +1390,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardRunnerUx: null,
     dashboardRunnerApprovalUi: null,
     dashboardRunnerApprovalReason: "",
+    dashboardLiveRunnerState: null,
   };
 
   function render() {
@@ -1629,10 +1683,14 @@ export async function mountFlowApp(surfaceInput: string) {
       const results = normalizeTrustedHostRunnerResults(parsed);
       const runnerUx = normalizeTrustedHostRunnerUx(parsed);
       const approvalUi = normalizeTrustedHostRunnerApprovalUi(parsed);
+      const liveState = normalizeTrustedHostLiveRunnerState(parsed);
       state.dashboardRunnerUx = runnerUx ?? state.dashboardRunnerUx;
       state.dashboardRunnerApprovalUi = approvalUi ?? state.dashboardRunnerApprovalUi;
+      state.dashboardLiveRunnerState = liveState ?? state.dashboardLiveRunnerState;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = approvalUi
+      state.status = liveState
+        ? `Imported live trusted runner state with ${liveState.recordCount} tracked record(s) from ${file.name}.`
+        : approvalUi
         ? `Imported trusted runner approval UI with ${approvalUi.controls.length} control(s) from ${file.name}.`
         : runnerUx
         ? `Imported trusted runner UX with ${runnerUx.resultCount} history result(s) from ${file.name}.`

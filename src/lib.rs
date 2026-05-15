@@ -131,6 +131,8 @@ pub use friday::{
     FridayRuntimeRecordStatus, FridayRuntimeSurfaceManifest, FridayRuntimeSurfaceSnapshot,
     FridayRuntimeSurfaceStore, FridayScreenshotSourceRecord, FridayScreenshotVlmHandoffReport,
     FridaySearchPolicy, FridaySourceGroup, FridaySynthesizedAnswer,
+    FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerState,
+    FridayTrustedHostLiveRunnerStatus,
     FridayTrustedHostCommandRawOutput, FridayTrustedHostRunnerAffordance,
     FridayTrustedHostRunnerApprovalControl, FridayTrustedHostRunnerApprovalUiReport,
     FridayTrustedHostRunnerHistory, FridayTrustedHostRunnerKeyboardShortcut,
@@ -155,14 +157,17 @@ pub use friday::{
     friday_live_ui_route_binding_report_for_root, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_research_search_plan, friday_route_visual_report,
+    friday_trusted_host_live_runner_state_from_history,
+    friday_trusted_host_live_runner_state_from_history_file,
     friday_route_visual_report_for_root, friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_ux_report,
     friday_trusted_host_runner_ux_report_from_history_file,
-    read_friday_trusted_host_runner_history, run_friday_ocr_smoke,
+    read_friday_trusted_host_live_runner_state, read_friday_trusted_host_runner_history,
+    refresh_friday_trusted_host_live_runner_state, run_friday_ocr_smoke,
     run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
-    append_friday_trusted_host_runner_history,
+    append_friday_trusted_host_runner_history, write_friday_trusted_host_live_runner_state,
 };
 pub use long_context::{LongContextExecutionPlan, LongContextTask, RlmBridge};
 pub use models::{KokoroTTS, LocalLlm, LocalSttEngine, MoonshineSTT};

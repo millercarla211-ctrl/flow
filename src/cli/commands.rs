@@ -37,12 +37,13 @@ use crate::friday::{
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_research_search_plan, friday_route_visual_report,
+    friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_ux_report_from_history_file, run_friday_ocr_smoke,
     run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command, run_friday_vlm_contract,
-    append_friday_trusted_host_runner_history, FridayTrustedHostRunnerRequest,
-    FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerResult,
-    FridayTrustedHostRunnerUxReport,
+    append_friday_trusted_host_runner_history, write_friday_trusted_host_live_runner_state,
+    FridayTrustedHostLiveRunnerState, FridayTrustedHostRunnerApprovalUiReport,
+    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult, FridayTrustedHostRunnerUxReport,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -602,6 +603,22 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayTrustedHostLiveState {
+            state_file,
+            history_file,
+        } => {
+            let state = run_friday_trusted_host_live_state_command(&state_file, &history_file)?;
+            print_friday_trusted_host_live_runner_state(&state);
+        }
+
+        Command::FridayTrustedHostLiveStateJson {
+            state_file,
+            history_file,
+        } => {
+            let state = run_friday_trusted_host_live_state_command(&state_file, &history_file)?;
+            println!("{}", state.to_pretty_json()?);
+        }
+
         Command::FridayLocalChecks => {
             print_friday_local_execution_checks();
         }
@@ -1007,6 +1024,10 @@ fn print_interactive_help() {
     println!("                           Show trusted runner approval modal contract");
     println!("  --friday-trusted-host-runner-approval-ui-json [history-file]");
     println!("                           Print trusted runner approval modal contract as JSON");
+    println!("  --friday-trusted-host-live-state [state-file] [--history file]");
+    println!("                           Show trusted runner live state from local state/history");
+    println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
+    println!("                           Print trusted runner live state as JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
@@ -1923,6 +1944,46 @@ fn print_friday_trusted_host_runner_approval_ui_report(
     }
     println!("Undo: {}", report.undo_note);
     println!("Release review: {}", report.release_review_path);
+}
+
+fn run_friday_trusted_host_live_state_command(
+    state_file: &str,
+    history_file: &str,
+) -> Result<FridayTrustedHostLiveRunnerState> {
+    let state_path = resolve_repo_relative_path(state_file);
+    let history_path = resolve_repo_relative_path(history_file);
+    let state = friday_trusted_host_live_runner_state_from_history_file(&history_path, &state_path)?;
+    write_friday_trusted_host_live_runner_state(&state_path, state.records.clone())
+}
+
+fn print_friday_trusted_host_live_runner_state(state: &FridayTrustedHostLiveRunnerState) {
+    println!("Friday Trusted Host Live State");
+    println!("==============================");
+    println!("State: {}", state.state_json);
+    println!(
+        "Records: {} | pending: {} | running: {} | finished: {} | stale: {}",
+        state.record_count,
+        state.pending_count,
+        state.running_count,
+        state.finished_count,
+        state.stale_count
+    );
+    if state.stale_count > 0 {
+        println!("Stale recovery: {}", state.stale_recovery_copy);
+    }
+    println!();
+    for record in &state.records {
+        println!(
+            "  - [{}] {} ({})",
+            record.status.label(),
+            record.label,
+            record.action_id
+        );
+        println!("    {}", record.message);
+        println!("    command: {}", record.command);
+        println!("    recover: {}", record.recovery_command);
+        println!("    cleanup: {}", record.cleanup_command);
+    }
 }
 
 fn print_friday_local_execution_checks() {

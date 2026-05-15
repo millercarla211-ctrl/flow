@@ -15,6 +15,8 @@ use super::{
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_OUTPUT_LIMIT_BYTES: usize = 4_096;
 const HISTORY_LIMIT: usize = 50;
+const LIVE_STATE_LIMIT: usize = 50;
+const DEFAULT_STALE_AFTER_MS: u128 = 120_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -226,6 +228,84 @@ impl FridayTrustedHostRunnerApprovalUiReport {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FridayTrustedHostLiveRunnerStatus {
+    Pending,
+    Running,
+    Succeeded,
+    Failed,
+    TimedOut,
+    Cancelled,
+    Denied,
+    Stale,
+}
+
+impl FridayTrustedHostLiveRunnerStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Running => "running",
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+            Self::TimedOut => "timed-out",
+            Self::Cancelled => "cancelled",
+            Self::Denied => "denied",
+            Self::Stale => "stale",
+        }
+    }
+
+    pub fn is_active(self) -> bool {
+        matches!(self, Self::Pending | Self::Running)
+    }
+
+    pub fn is_finished(self) -> bool {
+        matches!(
+            self,
+            Self::Succeeded | Self::Failed | Self::TimedOut | Self::Cancelled | Self::Denied
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostLiveRunnerRecord {
+    pub job_id: String,
+    pub action_id: String,
+    pub label: String,
+    pub command: String,
+    pub status: FridayTrustedHostLiveRunnerStatus,
+    pub message: String,
+    pub local_only: bool,
+    pub approved: bool,
+    pub timeout_ms: u64,
+    pub stale_after_ms: u128,
+    pub created_at_unix_ms: u128,
+    pub updated_at_unix_ms: u128,
+    pub finished_at_unix_ms: Option<u128>,
+    pub history_json: Option<String>,
+    pub recovery_command: String,
+    pub cleanup_command: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostLiveRunnerState {
+    pub state_json: String,
+    pub generated_at_unix_ms: u128,
+    pub record_count: usize,
+    pub pending_count: usize,
+    pub running_count: usize,
+    pub finished_count: usize,
+    pub stale_count: usize,
+    pub records: Vec<FridayTrustedHostLiveRunnerRecord>,
+    pub stale_recovery_copy: String,
+}
+
+impl FridayTrustedHostLiveRunnerState {
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
 pub fn friday_trusted_host_runner_ux_report(
     history: &FridayTrustedHostRunnerHistory,
     release_review_path: impl AsRef<Path>,
@@ -341,6 +421,90 @@ pub fn friday_trusted_host_runner_approval_ui_report_from_history_file(
         &history,
         release_review_path,
     ))
+}
+
+pub fn read_friday_trusted_host_live_runner_state(
+    state_path: impl AsRef<Path>,
+) -> Result<FridayTrustedHostLiveRunnerState> {
+    let state_path = state_path.as_ref();
+    if !state_path.exists() {
+        return Ok(live_state_from_records(state_path, Vec::new(), unix_ms()));
+    }
+
+    let text = fs::read_to_string(state_path).with_context(|| {
+        format!(
+            "Could not read trusted host live runner state {}",
+            state_path.display()
+        )
+    })?;
+    let state = serde_json::from_str::<FridayTrustedHostLiveRunnerState>(&text).with_context(|| {
+        format!(
+            "Could not parse trusted host live runner state {}",
+            state_path.display()
+        )
+    })?;
+    Ok(state)
+}
+
+pub fn write_friday_trusted_host_live_runner_state(
+    state_path: impl AsRef<Path>,
+    records: Vec<FridayTrustedHostLiveRunnerRecord>,
+) -> Result<FridayTrustedHostLiveRunnerState> {
+    let state_path = state_path.as_ref();
+    if let Some(parent) = state_path.parent() {
+        fs::create_dir_all(parent).with_context(|| {
+            format!(
+                "Could not create trusted host live runner state directory {}",
+                parent.display()
+            )
+        })?;
+    }
+    let state = live_state_from_records(state_path, records, unix_ms());
+    let json = serde_json::to_string_pretty(&state)?;
+    fs::write(state_path, json).with_context(|| {
+        format!(
+            "Could not write trusted host live runner state {}",
+            state_path.display()
+        )
+    })?;
+    Ok(state)
+}
+
+pub fn friday_trusted_host_live_runner_state_from_history(
+    history: &FridayTrustedHostRunnerHistory,
+    state_path: impl AsRef<Path>,
+) -> FridayTrustedHostLiveRunnerState {
+    let now = unix_ms();
+    let records = history
+        .records
+        .iter()
+        .take(LIVE_STATE_LIMIT)
+        .map(|result| live_record_from_result(result, history.history_json.clone(), now))
+        .collect::<Vec<_>>();
+    live_state_from_records(state_path.as_ref(), records, now)
+}
+
+pub fn friday_trusted_host_live_runner_state_from_history_file(
+    history_path: impl AsRef<Path>,
+    state_path: impl AsRef<Path>,
+) -> Result<FridayTrustedHostLiveRunnerState> {
+    let history = read_friday_trusted_host_runner_history(history_path)?;
+    Ok(friday_trusted_host_live_runner_state_from_history(
+        &history, state_path,
+    ))
+}
+
+pub fn refresh_friday_trusted_host_live_runner_state(
+    state: &FridayTrustedHostLiveRunnerState,
+) -> FridayTrustedHostLiveRunnerState {
+    let now = unix_ms();
+    let records = state
+        .records
+        .iter()
+        .cloned()
+        .map(|record| mark_live_record_stale(record, now))
+        .collect::<Vec<_>>();
+    live_state_from_records(Path::new(&state.state_json), records, now)
 }
 
 pub fn run_friday_trusted_host_command(
@@ -506,6 +670,140 @@ fn history_from_records(
         latest: records.first().cloned(),
         records,
     }
+}
+
+fn live_state_from_records(
+    state_path: &Path,
+    records: Vec<FridayTrustedHostLiveRunnerRecord>,
+    now: u128,
+) -> FridayTrustedHostLiveRunnerState {
+    let records = records
+        .into_iter()
+        .take(LIVE_STATE_LIMIT)
+        .map(|record| mark_live_record_stale(record, now))
+        .collect::<Vec<_>>();
+    let pending_count = records
+        .iter()
+        .filter(|record| record.status == FridayTrustedHostLiveRunnerStatus::Pending)
+        .count();
+    let running_count = records
+        .iter()
+        .filter(|record| record.status == FridayTrustedHostLiveRunnerStatus::Running)
+        .count();
+    let finished_count = records
+        .iter()
+        .filter(|record| record.status.is_finished())
+        .count();
+    let stale_count = records
+        .iter()
+        .filter(|record| record.status == FridayTrustedHostLiveRunnerStatus::Stale)
+        .count();
+
+    FridayTrustedHostLiveRunnerState {
+        state_json: path_string(state_path),
+        generated_at_unix_ms: now,
+        record_count: records.len(),
+        pending_count,
+        running_count,
+        finished_count,
+        stale_count,
+        records,
+        stale_recovery_copy: "Stale live runner records are not running anymore. Refresh the trusted host state, then clear stale drafts before approving another command."
+            .to_string(),
+    }
+}
+
+fn live_record_from_result(
+    result: &FridayTrustedHostRunnerResult,
+    history_json: String,
+    now: u128,
+) -> FridayTrustedHostLiveRunnerRecord {
+    let status = live_status_from_runner_status(result.status);
+    FridayTrustedHostLiveRunnerRecord {
+        job_id: format!("runner-{}-{}", result.action_id, result.recorded_at_unix_ms),
+        action_id: result.action_id.clone(),
+        label: result.label.clone(),
+        command: result.command.clone(),
+        status,
+        message: live_message_for_status(status),
+        local_only: true,
+        approved: result.approved,
+        timeout_ms: result.timeout_ms,
+        stale_after_ms: DEFAULT_STALE_AFTER_MS,
+        created_at_unix_ms: result.recorded_at_unix_ms,
+        updated_at_unix_ms: result.recorded_at_unix_ms,
+        finished_at_unix_ms: Some(result.recorded_at_unix_ms.max(now.saturating_sub(1))),
+        history_json: Some(history_json),
+        recovery_command: live_recovery_command(&result.action_id),
+        cleanup_command: live_cleanup_command(),
+    }
+}
+
+fn mark_live_record_stale(
+    mut record: FridayTrustedHostLiveRunnerRecord,
+    now: u128,
+) -> FridayTrustedHostLiveRunnerRecord {
+    if record.status.is_active()
+        && now.saturating_sub(record.updated_at_unix_ms) > record.stale_after_ms
+    {
+        record.status = FridayTrustedHostLiveRunnerStatus::Stale;
+        record.message = live_message_for_status(record.status);
+        record.finished_at_unix_ms = Some(now);
+    }
+    record
+}
+
+fn live_status_from_runner_status(
+    status: FridayTrustedHostRunnerStatus,
+) -> FridayTrustedHostLiveRunnerStatus {
+    match status {
+        FridayTrustedHostRunnerStatus::Succeeded => FridayTrustedHostLiveRunnerStatus::Succeeded,
+        FridayTrustedHostRunnerStatus::Failed => FridayTrustedHostLiveRunnerStatus::Failed,
+        FridayTrustedHostRunnerStatus::TimedOut => FridayTrustedHostLiveRunnerStatus::TimedOut,
+        FridayTrustedHostRunnerStatus::Cancelled => FridayTrustedHostLiveRunnerStatus::Cancelled,
+        FridayTrustedHostRunnerStatus::Denied => FridayTrustedHostLiveRunnerStatus::Denied,
+    }
+}
+
+fn live_message_for_status(status: FridayTrustedHostLiveRunnerStatus) -> String {
+    match status {
+        FridayTrustedHostLiveRunnerStatus::Pending => {
+            "Waiting for an explicit local approval command.".to_string()
+        }
+        FridayTrustedHostLiveRunnerStatus::Running => {
+            "Trusted host runner is executing a bounded local command.".to_string()
+        }
+        FridayTrustedHostLiveRunnerStatus::Succeeded => {
+            "Trusted host runner completed successfully.".to_string()
+        }
+        FridayTrustedHostLiveRunnerStatus::Failed => {
+            "Trusted host runner finished with an error; inspect stderr before retrying.".to_string()
+        }
+        FridayTrustedHostLiveRunnerStatus::TimedOut => {
+            "Trusted host runner timed out and stopped the local process.".to_string()
+        }
+        FridayTrustedHostLiveRunnerStatus::Cancelled => {
+            "Trusted host runner was cancelled by the operator.".to_string()
+        }
+        FridayTrustedHostLiveRunnerStatus::Denied => {
+            "Trusted host runner denied execution before starting a process.".to_string()
+        }
+        FridayTrustedHostLiveRunnerStatus::Stale => {
+            "This live runner record is stale; refresh or clear it before trusting the dashboard state."
+                .to_string()
+        }
+    }
+}
+
+fn live_recovery_command(action_id: &str) -> String {
+    format!(
+        "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id {action_id} --cancel --reason \"stale live runner cleanup\""
+    )
+}
+
+fn live_cleanup_command() -> String {
+    "flow --friday-trusted-host-live-state tmp/friday-dashboard/trusted-host-live-state.json"
+        .to_string()
 }
 
 fn runner_result(

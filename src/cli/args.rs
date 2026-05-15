@@ -160,6 +160,16 @@ pub enum Command {
         history_file: String,
         release_review_file: String,
     },
+    /// Show trusted runner live state projected from history or a live state file
+    FridayTrustedHostLiveState {
+        state_file: String,
+        history_file: String,
+    },
+    /// Print trusted runner live state as JSON
+    FridayTrustedHostLiveStateJson {
+        state_file: String,
+        history_file: String,
+    },
     /// Run low-resource Friday local execution readiness checks
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
@@ -700,6 +710,21 @@ impl Args {
                     release_review_file,
                 }
             }
+            "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
+                let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
+                Command::FridayTrustedHostLiveState {
+                    state_file,
+                    history_file,
+                }
+            }
+            "--friday-trusted-host-live-state-json"
+            | "--friday-dashboard-trusted-live-state-json" => {
+                let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
+                Command::FridayTrustedHostLiveStateJson {
+                    state_file,
+                    history_file,
+                }
+            }
             "--friday-local-checks" | "--friday-execution-checks" => Command::FridayLocalChecks,
             "--friday-local-checks-json" | "--friday-execution-checks-json" => {
                 Command::FridayLocalChecksJson
@@ -1111,6 +1136,18 @@ fn parse_friday_trusted_host_runner_ux_args(args: &[String]) -> (String, String)
     let release_review_file = flag_value(args, "--release-review")
         .unwrap_or_else(|| "tmp/friday-dashboard/release-review.json".to_string());
     (history_file, release_review_file)
+}
+
+fn parse_friday_trusted_host_live_state_args(args: &[String]) -> (String, String) {
+    let state_file = args
+        .get(2)
+        .filter(|value| !value.starts_with("--"))
+        .cloned()
+        .or_else(|| flag_value(args, "--state"))
+        .unwrap_or_else(|| "tmp/friday-dashboard/trusted-host-live-state.json".to_string());
+    let history_file = flag_value(args, "--history")
+        .unwrap_or_else(|| "tmp/friday-dashboard/trusted-host-runner-history.json".to_string());
+    (state_file, history_file)
 }
 
 fn flag_value(args: &[String], flag: &str) -> Option<String> {

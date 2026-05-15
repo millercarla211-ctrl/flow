@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Live Runner State at 100/100 with typed pending/running/finished/stale live records, local state read/write commands, dashboard live-state rendering, stale recovery copy, and focused Rust/TypeScript coverage
+- opened Friday Desktop Runner Bridge as the next set for real desktop-host state emission during approved local command execution
 - completed Friday Runner Approval UI at 100/100 with a typed approval modal contract, keyboard-accessible approve/deny/copy/retry/cancel/snooze/undo controls, persisted operator audit reasons, visible dashboard approval handling, smoke coverage, and release-review links
 - opened Friday Live Runner State as the next set for live pending/running/finished runner state instead of stale-import-only dashboard updates
 - completed Friday Dashboard Runner UX at 100/100 with grouped trusted runner history summaries, retry/copy/cancel affordances, clear timeout/cancellation copy, dashboard UX import rendering, smoke coverage, and release-review notes
