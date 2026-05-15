@@ -7,6 +7,7 @@ import {
   dispatchDashboardCommand,
   normalizeReleaseCandidateArchive,
   normalizeReleaseDeploymentGate,
+  normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
@@ -1747,6 +1748,115 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-owner-followup-board-json --output tmp/friday-dashboard/release-owner-followup-board.json --prevention-plan tmp/friday-dashboard/release-prevention-plan.json",
     ],
   });
+  const releaseEvidenceSlaMonitor = normalizeReleaseEvidenceSlaMonitor({
+    monitor_id: "friday-release-evidence-sla-monitor-smoke",
+    monitor_json: "tmp/friday-dashboard/release-evidence-sla-monitor.json",
+    generated_at_unix_ms: 17,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    score_out_of_100: 44,
+    ready_for_next_checkpoint: false,
+    owner_followup_board_json: "tmp/friday-dashboard/release-owner-followup-board.json",
+    prevention_plan_json: "tmp/friday-dashboard/release-prevention-plan.json",
+    stability_board_json: "tmp/friday-dashboard/release-stability-board.json",
+    requirement_count: 3,
+    owner_count: 1,
+    fresh_count: 1,
+    due_soon_count: 0,
+    overdue_count: 1,
+    missing_count: 1,
+    blocked_count: 0,
+    acknowledged_count: 0,
+    escalation_count: 2,
+    gate_blocking_count: 2,
+    owner_groups: [
+      {
+        owner: "release-operator",
+        requirement_count: 3,
+        fresh_count: 1,
+        due_soon_count: 0,
+        overdue_count: 1,
+        missing_count: 1,
+        blocked_count: 0,
+        acknowledged_count: 0,
+        escalation_count: 2,
+        release_gate_blocking_count: 2,
+        requirements: [
+          "sla-followup-prevent-rollback-recovery-gap",
+          "sla-prevention-missing-prevention-evidence",
+          "sla-stability-rollback-recovery",
+        ],
+      },
+    ],
+    requirements: [
+      {
+        id: "sla-followup-prevent-rollback-recovery-gap",
+        source: "owner-follow-up",
+        owner: "release-operator",
+        title: "Harden rollback drill evidence",
+        state: "overdue",
+        escalation_level: "checkpoint",
+        evidence_path: "tmp/friday-dashboard/release-rollback-drill.json",
+        evidence_present: false,
+        due_after_unix_ms: 16,
+        due_before_unix_ms: 16,
+        sla_window_ms: 0,
+        age_ms: 1,
+        acknowledgement_required: false,
+        release_gate_blocking: true,
+        escalation_copy:
+          "@release-operator - Harden rollback drill evidence\nSLA: overdue\nEscalation: checkpoint",
+        next_action: "Escalate this overdue owner evidence before the next checkpoint.",
+      },
+      {
+        id: "sla-prevention-missing-prevention-evidence",
+        source: "prevention-plan",
+        owner: "release-operator",
+        title: "Attach prevention evidence: Missing prevention evidence",
+        state: "missing",
+        escalation_level: "release-gate",
+        evidence_path: "tmp/friday-dashboard/missing-prevention-evidence.json",
+        evidence_present: false,
+        due_after_unix_ms: 17,
+        due_before_unix_ms: 17,
+        sla_window_ms: 0,
+        age_ms: 0,
+        acknowledgement_required: false,
+        release_gate_blocking: true,
+        escalation_copy:
+          "@release-operator - Attach prevention evidence\nSLA: missing\nEscalation: release-gate",
+        next_action: "Attach the missing prevention evidence before checkpoint review.",
+      },
+      {
+        id: "sla-stability-rollback-recovery",
+        source: "stability-board",
+        owner: "release-operator",
+        title: "Rollback recovery",
+        state: "fresh",
+        escalation_level: "none",
+        evidence_path: "tmp/friday-dashboard/release-rollback-drill.json",
+        evidence_present: true,
+        due_after_unix_ms: 17,
+        due_before_unix_ms: 7200017,
+        sla_window_ms: 7200000,
+        age_ms: 0,
+        acknowledgement_required: true,
+        release_gate_blocking: false,
+        escalation_copy:
+          "@release-operator - Rollback recovery\nSLA: fresh\nEscalation: none",
+        next_action: "Keep the rollback recovery evidence current.",
+      },
+    ],
+    escalation_copy:
+      "Friday release evidence SLA monitor\n- @release-operator [overdue / checkpoint] Harden rollback drill evidence -> Escalate this overdue owner evidence before the next checkpoint.\n- @release-operator [missing / release-gate] Attach prevention evidence: Missing prevention evidence -> Attach the missing prevention evidence before checkpoint review.",
+    summary:
+      "Friday release evidence SLA monitor is 44/100 with 3 requirements, 1 overdue, 1 missing, and 2 escalations.",
+    commands: [
+      "flow --friday-release-evidence-sla-monitor --output tmp/friday-dashboard/release-evidence-sla-monitor.json --owner-followup-board tmp/friday-dashboard/release-owner-followup-board.json --prevention-plan tmp/friday-dashboard/release-prevention-plan.json --stability-board tmp/friday-dashboard/release-stability-board.json",
+      "flow --friday-release-evidence-sla-monitor-json --output tmp/friday-dashboard/release-evidence-sla-monitor.json --owner-followup-board tmp/friday-dashboard/release-owner-followup-board.json --prevention-plan tmp/friday-dashboard/release-prevention-plan.json --stability-board tmp/friday-dashboard/release-stability-board.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -2245,6 +2355,33 @@ export function dashboardSectionSmokeReport(
           command.includes("--friday-release-owner-followup-board"),
         ),
       `${releaseOwnerFollowUpBoard?.evidenceMissingCount ?? 0} missing owner evidence request(s)`,
+    ),
+    check(
+      "release-evidence-sla-monitor-importable",
+      releaseEvidenceSlaMonitor?.scoreOutOf100 === 44 &&
+        releaseEvidenceSlaMonitor.overdueCount === 1 &&
+        releaseEvidenceSlaMonitor.escalationCount === 2,
+      `${releaseEvidenceSlaMonitor?.requirementCount ?? 0} SLA requirement(s)`,
+    ),
+    check(
+      "release-evidence-sla-monitor-escalations",
+      releaseEvidenceSlaMonitor !== null &&
+        releaseEvidenceSlaMonitor.ownerGroups.some(
+          (group) => group.owner === "release-operator" && group.releaseGateBlockingCount === 2,
+        ) &&
+        releaseEvidenceSlaMonitor.requirements.some(
+          (requirement) =>
+            requirement.state === "overdue" &&
+            requirement.escalationLevel === "checkpoint" &&
+            requirement.escalationCopy.includes("@release-operator"),
+        ) &&
+        releaseEvidenceSlaMonitor.escalationCopy.includes(
+          "Friday release evidence SLA monitor",
+        ) &&
+        releaseEvidenceSlaMonitor.commands.some((command) =>
+          command.includes("--friday-release-evidence-sla-monitor"),
+        ),
+      `${releaseEvidenceSlaMonitor?.gateBlockingCount ?? 0} SLA gate blocker(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

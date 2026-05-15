@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Evidence SLA Monitor at 100/100 with typed local-only SLA requirements, freshness/due/escalation/acknowledgement states, non-executing CLI/JSON commands, dashboard import/rendering, copyable escalation text, and focused Rust/TypeScript coverage
+- opened Friday Release Escalation Ledger as the next set for preserving SLA escalations, owner responses, acknowledgement decisions, release-gate outcomes, and checkpoint carryover
 - completed Friday Release Owner Follow-up Board at 100/100 with typed local-only owner assignments, due windows, evidence requests, completion states, non-executing CLI/JSON commands, dashboard import/rendering, copyable assignment text, and focused Rust/TypeScript coverage
 - opened Friday Release Evidence SLA Monitor as the next set for watching owner follow-up records, prevention-plan evidence, stability artifacts, freshness windows, and escalation-ready blockers
 - completed Friday Release Prevention Planner at 100/100 with typed local-only prevention plans, recurrence detection, release-gate blockers, owner-ready actions, non-executing CLI/JSON commands, dashboard import/rendering, copyable owner text, and focused Rust/TypeScript coverage

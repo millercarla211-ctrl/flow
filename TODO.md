@@ -665,16 +665,34 @@ Goal: turn prevention-plan actions into owner-ready follow-up records with due w
 
 This set is complete. The next loop should open `Friday Release Evidence SLA Monitor` and watch owner follow-up records, prevention-plan evidence, and stability artifacts for freshness, due-window breaches, and escalation-ready release blockers.
 
-## Next Set: Friday Release Evidence SLA Monitor
+## Completed Set: Friday Release Evidence SLA Monitor
 
-Status: 0/100
+Status: 100/100
 
 Goal: monitor owner follow-up boards and release evidence freshness against explicit SLA windows so Friday can escalate stale or overdue release blockers before the next checkpoint.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed release evidence SLA monitor model that consumes owner follow-up boards, prevention plans, and stability evidence.
+- [x] Add freshness, due-window, escalation, and acknowledgement states for each release evidence requirement.
+- [x] Add CLI and JSON commands for generating SLA monitor reports without running builds, deployments, or remediation commands.
+- [x] Add dashboard import/rendering for SLA status, overdue owners, escalation copy, and acknowledgement blockers.
+- [x] Add focused Rust/TypeScript coverage for SLA scoring, stale evidence, owner escalation grouping, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Escalation Ledger` and preserve SLA escalations, owner responses, acknowledgement decisions, and release-gate outcomes as searchable local release-control history.
+
+## Next Set: Friday Release Escalation Ledger
+
+Status: 0/100
+
+Goal: turn SLA monitor escalations into auditable release-control history with owner responses, acknowledgement decisions, release-gate outcomes, and next-checkpoint carryover.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed release evidence SLA monitor model that consumes owner follow-up boards, prevention plans, and stability evidence.
-- [ ] Add freshness, due-window, escalation, and acknowledgement states for each release evidence requirement.
-- [ ] Add CLI and JSON commands for generating SLA monitor reports without running builds, deployments, or remediation commands.
-- [ ] Add dashboard import/rendering for SLA status, overdue owners, escalation copy, and acknowledgement blockers.
-- [ ] Add focused Rust/TypeScript coverage for SLA scoring, stale evidence, owner escalation grouping, command safety, and dashboard rendering.
+- [ ] Add a typed escalation ledger model that consumes release evidence SLA monitor reports.
+- [ ] Add owner response, acknowledgement, release-gate outcome, and carryover states for each escalation.
+- [ ] Add append/list/export CLI and JSON commands without executing remediation commands.
+- [ ] Add dashboard import/rendering for escalation history, active carryovers, acknowledgement blockers, and copyable owner response text.
+- [ ] Add focused Rust/TypeScript coverage for append/list behavior, acknowledgement scoring, release-gate carryover, command safety, and dashboard rendering.

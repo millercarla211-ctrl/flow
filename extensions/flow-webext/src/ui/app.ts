@@ -4,6 +4,7 @@ import {
   dispatchDashboardCommand,
   normalizeReleaseCandidateArchive,
   normalizeReleaseDeploymentGate,
+  normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
@@ -40,6 +41,7 @@ import {
   type FlowReleaseCandidateArchive,
   type FlowReleaseDeploymentGateReport,
   type FlowReleaseEvidenceExportKitReport,
+  type FlowReleaseEvidenceSlaMonitorReport,
   type FlowReleaseIncidentArchive,
   type FlowReleaseOperatorChecklistReport,
   type FlowReleaseOwnerFollowUpBoardReport,
@@ -106,6 +108,7 @@ type UiState = {
   dashboardReleaseIncidentArchive: FlowReleaseIncidentArchive | null;
   dashboardReleasePreventionPlan: FlowReleasePreventionPlanReport | null;
   dashboardReleaseOwnerFollowUpBoard: FlowReleaseOwnerFollowUpBoardReport | null;
+  dashboardReleaseEvidenceSlaMonitor: FlowReleaseEvidenceSlaMonitorReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -2276,6 +2279,71 @@ function renderReleaseOwnerFollowUpBoard(board: FlowReleaseOwnerFollowUpBoardRep
   `;
 }
 
+function renderReleaseEvidenceSlaMonitor(monitor: FlowReleaseEvidenceSlaMonitorReport | null) {
+  if (!monitor) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-release-evidence-sla-monitor">
+      <div class="card-topline">
+        <span class="eyebrow">Evidence SLA</span>
+        <span class="badge ${badgeTone(monitor.status)}">${monitor.scoreOutOf100} / 100</span>
+      </div>
+      <h3>${monitor.readyForNextCheckpoint ? "Release evidence is inside SLA" : "Release evidence needs escalation"}</h3>
+      <p>${escapeHtml(monitor.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${monitor.requirementCount}</strong><small>requirements</small></span>
+        <span><strong>${monitor.overdueCount}</strong><small>overdue</small></span>
+        <span><strong>${monitor.missingCount}</strong><small>missing</small></span>
+        <span><strong>${monitor.escalationCount}</strong><small>escalations</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Fresh</strong> ${monitor.freshCount}</span>
+        <span><strong>Due soon</strong> ${monitor.dueSoonCount}</span>
+        <span><strong>Gate blocks</strong> ${monitor.gateBlockingCount}</span>
+        <span><strong>Owner board</strong> ${escapeHtml(monitor.ownerFollowupBoardJson)}</span>
+      </div>
+      <div class="runner-package-files">
+        ${monitor.requirements
+          .slice(0, 6)
+          .map(
+            (requirement) => `
+              <div class="runner-package-file ${
+                requirement.state === "fresh" || requirement.state === "acknowledged"
+                  ? "present"
+                  : "missing"
+              }">
+                <strong>@${escapeHtml(requirement.owner)} - ${escapeHtml(requirement.title)}</strong>
+                <small>${escapeHtml(requirement.state)} - ${escapeHtml(requirement.escalationLevel)}</small>
+                <code>${escapeHtml(requirement.evidencePath)}</code>
+                <span>${escapeHtml(requirement.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="note-list">
+        ${monitor.ownerGroups
+          .slice(0, 4)
+          .map(
+            (group) =>
+              `<span>@${escapeHtml(group.owner)}: ${group.requirementCount} requirement(s), ${group.overdueCount} overdue, ${group.escalationCount} escalation(s)</span>`,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-evidence-sla-monitor-command">
+          Copy SLA command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-evidence-sla-monitor-escalation">
+          Copy escalations
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2496,6 +2564,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseIncidentArchive(state.dashboardReleaseIncidentArchive)}
       ${renderReleasePreventionPlan(state.dashboardReleasePreventionPlan)}
       ${renderReleaseOwnerFollowUpBoard(state.dashboardReleaseOwnerFollowUpBoard)}
+      ${renderReleaseEvidenceSlaMonitor(state.dashboardReleaseEvidenceSlaMonitor)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2635,6 +2704,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseIncidentArchive: null,
     dashboardReleasePreventionPlan: null,
     dashboardReleaseOwnerFollowUpBoard: null,
+    dashboardReleaseEvidenceSlaMonitor: null,
   };
 
   function render() {
@@ -2944,6 +3014,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseIncidentArchive = normalizeReleaseIncidentArchive(parsed);
       const releasePreventionPlan = normalizeReleasePreventionPlan(parsed);
       const releaseOwnerFollowUpBoard = normalizeReleaseOwnerFollowUpBoard(parsed);
+      const releaseEvidenceSlaMonitor = normalizeReleaseEvidenceSlaMonitor(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2983,8 +3054,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releasePreventionPlan ?? state.dashboardReleasePreventionPlan;
       state.dashboardReleaseOwnerFollowUpBoard =
         releaseOwnerFollowUpBoard ?? state.dashboardReleaseOwnerFollowUpBoard;
+      state.dashboardReleaseEvidenceSlaMonitor =
+        releaseEvidenceSlaMonitor ?? state.dashboardReleaseEvidenceSlaMonitor;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseOwnerFollowUpBoard
+      state.status = releaseEvidenceSlaMonitor
+        ? `Imported release evidence SLA monitor at ${releaseEvidenceSlaMonitor.scoreOutOf100}/100 from ${file.name}.`
+        : releaseOwnerFollowUpBoard
         ? `Imported owner follow-up board at ${releaseOwnerFollowUpBoard.scoreOutOf100}/100 from ${file.name}.`
         : releasePreventionPlan
         ? `Imported prevention plan at ${releasePreventionPlan.scoreOutOf100}/100 from ${file.name}.`
@@ -3526,6 +3601,38 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseEvidenceSlaMonitorCommand() {
+    const command = state.dashboardReleaseEvidenceSlaMonitor?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release evidence SLA monitor command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release evidence SLA monitor command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseEvidenceSlaMonitorEscalations() {
+    const copy = state.dashboardReleaseEvidenceSlaMonitor?.escalationCopy ?? "";
+    if (!copy) {
+      state.status = "No release evidence SLA escalation copy is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release evidence SLA escalations copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -3778,6 +3885,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-owner-followup-board-assignment']")
       ?.addEventListener("click", () => {
         void copyReleaseOwnerFollowUpBoardAssignments();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-evidence-sla-monitor-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseEvidenceSlaMonitorCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-evidence-sla-monitor-escalation']")
+      ?.addEventListener("click", () => {
+        void copyReleaseEvidenceSlaMonitorEscalations();
       });
 
     mountRoot

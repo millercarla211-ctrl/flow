@@ -1109,6 +1109,87 @@ export interface FlowReleaseOwnerFollowUpBoardReport {
   commands: string[];
 }
 
+export type FlowReleaseEvidenceSlaState =
+  | "fresh"
+  | "due-soon"
+  | "overdue"
+  | "missing"
+  | "blocked"
+  | "acknowledged";
+
+export type FlowReleaseEvidenceEscalationLevel =
+  | "none"
+  | "owner"
+  | "release-gate"
+  | "checkpoint";
+
+export type FlowReleaseEvidenceRequirementSource =
+  | "owner-follow-up"
+  | "prevention-plan"
+  | "stability-board";
+
+export interface FlowReleaseEvidenceSlaRequirement {
+  id: string;
+  source: FlowReleaseEvidenceRequirementSource;
+  owner: string;
+  title: string;
+  state: FlowReleaseEvidenceSlaState;
+  escalationLevel: FlowReleaseEvidenceEscalationLevel;
+  evidencePath: string;
+  evidencePresent: boolean;
+  dueAfterUnixMs: string;
+  dueBeforeUnixMs: string;
+  slaWindowMs: string;
+  ageMs: string;
+  acknowledgementRequired: boolean;
+  releaseGateBlocking: boolean;
+  escalationCopy: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseEvidenceSlaOwnerGroup {
+  owner: string;
+  requirementCount: number;
+  freshCount: number;
+  dueSoonCount: number;
+  overdueCount: number;
+  missingCount: number;
+  blockedCount: number;
+  acknowledgedCount: number;
+  escalationCount: number;
+  releaseGateBlockingCount: number;
+  requirements: string[];
+}
+
+export interface FlowReleaseEvidenceSlaMonitorReport {
+  monitorId: string;
+  monitorJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  readyForNextCheckpoint: boolean;
+  ownerFollowupBoardJson: string;
+  preventionPlanJson: string;
+  stabilityBoardJson: string;
+  requirementCount: number;
+  ownerCount: number;
+  freshCount: number;
+  dueSoonCount: number;
+  overdueCount: number;
+  missingCount: number;
+  blockedCount: number;
+  acknowledgedCount: number;
+  escalationCount: number;
+  gateBlockingCount: number;
+  ownerGroups: FlowReleaseEvidenceSlaOwnerGroup[];
+  requirements: FlowReleaseEvidenceSlaRequirement[];
+  escalationCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -3558,6 +3639,133 @@ export function normalizeReleaseOwnerFollowUpBoard(
   };
 }
 
+export function normalizeReleaseEvidenceSlaMonitor(
+  value: unknown,
+): FlowReleaseEvidenceSlaMonitorReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const monitor =
+    root.release_evidence_sla_monitor &&
+    typeof root.release_evidence_sla_monitor === "object"
+      ? (root.release_evidence_sla_monitor as Record<string, unknown>)
+      : root.releaseEvidenceSlaMonitor && typeof root.releaseEvidenceSlaMonitor === "object"
+        ? (root.releaseEvidenceSlaMonitor as Record<string, unknown>)
+        : root;
+  const monitorId = stringValue(monitor.monitor_id, monitor.monitorId);
+  const requirements = arrayValue(monitor.requirements)
+    .map((item): FlowReleaseEvidenceSlaRequirement | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const requirement = item as Record<string, unknown>;
+      const id = stringValue(requirement.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        source: releaseEvidenceRequirementSource(stringValue(requirement.source)),
+        owner: stringValue(requirement.owner),
+        title: stringValue(requirement.title),
+        state: releaseEvidenceSlaState(stringValue(requirement.state)),
+        escalationLevel: releaseEvidenceEscalationLevel(
+          stringValue(requirement.escalation_level, requirement.escalationLevel),
+        ),
+        evidencePath: stringValue(requirement.evidence_path, requirement.evidencePath),
+        evidencePresent: booleanValue(requirement.evidence_present, requirement.evidencePresent),
+        dueAfterUnixMs: stringValue(requirement.due_after_unix_ms, requirement.dueAfterUnixMs),
+        dueBeforeUnixMs: stringValue(requirement.due_before_unix_ms, requirement.dueBeforeUnixMs),
+        slaWindowMs: stringValue(requirement.sla_window_ms, requirement.slaWindowMs),
+        ageMs: stringValue(requirement.age_ms, requirement.ageMs),
+        acknowledgementRequired: booleanValue(
+          requirement.acknowledgement_required,
+          requirement.acknowledgementRequired,
+        ),
+        releaseGateBlocking: booleanValue(
+          requirement.release_gate_blocking,
+          requirement.releaseGateBlocking,
+        ),
+        escalationCopy: stringValue(requirement.escalation_copy, requirement.escalationCopy),
+        nextAction: stringValue(requirement.next_action, requirement.nextAction),
+      };
+    })
+    .filter((requirement): requirement is FlowReleaseEvidenceSlaRequirement => requirement !== null);
+  const ownerGroups = arrayValue(monitor.owner_groups, monitor.ownerGroups)
+    .map((item): FlowReleaseEvidenceSlaOwnerGroup | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const group = item as Record<string, unknown>;
+      const owner = stringValue(group.owner);
+      if (!owner) {
+        return null;
+      }
+      return {
+        owner,
+        requirementCount: numberValue(group.requirement_count, group.requirementCount),
+        freshCount: numberValue(group.fresh_count, group.freshCount),
+        dueSoonCount: numberValue(group.due_soon_count, group.dueSoonCount),
+        overdueCount: numberValue(group.overdue_count, group.overdueCount),
+        missingCount: numberValue(group.missing_count, group.missingCount),
+        blockedCount: numberValue(group.blocked_count, group.blockedCount),
+        acknowledgedCount: numberValue(group.acknowledged_count, group.acknowledgedCount),
+        escalationCount: numberValue(group.escalation_count, group.escalationCount),
+        releaseGateBlockingCount: numberValue(
+          group.release_gate_blocking_count,
+          group.releaseGateBlockingCount,
+        ),
+        requirements: arrayValue(group.requirements)
+          .map((requirement) => stringValue(requirement))
+          .filter(Boolean),
+      };
+    })
+    .filter((group): group is FlowReleaseEvidenceSlaOwnerGroup => group !== null);
+
+  if (!monitorId && requirements.length === 0) {
+    return null;
+  }
+
+  return {
+    monitorId,
+    monitorJson: stringValue(monitor.monitor_json, monitor.monitorJson),
+    generatedAtUnixMs: stringValue(monitor.generated_at_unix_ms, monitor.generatedAtUnixMs),
+    productName: stringValue(monitor.product_name, monitor.productName),
+    localOnly: booleanValue(monitor.local_only, monitor.localOnly),
+    status: panelStatus(stringValue(monitor.status)),
+    scoreOutOf100: numberValue(monitor.score_out_of_100, monitor.scoreOutOf100),
+    readyForNextCheckpoint: booleanValue(
+      monitor.ready_for_next_checkpoint,
+      monitor.readyForNextCheckpoint,
+    ),
+    ownerFollowupBoardJson: stringValue(
+      monitor.owner_followup_board_json,
+      monitor.ownerFollowupBoardJson,
+    ),
+    preventionPlanJson: stringValue(monitor.prevention_plan_json, monitor.preventionPlanJson),
+    stabilityBoardJson: stringValue(monitor.stability_board_json, monitor.stabilityBoardJson),
+    requirementCount: numberValue(monitor.requirement_count, monitor.requirementCount),
+    ownerCount: numberValue(monitor.owner_count, monitor.ownerCount),
+    freshCount: numberValue(monitor.fresh_count, monitor.freshCount),
+    dueSoonCount: numberValue(monitor.due_soon_count, monitor.dueSoonCount),
+    overdueCount: numberValue(monitor.overdue_count, monitor.overdueCount),
+    missingCount: numberValue(monitor.missing_count, monitor.missingCount),
+    blockedCount: numberValue(monitor.blocked_count, monitor.blockedCount),
+    acknowledgedCount: numberValue(monitor.acknowledged_count, monitor.acknowledgedCount),
+    escalationCount: numberValue(monitor.escalation_count, monitor.escalationCount),
+    gateBlockingCount: numberValue(monitor.gate_blocking_count, monitor.gateBlockingCount),
+    ownerGroups,
+    requirements,
+    escalationCopy: stringValue(monitor.escalation_copy, monitor.escalationCopy),
+    summary: stringValue(monitor.summary),
+    commands: arrayValue(monitor.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -3853,6 +4061,43 @@ function releaseOwnerFollowUpEvidenceState(value: string): FlowReleaseOwnerFollo
     return value;
   }
   return "missing";
+}
+
+function releaseEvidenceSlaState(value: string): FlowReleaseEvidenceSlaState {
+  if (
+    value === "fresh" ||
+    value === "due-soon" ||
+    value === "overdue" ||
+    value === "missing" ||
+    value === "blocked" ||
+    value === "acknowledged"
+  ) {
+    return value;
+  }
+  return "missing";
+}
+
+function releaseEvidenceEscalationLevel(value: string): FlowReleaseEvidenceEscalationLevel {
+  if (
+    value === "none" ||
+    value === "owner" ||
+    value === "release-gate" ||
+    value === "checkpoint"
+  ) {
+    return value;
+  }
+  return "none";
+}
+
+function releaseEvidenceRequirementSource(value: string): FlowReleaseEvidenceRequirementSource {
+  if (
+    value === "owner-follow-up" ||
+    value === "prevention-plan" ||
+    value === "stability-board"
+  ) {
+    return value;
+  }
+  return "owner-follow-up";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

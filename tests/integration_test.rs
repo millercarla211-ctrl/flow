@@ -27,6 +27,7 @@ use flow::friday::{
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayReleaseCandidateArchiveEntry, FridayReleaseChecklistSignoffDecision,
     FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget,
+    FridayReleaseEvidenceEscalationLevel, FridayReleaseEvidenceSlaState,
     FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
     FridayReleaseOwnerFollowUpCompletionState, FridayReleasePreventionActionKind,
     FridayReleasePreventionFindingKind, FridayReleasePromotionDecision,
@@ -52,13 +53,14 @@ use flow::friday::{
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_release_candidate_archive_report,
     friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
-    friday_release_evidence_export_kit_report, friday_release_incident_archive_report,
-    friday_release_incident_entry_from_sources, friday_release_operator_checklist_report,
-    friday_release_owner_followup_board_report_at, friday_release_post_promotion_monitor_report,
-    friday_release_prevention_plan_report, friday_release_qa_command_center_report,
-    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
-    friday_release_stability_board_report, friday_route_visual_report,
-    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
+    friday_release_evidence_export_kit_report, friday_release_evidence_sla_monitor_report_at,
+    friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
+    friday_release_operator_checklist_report, friday_release_owner_followup_board_report_at,
+    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
+    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
+    friday_release_rollback_drill_report, friday_release_stability_board_report,
+    friday_route_visual_report, friday_route_visual_report_for_root,
+    friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -68,7 +70,8 @@ use flow::friday::{
     run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command_bridge_with_executor,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
     write_friday_release_deployment_gate, write_friday_release_evidence_export_kit,
-    write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
+    write_friday_release_evidence_sla_monitor_report, write_friday_release_operator_checklist,
+    write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_qa_command_center_report,
     write_friday_release_recovery_runbook_report, write_friday_release_rollback_drill_report,
@@ -2398,6 +2401,41 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert!(owner_followup_board.commands.iter().any(|command| {
         command.contains("--friday-release-owner-followup-board")
             && command.contains("--prevention-plan")
+    }));
+    let evidence_sla_monitor_path = root.join("release-evidence-sla-monitor.json");
+    let evidence_sla_monitor = friday_release_evidence_sla_monitor_report_at(
+        &evidence_sla_monitor_path,
+        &owner_followup_board_path,
+        &prevention_plan_path,
+        &stability_board_path,
+        2,
+    );
+    write_friday_release_evidence_sla_monitor_report(
+        &evidence_sla_monitor_path,
+        &evidence_sla_monitor,
+    )
+    .unwrap();
+    assert!(evidence_sla_monitor.requirement_count >= owner_followup_board.record_count);
+    assert!(evidence_sla_monitor.owner_count > 0);
+    assert!(evidence_sla_monitor.overdue_count > 0);
+    assert!(evidence_sla_monitor.escalation_count > 0);
+    assert!(evidence_sla_monitor.gate_blocking_count > 0);
+    assert!(evidence_sla_monitor.owner_groups.iter().any(|group| {
+        group.owner == "release-operator" && group.release_gate_blocking_count > 0
+    }));
+    assert!(evidence_sla_monitor.requirements.iter().any(|requirement| {
+        requirement.state == FridayReleaseEvidenceSlaState::Overdue
+            && requirement.escalation_level >= FridayReleaseEvidenceEscalationLevel::ReleaseGate
+            && requirement.escalation_copy.contains("@release-operator")
+    }));
+    assert!(
+        evidence_sla_monitor
+            .escalation_copy
+            .contains("Friday release evidence SLA monitor")
+    );
+    assert!(evidence_sla_monitor.commands.iter().any(|command| {
+        command.contains("--friday-release-evidence-sla-monitor")
+            && command.contains("--owner-followup-board")
     }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);

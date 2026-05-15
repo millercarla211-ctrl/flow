@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-owner-followup-board-model",
-            "Typed owner follow-up board model",
+            "release-evidence-sla-monitor-model",
+            "Typed release evidence SLA monitor model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseOwnerFollowUpBoardReport` consumes the release prevention plan and turns prevention actions into reviewable owner records",
-            "open the next release evidence SLA monitor set",
+            "`FridayReleaseEvidenceSlaMonitorReport` consumes owner follow-up boards, prevention plans, and stability evidence",
+            "open the next release escalation ledger set",
         ),
         item(
-            "release-owner-followup-board-fields",
-            "Owner assignments, due windows, and evidence gates",
+            "release-evidence-sla-monitor-states",
+            "Freshness, due-window, escalation, and acknowledgement states",
             20,
             CompletionItemStatus::Done,
-            "follow-up records include owner, completion state, due windows, evidence request text, overdue detection, release-gate blocking flags, and assignment copy",
-            "open the next release evidence SLA monitor set",
+            "SLA requirements classify fresh, due-soon, overdue, missing, blocked, and acknowledged states with release-gate and checkpoint escalation levels",
+            "open the next release escalation ledger set",
         ),
         item(
-            "release-owner-followup-board-cli",
-            "Owner follow-up CLI and JSON commands",
+            "release-evidence-sla-monitor-cli",
+            "SLA monitor CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-owner-followup-board` and JSON mode generate follow-up assignments without executing remediation commands",
-            "open the next release evidence SLA monitor set",
+            "`flow --friday-release-evidence-sla-monitor` and JSON mode generate SLA reports without running builds, deployments, or remediation commands",
+            "open the next release escalation ledger set",
         ),
         item(
-            "release-owner-followup-board-dashboard",
-            "Dashboard owner follow-up rendering",
+            "release-evidence-sla-monitor-dashboard",
+            "Dashboard SLA monitor rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports owner follow-up JSON and renders owner groups, due/evidence states, blockers, copyable commands, and assignment text",
-            "open the next release evidence SLA monitor set",
+            "the visible dashboard imports SLA monitor JSON and renders SLA state, overdue owners, escalation levels, gate blockers, and copyable escalation text",
+            "open the next release escalation ledger set",
         ),
         item(
-            "release-owner-followup-board-coverage",
-            "Owner follow-up Rust and TypeScript coverage",
+            "release-evidence-sla-monitor-coverage",
+            "SLA monitor Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify owner grouping, overdue detection, evidence gates, command safety, and dashboard rendering",
-            "open the next release evidence SLA monitor set",
+            "focused Rust integration coverage plus dashboard smoke checks verify SLA scoring, stale/missing evidence, owner escalation grouping, command safety, and dashboard rendering",
+            "open the next release escalation ledger set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Owner Follow-up Board".to_string(),
+        name: "Friday Release Evidence SLA Monitor".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Turn Friday prevention actions into owner-ready follow-up assignments with due windows, evidence requests, and completion gates.".to_string(),
+        loop_rule: "Watch Friday release owner follow-ups, prevention-plan evidence, and stability artifacts for SLA freshness, due-window breaches, and escalation-ready blockers.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_owner_followup_board_loop() {
+    fn active_set_tracks_friday_release_evidence_sla_monitor_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Owner Follow-up Board");
+        assert_eq!(set.name, "Friday Release Evidence SLA Monitor");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items
