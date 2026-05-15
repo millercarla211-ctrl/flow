@@ -284,16 +284,34 @@ Goal: execute approved dashboard host commands through a bounded trusted runner 
 
 This set is complete. The next loop should open `Friday Dashboard Runner UX` and make approved runner progress, history, retry, and cancellation states feel excellent in the product UI.
 
-## Next Set: Friday Dashboard Runner UX
+## Completed Set: Friday Dashboard Runner UX
 
-Status: 0/100
+Status: 100/100
 
 Goal: make trusted runner history and live progress easy to understand, retry, cancel, and audit from the dashboard without clutter or blocking the UI.
 
+### Done
+
+- [x] Add grouped runner history summaries for success, failure, timeout, cancelled, and denied states.
+- [x] Add retry and copy-command affordances that preserve explicit approval requirements.
+- [x] Add cancellation and timeout status copy that explains what happened clearly.
+- [x] Add focused UI smoke checks for runner history rendering and status grouping.
+- [x] Add compact operator export notes linking runner history to release review.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Runner Approval UI` and make approve, deny, retry, copy, and cancel interactions feel native in the visible dashboard without weakening local-only safety.
+
+## Next Set: Friday Runner Approval UI
+
+Status: 0/100
+
+Goal: turn trusted runner UX metadata into a polished dashboard approval surface with keyboard-accessible controls, audit reasons, and live-safe affordances.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add grouped runner history summaries for success, failure, timeout, cancelled, and denied states.
-- [ ] Add retry and copy-command affordances that preserve explicit approval requirements.
-- [ ] Add cancellation and timeout status copy that explains what happened clearly.
-- [ ] Add focused UI smoke checks for runner history rendering and status grouping.
-- [ ] Add compact operator export notes linking runner history to release review.
+- [ ] Add a dedicated approval modal contract for trusted runner actions.
+- [ ] Add keyboard-accessible approve, deny, copy, retry, and cancel controls.
+- [ ] Capture operator approval or denial reasons in the runner audit trail.
+- [ ] Add undo/snooze affordances for pending dashboard execution handoffs.
+- [ ] Add focused UI smoke checks for approval-modal rendering and audit reason persistence.

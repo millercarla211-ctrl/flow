@@ -29,6 +29,43 @@ export interface FlowDashboardCommandResult {
   createdAt: string;
 }
 
+export interface FlowDashboardRunnerStatusSummary {
+  status: FlowDashboardCommandStatus;
+  count: number;
+  title: string;
+  description: string;
+  tone: string;
+}
+
+export interface FlowDashboardRunnerAffordance {
+  id: string;
+  kind: "copy-command" | "retry" | "cancel" | string;
+  actionId: string;
+  status: FlowDashboardCommandStatus;
+  label: string;
+  command: string;
+  detail: string;
+  requiresApproval: boolean;
+  disabled: boolean;
+  disabledReason: string | null;
+}
+
+export interface FlowDashboardRunnerOperatorNote {
+  id: string;
+  label: string;
+  detail: string;
+  releaseReviewPath: string;
+}
+
+export interface FlowDashboardRunnerUxReport {
+  historyJson: string;
+  resultCount: number;
+  latestStatus: FlowDashboardCommandStatus | null;
+  statusSummaries: FlowDashboardRunnerStatusSummary[];
+  affordances: FlowDashboardRunnerAffordance[];
+  operatorNotes: FlowDashboardRunnerOperatorNote[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -273,6 +310,89 @@ export function normalizeTrustedHostRunnerResults(value: unknown): FlowDashboard
     .filter((item): item is FlowDashboardCommandResult => item !== null);
 }
 
+export function normalizeTrustedHostRunnerUx(value: unknown): FlowDashboardRunnerUxReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const summaries = arrayValue(record.status_summaries, record.statusSummaries)
+    .map((item): FlowDashboardRunnerStatusSummary | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const summary = item as Record<string, unknown>;
+      return {
+        status: runnerStatus(stringValue(summary.status)),
+        count: numberValue(summary.count),
+        title: stringValue(summary.title) || stringValue(summary.status),
+        description: stringValue(summary.description),
+        tone: stringValue(summary.tone) || "muted",
+      };
+    })
+    .filter((item): item is FlowDashboardRunnerStatusSummary => item !== null);
+
+  const affordances = arrayValue(record.affordances)
+    .map((item): FlowDashboardRunnerAffordance | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const affordance = item as Record<string, unknown>;
+      const id = stringValue(affordance.id);
+      const command = stringValue(affordance.command);
+      if (!id || !command) {
+        return null;
+      }
+      return {
+        id,
+        kind: stringValue(affordance.kind) || "copy-command",
+        actionId: stringValue(affordance.action_id, affordance.actionId),
+        status: runnerStatus(stringValue(affordance.status)),
+        label: stringValue(affordance.label) || id,
+        command,
+        detail: stringValue(affordance.detail),
+        requiresApproval: booleanValue(affordance.requires_approval, affordance.requiresApproval),
+        disabled: booleanValue(affordance.disabled),
+        disabledReason:
+          stringValue(affordance.disabled_reason, affordance.disabledReason) || null,
+      };
+    })
+    .filter((item): item is FlowDashboardRunnerAffordance => item !== null);
+
+  const operatorNotes = arrayValue(record.operator_notes, record.operatorNotes)
+    .map((item): FlowDashboardRunnerOperatorNote | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const note = item as Record<string, unknown>;
+      const id = stringValue(note.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        label: stringValue(note.label) || id,
+        detail: stringValue(note.detail),
+        releaseReviewPath: stringValue(note.release_review_path, note.releaseReviewPath),
+      };
+    })
+    .filter((item): item is FlowDashboardRunnerOperatorNote => item !== null);
+
+  if (summaries.length === 0 && affordances.length === 0 && operatorNotes.length === 0) {
+    return null;
+  }
+
+  const latestStatus = stringValue(record.latest_status, record.latestStatus);
+  return {
+    historyJson: stringValue(record.history_json, record.historyJson),
+    resultCount: numberValue(record.result_count, record.resultCount),
+    latestStatus: latestStatus ? runnerStatus(latestStatus) : null,
+    statusSummaries: summaries,
+    affordances,
+    operatorNotes,
+  };
+}
+
 function stringValue(...values: unknown[]) {
   for (const value of values) {
     if (typeof value === "string") {
@@ -286,6 +406,47 @@ function stringValue(...values: unknown[]) {
     }
   }
   return "";
+}
+
+function numberValue(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return 0;
+}
+
+function booleanValue(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (typeof value === "string") {
+      if (value === "true") {
+        return true;
+      }
+      if (value === "false") {
+        return false;
+      }
+    }
+  }
+  return false;
+}
+
+function arrayValue(...values: unknown[]) {
+  for (const value of values) {
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+  return [];
 }
 
 function dashboardKind(value: string): FlowDashboardActionKind {

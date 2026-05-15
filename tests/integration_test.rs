@@ -43,7 +43,8 @@ use flow::friday::{
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
     friday_multimodal_visual_check, friday_operator_readiness_report, friday_route_visual_report,
     friday_route_visual_report_for_root, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
+    friday_trusted_host_runner_ux_report, run_friday_trusted_host_command_with_executor,
+    run_friday_vlm_contract,
     append_friday_trusted_host_runner_history, read_friday_trusted_host_runner_history,
 };
 use flow::long_context::RlmBridge;
@@ -949,14 +950,14 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
 
     assert_eq!(
         bundle.completion.name,
-        "Friday Trusted Host Runner"
+        "Friday Dashboard Runner UX"
     );
     assert_eq!(bundle.completion.current_score_out_of_100, 100);
     assert_eq!(bundle.manifest.score_out_of_100, 100);
     assert_eq!(bundle.export_history.record_count, 1);
     assert_eq!(
         bundle.release_review.loop_name,
-        "Friday Trusted Host Runner"
+        "Friday Dashboard Runner UX"
     );
     assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
     assert!(PathBuf::from(&bundle.manifest.release_review_json).exists());
@@ -996,7 +997,7 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     export_friday_dashboard_bundle(&root).unwrap();
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
-    assert_eq!(panel.loop_name, "Friday Trusted Host Runner");
+    assert_eq!(panel.loop_name, "Friday Dashboard Runner UX");
     assert_eq!(panel.score_out_of_100, 100);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
     assert_eq!(panel.cards.len(), 8);
@@ -1091,7 +1092,7 @@ fn friday_dashboard_export_history_tracks_checkpoints() {
     assert_eq!(history.score_delta_from_previous, 0);
     assert_eq!(history.readiness_delta_from_previous, 0);
     assert!(history.records.iter().all(|record| {
-        record.loop_name == "Friday Trusted Host Runner"
+        record.loop_name == "Friday Dashboard Runner UX"
             && record.manifest_json.ends_with("manifest.json")
     }));
 
@@ -1110,7 +1111,7 @@ fn friday_dashboard_release_review_links_release_artifacts() {
     export_friday_dashboard_bundle(&root).unwrap();
 
     let review = friday_dashboard_release_review_from_export(&root).unwrap();
-    assert_eq!(review.loop_name, "Friday Trusted Host Runner");
+    assert_eq!(review.loop_name, "Friday Dashboard Runner UX");
     assert_eq!(review.score_out_of_100, 100);
     assert!(review.total_count >= 6);
     assert!(review
@@ -1351,6 +1352,21 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     );
     assert_eq!(timed_out.status, FridayTrustedHostRunnerStatus::TimedOut);
 
+    let failed = run_friday_trusted_host_command_with_executor(
+        &record,
+        &approved,
+        &StubTrustedHostExecutor {
+            output: Ok(FridayTrustedHostCommandRawOutput {
+                exit_code: Some(2),
+                stdout: String::new(),
+                stderr: "boom".to_string(),
+                duration_ms: 6,
+                timed_out: false,
+            }),
+        },
+    );
+    assert_eq!(failed.status, FridayTrustedHostRunnerStatus::Failed);
+
     let mut remote = record.clone();
     remote.local_only = false;
     let remote_denied = run_friday_trusted_host_command_with_executor(
@@ -1383,11 +1399,36 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert!(malformed_denied.stderr_summary.contains("metacharacters"));
 
     let history_path = root.join("trusted-host-runner-history.json");
-    let history = append_friday_trusted_host_runner_history(&history_path, success).unwrap();
-    assert_eq!(history.result_count, 1);
+    append_friday_trusted_host_runner_history(&history_path, success.clone()).unwrap();
+    append_friday_trusted_host_runner_history(&history_path, denied.clone()).unwrap();
+    append_friday_trusted_host_runner_history(&history_path, cancelled.clone()).unwrap();
+    append_friday_trusted_host_runner_history(&history_path, timed_out.clone()).unwrap();
+    let history = append_friday_trusted_host_runner_history(&history_path, failed.clone()).unwrap();
+    assert_eq!(history.result_count, 5);
     assert!(history.latest.is_some());
     let loaded = read_friday_trusted_host_runner_history(&history_path).unwrap();
-    assert_eq!(loaded.result_count, 1);
+    assert_eq!(loaded.result_count, 5);
+    let ux = friday_trusted_host_runner_ux_report(&loaded, root.join("release-review.json"));
+    assert_eq!(ux.result_count, 5);
+    assert!(ux.status_summaries.iter().all(|summary| summary.count == 1));
+    assert!(ux.status_summaries.iter().any(|summary| {
+        summary.status == FridayTrustedHostRunnerStatus::TimedOut
+            && summary.description.contains("timeout")
+    }));
+    assert!(ux.status_summaries.iter().any(|summary| {
+        summary.status == FridayTrustedHostRunnerStatus::Cancelled
+            && summary.description.contains("cancelled")
+    }));
+    assert!(ux.affordances.iter().any(|affordance| {
+        affordance.kind == "retry" && affordance.requires_approval && !affordance.command.is_empty()
+    }));
+    assert!(ux.affordances.iter().any(|affordance| {
+        affordance.kind == "copy-command" && !affordance.disabled
+    }));
+    assert!(ux
+        .operator_notes
+        .iter()
+        .any(|note| note.release_review_path.ends_with("release-review.json")));
 
     let _ = fs::remove_dir_all(&root);
 }

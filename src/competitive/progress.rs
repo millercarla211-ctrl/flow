@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "trusted-host-runner-contract",
-            "Bounded trusted host runner",
+            "runner-status-groups",
+            "Grouped runner history summaries",
             20,
             CompletionItemStatus::Done,
-            "`src/friday/dashboard_host_runner.rs` executes only approved trusted host bridge records through a bounded runner",
-            "add timeout, cancellation, stdout/stderr size limits, and process error mapping",
+            "`FridayTrustedHostRunnerUxReport` groups trusted runner history into succeeded, failed, timed-out, cancelled, and denied summaries",
+            "open the next dashboard approval UI set",
         ),
         item(
-            "trusted-host-runner-bounds",
-            "Runner timeout, cancellation, and output limits",
+            "runner-retry-copy-affordances",
+            "Retry and copy affordances",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostRunnerRequest` carries approval, cancellation, timeout, and stdout/stderr byte limits",
-            "persist host execution audit history separately from prepared handoff history",
+            "`FridayTrustedHostRunnerAffordance` exposes copy-command, retry, and cancel metadata while keeping retry approval explicit",
+            "open the next dashboard approval UI set",
         ),
         item(
-            "trusted-host-runner-history",
-            "Trusted runner audit history",
+            "runner-clear-status-copy",
+            "Cancellation and timeout copy",
             20,
             CompletionItemStatus::Done,
-            "`append_friday_trusted_host_runner_history` writes bounded trusted runner history separate from host bridge handoff history",
-            "add tests for approved success, timeout, cancellation, and denied commands",
+            "`runner_status_operator_copy` gives clear operator-facing copy for timeout, cancelled, denied, failed, and succeeded states",
+            "open the next dashboard approval UI set",
         ),
         item(
-            "trusted-host-runner-tests",
-            "Trusted runner status tests",
+            "runner-ui-smoke",
+            "Runner UX smoke checks",
             20,
             CompletionItemStatus::Done,
-            "`cargo test friday_dashboard -- --nocapture` covers approved success, timeout, cancellation, remote denial, malformed denial, and history persistence",
-            "surface trusted runner status in the dashboard with non-blocking progress updates",
+            "`npm run smoke:dashboard` covers trusted runner UX grouping and retry/copy affordance normalization",
+            "open the next dashboard approval UI set",
         ),
         item(
-            "trusted-host-runner-visible-results",
-            "Visible trusted runner results",
+            "runner-release-review-notes",
+            "Operator release-review notes",
             20,
             CompletionItemStatus::Done,
-            "`extensions/flow-webext/src/ui/app.ts` imports trusted runner JSON and renders non-blocking runner states in the dashboard result rail",
-            "open the next durable desktop runner UI set",
+            "`FridayTrustedHostRunnerOperatorNote` links runner history back to release-review artifacts for shipping checks",
+            "open the next dashboard approval UI set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Trusted Host Runner".to_string(),
+        name: "Friday Dashboard Runner UX".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Execute approved dashboard host commands through a bounded trusted runner while preserving cancellation, auditability, and local-only safety.".to_string(),
+        loop_rule: "Make trusted runner history and live progress easy to understand, retry, cancel, and audit from the dashboard without clutter or blocking the UI.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_trusted_host_runner_loop() {
+    fn active_set_tracks_friday_dashboard_runner_ux_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Trusted Host Runner");
+        assert_eq!(set.name, "Friday Dashboard Runner UX");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

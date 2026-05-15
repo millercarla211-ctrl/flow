@@ -138,6 +138,16 @@ pub enum Command {
         cancel: bool,
         history_file: String,
     },
+    /// Show grouped trusted host runner history UX for dashboard imports
+    FridayTrustedHostRunnerUx {
+        history_file: String,
+        release_review_file: String,
+    },
+    /// Print grouped trusted host runner history UX as JSON
+    FridayTrustedHostRunnerUxJson {
+        history_file: String,
+        release_review_file: String,
+    },
     /// Run low-resource Friday local execution readiness checks
     FridayLocalChecks,
     /// Print low-resource Friday local execution readiness checks as JSON
@@ -641,6 +651,23 @@ impl Args {
                     history_file,
                 }
             }
+            "--friday-trusted-host-runner-ux" | "--friday-dashboard-trusted-runner-ux" => {
+                let (history_file, release_review_file) =
+                    parse_friday_trusted_host_runner_ux_args(&args);
+                Command::FridayTrustedHostRunnerUx {
+                    history_file,
+                    release_review_file,
+                }
+            }
+            "--friday-trusted-host-runner-ux-json"
+            | "--friday-dashboard-trusted-runner-ux-json" => {
+                let (history_file, release_review_file) =
+                    parse_friday_trusted_host_runner_ux_args(&args);
+                Command::FridayTrustedHostRunnerUxJson {
+                    history_file,
+                    release_review_file,
+                }
+            }
             "--friday-local-checks" | "--friday-execution-checks" => Command::FridayLocalChecks,
             "--friday-local-checks-json" | "--friday-execution-checks-json" => {
                 Command::FridayLocalChecksJson
@@ -1034,6 +1061,15 @@ fn parse_friday_trusted_host_runner_args(
     let history_file = flag_value(args, "--history")
         .unwrap_or_else(|| format!("{input_dir}/trusted-host-runner-history.json"));
     (input_dir, action_id, approve, execute, cancel, history_file)
+}
+
+fn parse_friday_trusted_host_runner_ux_args(args: &[String]) -> (String, String) {
+    let history_file = flag_value(args, "--history")
+        .or_else(|| args.get(2).filter(|value| !value.starts_with("--")).cloned())
+        .unwrap_or_else(|| "tmp/friday-dashboard/trusted-host-runner-history.json".to_string());
+    let release_review_file = flag_value(args, "--release-review")
+        .unwrap_or_else(|| "tmp/friday-dashboard/release-review.json".to_string());
+    (history_file, release_review_file)
 }
 
 fn flag_value(args: &[String], flag: &str) -> Option<String> {

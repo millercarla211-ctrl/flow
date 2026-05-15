@@ -3,9 +3,11 @@ import {
   dispatchDashboardCommand,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostRunnerResults,
+  normalizeTrustedHostRunnerUx,
   persistDashboardCommandResult,
   readDashboardCommandResults,
   type FlowDashboardCommandResult,
+  type FlowDashboardRunnerUxReport,
   type FlowDashboardCommandStatus,
 } from "../runtime/dashboard-actions";
 import { normalizeFridayDashboardBinding } from "../runtime/dashboard-binding";
@@ -40,6 +42,7 @@ type UiState = {
   lastPack: BrowserPackManifest | null;
   dashboardActionStates: Record<string, "idle" | "loading" | "success" | "error" | "blocked">;
   dashboardActionResults: FlowDashboardCommandResult[];
+  dashboardRunnerUx: FlowDashboardRunnerUxReport | null;
 };
 
 const TASK_OPTIONS: Array<{ task: FlowTask; label: string; detail: string }> = [
@@ -849,7 +852,10 @@ function dashboardResultTone(status: FlowDashboardCommandStatus) {
   return status === "failed" ? "off" : "blocked";
 }
 
-function renderDashboardActionResults(results: FlowDashboardCommandResult[]) {
+function renderDashboardActionResults(
+  results: FlowDashboardCommandResult[],
+  runnerUx: FlowDashboardRunnerUxReport | null,
+) {
   return `
     <article class="feature-card dashboard-command-results">
       <div class="card-topline">
@@ -877,6 +883,64 @@ function renderDashboardActionResults(results: FlowDashboardCommandResult[]) {
                 )
                 .join("")}
             </div>`
+      }
+      ${
+        runnerUx
+          ? `
+            <div class="runner-ux-panel">
+              <div class="card-topline">
+                <span class="eyebrow">Trusted runner history</span>
+                <span class="badge ${badgeTone(runnerUx.latestStatus ? dashboardResultTone(runnerUx.latestStatus) : "pending")}">
+                  ${runnerUx.resultCount} result${runnerUx.resultCount === 1 ? "" : "s"}
+                </span>
+              </div>
+              <div class="meta-list">
+                ${runnerUx.statusSummaries
+                  .map(
+                    (summary) => `
+                      <span>
+                        <strong>${escapeHtml(summary.title)}</strong>
+                        ${summary.count}
+                        <small>${escapeHtml(summary.description)}</small>
+                      </span>
+                    `,
+                  )
+                  .join("")}
+              </div>
+              <div class="actions dashboard-actions">
+                ${runnerUx.affordances
+                  .map(
+                    (affordance) => `
+                      <button
+                        type="button"
+                        class="secondary dashboard-runner-affordance"
+                        data-action="dashboard-runner-affordance"
+                        data-runner-affordance-id="${escapeHtml(affordance.id)}"
+                        title="${escapeHtml(affordance.detail)}"
+                        ${affordance.disabled ? "disabled" : ""}
+                      >
+                        ${escapeHtml(affordance.label)}
+                      </button>
+                    `,
+                  )
+                  .join("")}
+              </div>
+              <div class="note-list">
+                ${runnerUx.operatorNotes
+                  .map(
+                    (note) => `
+                      <span>
+                        <strong>${escapeHtml(note.label)}</strong>
+                        ${escapeHtml(note.detail)}
+                        <code>${escapeHtml(note.releaseReviewPath)}</code>
+                      </span>
+                    `,
+                  )
+                  .join("")}
+              </div>
+            </div>
+          `
+          : ""
       }
     </article>
   `;
@@ -1073,7 +1137,7 @@ function renderDashboard(state: UiState) {
 
       ${renderDashboardRail(state)}
 
-      ${renderDashboardActionResults(state.dashboardActionResults)}
+      ${renderDashboardActionResults(state.dashboardActionResults, state.dashboardRunnerUx)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1190,6 +1254,7 @@ export async function mountFlowApp(surfaceInput: string) {
     lastPack: null,
     dashboardActionStates: {},
     dashboardActionResults: readDashboardCommandResults(dashboardBinding.route),
+    dashboardRunnerUx: null,
   };
 
   function render() {
@@ -1478,13 +1543,42 @@ export async function mountFlowApp(surfaceInput: string) {
   async function importDashboardRunnerJson(file: File) {
     try {
       const text = await file.text();
-      const results = normalizeTrustedHostRunnerResults(JSON.parse(text));
+      const parsed = JSON.parse(text) as unknown;
+      const results = normalizeTrustedHostRunnerResults(parsed);
+      const runnerUx = normalizeTrustedHostRunnerUx(parsed);
+      state.dashboardRunnerUx = runnerUx ?? state.dashboardRunnerUx;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = `Imported ${results.length} trusted runner result(s) from ${file.name}.`;
+      state.status = runnerUx
+        ? `Imported trusted runner UX with ${runnerUx.resultCount} history result(s) from ${file.name}.`
+        : `Imported ${results.length} trusted runner result(s) from ${file.name}.`;
     } catch (error) {
       state.status = `Trusted runner import failed: ${String(error)}`;
     }
 
+    render();
+  }
+
+  async function copyRunnerAffordance(affordanceId: string) {
+    const affordance = state.dashboardRunnerUx?.affordances.find(
+      (item) => item.id === affordanceId,
+    );
+    if (!affordance) {
+      return;
+    }
+    if (affordance.disabled) {
+      state.status = affordance.disabledReason ?? "This trusted runner action is unavailable.";
+      render();
+      return;
+    }
+
+    try {
+      await navigator.clipboard?.writeText(affordance.command);
+      state.status = `${affordance.label}: command copied. ${
+        affordance.requiresApproval ? "Approval is still required before execution." : ""
+      }`;
+    } catch {
+      state.status = `${affordance.label}: ${affordance.command}`;
+    }
     render();
   }
 
@@ -1535,6 +1629,17 @@ export async function mountFlowApp(surfaceInput: string) {
         if (file) {
           void importDashboardRunnerJson(file);
         }
+      });
+
+    mountRoot
+      .querySelectorAll<HTMLButtonElement>("[data-action='dashboard-runner-affordance']")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          const affordanceId = button.dataset.runnerAffordanceId;
+          if (affordanceId) {
+            void copyRunnerAffordance(affordanceId);
+          }
+        });
       });
 
     mountRoot

@@ -6,6 +6,7 @@ import {
   dispatchDashboardCommand,
   normalizeDashboardHostCommandResults,
   normalizeTrustedHostRunnerResults,
+  normalizeTrustedHostRunnerUx,
 } from "../runtime/dashboard-actions";
 import type { FlowDashboardProductUiBinding } from "../runtime/protocol";
 
@@ -172,6 +173,67 @@ export function dashboardSectionSmokeReport(
     stderr_summary: "",
     recorded_at_unix_ms: 2,
   });
+  const trustedRunnerUx = normalizeTrustedHostRunnerUx({
+    history_json: "tmp/friday-dashboard/trusted-host-runner-history.json",
+    result_count: 3,
+    latest_status: "timed-out",
+    status_summaries: [
+      {
+        status: "succeeded",
+        count: 1,
+        title: "Succeeded",
+        description: "Approved host commands completed successfully.",
+        tone: "ready",
+      },
+      {
+        status: "timed-out",
+        count: 1,
+        title: "Timed out",
+        description: "The runner stopped the command after its timeout.",
+        tone: "warn",
+      },
+      {
+        status: "cancelled",
+        count: 1,
+        title: "Cancelled",
+        description: "The operator cancelled this run.",
+        tone: "muted",
+      },
+    ],
+    affordances: [
+      {
+        id: "copy-command-host-open",
+        kind: "copy-command",
+        action_id: "host-open",
+        status: "timed-out",
+        label: "Copy command",
+        command: "flow --completion",
+        detail: "Copy the original local command without executing it.",
+        requires_approval: false,
+        disabled: false,
+      },
+      {
+        id: "retry-with-approval-host-open",
+        kind: "retry",
+        action_id: "host-open",
+        status: "timed-out",
+        label: "Retry with approval",
+        command:
+          "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id host-open --approve --execute",
+        detail: "Prepare the same runner action again.",
+        requires_approval: true,
+        disabled: false,
+      },
+    ],
+    operator_notes: [
+      {
+        id: "release-review-link",
+        label: "Release review",
+        detail: "Attach history to release review.",
+        release_review_path: "tmp/friday-dashboard/release-review.json",
+      },
+    ],
+  });
   const checks = [
     check(
       "local-fallback-labelled",
@@ -242,6 +304,26 @@ export function dashboardSectionSmokeReport(
         trustedRunnerResults[0]?.permission === "allowed" &&
         trustedRunnerResults[0]?.status === "succeeded",
       `${trustedRunnerResults.length} trusted runner result(s) normalized`,
+    ),
+    check(
+      "trusted-runner-ux-grouped",
+      trustedRunnerUx?.statusSummaries.some(
+        (summary) => summary.status === "timed-out" && summary.count === 1,
+      ) === true &&
+        trustedRunnerUx?.statusSummaries.some(
+          (summary) => summary.status === "cancelled" && summary.count === 1,
+        ) === true,
+      `${trustedRunnerUx?.statusSummaries.length ?? 0} trusted runner status groups`,
+    ),
+    check(
+      "trusted-runner-ux-affordances",
+      trustedRunnerUx?.affordances.some(
+        (affordance) => affordance.kind === "retry" && affordance.requiresApproval,
+      ) === true &&
+        trustedRunnerUx?.affordances.some(
+          (affordance) => affordance.kind === "copy-command" && !affordance.disabled,
+        ) === true,
+      `${trustedRunnerUx?.affordances.length ?? 0} trusted runner affordance(s)`,
     ),
     check(
       "history-rail-renderable",

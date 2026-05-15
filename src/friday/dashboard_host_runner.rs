@@ -123,6 +123,114 @@ impl FridayTrustedHostRunnerHistory {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerStatusSummary {
+    pub status: FridayTrustedHostRunnerStatus,
+    pub count: usize,
+    pub title: String,
+    pub description: String,
+    pub tone: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerAffordance {
+    pub id: String,
+    pub kind: String,
+    pub action_id: String,
+    pub status: FridayTrustedHostRunnerStatus,
+    pub label: String,
+    pub command: String,
+    pub detail: String,
+    pub requires_approval: bool,
+    pub disabled: bool,
+    pub disabled_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerOperatorNote {
+    pub id: String,
+    pub label: String,
+    pub detail: String,
+    pub release_review_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerUxReport {
+    pub history_json: String,
+    pub result_count: usize,
+    pub latest_status: Option<FridayTrustedHostRunnerStatus>,
+    pub status_summaries: Vec<FridayTrustedHostRunnerStatusSummary>,
+    pub affordances: Vec<FridayTrustedHostRunnerAffordance>,
+    pub operator_notes: Vec<FridayTrustedHostRunnerOperatorNote>,
+}
+
+impl FridayTrustedHostRunnerUxReport {
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
+pub fn friday_trusted_host_runner_ux_report(
+    history: &FridayTrustedHostRunnerHistory,
+    release_review_path: impl AsRef<Path>,
+) -> FridayTrustedHostRunnerUxReport {
+    let release_review_path = path_string(release_review_path.as_ref());
+    let status_summaries = [
+        FridayTrustedHostRunnerStatus::Succeeded,
+        FridayTrustedHostRunnerStatus::Failed,
+        FridayTrustedHostRunnerStatus::TimedOut,
+        FridayTrustedHostRunnerStatus::Cancelled,
+        FridayTrustedHostRunnerStatus::Denied,
+    ]
+    .into_iter()
+    .map(|status| runner_status_summary(history, status))
+    .collect::<Vec<_>>();
+    let affordances = history
+        .records
+        .iter()
+        .take(5)
+        .flat_map(runner_affordances)
+        .collect::<Vec<_>>();
+    let operator_notes = vec![
+        FridayTrustedHostRunnerOperatorNote {
+            id: "release-review-link".to_string(),
+            label: "Release review".to_string(),
+            detail: format!(
+                "Trusted runner history has {} record(s); attach this history to release review before shipping host execution changes.",
+                history.result_count
+            ),
+            release_review_path: release_review_path.clone(),
+        },
+        FridayTrustedHostRunnerOperatorNote {
+            id: "approval-boundary".to_string(),
+            label: "Approval boundary".to_string(),
+            detail: "Retry actions keep explicit approval requirements; the dashboard must not auto-run a retry."
+                .to_string(),
+            release_review_path,
+        },
+    ];
+
+    FridayTrustedHostRunnerUxReport {
+        history_json: history.history_json.clone(),
+        result_count: history.result_count,
+        latest_status: history.latest.as_ref().map(|result| result.status),
+        status_summaries,
+        affordances,
+        operator_notes,
+    }
+}
+
+pub fn friday_trusted_host_runner_ux_report_from_history_file(
+    history_path: impl AsRef<Path>,
+    release_review_path: impl AsRef<Path>,
+) -> Result<FridayTrustedHostRunnerUxReport> {
+    let history = read_friday_trusted_host_runner_history(history_path)?;
+    Ok(friday_trusted_host_runner_ux_report(
+        &history,
+        release_review_path,
+    ))
+}
+
 pub fn run_friday_trusted_host_command(
     record: &FridayDashboardHostCommandRecord,
     request: &FridayTrustedHostRunnerRequest,
@@ -317,6 +425,127 @@ fn runner_result(
         audit_event: format!("trusted-host-runner-{}", status.label()),
         recorded_at_unix_ms: unix_ms(),
     }
+}
+
+fn runner_status_summary(
+    history: &FridayTrustedHostRunnerHistory,
+    status: FridayTrustedHostRunnerStatus,
+) -> FridayTrustedHostRunnerStatusSummary {
+    let count = history
+        .records
+        .iter()
+        .filter(|record| record.status == status)
+        .count();
+    FridayTrustedHostRunnerStatusSummary {
+        status,
+        count,
+        title: runner_status_title(status).to_string(),
+        description: runner_status_operator_copy(status).to_string(),
+        tone: runner_status_tone(status).to_string(),
+    }
+}
+
+fn runner_status_title(status: FridayTrustedHostRunnerStatus) -> &'static str {
+    match status {
+        FridayTrustedHostRunnerStatus::Succeeded => "Succeeded",
+        FridayTrustedHostRunnerStatus::Failed => "Failed",
+        FridayTrustedHostRunnerStatus::TimedOut => "Timed out",
+        FridayTrustedHostRunnerStatus::Cancelled => "Cancelled",
+        FridayTrustedHostRunnerStatus::Denied => "Denied",
+    }
+}
+
+fn runner_status_operator_copy(status: FridayTrustedHostRunnerStatus) -> &'static str {
+    match status {
+        FridayTrustedHostRunnerStatus::Succeeded => {
+            "Approved host commands completed successfully and are ready for release review."
+        }
+        FridayTrustedHostRunnerStatus::Failed => {
+            "The approved command exited with an error; inspect stderr before retrying."
+        }
+        FridayTrustedHostRunnerStatus::TimedOut => {
+            "The runner stopped the command after its timeout, so retry only after checking the command is still safe."
+        }
+        FridayTrustedHostRunnerStatus::Cancelled => {
+            "The operator cancelled this run before or during execution; Friday must not retry it silently."
+        }
+        FridayTrustedHostRunnerStatus::Denied => {
+            "Execution was denied before a process started because approval or policy requirements were not met."
+        }
+    }
+}
+
+fn runner_status_tone(status: FridayTrustedHostRunnerStatus) -> &'static str {
+    match status {
+        FridayTrustedHostRunnerStatus::Succeeded => "ready",
+        FridayTrustedHostRunnerStatus::Failed => "bad",
+        FridayTrustedHostRunnerStatus::TimedOut => "warn",
+        FridayTrustedHostRunnerStatus::Cancelled => "muted",
+        FridayTrustedHostRunnerStatus::Denied => "blocked",
+    }
+}
+
+fn runner_affordances(
+    result: &FridayTrustedHostRunnerResult,
+) -> Vec<FridayTrustedHostRunnerAffordance> {
+    let retry_disabled = result.status == FridayTrustedHostRunnerStatus::Succeeded;
+    vec![
+        FridayTrustedHostRunnerAffordance {
+            id: format!("copy-command-{}", result.action_id),
+            kind: "copy-command".to_string(),
+            action_id: result.action_id.clone(),
+            status: result.status,
+            label: "Copy command".to_string(),
+            command: result.command.clone(),
+            detail: "Copy the original local command without executing it.".to_string(),
+            requires_approval: false,
+            disabled: false,
+            disabled_reason: None,
+        },
+        FridayTrustedHostRunnerAffordance {
+            id: format!("retry-with-approval-{}", result.action_id),
+            kind: "retry".to_string(),
+            action_id: result.action_id.clone(),
+            status: result.status,
+            label: "Retry with approval".to_string(),
+            command: runner_retry_command(result),
+            detail: "Prepare the same runner action again; explicit operator approval is still required."
+                .to_string(),
+            requires_approval: true,
+            disabled: retry_disabled,
+            disabled_reason: retry_disabled
+                .then(|| "The latest run already succeeded; copy the command if you need it.".to_string()),
+        },
+        FridayTrustedHostRunnerAffordance {
+            id: format!("cancel-pending-{}", result.action_id),
+            kind: "cancel".to_string(),
+            action_id: result.action_id.clone(),
+            status: result.status,
+            label: "Cancel pending run".to_string(),
+            command: runner_cancel_command(result),
+            detail: "Cancel a prepared runner action before it executes.".to_string(),
+            requires_approval: false,
+            disabled: true,
+            disabled_reason: Some(
+                "Imported history records are already finished; cancellation is only live before execution."
+                    .to_string(),
+            ),
+        },
+    ]
+}
+
+fn runner_retry_command(result: &FridayTrustedHostRunnerResult) -> String {
+    format!(
+        "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id {} --approve --execute",
+        result.action_id
+    )
+}
+
+fn runner_cancel_command(result: &FridayTrustedHostRunnerResult) -> String {
+    format!(
+        "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id {} --cancel",
+        result.action_id
+    )
 }
 
 fn runner_denial_reason(record: &FridayDashboardHostCommandRecord) -> Option<String> {

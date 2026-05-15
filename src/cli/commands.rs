@@ -37,9 +37,10 @@ use crate::friday::{
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
     friday_operator_readiness_report, friday_research_search_plan, friday_route_visual_report,
-    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
-    run_friday_vlm_contract, append_friday_trusted_host_runner_history,
-    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult,
+    friday_trusted_host_runner_ux_report_from_history_file, run_friday_ocr_smoke,
+    run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command, run_friday_vlm_contract,
+    append_friday_trusted_host_runner_history, FridayTrustedHostRunnerRequest,
+    FridayTrustedHostRunnerResult, FridayTrustedHostRunnerUxReport,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -551,6 +552,28 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&result)?);
         }
 
+        Command::FridayTrustedHostRunnerUx {
+            history_file,
+            release_review_file,
+        } => {
+            let report = friday_trusted_host_runner_ux_report_from_history_file(
+                resolve_repo_relative_path(&history_file),
+                resolve_repo_relative_path(&release_review_file),
+            )?;
+            print_friday_trusted_host_runner_ux_report(&report);
+        }
+
+        Command::FridayTrustedHostRunnerUxJson {
+            history_file,
+            release_review_file,
+        } => {
+            let report = friday_trusted_host_runner_ux_report_from_history_file(
+                resolve_repo_relative_path(&history_file),
+                resolve_repo_relative_path(&release_review_file),
+            )?;
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayLocalChecks => {
             print_friday_local_execution_checks();
         }
@@ -948,6 +971,10 @@ fn print_interactive_help() {
     println!("                           Run or dry-run one approved trusted host command");
     println!("  --friday-trusted-host-runner-json [dir] [--action-id id] [--approve] [--execute]");
     println!("                           Print trusted host runner result as JSON");
+    println!("  --friday-trusted-host-runner-ux [history-file]");
+    println!("                           Show grouped trusted runner history and retry UX");
+    println!("  --friday-trusted-host-runner-ux-json [history-file]");
+    println!("                           Print trusted runner history UX as JSON");
     println!("  --friday-local-checks   Run low-resource local execution checks");
     println!("  --friday-local-checks-json");
     println!("                           Print local execution checks as JSON");
@@ -1764,6 +1791,53 @@ fn print_friday_trusted_host_runner_result(result: &FridayTrustedHostRunnerResul
         result.stderr_summary,
         if result.stderr_truncated { " [truncated]" } else { "" }
     );
+}
+
+fn print_friday_trusted_host_runner_ux_report(report: &FridayTrustedHostRunnerUxReport) {
+    println!("Friday Dashboard Runner UX");
+    println!("==========================");
+    println!(
+        "History: {} ({} result(s))",
+        report.history_json, report.result_count
+    );
+    println!(
+        "Latest status: {}",
+        report
+            .latest_status
+            .map(|status| status.label().to_string())
+            .unwrap_or_else(|| "none".to_string())
+    );
+    println!();
+    println!("Status groups:");
+    for summary in &report.status_summaries {
+        println!(
+            "  - {}: {} [{}]",
+            summary.title, summary.count, summary.tone
+        );
+        println!("    {}", summary.description);
+    }
+    println!();
+    println!("Affordances:");
+    for affordance in &report.affordances {
+        println!(
+            "  - {} ({}, approval: {}, disabled: {})",
+            affordance.label,
+            affordance.kind,
+            yes_no(affordance.requires_approval),
+            yes_no(affordance.disabled)
+        );
+        println!("    command: {}", affordance.command);
+        println!("    {}", affordance.detail);
+        if let Some(reason) = &affordance.disabled_reason {
+            println!("    disabled: {}", reason);
+        }
+    }
+    println!();
+    println!("Operator notes:");
+    for note in &report.operator_notes {
+        println!("  - {}: {}", note.label, note.detail);
+        println!("    release review: {}", note.release_review_path);
+    }
 }
 
 fn print_friday_local_execution_checks() {
