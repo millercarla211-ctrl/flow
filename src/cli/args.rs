@@ -267,6 +267,32 @@ pub enum Command {
         extension_typecheck_result_file: String,
         dashboard_smoke_result_file: String,
     },
+    /// Write the Friday release evidence export kit JSON
+    FridayReleaseExportKit {
+        kit_file: String,
+        export_dir: String,
+        checklist_file: String,
+        qa_file: String,
+        package_file: String,
+        timeline_file: String,
+        signoff_file: String,
+        cargo_check_result_file: String,
+        extension_typecheck_result_file: String,
+        dashboard_smoke_result_file: String,
+    },
+    /// Print the Friday release evidence export kit as JSON
+    FridayReleaseExportKitJson {
+        kit_file: String,
+        export_dir: String,
+        checklist_file: String,
+        qa_file: String,
+        package_file: String,
+        timeline_file: String,
+        signoff_file: String,
+        cargo_check_result_file: String,
+        extension_typecheck_result_file: String,
+        dashboard_smoke_result_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1025,6 +1051,58 @@ impl Args {
                     dashboard_smoke_result_file,
                 }
             }
+            "--friday-release-export-kit" | "--friday-release-evidence-export-kit" => {
+                let (
+                    kit_file,
+                    export_dir,
+                    checklist_file,
+                    qa_file,
+                    package_file,
+                    timeline_file,
+                    signoff_file,
+                    cargo_check_result_file,
+                    extension_typecheck_result_file,
+                    dashboard_smoke_result_file,
+                ) = parse_friday_release_export_kit_args(&args);
+                Command::FridayReleaseExportKit {
+                    kit_file,
+                    export_dir,
+                    checklist_file,
+                    qa_file,
+                    package_file,
+                    timeline_file,
+                    signoff_file,
+                    cargo_check_result_file,
+                    extension_typecheck_result_file,
+                    dashboard_smoke_result_file,
+                }
+            }
+            "--friday-release-export-kit-json" | "--friday-release-evidence-export-kit-json" => {
+                let (
+                    kit_file,
+                    export_dir,
+                    checklist_file,
+                    qa_file,
+                    package_file,
+                    timeline_file,
+                    signoff_file,
+                    cargo_check_result_file,
+                    extension_typecheck_result_file,
+                    dashboard_smoke_result_file,
+                ) = parse_friday_release_export_kit_args(&args);
+                Command::FridayReleaseExportKitJson {
+                    kit_file,
+                    export_dir,
+                    checklist_file,
+                    qa_file,
+                    package_file,
+                    timeline_file,
+                    signoff_file,
+                    cargo_check_result_file,
+                    extension_typecheck_result_file,
+                    dashboard_smoke_result_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -1622,15 +1700,18 @@ fn parse_friday_release_checklist_args(
 
 fn parse_friday_release_signoff_args(args: &[String]) -> (String, String, String, String, String) {
     let checklist_file = flag_value(args, "--checklist")
-        .or_else(|| args.get(2).filter(|value| !value.starts_with("--")).cloned())
+        .or_else(|| {
+            args.get(2)
+                .filter(|value| !value.starts_with("--"))
+                .cloned()
+        })
         .unwrap_or_else(|| "tmp/friday-dashboard/release-operator-checklist.json".to_string());
     let signoff_file = flag_value(args, "--signoffs")
         .unwrap_or_else(|| "tmp/friday-dashboard/release-signoffs.json".to_string());
     let operator = flag_value(args, "--operator").unwrap_or_else(|| "operator".to_string());
     let decision = flag_value(args, "--decision").unwrap_or_else(|| "approved".to_string());
-    let reason = flag_value(args, "--reason").unwrap_or_else(|| {
-        "Operator reviewed the local release checklist evidence.".to_string()
-    });
+    let reason = flag_value(args, "--reason")
+        .unwrap_or_else(|| "Operator reviewed the local release checklist evidence.".to_string());
     (checklist_file, signoff_file, operator, decision, reason)
 }
 
@@ -1663,6 +1744,62 @@ fn parse_friday_release_qa_args(
         checklist_file,
         package_file,
         timeline_file,
+        cargo_check_result_file,
+        extension_typecheck_result_file,
+        dashboard_smoke_result_file,
+    )
+}
+
+#[allow(clippy::type_complexity)]
+fn parse_friday_release_export_kit_args(
+    args: &[String],
+) -> (
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let kit_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--kit"))
+        .unwrap_or_else(|| format!("{export_dir}/release-evidence-export-kit.json"));
+    let checklist_file = flag_value(args, "--checklist")
+        .unwrap_or_else(|| format!("{export_dir}/release-operator-checklist.json"));
+    let qa_file = flag_value(args, "--qa")
+        .or_else(|| flag_value(args, "--release-qa"))
+        .unwrap_or_else(|| format!("{export_dir}/release-qa-command-center.json"));
+    let package_file = flag_value(args, "--package")
+        .unwrap_or_else(|| format!("{export_dir}/trusted-runner-release-package.json"));
+    let timeline_file = flag_value(args, "--timeline")
+        .unwrap_or_else(|| format!("{export_dir}/trusted-runner-release-timeline.json"));
+    let signoff_file = flag_value(args, "--signoffs")
+        .or_else(|| flag_value(args, "--signoff"))
+        .unwrap_or_else(|| format!("{export_dir}/release-signoffs.json"));
+    let cargo_check_result_file = flag_value(args, "--cargo-check-result")
+        .unwrap_or_else(|| format!("{export_dir}/cargo-check.txt"));
+    let extension_typecheck_result_file = flag_value(args, "--extension-typecheck-result")
+        .unwrap_or_else(|| format!("{export_dir}/extension-typecheck.txt"));
+    let dashboard_smoke_result_file = flag_value(args, "--dashboard-smoke-result")
+        .unwrap_or_else(|| format!("{export_dir}/dashboard-smoke.txt"));
+    (
+        kit_file,
+        export_dir,
+        checklist_file,
+        qa_file,
+        package_file,
+        timeline_file,
+        signoff_file,
         cargo_check_result_file,
         extension_typecheck_result_file,
         dashboard_smoke_result_file,

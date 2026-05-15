@@ -464,16 +464,34 @@ Goal: provide a single local-first QA command center that runs or imports lightw
 
 This set is complete. The next loop should open `Friday Release Evidence Export Kit` and make the release checklist, QA command center, package, timeline, signoffs, and lightweight check outputs exportable as one review bundle.
 
-## Next Set: Friday Release Evidence Export Kit
+## Completed Set: Friday Release Evidence Export Kit
 
-Status: 0/100
+Status: 100/100
 
 Goal: bundle the release checklist, QA command center, package, timeline, signoffs, and lightweight check outputs into one local-only review kit with manifests, checksums, and dashboard import guidance.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed release evidence export-kit model with manifest checksums for checklist, QA, package, timeline, signoffs, and check-result files.
+- [x] Add CLI and JSON commands for generating the export kit without running host commands or full builds.
+- [x] Add dashboard import/rendering for export-kit completeness, stale result warnings, and missing artifact guidance.
+- [x] Add operator copy for attaching the export kit to major checkpoints and deployment notes.
+- [x] Add focused Rust/TypeScript coverage for export-kit completeness, checksum copy, stale warnings, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Deployment Gate` and turn checklist, QA, export-kit, dashboard, and deployment target evidence into an explicit deploy/no-deploy decision surface.
+
+## Next Set: Friday Release Deployment Gate
+
+Status: 0/100
+
+Goal: make Friday's major-checkpoint deployment decision explicit by consuming the release evidence export kit, QA report, checklist, dashboard state, and deployment target into one local-first go/no-go gate.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed release evidence export-kit model with manifest checksums for checklist, QA, package, timeline, signoffs, and check-result files.
-- [ ] Add CLI and JSON commands for generating the export kit without running host commands or full builds.
-- [ ] Add dashboard import/rendering for export-kit completeness, stale result warnings, and missing artifact guidance.
-- [ ] Add operator copy for attaching the export kit to major checkpoints and deployment notes.
-- [ ] Add focused Rust/TypeScript coverage for export-kit completeness, checksum copy, stale warnings, and dashboard rendering.
+- [ ] Add a typed deployment-gate model that consumes export-kit, QA, checklist, release package, timeline, dashboard readiness, and optional target metadata.
+- [ ] Add no-deploy reason categories for missing evidence, stale checks, blocked QA, unsigned releases, unreviewed dashboard state, and target mismatch.
+- [ ] Add CLI and JSON commands for generating deployment-gate reports without running builds or deployments.
+- [ ] Add dashboard import/rendering for go/no-go status, target profile, rollback note, and copyable deploy checklist.
+- [ ] Add focused Rust/TypeScript coverage for deployment-gate scoring, target mismatch warnings, and visible dashboard rendering.

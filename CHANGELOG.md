@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Evidence Export Kit at 100/100 with local-only evidence manifests, SHA-256 checksums, stale/missing warnings, export-kit CLI/JSON commands, dashboard import/rendering, operator attachment copy, and focused Rust/TypeScript coverage
+- opened Friday Release Deployment Gate as the next set for an explicit local-first go/no-go surface before major Friday checkpoints
 - completed Friday Release QA Command Center at 100/100 with dashboard QA import/rendering, stale-result badges, copyable lightweight-check commands, and TypeScript smoke coverage
 - opened Friday Release Evidence Export Kit as the next set for one local-only release-review bundle with manifests, checksums, signoffs, QA outputs, and dashboard guidance
 - advanced Friday Release QA Command Center to 80/100 with a typed local QA report, lightweight check-result inputs, copyable check commands, CLI/JSON report commands, and focused Rust coverage

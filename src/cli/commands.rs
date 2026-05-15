@@ -27,30 +27,28 @@ use crate::experience::{
     FlowFileStateStore, FlowStateStore, NativeSelectionBridge, OperatingSystemFamily,
 };
 use crate::friday::{
-    FridayArtifactStore, FridayFeatureStatus, FridayResearchReport, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayArtifactStore, FridayFeatureStatus, FridayReleaseChecklistSignoff,
+    FridayReleaseChecklistSignoffDecision, FridayReleaseEvidenceExportKitReport,
+    FridayReleaseOperatorChecklistReport, FridayReleaseQaCommandCenterReport, FridayResearchReport,
+    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult, FridayTrustedHostRunnerStatus,
-    FridayReleaseChecklistSignoff, FridayReleaseChecklistSignoffDecision,
-    FridayReleaseOperatorChecklistReport, FridayReleaseQaCommandCenterReport,
-    FridayTrustedHostRunnerUxReport,
-    FridayTrustedRunnerReleasePackageReport, FridayTrustedRunnerReleaseTimeline,
-    FridayUiIntegrationStatus, FridayWorkspaceStore,
-    append_friday_release_operator_signoff,
-    append_friday_trusted_host_runner_history,
+    FridayTrustedHostRunnerUxReport, FridayTrustedRunnerReleasePackageReport,
+    FridayTrustedRunnerReleaseTimeline, FridayUiIntegrationStatus, FridayWorkspaceStore,
+    append_friday_release_operator_signoff, append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
-    default_friday_browser_verification_report,
-    default_friday_local_execution_checks, default_friday_product_plan,
-    default_friday_ui_integration_plan, export_friday_dashboard_bundle, friday_answer_search_plan,
+    default_friday_browser_verification_report, default_friday_local_execution_checks,
+    default_friday_product_plan, default_friday_ui_integration_plan,
+    export_friday_dashboard_bundle, friday_answer_search_plan,
     friday_dashboard_host_command_bridge_from_export, friday_dashboard_panel_from_export,
     friday_dashboard_product_ui_binding_from_export, friday_dashboard_product_ui_smoke_from_export,
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
-    friday_operator_readiness_report, friday_release_operator_checklist_report,
-    friday_release_qa_command_center_report, friday_research_search_plan,
-    friday_route_visual_report,
+    friday_operator_readiness_report, friday_release_evidence_export_kit_report,
+    friday_release_operator_checklist_report, friday_release_qa_command_center_report,
+    friday_research_search_plan, friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
@@ -59,9 +57,9 @@ use crate::friday::{
     friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
     run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
     run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
-    write_friday_release_operator_checklist, write_friday_release_qa_command_center_report,
+    write_friday_release_evidence_export_kit, write_friday_release_operator_checklist,
+    write_friday_release_qa_command_center_report, write_friday_trusted_host_live_runner_state,
     write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
-    write_friday_trusted_host_live_runner_state,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -878,6 +876,64 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayReleaseExportKit {
+            kit_file,
+            export_dir,
+            checklist_file,
+            qa_file,
+            package_file,
+            timeline_file,
+            signoff_file,
+            cargo_check_result_file,
+            extension_typecheck_result_file,
+            dashboard_smoke_result_file,
+        } => {
+            let report = friday_release_evidence_export_kit_report(
+                resolve_repo_relative_path(&kit_file),
+                resolve_repo_relative_path(&export_dir),
+                resolve_repo_relative_path(&checklist_file),
+                resolve_repo_relative_path(&qa_file),
+                resolve_repo_relative_path(&package_file),
+                resolve_repo_relative_path(&timeline_file),
+                resolve_repo_relative_path(&signoff_file),
+                resolve_repo_relative_path(&cargo_check_result_file),
+                resolve_repo_relative_path(&extension_typecheck_result_file),
+                resolve_repo_relative_path(&dashboard_smoke_result_file),
+            );
+            write_friday_release_evidence_export_kit(
+                resolve_repo_relative_path(&kit_file),
+                &report,
+            )?;
+            print_friday_release_evidence_export_kit(&report);
+        }
+
+        Command::FridayReleaseExportKitJson {
+            kit_file,
+            export_dir,
+            checklist_file,
+            qa_file,
+            package_file,
+            timeline_file,
+            signoff_file,
+            cargo_check_result_file,
+            extension_typecheck_result_file,
+            dashboard_smoke_result_file,
+        } => {
+            let report = friday_release_evidence_export_kit_report(
+                resolve_repo_relative_path(&kit_file),
+                resolve_repo_relative_path(&export_dir),
+                resolve_repo_relative_path(&checklist_file),
+                resolve_repo_relative_path(&qa_file),
+                resolve_repo_relative_path(&package_file),
+                resolve_repo_relative_path(&timeline_file),
+                resolve_repo_relative_path(&signoff_file),
+                resolve_repo_relative_path(&cargo_check_result_file),
+                resolve_repo_relative_path(&extension_typecheck_result_file),
+                resolve_repo_relative_path(&dashboard_smoke_result_file),
+            );
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1375,6 +1431,10 @@ fn print_interactive_help() {
     println!("                           Write Friday release QA command center JSON");
     println!("  --friday-release-qa-json [export-dir]");
     println!("                           Print Friday release QA command center as JSON");
+    println!("  --friday-release-export-kit [export-dir]");
+    println!("                           Write Friday release evidence export-kit JSON");
+    println!("  --friday-release-export-kit-json [export-dir]");
+    println!("                           Print Friday release evidence export kit as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -2463,7 +2523,9 @@ fn print_friday_trusted_runner_release_package_report(
     println!("Signature: {}", report.manifest.package_signature);
     println!(
         "Evidence: {} file(s), missing: {}, warnings: {}",
-        report.manifest.evidence_count, report.manifest.missing_count, report.manifest.warning_count
+        report.manifest.evidence_count,
+        report.manifest.missing_count,
+        report.manifest.warning_count
     );
     println!();
     println!("Warnings:");
@@ -2638,6 +2700,55 @@ fn print_friday_release_qa_command_center(report: &FridayReleaseQaCommandCenterR
     println!("Commands:");
     for command in &report.commands {
         println!("  - {}", command);
+    }
+}
+
+fn print_friday_release_evidence_export_kit(report: &FridayReleaseEvidenceExportKitReport) {
+    println!("Friday Release Evidence Export Kit");
+    println!("==================================");
+    println!("{}", report.summary);
+    println!("Ready to attach: {}", yes_no(report.ready_to_attach));
+    println!(
+        "Files: {} | required: {} | missing: {} | stale: {} | warnings: {}",
+        report.manifest.file_count,
+        report.manifest.required_count,
+        report.manifest.missing_count,
+        report.manifest.stale_count,
+        report.manifest.warning_count
+    );
+    println!("Kit: {}", report.manifest.kit_json);
+    println!("Manifest checksum: {}", report.manifest.manifest_sha256);
+    println!();
+    println!("Evidence:");
+    for file in &report.manifest.files {
+        println!(
+            "  - {} [{}] present={} stale={} bytes={} sha256={}",
+            file.label,
+            file.kind,
+            yes_no(file.present),
+            yes_no(file.stale),
+            file.bytes,
+            file.sha256.as_deref().unwrap_or("missing")
+        );
+        println!("    path: {}", file.path);
+        if let Some(warning) = &file.warning {
+            println!("    warning: {warning}");
+        }
+    }
+    if !report.warnings.is_empty() {
+        println!();
+        println!("Warnings:");
+        for warning in &report.warnings {
+            println!("  - {warning}");
+        }
+    }
+    println!();
+    println!("Operator copy:");
+    println!("{}", report.operator_copy);
+    println!();
+    println!("Commands:");
+    for command in &report.manifest.commands {
+        println!("  - {command}");
     }
 }
 

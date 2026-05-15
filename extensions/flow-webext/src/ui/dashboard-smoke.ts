@@ -5,6 +5,7 @@ import {
 import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
+  normalizeReleaseEvidenceExportKit,
   normalizeReleaseOperatorChecklist,
   normalizeReleaseQaCommandCenter,
   normalizeDashboardHostCommandResults,
@@ -725,6 +726,67 @@ export function dashboardSectionSmokeReport(
     ],
     commands: ["flow --friday-release-qa tmp/friday-dashboard"],
   });
+  const releaseExportKit = normalizeReleaseEvidenceExportKit({
+    summary: "Friday release evidence kit has 8 file(s), 0 missing, 1 stale, and 2 warning(s).",
+    ready_to_attach: false,
+    status: "warning",
+    checklist_ready: false,
+    qa_score_out_of_100: 83,
+    qa_ready_to_ship: false,
+    package_ready_to_ship: false,
+    timeline_package_count: 2,
+    signoff_count: 1,
+    warnings: [
+      "Release QA is not ready.",
+      "Dashboard smoke result is older than 24 hours.",
+    ],
+    operator_copy:
+      "Friday release evidence kit: tmp/friday-dashboard/release-evidence-export-kit.json\nStatus: needs review\nManifest checksum: kit-sha",
+    manifest: {
+      kit_id: "friday-release-export-kit-smoke",
+      generated_at_unix_ms: 6,
+      product_name: "Friday",
+      local_only: true,
+      kit_json: "tmp/friday-dashboard/release-evidence-export-kit.json",
+      export_dir: "tmp/friday-dashboard",
+      file_count: 8,
+      required_count: 8,
+      missing_count: 0,
+      stale_count: 1,
+      warning_count: 2,
+      manifest_sha256: "kit-sha",
+      commands: [
+        "cargo check > tmp/friday-dashboard/cargo-check.txt",
+        "flow --friday-release-export-kit tmp/friday-dashboard",
+      ],
+      files: [
+        {
+          id: "release-checklist",
+          label: "Release operator checklist",
+          kind: "release-checklist-json",
+          path: "tmp/friday-dashboard/release-operator-checklist.json",
+          required: true,
+          present: true,
+          stale: false,
+          bytes: 120,
+          sha256: "sha-checklist",
+          warning: null,
+        },
+        {
+          id: "dashboard-smoke-result",
+          label: "Dashboard smoke result",
+          kind: "check-result",
+          path: "tmp/friday-dashboard/dashboard-smoke.txt",
+          required: true,
+          present: true,
+          stale: true,
+          bytes: 84,
+          sha256: "sha-smoke",
+          warning: "Dashboard smoke result is older than 24 hours.",
+        },
+      ],
+    },
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -1000,6 +1062,24 @@ export function dashboardSectionSmokeReport(
       releaseQa?.staleCount === 1 &&
         releaseQa.checks.some((check) => check.id === "dashboard-smoke" && check.stale),
       `${releaseQa?.staleCount ?? 0} stale release QA result(s)`,
+    ),
+    check(
+      "release-export-kit-importable",
+      releaseExportKit?.manifest.localOnly === true &&
+        releaseExportKit.manifest.fileCount === 8 &&
+        releaseExportKit.manifest.files.some(
+          (file) => file.id === "release-checklist" && file.sha256 === "sha-checklist",
+        ),
+      `${releaseExportKit?.manifest.fileCount ?? 0} release export file(s)`,
+    ),
+    check(
+      "release-export-kit-stale-and-copy",
+      releaseExportKit?.manifest.staleCount === 1 &&
+        releaseExportKit.operatorCopy.includes("Manifest checksum") &&
+        releaseExportKit.manifest.commands.some((command) =>
+          command.includes("--friday-release-export-kit"),
+        ),
+      `${releaseExportKit?.manifest.staleCount ?? 0} stale export-kit file(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

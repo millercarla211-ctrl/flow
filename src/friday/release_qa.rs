@@ -2,6 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -203,13 +204,40 @@ pub fn friday_release_qa_command_center_report(
 pub fn write_friday_release_qa_command_center_report(
     report_path: impl AsRef<Path>,
     report: &FridayReleaseQaCommandCenterReport,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     let report_path = report_path.as_ref();
     if let Some(parent) = report_path.parent() {
-        fs::create_dir_all(parent)?;
+        fs::create_dir_all(parent).with_context(|| {
+            format!(
+                "Could not create Friday release QA report directory {}",
+                parent.display()
+            )
+        })?;
     }
-    fs::write(report_path, report.to_pretty_json()?)?;
-    Ok(())
+    fs::write(report_path, report.to_pretty_json()?).with_context(|| {
+        format!(
+            "Could not write Friday release QA report {}",
+            report_path.display()
+        )
+    })
+}
+
+pub fn read_friday_release_qa_command_center_report(
+    report_path: impl AsRef<Path>,
+) -> Result<FridayReleaseQaCommandCenterReport> {
+    let report_path = report_path.as_ref();
+    let bytes = fs::read(report_path).with_context(|| {
+        format!(
+            "Could not read Friday release QA report {}",
+            report_path.display()
+        )
+    })?;
+    serde_json::from_slice(&bytes).with_context(|| {
+        format!(
+            "Could not parse Friday release QA report {}",
+            report_path.display()
+        )
+    })
 }
 
 fn checklist_check(
@@ -357,7 +385,10 @@ fn result_file_check(
                 } else {
                     FridayReleaseQaCheckStatus::Passed
                 },
-                format!("{} byte(s) captured from the latest lightweight check.", metadata.len()),
+                format!(
+                    "{} byte(s) captured from the latest lightweight check.",
+                    metadata.len()
+                ),
                 "Refresh this check result after meaningful code changes.",
             )
         }

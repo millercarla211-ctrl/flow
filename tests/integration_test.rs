@@ -25,9 +25,9 @@ use flow::friday::{
     FridayDashboardScreenshotStatus, FridayExecutionHandoffStatus, FridayLiveUiBindingStatus,
     FridayMultimodalDiagnosticStatus, FridayMultimodalRequestKind, FridayMultimodalRouteStatus,
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
-    FridayPreviewRunner, FridayResearchWorkflow, FridayRouteVisualStatus,
-    FridayReleaseChecklistSignoffDecision, FridayReleaseQaCheckStatus,
-    FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
+    FridayPreviewRunner, FridayReleaseChecklistSignoffDecision, FridayReleaseQaCheckStatus,
+    FridayResearchWorkflow, FridayRouteVisualStatus, FridayRuntimeSurfaceStore,
+    FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
     FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
@@ -44,19 +44,20 @@ use flow::friday::{
     friday_dashboard_release_review_from_export, friday_dashboard_screenshot_history,
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
     friday_multimodal_route, friday_multimodal_ui_diagnostics, friday_multimodal_visual_check,
-    friday_operator_readiness_report, friday_release_operator_checklist_report,
-    friday_release_qa_command_center_report, friday_route_visual_report,
-    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
+    friday_operator_readiness_report, friday_release_evidence_export_kit_report,
+    friday_release_operator_checklist_report, friday_release_qa_command_center_report,
+    friday_route_visual_report, friday_route_visual_report_for_root,
+    friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
     friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
     read_friday_trusted_host_live_runner_state, read_friday_trusted_host_runner_history,
     refresh_friday_trusted_host_live_runner_state, run_friday_ocr_smoke,
-    run_friday_screenshot_vlm_handoff,
-    run_friday_trusted_host_command_bridge_with_executor,
+    run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command_bridge_with_executor,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
-    write_friday_release_operator_checklist, write_friday_trusted_host_live_runner_state,
+    write_friday_release_evidence_export_kit, write_friday_release_operator_checklist,
+    write_friday_release_qa_command_center_report, write_friday_trusted_host_live_runner_state,
     write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
 };
 use flow::long_context::RlmBridge;
@@ -1721,25 +1722,33 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     );
     assert_eq!(release_package.manifest.missing_count, 0);
     assert!(!release_package.ready_to_ship);
-    assert!(release_package
-        .manifest
-        .files
-        .iter()
-        .any(|file| file.id == "runner-history" && file.sha256.is_some()));
-    assert!(release_package
-        .manifest
-        .files
-        .iter()
-        .any(|file| file.id == "runner-live-state" && file.present));
-    assert!(release_package
-        .manifest
-        .files
-        .iter()
-        .any(|file| file.id == "incident-notes" && file.sha256.is_some()));
-    assert!(release_package
-        .warnings
-        .iter()
-        .any(|warning| warning.contains("stale live runner")));
+    assert!(
+        release_package
+            .manifest
+            .files
+            .iter()
+            .any(|file| file.id == "runner-history" && file.sha256.is_some())
+    );
+    assert!(
+        release_package
+            .manifest
+            .files
+            .iter()
+            .any(|file| file.id == "runner-live-state" && file.present)
+    );
+    assert!(
+        release_package
+            .manifest
+            .files
+            .iter()
+            .any(|file| file.id == "incident-notes" && file.sha256.is_some())
+    );
+    assert!(
+        release_package
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("stale live runner"))
+    );
     assert!(release_package.incident_markdown.contains("### Failed"));
     write_friday_trusted_runner_release_package(&package_path, &release_package).unwrap();
     assert!(package_path.exists());
@@ -1750,10 +1759,12 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
         root.join("missing-package.json"),
     );
     assert!(missing_package.manifest.missing_count >= 4);
-    assert!(missing_package
-        .warnings
-        .iter()
-        .any(|warning| warning.contains("missing")));
+    assert!(
+        missing_package
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("missing"))
+    );
     let first_package_path = root.join("trusted-runner-release-package-1.json");
     let second_package_path = root.join("trusted-runner-release-package-2.json");
     let mut first_package = release_package.clone();
@@ -1813,22 +1824,30 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert_eq!(checklist.status, FridayDashboardPanelStatus::Blocked);
     assert!(!checklist.ready_to_ship);
     assert!(checklist.blocking_count > 0);
-    assert!(checklist
-        .blockers
-        .iter()
-        .any(|blocker| blocker.category == "stale-live-state"));
-    assert!(checklist
-        .blockers
-        .iter()
-        .any(|blocker| blocker.category == "warning-regression"));
-    assert!(checklist
-        .checklist
-        .iter()
-        .any(|item| item.id == "operator-signoff" && !item.ready));
-    assert!(checklist
-        .commands
-        .iter()
-        .any(|command| command.contains("--friday-release-signoff")));
+    assert!(
+        checklist
+            .blockers
+            .iter()
+            .any(|blocker| blocker.category == "stale-live-state")
+    );
+    assert!(
+        checklist
+            .blockers
+            .iter()
+            .any(|blocker| blocker.category == "warning-regression")
+    );
+    assert!(
+        checklist
+            .checklist
+            .iter()
+            .any(|item| item.id == "operator-signoff" && !item.ready)
+    );
+    assert!(
+        checklist
+            .commands
+            .iter()
+            .any(|command| command.contains("--friday-release-signoff"))
+    );
     write_friday_release_operator_checklist(&checklist_path, &checklist).unwrap();
     let signoffs = append_friday_release_operator_signoff(
         &checklist_path,
@@ -1839,7 +1858,10 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     )
     .unwrap();
     assert_eq!(signoffs.len(), 1);
-    assert_eq!(signoffs[0].decision, FridayReleaseChecklistSignoffDecision::Approved);
+    assert_eq!(
+        signoffs[0].decision,
+        FridayReleaseChecklistSignoffDecision::Approved
+    );
     let checklist_after_signoff = friday_release_operator_checklist_report(
         &checklist_path,
         &package_path,
@@ -1856,9 +1878,14 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     let dashboard_smoke_result_path = root.join("dashboard-smoke.txt");
     fs::write(&cargo_check_result_path, "cargo check passed").unwrap();
     fs::write(&extension_typecheck_result_path, "typecheck passed").unwrap();
-    fs::write(&dashboard_smoke_result_path, "Friday dashboard UI smoke: 100/100").unwrap();
+    fs::write(
+        &dashboard_smoke_result_path,
+        "Friday dashboard UI smoke: 100/100",
+    )
+    .unwrap();
+    let qa_path = root.join("release-qa-command-center.json");
     let qa_report = friday_release_qa_command_center_report(
-        root.join("release-qa-command-center.json"),
+        &qa_path,
         &checklist_path,
         &package_path,
         &timeline_path,
@@ -1866,22 +1893,68 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
         &extension_typecheck_result_path,
         &dashboard_smoke_result_path,
     );
+    write_friday_release_qa_command_center_report(&qa_path, &qa_report).unwrap();
     assert_eq!(qa_report.product_name, "Friday");
     assert!(qa_report.score_out_of_100 > 0);
-    assert!(qa_report
-        .checks
-        .iter()
-        .any(|check| check.id == "rust-cargo-check"
-            && check.status == FridayReleaseQaCheckStatus::Passed));
-    assert!(qa_report
-        .checks
-        .iter()
-        .any(|check| check.id == "release-checklist"
-            && check.status == FridayReleaseQaCheckStatus::Failed));
-    assert!(qa_report
-        .commands
-        .iter()
-        .any(|command| command.contains("--friday-release-qa")));
+    assert!(
+        qa_report
+            .checks
+            .iter()
+            .any(|check| check.id == "rust-cargo-check"
+                && check.status == FridayReleaseQaCheckStatus::Passed)
+    );
+    assert!(
+        qa_report
+            .checks
+            .iter()
+            .any(|check| check.id == "release-checklist"
+                && check.status == FridayReleaseQaCheckStatus::Failed)
+    );
+    assert!(
+        qa_report
+            .commands
+            .iter()
+            .any(|command| command.contains("--friday-release-qa"))
+    );
+    let export_kit_path = root.join("release-evidence-export-kit.json");
+    let export_kit = friday_release_evidence_export_kit_report(
+        &export_kit_path,
+        &root,
+        &checklist_path,
+        &qa_path,
+        &package_path,
+        &timeline_path,
+        &signoff_path,
+        &cargo_check_result_path,
+        &extension_typecheck_result_path,
+        &dashboard_smoke_result_path,
+    );
+    assert_eq!(export_kit.manifest.product_name, "Friday");
+    assert_eq!(export_kit.manifest.file_count, 8);
+    assert_eq!(export_kit.manifest.missing_count, 0);
+    assert!(!export_kit.ready_to_attach);
+    assert_eq!(export_kit.signoff_count, 1);
+    assert!(
+        export_kit
+            .manifest
+            .files
+            .iter()
+            .any(|file| file.id == "release-qa" && file.sha256.is_some())
+    );
+    assert!(
+        export_kit
+            .operator_copy
+            .contains("Friday release evidence kit")
+    );
+    assert!(
+        export_kit
+            .manifest
+            .commands
+            .iter()
+            .any(|command| command.contains("--friday-release-export-kit"))
+    );
+    write_friday_release_evidence_export_kit(&export_kit_path, &export_kit).unwrap();
+    assert!(export_kit_path.exists());
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

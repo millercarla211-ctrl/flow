@@ -2,6 +2,7 @@ import { requestQuickContext, replaceSelection, toggleOverlay } from "../runtime
 import {
   buildTrustedHostRunnerCancellationUx,
   dispatchDashboardCommand,
+  normalizeReleaseEvidenceExportKit,
   normalizeReleaseOperatorChecklist,
   normalizeReleaseQaCommandCenter,
   normalizeDashboardHostCommandResults,
@@ -26,6 +27,7 @@ import {
   type FlowDashboardRunnerReleaseTimeline,
   type FlowDashboardRunnerUxReport,
   type FlowDashboardCommandStatus,
+  type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseOperatorChecklistReport,
   type FlowReleaseQaCommandCenterReport,
 } from "../runtime/dashboard-actions";
@@ -73,6 +75,7 @@ type UiState = {
   dashboardReleaseChecklist: FlowReleaseOperatorChecklistReport | null;
   dashboardReleaseChecklistReason: string;
   dashboardReleaseQa: FlowReleaseQaCommandCenterReport | null;
+  dashboardReleaseExportKit: FlowReleaseEvidenceExportKitReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -1511,6 +1514,69 @@ function renderReleaseQa(qa: FlowReleaseQaCommandCenterReport | null) {
   `;
 }
 
+function renderReleaseExportKit(kit: FlowReleaseEvidenceExportKitReport | null) {
+  if (!kit) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-release-export-kit">
+      <div class="card-topline">
+        <span class="eyebrow">Release evidence export kit</span>
+        <span class="badge ${badgeTone(kit.status)}">${escapeHtml(kit.status)}</span>
+      </div>
+      <p>${escapeHtml(kit.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${kit.manifest.fileCount}</strong><small>files</small></span>
+        <span><strong>${kit.manifest.missingCount}</strong><small>missing</small></span>
+        <span><strong>${kit.manifest.staleCount}</strong><small>stale</small></span>
+        <span><strong>${kit.signoffCount}</strong><small>signoffs</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Kit</strong> ${escapeHtml(kit.manifest.kitJson)}</span>
+        <span><strong>Checksum</strong> ${escapeHtml(kit.manifest.manifestSha256.slice(0, 16))}</span>
+        <span><strong>QA</strong> ${kit.qaScoreOutOf100 ?? 0}/100</span>
+      </div>
+      ${
+        kit.warnings.length
+          ? `<div class="note-list">${kit.warnings
+              .slice(0, 4)
+              .map((warning) => `<span>${escapeHtml(warning)}</span>`)
+              .join("")}</div>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${kit.manifest.files
+          .map(
+            (file) => `
+              <div class="runner-package-file ${
+                file.present && !file.stale ? "present" : "missing"
+              }">
+                <strong>${escapeHtml(file.label)}</strong>
+                <small>${file.present ? "present" : "missing"} - ${file.bytes} bytes</small>
+                <code>${escapeHtml(file.path)}</code>
+                <span>${escapeHtml(
+                  file.sha256
+                    ? `sha256 ${file.sha256.slice(0, 16)}`
+                    : (file.warning ?? "No checksum"),
+                )}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-export-kit-copy">
+          Copy export note
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-export-kit-command">
+          Copy kit command
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -1720,6 +1786,7 @@ function renderDashboard(state: UiState) {
         state.dashboardReleaseChecklistReason,
       )}
       ${renderReleaseQa(state.dashboardReleaseQa)}
+      ${renderReleaseExportKit(state.dashboardReleaseExportKit)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1848,6 +1915,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseChecklist: null,
     dashboardReleaseChecklistReason: "",
     dashboardReleaseQa: null,
+    dashboardReleaseExportKit: null,
   };
 
   function render() {
@@ -2146,6 +2214,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseTimeline = normalizeTrustedRunnerReleaseTimeline(parsed);
       const releaseChecklist = normalizeReleaseOperatorChecklist(parsed);
       const releaseQa = normalizeReleaseQaCommandCenter(parsed);
+      const releaseExportKit = normalizeReleaseEvidenceExportKit(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2163,8 +2232,12 @@ export async function mountFlowApp(surfaceInput: string) {
       state.dashboardReleaseChecklist =
         releaseChecklist ?? state.dashboardReleaseChecklist;
       state.dashboardReleaseQa = releaseQa ?? state.dashboardReleaseQa;
+      state.dashboardReleaseExportKit =
+        releaseExportKit ?? state.dashboardReleaseExportKit;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseQa
+      state.status = releaseExportKit
+        ? `Imported release evidence export kit with ${releaseExportKit.manifest.fileCount} file(s) from ${file.name}.`
+        : releaseQa
         ? `Imported release QA command center at ${releaseQa.scoreOutOf100}/100 from ${file.name}.`
         : releaseChecklist
         ? `Imported release checklist with ${releaseChecklist.blockingCount} blocking issue(s) from ${file.name}.`
@@ -2395,6 +2468,37 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseExportKitNote() {
+    const kit = state.dashboardReleaseExportKit;
+    if (!kit) {
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(kit.operatorCopy);
+      state.status = "Release evidence export note copied.";
+    } catch {
+      state.status = kit.operatorCopy;
+    }
+    render();
+  }
+
+  async function copyReleaseExportKitCommand() {
+    const commands = state.dashboardReleaseExportKit?.manifest.commands ?? [];
+    const command = commands[commands.length - 1];
+    if (!command) {
+      state.status = "No release evidence export command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release evidence export command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -2539,6 +2643,18 @@ export async function mountFlowApp(surfaceInput: string) {
             void copyReleaseQaCommand(checkId);
           }
         });
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-export-kit-copy']")
+      ?.addEventListener("click", () => {
+        void copyReleaseExportKitNote();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-export-kit-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseExportKitCommand();
       });
 
     mountRoot

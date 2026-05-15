@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-qa-report",
-            "Typed release QA command-center report",
+            "release-export-kit-model",
+            "Typed release evidence export-kit model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseQaCommandCenterReport` consumes checklist, release package, evidence timeline, Rust check result, extension typecheck result, and dashboard smoke result paths",
-            "open the next release evidence export kit set",
+            "`FridayReleaseEvidenceExportKitReport` bundles checklist, QA, package, timeline, signoffs, and lightweight check-result files with manifest checksums",
+            "open the next release deployment gate set",
         ),
         item(
-            "release-qa-command-descriptors",
-            "Local-only QA command descriptors",
+            "release-export-kit-cli",
+            "Release export-kit CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "the QA report lists copyable lightweight commands for cargo check, extension typecheck, dashboard smoke, and QA report regeneration without running expensive builds silently",
-            "open the next release evidence export kit set",
+            "`flow --friday-release-export-kit` writes the local kit and `--friday-release-export-kit-json` previews it without running host commands or full builds",
+            "open the next release deployment gate set",
         ),
         item(
-            "release-qa-cli",
-            "Release QA CLI and JSON commands",
+            "release-export-kit-dashboard",
+            "Dashboard export-kit rendering",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-qa` writes the command-center JSON and `--friday-release-qa-json` previews the same report",
-            "open the next release evidence export kit set",
+            "the visible dashboard imports export-kit JSON, renders completeness metrics, stale/missing evidence, and checksum details",
+            "open the next release deployment gate set",
         ),
         item(
-            "release-qa-dashboard",
-            "Dashboard QA rendering",
+            "release-export-kit-operator-copy",
+            "Operator attachment copy",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports release QA JSON, renders pass/fail/stale check cards, and copies each lightweight command",
-            "open the next release evidence export kit set",
+            "export-kit reports include copyable checkpoint text with kit path, readiness, manifest checksum, file counts, and attach guidance",
+            "open the next release deployment gate set",
         ),
         item(
-            "release-qa-tests",
-            "QA report coverage",
+            "release-export-kit-coverage",
+            "Export-kit Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage and dashboard smoke checks verify QA scoring, check-result presence, stale warnings, command copy, and UI normalization",
-            "open the next release evidence export kit set",
+            "focused Rust integration coverage and dashboard smoke checks verify kit completeness, checksum copy, stale warnings, CLI wiring, and UI normalization",
+            "open the next release deployment gate set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release QA Command Center".to_string(),
+        name: "Friday Release Evidence Export Kit".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Provide a single local-first QA command center that runs or imports lightweight checks, summarizes release risk, and tells the operator exactly what must pass before a major Friday checkpoint.".to_string(),
+        loop_rule: "Bundle the release checklist, QA command center, package, timeline, signoffs, and lightweight check outputs into one local-only review kit with manifests, checksums, and dashboard import guidance.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_qa_command_center_loop() {
+    fn active_set_tracks_friday_release_evidence_export_kit_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release QA Command Center");
+        assert_eq!(set.name, "Friday Release Evidence Export Kit");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

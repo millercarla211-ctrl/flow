@@ -162,12 +162,14 @@ pub fn friday_release_operator_checklist_report(
             }
             for warning in &package.warnings {
                 let lower = warning.to_ascii_lowercase();
-                let severity =
-                    if lower.contains("stale") || lower.contains("pending") || lower.contains("running") {
-                        FridayReleaseChecklistBlockerSeverity::Blocking
-                    } else {
-                        FridayReleaseChecklistBlockerSeverity::Warning
-                    };
+                let severity = if lower.contains("stale")
+                    || lower.contains("pending")
+                    || lower.contains("running")
+                {
+                    FridayReleaseChecklistBlockerSeverity::Blocking
+                } else {
+                    FridayReleaseChecklistBlockerSeverity::Warning
+                };
                 blockers.push(blocker(
                     "release-package-warning",
                     if severity == FridayReleaseChecklistBlockerSeverity::Blocking {
@@ -277,7 +279,10 @@ pub fn friday_release_operator_checklist_report(
                 "dashboard-release-review",
                 "Dashboard release review",
                 ready,
-                format!("{}/{} release-review item(s) ready.", review.ready_count, review.total_count),
+                format!(
+                    "{}/{} release-review item(s) ready.",
+                    review.ready_count, review.total_count
+                ),
                 &path_string(&dashboard_export_dir.join("release-review.json")),
             ));
             if review.status == FridayDashboardPanelStatus::Blocked {
@@ -323,7 +328,8 @@ pub fn friday_release_operator_checklist_report(
     }
 
     let completion = active_completion_set();
-    let completion_ready = completion.current_score_out_of_100 == completion.target_score_out_of_100
+    let completion_ready = completion.current_score_out_of_100
+        == completion.target_score_out_of_100
         && completion
             .items
             .iter()
@@ -334,7 +340,9 @@ pub fn friday_release_operator_checklist_report(
         completion_ready,
         format!(
             "{} is {} / {}.",
-            completion.name, completion.current_score_out_of_100, completion.target_score_out_of_100
+            completion.name,
+            completion.current_score_out_of_100,
+            completion.target_score_out_of_100
         ),
         "TODO.md",
     ));
@@ -346,14 +354,21 @@ pub fn friday_release_operator_checklist_report(
             "Active TODO loop is not complete",
             format!(
                 "{} is still at {} / {}.",
-                completion.name, completion.current_score_out_of_100, completion.target_score_out_of_100
+                completion.name,
+                completion.current_score_out_of_100,
+                completion.target_score_out_of_100
             ),
             "TODO.md",
             "Complete the current TODO loop or explicitly keep the release as a draft.",
         ));
     }
 
-    checklist.push(file_item("todo-file", "TODO.md release plan", todo_path, &mut blockers));
+    checklist.push(file_item(
+        "todo-file",
+        "TODO.md release plan",
+        todo_path,
+        &mut blockers,
+    ));
     checklist.push(file_item(
         "changelog-file",
         "CHANGELOG.md release notes",
@@ -580,7 +595,13 @@ fn file_item(
                 &path_string(path),
                 "Update this file before signoff.",
             ));
-            item(id, title, false, "File exists but is empty.", &path_string(path))
+            item(
+                id,
+                title,
+                false,
+                "File exists but is empty.",
+                &path_string(path),
+            )
         }
         Err(_) => {
             blockers.push(blocker(

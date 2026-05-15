@@ -136,12 +136,12 @@ pub fn friday_trusted_runner_release_package_report(
     let generated_at_unix_ms = unix_ms();
 
     let history = read_friday_trusted_host_runner_history(history_path).ok();
-    let operator_review = history
-        .as_ref()
-        .map(|history| friday_trusted_host_runner_operator_review_report(
+    let operator_review = history.as_ref().map(|history| {
+        friday_trusted_host_runner_operator_review_report(
             history,
             FridayTrustedHostRunnerOperatorReviewFilter::default(),
-        ));
+        )
+    });
     let live_state = read_friday_trusted_host_live_runner_state(live_state_path).ok();
     let cancellation_ux = live_state
         .as_ref()
@@ -212,7 +212,8 @@ pub fn friday_trusted_runner_release_package_report(
             ));
         }
     } else {
-        warnings.push("Trusted runner history could not be read for release packaging.".to_string());
+        warnings
+            .push("Trusted runner history could not be read for release packaging.".to_string());
     }
     if let Some(live_state) = &live_state {
         if live_state.stale_count > 0 {
@@ -231,7 +232,10 @@ pub fn friday_trusted_runner_release_package_report(
         warnings.push("Friday release-review JSON is missing from the package.".to_string());
     }
 
-    let missing_count = files.iter().filter(|file| file.required && !file.present).count();
+    let missing_count = files
+        .iter()
+        .filter(|file| file.required && !file.present)
+        .count();
     let warning_count = warnings.len();
     let package_signature = package_signature(&files, &warnings);
     let ready_to_ship = missing_count == 0 && warning_count == 0;
@@ -478,7 +482,8 @@ fn build_friday_trusted_runner_release_timeline(
     let signature_changes = diffs.iter().filter(|diff| diff.signature_changed).count();
 
     if latest.is_none() {
-        warnings.push("No trusted runner release packages are available in this timeline.".to_string());
+        warnings
+            .push("No trusted runner release packages are available in this timeline.".to_string());
     }
     if missing_evidence_regressions > 0 {
         warnings.push(format!(
@@ -633,7 +638,10 @@ fn evidence_virtual(
     }
 }
 
-fn package_signature(files: &[FridayTrustedRunnerReleaseEvidenceFile], warnings: &[String]) -> String {
+fn package_signature(
+    files: &[FridayTrustedRunnerReleaseEvidenceFile],
+    warnings: &[String],
+) -> String {
     let mut input = files
         .iter()
         .map(|file| {

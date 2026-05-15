@@ -412,6 +412,51 @@ export interface FlowReleaseQaCommandCenterReport {
   commands: string[];
 }
 
+export interface FlowReleaseEvidenceExportKitFile {
+  id: string;
+  label: string;
+  kind: string;
+  path: string;
+  required: boolean;
+  present: boolean;
+  stale: boolean;
+  bytes: number;
+  sha256: string | null;
+  warning: string | null;
+}
+
+export interface FlowReleaseEvidenceExportKitManifest {
+  kitId: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  kitJson: string;
+  exportDir: string;
+  fileCount: number;
+  requiredCount: number;
+  missingCount: number;
+  staleCount: number;
+  warningCount: number;
+  manifestSha256: string;
+  commands: string[];
+  files: FlowReleaseEvidenceExportKitFile[];
+}
+
+export interface FlowReleaseEvidenceExportKitReport {
+  summary: string;
+  readyToAttach: boolean;
+  status: FlowDashboardPanelStatus;
+  checklistReady: boolean | null;
+  qaScoreOutOf100: number | null;
+  qaReadyToShip: boolean | null;
+  packageReadyToShip: boolean | null;
+  timelinePackageCount: number | null;
+  signoffCount: number;
+  warnings: string[];
+  operatorCopy: string;
+  manifest: FlowReleaseEvidenceExportKitManifest;
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -1544,6 +1589,104 @@ export function normalizeReleaseQaCommandCenter(
   };
 }
 
+export function normalizeReleaseEvidenceExportKit(
+  value: unknown,
+): FlowReleaseEvidenceExportKitReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const report =
+    root.release_export_kit && typeof root.release_export_kit === "object"
+      ? (root.release_export_kit as Record<string, unknown>)
+      : root.releaseExportKit && typeof root.releaseExportKit === "object"
+        ? (root.releaseExportKit as Record<string, unknown>)
+        : root;
+  const manifestRecord =
+    report.manifest && typeof report.manifest === "object"
+      ? (report.manifest as Record<string, unknown>)
+      : null;
+  if (!manifestRecord) {
+    return null;
+  }
+
+  const files = arrayValue(manifestRecord.files)
+    .map((item): FlowReleaseEvidenceExportKitFile | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const file = item as Record<string, unknown>;
+      const id = stringValue(file.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        label: stringValue(file.label) || id,
+        kind: stringValue(file.kind),
+        path: stringValue(file.path),
+        required: booleanValue(file.required),
+        present: booleanValue(file.present),
+        stale: booleanValue(file.stale),
+        bytes: numberValue(file.bytes),
+        sha256: stringValue(file.sha256) || null,
+        warning: stringValue(file.warning) || null,
+      };
+    })
+    .filter((item): item is FlowReleaseEvidenceExportKitFile => item !== null);
+
+  if (files.length === 0) {
+    return null;
+  }
+
+  return {
+    summary: stringValue(report.summary),
+    readyToAttach: booleanValue(report.ready_to_attach, report.readyToAttach),
+    status: panelStatus(stringValue(report.status)),
+    checklistReady: nullableBoolean(report.checklist_ready, report.checklistReady),
+    qaScoreOutOf100: nullableNumber(report.qa_score_out_of_100, report.qaScoreOutOf100),
+    qaReadyToShip: nullableBoolean(report.qa_ready_to_ship, report.qaReadyToShip),
+    packageReadyToShip: nullableBoolean(
+      report.package_ready_to_ship,
+      report.packageReadyToShip,
+    ),
+    timelinePackageCount: nullableNumber(
+      report.timeline_package_count,
+      report.timelinePackageCount,
+    ),
+    signoffCount: numberValue(report.signoff_count, report.signoffCount),
+    warnings: arrayValue(report.warnings)
+      .map((warning) => stringValue(warning))
+      .filter(Boolean),
+    operatorCopy: stringValue(report.operator_copy, report.operatorCopy),
+    manifest: {
+      kitId: stringValue(manifestRecord.kit_id, manifestRecord.kitId),
+      generatedAtUnixMs: stringValue(
+        manifestRecord.generated_at_unix_ms,
+        manifestRecord.generatedAtUnixMs,
+      ),
+      productName: stringValue(manifestRecord.product_name, manifestRecord.productName),
+      localOnly: booleanValue(manifestRecord.local_only, manifestRecord.localOnly),
+      kitJson: stringValue(manifestRecord.kit_json, manifestRecord.kitJson),
+      exportDir: stringValue(manifestRecord.export_dir, manifestRecord.exportDir),
+      fileCount: numberValue(manifestRecord.file_count, manifestRecord.fileCount),
+      requiredCount: numberValue(manifestRecord.required_count, manifestRecord.requiredCount),
+      missingCount: numberValue(manifestRecord.missing_count, manifestRecord.missingCount),
+      staleCount: numberValue(manifestRecord.stale_count, manifestRecord.staleCount),
+      warningCount: numberValue(manifestRecord.warning_count, manifestRecord.warningCount),
+      manifestSha256: stringValue(
+        manifestRecord.manifest_sha256,
+        manifestRecord.manifestSha256,
+      ),
+      commands: arrayValue(manifestRecord.commands)
+        .map((command) => stringValue(command))
+        .filter(Boolean),
+      files,
+    },
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -1594,6 +1737,21 @@ function numberValue(...values: unknown[]) {
   return 0;
 }
 
+function nullableNumber(...values: unknown[]): number | null {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return null;
+}
+
 function booleanValue(...values: unknown[]) {
   for (const value of values) {
     if (typeof value === "boolean") {
@@ -1609,6 +1767,23 @@ function booleanValue(...values: unknown[]) {
     }
   }
   return false;
+}
+
+function nullableBoolean(...values: unknown[]): boolean | null {
+  for (const value of values) {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (typeof value === "string") {
+      if (value === "true") {
+        return true;
+      }
+      if (value === "false") {
+        return false;
+      }
+    }
+  }
+  return null;
 }
 
 function arrayValue(...values: unknown[]) {
