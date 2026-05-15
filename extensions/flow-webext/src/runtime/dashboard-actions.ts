@@ -1925,6 +1925,69 @@ export interface FlowReleaseHandoffCompletionLedger {
   commands: string[];
 }
 
+export type FlowReleasePublicationState =
+  | "draft"
+  | "ready"
+  | "held"
+  | "blocked"
+  | "published-manually"
+  | "revoked"
+  | "superseded";
+
+export type FlowReleasePublicationBlockerKind =
+  | "missing-completion-ledger"
+  | "blocked-completion"
+  | "unapproved-completion"
+  | "draft-completion"
+  | "revoked-completion"
+  | "superseded-completion"
+  | "unresolved-blocker"
+  | "manual-reference-missing";
+
+export interface FlowReleasePublicationBlocker {
+  id: string;
+  kind: FlowReleasePublicationBlockerKind;
+  releaseGateBlocking: boolean;
+  completionId: string;
+  evidencePath: string;
+  summary: string;
+  nextAction: string;
+}
+
+export interface FlowReleasePublicationControl {
+  controlId: string;
+  controlJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  state: FlowReleasePublicationState;
+  readyToPublish: boolean;
+  scoreOutOf100: number;
+  ledgerId: string;
+  ledgerJson: string;
+  activeCompletionId: string | null;
+  latestCompletionId: string | null;
+  latestCompletionState: FlowReleaseHandoffCompletionState | null;
+  latestGovernanceReviewId: string | null;
+  completionRecordCount: number;
+  approvedOutcomeCount: number;
+  blockedOutcomeCount: number;
+  publicationBlockerCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  operator: string;
+  publicationNote: string;
+  manualPublicationReference: string | null;
+  blockers: FlowReleasePublicationBlocker[];
+  releaseNotesCopy: string;
+  deploymentNoteCopy: string;
+  announcementCopy: string;
+  externalSendInstructionsCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -5909,6 +5972,124 @@ export function normalizeReleaseHandoffCompletionLedger(
   };
 }
 
+export function normalizeReleasePublicationControl(
+  value: unknown,
+): FlowReleasePublicationControl | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const root = value as Record<string, unknown>;
+  const control =
+    root.control_id || root.controlId || root.blockers
+      ? root
+      : root.release_publication_control &&
+          typeof root.release_publication_control === "object"
+        ? (root.release_publication_control as Record<string, unknown>)
+        : root.releasePublicationControl &&
+            typeof root.releasePublicationControl === "object"
+          ? (root.releasePublicationControl as Record<string, unknown>)
+          : root;
+  const blockers = arrayValue(control.blockers)
+    .map((item): FlowReleasePublicationBlocker | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const blocker = item as Record<string, unknown>;
+      const id = stringValue(blocker.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        kind: releasePublicationBlockerKind(stringValue(blocker.kind)),
+        releaseGateBlocking: booleanValue(
+          blocker.release_gate_blocking,
+          blocker.releaseGateBlocking,
+        ),
+        completionId: stringValue(blocker.completion_id, blocker.completionId),
+        evidencePath: stringValue(blocker.evidence_path, blocker.evidencePath),
+        summary: stringValue(blocker.summary),
+        nextAction: stringValue(blocker.next_action, blocker.nextAction),
+      };
+    })
+    .filter((blocker): blocker is FlowReleasePublicationBlocker => blocker !== null);
+  const controlId = stringValue(control.control_id, control.controlId);
+
+  if (!controlId && blockers.length === 0) {
+    return null;
+  }
+
+  return {
+    controlId,
+    controlJson: stringValue(control.control_json, control.controlJson),
+    generatedAtUnixMs: stringValue(control.generated_at_unix_ms, control.generatedAtUnixMs),
+    productName: stringValue(control.product_name, control.productName),
+    localOnly: booleanValue(control.local_only, control.localOnly),
+    status: panelStatus(stringValue(control.status)),
+    state: releasePublicationState(stringValue(control.state)),
+    readyToPublish: booleanValue(control.ready_to_publish, control.readyToPublish),
+    scoreOutOf100: numberValue(control.score_out_of_100, control.scoreOutOf100),
+    ledgerId: stringValue(control.ledger_id, control.ledgerId),
+    ledgerJson: stringValue(control.ledger_json, control.ledgerJson),
+    activeCompletionId:
+      stringValue(control.active_completion_id, control.activeCompletionId) || null,
+    latestCompletionId:
+      stringValue(control.latest_completion_id, control.latestCompletionId) || null,
+    latestCompletionState:
+      control.latest_completion_state || control.latestCompletionState
+        ? releaseHandoffCompletionState(
+            stringValue(control.latest_completion_state, control.latestCompletionState),
+          )
+        : null,
+    latestGovernanceReviewId:
+      stringValue(control.latest_governance_review_id, control.latestGovernanceReviewId) ||
+      null,
+    completionRecordCount: numberValue(
+      control.completion_record_count,
+      control.completionRecordCount,
+    ),
+    approvedOutcomeCount: numberValue(
+      control.approved_outcome_count,
+      control.approvedOutcomeCount,
+    ),
+    blockedOutcomeCount: numberValue(
+      control.blocked_outcome_count,
+      control.blockedOutcomeCount,
+    ),
+    publicationBlockerCount: numberValue(
+      control.publication_blocker_count,
+      control.publicationBlockerCount,
+    ),
+    releaseGateBlockingCount: numberValue(
+      control.release_gate_blocking_count,
+      control.releaseGateBlockingCount,
+    ),
+    unresolvedBlockerCount: numberValue(
+      control.unresolved_blocker_count,
+      control.unresolvedBlockerCount,
+    ),
+    operator: stringValue(control.operator),
+    publicationNote: stringValue(control.publication_note, control.publicationNote),
+    manualPublicationReference:
+      stringValue(
+        control.manual_publication_reference,
+        control.manualPublicationReference,
+      ) || null,
+    blockers,
+    releaseNotesCopy: stringValue(control.release_notes_copy, control.releaseNotesCopy),
+    deploymentNoteCopy: stringValue(control.deployment_note_copy, control.deploymentNoteCopy),
+    announcementCopy: stringValue(control.announcement_copy, control.announcementCopy),
+    externalSendInstructionsCopy: stringValue(
+      control.external_send_instructions_copy,
+      control.externalSendInstructionsCopy,
+    ),
+    summary: stringValue(control.summary),
+    commands: arrayValue(control.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -6495,6 +6676,37 @@ function releaseHandoffCompletionState(value: string): FlowReleaseHandoffComplet
     return value;
   }
   return "draft";
+}
+
+function releasePublicationState(value: string): FlowReleasePublicationState {
+  if (
+    value === "draft" ||
+    value === "ready" ||
+    value === "held" ||
+    value === "blocked" ||
+    value === "published-manually" ||
+    value === "revoked" ||
+    value === "superseded"
+  ) {
+    return value;
+  }
+  return "draft";
+}
+
+function releasePublicationBlockerKind(value: string): FlowReleasePublicationBlockerKind {
+  if (
+    value === "missing-completion-ledger" ||
+    value === "blocked-completion" ||
+    value === "unapproved-completion" ||
+    value === "draft-completion" ||
+    value === "revoked-completion" ||
+    value === "superseded-completion" ||
+    value === "unresolved-blocker" ||
+    value === "manual-reference-missing"
+  ) {
+    return value;
+  }
+  return "missing-completion-ledger";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

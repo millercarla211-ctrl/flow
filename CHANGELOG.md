@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Publication Control at 100/100 with typed local-only publication controls, draft/ready/held/blocked/published-manually/revoked/superseded states, CLI/JSON commands, release notes/deployment notes/announcement/send-instruction copy, dashboard import/rendering, blocker-safe readiness, and focused Rust/TypeScript coverage
+- opened Friday Release Outbound Review as the next set for final operator review of copied release notes, deployment notes, announcements, and manual-publication references without external mutation
 - completed Friday Release Handoff Completion Ledger at 100/100 with typed local-only completion ledgers, draft/completed/manually-sent/held/revoked/superseded/blocked states, append/list/export/JSON commands, blocked-governance safety downgrades, dashboard import/rendering, copyable completion summaries, and focused Rust/TypeScript coverage
 - opened Friday Release Publication Control as the next set for preparing release notes, deployment notes, announcements, and external-send instructions without publishing or mutating external systems
 - completed Friday Release Handoff Dispatch Governance at 100/100 with typed local-only dispatch governance reviews, approved/held/needs-final-decision/stale-checklist/revoked-active-decision/blocked-carryover states, non-sending CLI/JSON commands, dashboard import/rendering, copyable governance notes, and focused Rust/TypeScript coverage

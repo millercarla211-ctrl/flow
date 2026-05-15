@@ -899,16 +899,34 @@ Goal: preserve governed handoff completion outcomes so Friday can show which ext
 
 This set is complete. The next loop should open `Friday Release Publication Control` and keep final release notes, deployment notes, public announcements, and external send instructions local-only until an operator explicitly marks them ready.
 
-## Next Set: Friday Release Publication Control
+## Completed Set: Friday Release Publication Control
 
-Status: 0/100
+Status: 100/100
 
 Goal: turn completed handoff ledgers into local-only publication controls so Friday can prepare release notes, deployment notes, announcement copy, and external-send instructions without publishing, deploying, uploading, emailing, or mutating external systems.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed publication-control model that consumes completion ledgers and marks publish readiness.
+- [x] Add publication states for draft, ready, held, blocked, published-manually, revoked, and superseded.
+- [x] Add CLI/JSON commands that generate publication controls and local copy without performing external publication.
+- [x] Add dashboard import/rendering for latest completion, publication blockers, manual-publish wording, and copyable release notes.
+- [x] Add focused Rust/TypeScript coverage for publication readiness, blocked ledgers, manual-publish safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Outbound Review` and make final operator review explicit before any copied release note, deployment note, announcement, or external-send instruction can be treated as ready.
+
+## Next Set: Friday Release Outbound Review
+
+Status: 0/100
+
+Goal: add a final local review surface for publication controls so Friday can distinguish drafted copy, operator-reviewed copy, held copy, and manually published outcomes without sending, publishing, deploying, uploading, or emailing.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed publication-control model that consumes completion ledgers and marks publish readiness.
-- [ ] Add publication states for draft, ready, held, blocked, published-manually, revoked, and superseded.
-- [ ] Add CLI/JSON commands that generate publication controls and local copy without performing external publication.
-- [ ] Add dashboard import/rendering for latest completion, publication blockers, manual-publish wording, and copyable release notes.
-- [ ] Add focused Rust/TypeScript coverage for publication readiness, blocked ledgers, manual-publish safety, and dashboard rendering.
+- [ ] Add a typed outbound-review model that consumes publication controls and records final operator review decisions.
+- [ ] Add review states for draft, reviewed, changes-requested, held, blocked, manually-published, revoked, and superseded.
+- [ ] Add append/list/export/JSON commands for outbound reviews without performing external mutation.
+- [ ] Add dashboard import/rendering for review history, active publication control, copy safety, manual-publish references, and final operator notes.
+- [ ] Add focused Rust/TypeScript coverage for reviewed copy, blocked publication controls, manual-publish references, command safety, and dashboard rendering.

@@ -40,7 +40,8 @@ use flow::friday::{
     FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
     FridayReleaseOwnerFollowUpCompletionState, FridayReleasePreventionActionKind,
     FridayReleasePreventionFindingKind, FridayReleasePromotionDecision,
-    FridayReleasePromotionRecordRequest, FridayReleaseQaCheckStatus, FridayResearchWorkflow,
+    FridayReleasePromotionRecordRequest, FridayReleasePublicationRequest,
+    FridayReleasePublicationState, FridayReleaseQaCheckStatus, FridayResearchWorkflow,
     FridayRouteVisualStatus, FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor,
     FridayTrustedHostCommandRawOutput, FridayTrustedHostLiveRunnerRecord,
     FridayTrustedHostLiveRunnerStatus, FridayTrustedHostRunnerCancellationToken,
@@ -75,10 +76,10 @@ use flow::friday::{
     friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
     friday_release_operator_checklist_report, friday_release_owner_followup_board_report_at,
     friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
-    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
-    friday_release_rollback_drill_report, friday_release_stability_board_report,
-    friday_route_visual_report, friday_route_visual_report_for_root,
-    friday_trusted_host_live_runner_state_from_history,
+    friday_release_publication_control_report, friday_release_qa_command_center_report,
+    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
+    friday_release_stability_board_report, friday_route_visual_report,
+    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -98,10 +99,11 @@ use flow::friday::{
     write_friday_release_handoff_governance_review, write_friday_release_handoff_packet,
     write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
-    write_friday_release_prevention_plan_report, write_friday_release_qa_command_center_report,
-    write_friday_release_recovery_runbook_report, write_friday_release_rollback_drill_report,
-    write_friday_release_stability_board_report, write_friday_trusted_host_live_runner_state,
-    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
+    write_friday_release_prevention_plan_report, write_friday_release_publication_control,
+    write_friday_release_qa_command_center_report, write_friday_release_recovery_runbook_report,
+    write_friday_release_rollback_drill_report, write_friday_release_stability_board_report,
+    write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
+    write_friday_trusted_runner_release_timeline,
 };
 use flow::long_context::RlmBridge;
 use flow::prompt::DxSerializer;
@@ -3078,6 +3080,50 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
                     && command.contains("--ledger")
             })
     );
+    let release_publication_control_path = root.join("release-publication-control.json");
+    let release_publication_control = friday_release_publication_control_report(
+        &release_publication_control_path,
+        &release_handoff_completion_ledger_path,
+        FridayReleasePublicationRequest {
+            state: FridayReleasePublicationState::Ready,
+            operator: "release-operator".to_string(),
+            publication_note:
+                "Prepare release notes locally, but keep publication blocked until handoff is safe."
+                    .to_string(),
+            manual_publication_reference: None,
+        },
+    );
+    write_friday_release_publication_control(
+        &release_publication_control_path,
+        &release_publication_control,
+    )
+    .unwrap();
+    assert_eq!(
+        release_publication_control.state,
+        FridayReleasePublicationState::Blocked
+    );
+    assert!(!release_publication_control.ready_to_publish);
+    assert!(release_publication_control.score_out_of_100 < 100);
+    assert_eq!(release_publication_control.completion_record_count, 1);
+    assert!(release_publication_control.publication_blocker_count > 0);
+    assert!(release_publication_control.release_gate_blocking_count > 0);
+    assert!(release_publication_control.blockers.iter().any(|blocker| {
+        blocker.release_gate_blocking && blocker.next_action.contains("release notes")
+    }));
+    assert!(
+        release_publication_control
+            .release_notes_copy
+            .contains("No external publication by Friday: true")
+    );
+    assert!(
+        release_publication_control
+            .external_send_instructions_copy
+            .contains("Friday will not send, publish, deploy, upload, or email")
+    );
+    assert!(release_publication_control.commands.iter().any(|command| {
+        command.contains("--friday-release-publication-control")
+            && command.contains("--completion-ledger")
+    }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

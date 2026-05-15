@@ -27,6 +27,7 @@ import {
   normalizeReleasePostPromotionMonitor,
   normalizeReleasePreventionPlan,
   normalizeReleasePromotionLedger,
+  normalizeReleasePublicationControl,
   normalizeReleaseQaCommandCenter,
   normalizeReleaseRecoveryRunbook,
   normalizeReleaseRollbackDrill,
@@ -2847,6 +2848,88 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-handoff-completion-json --ledger tmp/friday-dashboard/release-handoff-completion-ledger.json --governance-review <release-handoff-dispatch-governance-review.json>",
     ],
   });
+  const releasePublicationControl = normalizeReleasePublicationControl({
+    control_id: "friday-release-publication-control-smoke",
+    control_json: "tmp/friday-dashboard/release-publication-control.json",
+    generated_at_unix_ms: 30,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    state: "blocked",
+    ready_to_publish: false,
+    score_out_of_100: 31,
+    ledger_id: "friday-release-handoff-completion-ledger-smoke",
+    ledger_json: "tmp/friday-dashboard/release-handoff-completion-ledger.json",
+    active_completion_id:
+      "friday-release-handoff-completion-friday-release-handoff-dispatch-governance-review-smoke-29",
+    latest_completion_id:
+      "friday-release-handoff-completion-friday-release-handoff-dispatch-governance-review-smoke-29",
+    latest_completion_state: "blocked",
+    latest_governance_review_id:
+      "friday-release-handoff-dispatch-governance-review-smoke",
+    completion_record_count: 1,
+    approved_outcome_count: 0,
+    blocked_outcome_count: 1,
+    publication_blocker_count: 3,
+    release_gate_blocking_count: 3,
+    unresolved_blocker_count: 3,
+    operator: "release-operator",
+    publication_note:
+      "Prepare release notes locally, but do not publish while completion is blocked.",
+    manual_publication_reference: "",
+    blockers: [
+      {
+        id: "active-completion-blocked",
+        kind: "blocked-completion",
+        release_gate_blocking: true,
+        completion_id:
+          "friday-release-handoff-completion-friday-release-handoff-dispatch-governance-review-smoke-29",
+        evidence_path:
+          "tmp/friday-dashboard/release-handoff-dispatch-governance-review.json",
+        summary: "The active handoff completion is blocked.",
+        next_action:
+          "Resolve completion blockers before preparing release notes or external-send copy.",
+      },
+      {
+        id: "active-completion-unapproved",
+        kind: "unapproved-completion",
+        release_gate_blocking: true,
+        completion_id:
+          "friday-release-handoff-completion-friday-release-handoff-dispatch-governance-review-smoke-29",
+        evidence_path:
+          "tmp/friday-dashboard/release-handoff-dispatch-governance-review.json",
+        summary:
+          "The active handoff completion was not approved for external handoff.",
+        next_action:
+          "Clear dispatch governance before release notes, deployment notes, or external-send instructions leave local review.",
+      },
+      {
+        id: "active-completion-unresolved-blockers",
+        kind: "unresolved-blocker",
+        release_gate_blocking: true,
+        completion_id:
+          "friday-release-handoff-completion-friday-release-handoff-dispatch-governance-review-smoke-29",
+        evidence_path:
+          "tmp/friday-dashboard/release-handoff-dispatch-governance-review.json",
+        summary: "The active completion still carries unresolved blockers.",
+        next_action: "Resolve blocker carryover and regenerate the completion ledger.",
+      },
+    ],
+    release_notes_copy:
+      "Friday release notes\nPublication state: blocked\nOperator: release-operator\nNo external publication by Friday: true\nPublication blockers:\n- [blocked-completion] The active handoff completion is blocked.",
+    deployment_note_copy:
+      "Friday deployment note\nState: blocked\nFriday did not deploy or mutate external systems.",
+    announcement_copy:
+      "Friday update\nStatus: blocked\n1 governed handoff record(s) reviewed.",
+    external_send_instructions_copy:
+      "Friday external-send instructions\nFriday will not send, publish, deploy, upload, or email this automatically.\nDo not manually publish until these blockers are resolved:\n- The active handoff completion is blocked.",
+    summary:
+      "Friday release publication control is blocked with score 31/100, 1 completion record(s), 0 approved outcome(s), 1 blocked outcome(s), and 3 publication blocker(s).",
+    commands: [
+      "flow --friday-release-publication-control --output tmp/friday-dashboard/release-publication-control.json --completion-ledger tmp/friday-dashboard/release-handoff-completion-ledger.json --state draft --operator <name>",
+      "flow --friday-release-publication-control-json --output tmp/friday-dashboard/release-publication-control.json --completion-ledger tmp/friday-dashboard/release-handoff-completion-ledger.json --state draft --operator <name>",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -3684,8 +3767,29 @@ export function dashboardSectionSmokeReport(
         ) &&
         releaseHandoffCompletionLedger.commands.some((command) =>
           command.includes("--friday-release-handoff-completion"),
-        ),
+      ),
       `${releaseHandoffCompletionLedger?.blockedOutcomeCount ?? 0} handoff completion blocked outcome(s)`,
+    ),
+    check(
+      "release-publication-control-importable",
+      releasePublicationControl?.state === "blocked" &&
+        !releasePublicationControl.readyToPublish &&
+        releasePublicationControl.releaseGateBlockingCount === 3,
+      `${releasePublicationControl?.publicationBlockerCount ?? 0} publication blocker(s)`,
+    ),
+    check(
+      "release-publication-control-copy",
+      releasePublicationControl !== null &&
+        releasePublicationControl.releaseNotesCopy.includes(
+          "No external publication by Friday",
+        ) &&
+        releasePublicationControl.externalSendInstructionsCopy.includes(
+          "Friday will not send, publish, deploy, upload, or email",
+        ) &&
+        releasePublicationControl.commands.some((command) =>
+          command.includes("--friday-release-publication-control"),
+        ),
+      `${releasePublicationControl?.scoreOutOf100 ?? 0}/100 publication control score`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

@@ -715,6 +715,24 @@ pub enum Command {
         ledger_file: String,
         output_file: String,
     },
+    /// Write a Friday release publication control report
+    FridayReleasePublicationControl {
+        control_file: String,
+        completion_ledger_file: String,
+        state: String,
+        operator: String,
+        publication_note: String,
+        manual_publication_reference: Option<String>,
+    },
+    /// Print a Friday release publication control report as JSON
+    FridayReleasePublicationControlJson {
+        control_file: String,
+        completion_ledger_file: String,
+        state: String,
+        operator: String,
+        publication_note: String,
+        manual_publication_reference: Option<String>,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -2342,6 +2360,42 @@ impl Args {
                     output_file,
                 }
             }
+            "--friday-release-publication-control" | "--friday-publication-control" => {
+                let (
+                    control_file,
+                    completion_ledger_file,
+                    state,
+                    operator,
+                    publication_note,
+                    manual_publication_reference,
+                ) = parse_friday_release_publication_control_args(&args);
+                Command::FridayReleasePublicationControl {
+                    control_file,
+                    completion_ledger_file,
+                    state,
+                    operator,
+                    publication_note,
+                    manual_publication_reference,
+                }
+            }
+            "--friday-release-publication-control-json" | "--friday-publication-control-json" => {
+                let (
+                    control_file,
+                    completion_ledger_file,
+                    state,
+                    operator,
+                    publication_note,
+                    manual_publication_reference,
+                ) = parse_friday_release_publication_control_args(&args);
+                Command::FridayReleasePublicationControlJson {
+                    control_file,
+                    completion_ledger_file,
+                    state,
+                    operator,
+                    publication_note,
+                    manual_publication_reference,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -3912,6 +3966,41 @@ fn parse_friday_release_handoff_completion_ledger_file_arg(args: &[String]) -> S
     flag_value(args, "--ledger")
         .or_else(|| flag_value(args, "--input"))
         .unwrap_or_else(|| format!("{export_dir}/release-handoff-completion-ledger.json"))
+}
+
+fn parse_friday_release_publication_control_args(
+    args: &[String],
+) -> (String, String, String, String, String, Option<String>) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let control_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--control"))
+        .unwrap_or_else(|| format!("{export_dir}/release-publication-control.json"));
+    let completion_ledger_file = flag_value(args, "--completion-ledger")
+        .or_else(|| flag_value(args, "--ledger"))
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-handoff-completion-ledger.json"));
+    let state = flag_value(args, "--state").unwrap_or_else(|| "draft".to_string());
+    let operator = flag_value(args, "--operator").unwrap_or_else(|| "operator".to_string());
+    let publication_note = flag_value(args, "--publication-note")
+        .or_else(|| flag_value(args, "--note"))
+        .unwrap_or_else(|| "Prepared local-only publication control.".to_string());
+    let manual_publication_reference = flag_value(args, "--manual-publication-reference")
+        .or_else(|| flag_value(args, "--reference"))
+        .filter(|value| !value.trim().is_empty());
+
+    (
+        control_file,
+        completion_ledger_file,
+        state,
+        operator,
+        publication_note,
+        manual_publication_reference,
+    )
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

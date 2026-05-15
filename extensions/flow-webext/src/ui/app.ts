@@ -24,6 +24,7 @@ import {
   normalizeReleasePostPromotionMonitor,
   normalizeReleasePreventionPlan,
   normalizeReleasePromotionLedger,
+  normalizeReleasePublicationControl,
   normalizeReleaseQaCommandCenter,
   normalizeReleaseRecoveryRunbook,
   normalizeReleaseRollbackDrill,
@@ -72,6 +73,7 @@ import {
   type FlowReleasePostPromotionMonitorReport,
   type FlowReleasePreventionPlanReport,
   type FlowReleasePromotionLedger,
+  type FlowReleasePublicationControl,
   type FlowReleaseQaCommandCenterReport,
   type FlowReleaseRecoveryRunbookReport,
   type FlowReleaseRollbackDrillReport,
@@ -145,6 +147,7 @@ type UiState = {
   dashboardReleaseHandoffDispatchAuditTrail: FlowReleaseHandoffDispatchAuditTrail | null;
   dashboardReleaseHandoffDispatchGovernanceReview: FlowReleaseHandoffDispatchGovernanceReview | null;
   dashboardReleaseHandoffCompletionLedger: FlowReleaseHandoffCompletionLedger | null;
+  dashboardReleasePublicationControl: FlowReleasePublicationControl | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -3163,6 +3166,65 @@ function renderReleaseHandoffCompletionLedger(
   `;
 }
 
+function renderReleasePublicationControl(control: FlowReleasePublicationControl | null) {
+  if (!control) {
+    return "";
+  }
+  return `
+    <article class="feature-card dashboard-release-publication-control">
+      <div class="card-topline">
+        <span class="eyebrow">Release publication control</span>
+        <span class="badge ${badgeTone(control.status)}">${escapeHtml(control.state)}</span>
+      </div>
+      <h3>Local-only publication copy</h3>
+      <p>${escapeHtml(control.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${control.scoreOutOf100}</strong><small>score</small></span>
+        <span><strong>${control.publicationBlockerCount}</strong><small>blockers</small></span>
+        <span><strong>${control.approvedOutcomeCount}</strong><small>approved</small></span>
+        <span><strong>${control.blockedOutcomeCount}</strong><small>blocked</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Ready</strong> ${control.readyToPublish ? "yes" : "no"}</span>
+        <span><strong>Active completion</strong> ${escapeHtml(control.activeCompletionId ?? "none")}</span>
+        <span><strong>Latest governance</strong> ${escapeHtml(control.latestGovernanceReviewId ?? "none")}</span>
+        <span><strong>Control</strong> ${escapeHtml(control.controlJson)}</span>
+      </div>
+      ${
+        control.releaseGateBlockingCount > 0
+          ? `<p class="soft-warning">${control.releaseGateBlockingCount} publication blocker(s) prevent release notes or external-send instructions from leaving local review.</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${control.blockers
+          .slice(0, 8)
+          .map(
+            (blocker) => `
+              <div class="runner-package-file ${blocker.releaseGateBlocking ? "missing" : "present"}">
+                <strong>${escapeHtml(blocker.summary)}</strong>
+                <small>${escapeHtml(blocker.kind)}</small>
+                <code>${escapeHtml(blocker.evidencePath || "inline")}</code>
+                <span>${escapeHtml(blocker.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-publication-command">
+          Copy publication command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-publication-notes">
+          Copy release notes
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-publication-send">
+          Copy send instructions
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -3396,6 +3458,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseHandoffDispatchAuditTrail(state.dashboardReleaseHandoffDispatchAuditTrail)}
       ${renderReleaseHandoffDispatchGovernanceReview(state.dashboardReleaseHandoffDispatchGovernanceReview)}
       ${renderReleaseHandoffCompletionLedger(state.dashboardReleaseHandoffCompletionLedger)}
+      ${renderReleasePublicationControl(state.dashboardReleasePublicationControl)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3548,6 +3611,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseHandoffDispatchAuditTrail: null,
     dashboardReleaseHandoffDispatchGovernanceReview: null,
     dashboardReleaseHandoffCompletionLedger: null,
+    dashboardReleasePublicationControl: null,
   };
 
   function render() {
@@ -3878,6 +3942,8 @@ export async function mountFlowApp(surfaceInput: string) {
         normalizeReleaseHandoffDispatchGovernanceReview(parsed);
       const releaseHandoffCompletionLedger =
         normalizeReleaseHandoffCompletionLedger(parsed);
+      const releasePublicationControl =
+        normalizeReleasePublicationControl(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -3944,8 +4010,12 @@ export async function mountFlowApp(surfaceInput: string) {
         state.dashboardReleaseHandoffDispatchGovernanceReview;
       state.dashboardReleaseHandoffCompletionLedger =
         releaseHandoffCompletionLedger ?? state.dashboardReleaseHandoffCompletionLedger;
+      state.dashboardReleasePublicationControl =
+        releasePublicationControl ?? state.dashboardReleasePublicationControl;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseHandoffCompletionLedger
+      state.status = releasePublicationControl
+        ? `Imported release publication control ${releasePublicationControl.state} at ${releasePublicationControl.scoreOutOf100}/100 from ${file.name}.`
+        : releaseHandoffCompletionLedger
         ? `Imported release handoff completion ledger with ${releaseHandoffCompletionLedger.recordCount} record(s) from ${file.name}.`
         : releaseHandoffDispatchGovernanceReview
         ? `Imported release handoff dispatch governance at ${releaseHandoffDispatchGovernanceReview.scoreOutOf100}/100 from ${file.name}.`
@@ -4948,6 +5018,55 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleasePublicationCommand() {
+    const command = state.dashboardReleasePublicationControl?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release publication command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release publication command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleasePublicationNotes() {
+    const copy = state.dashboardReleasePublicationControl?.releaseNotesCopy ?? "";
+    if (!copy) {
+      state.status = "No release publication notes are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release publication notes copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
+  async function copyReleasePublicationSendInstructions() {
+    const copy =
+      state.dashboardReleasePublicationControl?.externalSendInstructionsCopy ?? "";
+    if (!copy) {
+      state.status = "No release publication send instructions are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release publication send instructions copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -5362,6 +5481,24 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-completion-summary']")
       ?.addEventListener("click", () => {
         void copyReleaseHandoffCompletionSummary();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-publication-command']")
+      ?.addEventListener("click", () => {
+        void copyReleasePublicationCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-publication-notes']")
+      ?.addEventListener("click", () => {
+        void copyReleasePublicationNotes();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-publication-send']")
+      ?.addEventListener("click", () => {
+        void copyReleasePublicationSendInstructions();
       });
 
     mountRoot

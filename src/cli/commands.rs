@@ -46,10 +46,11 @@ use crate::friday::{
     FridayReleaseOperatorChecklistReport, FridayReleaseOwnerFollowUpBoardReport,
     FridayReleasePostPromotionMonitorReport, FridayReleasePreventionPlanReport,
     FridayReleasePromotionDecision, FridayReleasePromotionLedger,
-    FridayReleasePromotionRecordRequest, FridayReleaseQaCommandCenterReport,
-    FridayReleaseRecoveryRunbookReport, FridayReleaseRollbackDrillReport,
-    FridayReleaseStabilityBoardReport, FridayResearchReport, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleasePromotionRecordRequest, FridayReleasePublicationControl,
+    FridayReleasePublicationRequest, FridayReleasePublicationState,
+    FridayReleaseQaCommandCenterReport, FridayReleaseRecoveryRunbookReport,
+    FridayReleaseRollbackDrillReport, FridayReleaseStabilityBoardReport, FridayResearchReport,
+    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
@@ -87,9 +88,10 @@ use crate::friday::{
     friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
     friday_release_operator_checklist_report, friday_release_owner_followup_board_report,
     friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
-    friday_release_promotion_ledger_report, friday_release_qa_command_center_report,
-    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
-    friday_release_stability_board_report, friday_research_search_plan, friday_route_visual_report,
+    friday_release_promotion_ledger_report, friday_release_publication_control_report,
+    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
+    friday_release_rollback_drill_report, friday_release_stability_board_report,
+    friday_research_search_plan, friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
@@ -115,10 +117,11 @@ use crate::friday::{
     write_friday_release_incident_archive, write_friday_release_operator_checklist,
     write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
-    write_friday_release_prevention_plan_report, write_friday_release_qa_command_center_report,
-    write_friday_release_recovery_runbook_report, write_friday_release_rollback_drill_report,
-    write_friday_release_stability_board_report, write_friday_trusted_host_live_runner_state,
-    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
+    write_friday_release_prevention_plan_report, write_friday_release_publication_control,
+    write_friday_release_qa_command_center_report, write_friday_release_recovery_runbook_report,
+    write_friday_release_rollback_drill_report, write_friday_release_stability_board_report,
+    write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
+    write_friday_trusted_runner_release_timeline,
 };
 use crate::models::{
     FLOW_CODING_MODEL_KEY, FLOW_HELPER_MODEL_KEY, FLOW_QUALITY_CHAT_MODEL_KEY, FLOW_TOOL_MODEL_KEY,
@@ -2027,6 +2030,52 @@ pub async fn execute(command: Command) -> Result<()> {
             print_friday_release_handoff_completion_ledger(&ledger);
         }
 
+        Command::FridayReleasePublicationControl {
+            control_file,
+            completion_ledger_file,
+            state,
+            operator,
+            publication_note,
+            manual_publication_reference,
+        } => {
+            let control = friday_release_publication_control_report(
+                resolve_repo_relative_path(&control_file),
+                resolve_repo_relative_path(&completion_ledger_file),
+                FridayReleasePublicationRequest {
+                    state: FridayReleasePublicationState::parse(&state)?,
+                    operator,
+                    publication_note,
+                    manual_publication_reference,
+                },
+            );
+            write_friday_release_publication_control(
+                resolve_repo_relative_path(&control_file),
+                &control,
+            )?;
+            print_friday_release_publication_control(&control);
+        }
+
+        Command::FridayReleasePublicationControlJson {
+            control_file,
+            completion_ledger_file,
+            state,
+            operator,
+            publication_note,
+            manual_publication_reference,
+        } => {
+            let control = friday_release_publication_control_report(
+                resolve_repo_relative_path(&control_file),
+                resolve_repo_relative_path(&completion_ledger_file),
+                FridayReleasePublicationRequest {
+                    state: FridayReleasePublicationState::parse(&state)?,
+                    operator,
+                    publication_note,
+                    manual_publication_reference,
+                },
+            );
+            println!("{}", control.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -2652,6 +2701,10 @@ fn print_interactive_help() {
     println!("                           List an existing handoff completion ledger");
     println!("  --friday-release-handoff-completion-export [--ledger file] [--output file]");
     println!("                           Export an existing handoff completion ledger JSON");
+    println!("  --friday-release-publication-control [export-dir] [--completion-ledger file]");
+    println!("                           Write local-only release publication control JSON");
+    println!("  --friday-release-publication-control-json [export-dir] [--completion-ledger file]");
+    println!("                           Print release publication control as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -5225,6 +5278,48 @@ fn print_friday_release_handoff_completion_ledger(ledger: &FridayReleaseHandoffC
     println!();
     println!("Commands:");
     for command in &ledger.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_publication_control(control: &FridayReleasePublicationControl) {
+    println!("Friday Release Publication Control");
+    println!("==================================");
+    println!(
+        "Ready: {} | state: {} | score: {}/100 | blockers: {}",
+        yes_no(control.ready_to_publish),
+        control.state.label(),
+        control.score_out_of_100,
+        control.publication_blocker_count
+    );
+    println!(
+        "Completion records: {} | approved outcomes: {} | blocked outcomes: {} | gate blocks: {}",
+        control.completion_record_count,
+        control.approved_outcome_count,
+        control.blocked_outcome_count,
+        control.release_gate_blocking_count
+    );
+    if let Some(completion_id) = &control.active_completion_id {
+        println!("Active completion: {completion_id}");
+    }
+    if let Some(review_id) = &control.latest_governance_review_id {
+        println!("Latest governance review: {review_id}");
+    }
+    println!("Control: {}", control.control_json);
+    println!("Ledger: {}", control.ledger_json);
+    println!();
+    println!("Publication blockers:");
+    for blocker in &control.blockers {
+        println!("  - {} [{}]", blocker.summary, blocker.kind.label());
+        println!("    evidence: {}", blocker.evidence_path);
+        println!("    next: {}", blocker.next_action);
+    }
+    if control.blockers.is_empty() {
+        println!("  - none");
+    }
+    println!();
+    println!("Commands:");
+    for command in &control.commands {
         println!("  - {command}");
     }
 }
