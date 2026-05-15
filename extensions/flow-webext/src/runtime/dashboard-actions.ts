@@ -1609,6 +1609,64 @@ export interface FlowReleaseHandoffAuditTrail {
   commands: string[];
 }
 
+export type FlowReleaseHandoffGovernanceState =
+  | "approved"
+  | "held"
+  | "needs-acknowledgement"
+  | "stale-active-packet"
+  | "blocked-carryover";
+
+export type FlowReleaseHandoffGovernanceSource =
+  | "latest-packet"
+  | "active-packet"
+  | "acknowledgement"
+  | "blocker-carryover"
+  | "audit-trail";
+
+export interface FlowReleaseHandoffGovernanceFinding {
+  id: string;
+  source: FlowReleaseHandoffGovernanceSource;
+  state: FlowReleaseHandoffGovernanceState;
+  releaseGateBlocking: boolean;
+  auditId: string;
+  packetId: string;
+  title: string;
+  evidencePath: string;
+  summary: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseHandoffGovernanceReview {
+  reviewId: string;
+  reviewJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  state: FlowReleaseHandoffGovernanceState;
+  approvedForExternalHandoff: boolean;
+  trailId: string;
+  trailJson: string;
+  latestAuditId: string | null;
+  latestPacketId: string | null;
+  activeAuditId: string | null;
+  activePacketId: string | null;
+  latestState: FlowReleaseHandoffAuditState | null;
+  recordCount: number;
+  findingCount: number;
+  acknowledgementGapCount: number;
+  staleActivePacketCount: number;
+  blockedCarryoverCount: number;
+  heldCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  findings: FlowReleaseHandoffGovernanceFinding[];
+  governanceNotesCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -4967,6 +5025,113 @@ export function normalizeReleaseHandoffAuditTrail(
   };
 }
 
+export function normalizeReleaseHandoffGovernanceReview(
+  value: unknown,
+): FlowReleaseHandoffGovernanceReview | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const review =
+    root.release_handoff_governance_review &&
+    typeof root.release_handoff_governance_review === "object"
+      ? (root.release_handoff_governance_review as Record<string, unknown>)
+      : root.releaseHandoffGovernanceReview &&
+          typeof root.releaseHandoffGovernanceReview === "object"
+        ? (root.releaseHandoffGovernanceReview as Record<string, unknown>)
+        : root;
+  const reviewId = stringValue(review.review_id, review.reviewId);
+  const findings = arrayValue(review.findings)
+    .map((item): FlowReleaseHandoffGovernanceFinding | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const finding = item as Record<string, unknown>;
+      const id = stringValue(finding.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        source: releaseHandoffGovernanceSource(stringValue(finding.source)),
+        state: releaseHandoffGovernanceState(stringValue(finding.state)),
+        releaseGateBlocking: booleanValue(
+          finding.release_gate_blocking,
+          finding.releaseGateBlocking,
+        ),
+        auditId: stringValue(finding.audit_id, finding.auditId),
+        packetId: stringValue(finding.packet_id, finding.packetId),
+        title: stringValue(finding.title),
+        evidencePath: stringValue(finding.evidence_path, finding.evidencePath),
+        summary: stringValue(finding.summary),
+        nextAction: stringValue(finding.next_action, finding.nextAction),
+      };
+    })
+    .filter((finding): finding is FlowReleaseHandoffGovernanceFinding => finding !== null);
+
+  if (!reviewId && findings.length === 0) {
+    return null;
+  }
+
+  return {
+    reviewId,
+    reviewJson: stringValue(review.review_json, review.reviewJson),
+    generatedAtUnixMs: stringValue(review.generated_at_unix_ms, review.generatedAtUnixMs),
+    productName: stringValue(review.product_name, review.productName),
+    localOnly: booleanValue(review.local_only, review.localOnly),
+    status: panelStatus(stringValue(review.status)),
+    scoreOutOf100: numberValue(review.score_out_of_100, review.scoreOutOf100),
+    state: releaseHandoffGovernanceState(stringValue(review.state)),
+    approvedForExternalHandoff: booleanValue(
+      review.approved_for_external_handoff,
+      review.approvedForExternalHandoff,
+    ),
+    trailId: stringValue(review.trail_id, review.trailId),
+    trailJson: stringValue(review.trail_json, review.trailJson),
+    latestAuditId: stringValue(review.latest_audit_id, review.latestAuditId) || null,
+    latestPacketId: stringValue(review.latest_packet_id, review.latestPacketId) || null,
+    activeAuditId: stringValue(review.active_audit_id, review.activeAuditId) || null,
+    activePacketId: stringValue(review.active_packet_id, review.activePacketId) || null,
+    latestState:
+      review.latest_state || review.latestState
+        ? releaseHandoffAuditState(stringValue(review.latest_state, review.latestState))
+        : null,
+    recordCount: numberValue(review.record_count, review.recordCount),
+    findingCount: numberValue(review.finding_count, review.findingCount),
+    acknowledgementGapCount: numberValue(
+      review.acknowledgement_gap_count,
+      review.acknowledgementGapCount,
+    ),
+    staleActivePacketCount: numberValue(
+      review.stale_active_packet_count,
+      review.staleActivePacketCount,
+    ),
+    blockedCarryoverCount: numberValue(
+      review.blocked_carryover_count,
+      review.blockedCarryoverCount,
+    ),
+    heldCount: numberValue(review.held_count, review.heldCount),
+    releaseGateBlockingCount: numberValue(
+      review.release_gate_blocking_count,
+      review.releaseGateBlockingCount,
+    ),
+    unresolvedBlockerCount: numberValue(
+      review.unresolved_blocker_count,
+      review.unresolvedBlockerCount,
+    ),
+    findings,
+    governanceNotesCopy: stringValue(
+      review.governance_notes_copy,
+      review.governanceNotesCopy,
+    ),
+    summary: stringValue(review.summary),
+    commands: arrayValue(review.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -5432,6 +5597,32 @@ function releaseHandoffAuditState(value: string): FlowReleaseHandoffAuditState {
     return value;
   }
   return "draft";
+}
+
+function releaseHandoffGovernanceState(value: string): FlowReleaseHandoffGovernanceState {
+  if (
+    value === "approved" ||
+    value === "held" ||
+    value === "needs-acknowledgement" ||
+    value === "stale-active-packet" ||
+    value === "blocked-carryover"
+  ) {
+    return value;
+  }
+  return "held";
+}
+
+function releaseHandoffGovernanceSource(value: string): FlowReleaseHandoffGovernanceSource {
+  if (
+    value === "latest-packet" ||
+    value === "active-packet" ||
+    value === "acknowledgement" ||
+    value === "blocker-carryover" ||
+    value === "audit-trail"
+  ) {
+    return value;
+  }
+  return "audit-trail";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

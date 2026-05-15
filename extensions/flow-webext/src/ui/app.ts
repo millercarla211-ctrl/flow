@@ -12,6 +12,7 @@ import {
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseHandoffAuditTrail,
+  normalizeReleaseHandoffGovernanceReview,
   normalizeReleaseHandoffPacket,
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
@@ -55,6 +56,7 @@ import {
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseEvidenceSlaMonitorReport,
   type FlowReleaseHandoffAuditTrail,
+  type FlowReleaseHandoffGovernanceReview,
   type FlowReleaseHandoffPacket,
   type FlowReleaseIncidentArchive,
   type FlowReleaseOperatorChecklistReport,
@@ -130,6 +132,7 @@ type UiState = {
   dashboardReleaseEvidenceAttachmentReview: FlowReleaseEvidenceAttachmentReview | null;
   dashboardReleaseHandoffPacket: FlowReleaseHandoffPacket | null;
   dashboardReleaseHandoffAuditTrail: FlowReleaseHandoffAuditTrail | null;
+  dashboardReleaseHandoffGovernanceReview: FlowReleaseHandoffGovernanceReview | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -2820,6 +2823,71 @@ function renderReleaseHandoffAuditTrail(trail: FlowReleaseHandoffAuditTrail | nu
   `;
 }
 
+function renderReleaseHandoffGovernanceReview(
+  review: FlowReleaseHandoffGovernanceReview | null,
+) {
+  if (!review) {
+    return "";
+  }
+
+  const status = review.approvedForExternalHandoff
+    ? "ready"
+    : review.releaseGateBlockingCount > 0 || review.blockedCarryoverCount > 0
+      ? "blocked"
+      : "warning";
+
+  return `
+    <article class="feature-card dashboard-release-handoff-governance-review">
+      <div class="card-topline">
+        <span class="eyebrow">Release handoff governance</span>
+        <span class="badge ${badgeTone(status)}">${escapeHtml(review.state)}</span>
+      </div>
+      <h3>${review.approvedForExternalHandoff ? "External handoff is approved" : "External handoff is on hold"}</h3>
+      <p>${escapeHtml(review.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${review.scoreOutOf100}</strong><small>score</small></span>
+        <span><strong>${review.findingCount}</strong><small>findings</small></span>
+        <span><strong>${review.acknowledgementGapCount}</strong><small>ack gaps</small></span>
+        <span><strong>${review.blockedCarryoverCount}</strong><small>carryover</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Latest packet</strong> ${escapeHtml(review.latestPacketId ?? "none")}</span>
+        <span><strong>Active packet</strong> ${escapeHtml(review.activePacketId ?? "none")}</span>
+        <span><strong>Gate blocks</strong> ${review.releaseGateBlockingCount}</span>
+        <span><strong>Review</strong> ${escapeHtml(review.reviewJson)}</span>
+      </div>
+      ${
+        review.releaseGateBlockingCount > 0
+          ? `<p class="soft-warning">${review.releaseGateBlockingCount} governance blocker(s) must be resolved before external handoff.</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${review.findings
+          .slice(0, 8)
+          .map(
+            (finding) => `
+              <div class="runner-package-file ${finding.releaseGateBlocking ? "missing" : "present"}">
+                <strong>${escapeHtml(finding.title)}</strong>
+                <small>${escapeHtml(finding.source)} - ${escapeHtml(finding.state)}</small>
+                <code>${escapeHtml(finding.evidencePath || "inline")}</code>
+                <span>${escapeHtml(finding.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-governance-command">
+          Copy governance command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-governance-notes">
+          Copy governance notes
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -3048,6 +3116,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseEvidenceAttachmentReview(state.dashboardReleaseEvidenceAttachmentReview)}
       ${renderReleaseHandoffPacket(state.dashboardReleaseHandoffPacket)}
       ${renderReleaseHandoffAuditTrail(state.dashboardReleaseHandoffAuditTrail)}
+      ${renderReleaseHandoffGovernanceReview(state.dashboardReleaseHandoffGovernanceReview)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3195,6 +3264,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseEvidenceAttachmentReview: null,
     dashboardReleaseHandoffPacket: null,
     dashboardReleaseHandoffAuditTrail: null,
+    dashboardReleaseHandoffGovernanceReview: null,
   };
 
   function render() {
@@ -3515,6 +3585,8 @@ export async function mountFlowApp(surfaceInput: string) {
         normalizeReleaseEvidenceAttachmentReview(parsed);
       const releaseHandoffPacket = normalizeReleaseHandoffPacket(parsed);
       const releaseHandoffAuditTrail = normalizeReleaseHandoffAuditTrail(parsed);
+      const releaseHandoffGovernanceReview =
+        normalizeReleaseHandoffGovernanceReview(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -3570,8 +3642,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseHandoffPacket ?? state.dashboardReleaseHandoffPacket;
       state.dashboardReleaseHandoffAuditTrail =
         releaseHandoffAuditTrail ?? state.dashboardReleaseHandoffAuditTrail;
+      state.dashboardReleaseHandoffGovernanceReview =
+        releaseHandoffGovernanceReview ?? state.dashboardReleaseHandoffGovernanceReview;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseHandoffAuditTrail
+      state.status = releaseHandoffGovernanceReview
+        ? `Imported release handoff governance review at ${releaseHandoffGovernanceReview.scoreOutOf100}/100 from ${file.name}.`
+        : releaseHandoffAuditTrail
         ? `Imported release handoff audit trail with ${releaseHandoffAuditTrail.recordCount} record(s) from ${file.name}.`
         : releaseHandoffPacket
         ? `Imported release handoff packet with ${releaseHandoffPacket.sectionCount} section(s) from ${file.name}.`
@@ -4401,6 +4477,38 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseHandoffGovernanceCommand() {
+    const command = state.dashboardReleaseHandoffGovernanceReview?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release handoff governance command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release handoff governance command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseHandoffGovernanceNotes() {
+    const copy = state.dashboardReleaseHandoffGovernanceReview?.governanceNotesCopy ?? "";
+    if (!copy) {
+      state.status = "No release handoff governance notes are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release handoff governance notes copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -4755,6 +4863,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-audit-summary']")
       ?.addEventListener("click", () => {
         void copyReleaseHandoffAuditSummary();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-governance-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffGovernanceCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-governance-notes']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffGovernanceNotes();
       });
 
     mountRoot

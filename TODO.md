@@ -809,16 +809,34 @@ Goal: preserve every generated release handoff packet as a local audit trail so 
 
 This set is complete. The next loop should open `Friday Release Handoff Governance Review` and validate audit trails before any release note, public handoff, deployment note, or external send.
 
-## Next Set: Friday Release Handoff Governance Review
+## Completed Set: Friday Release Handoff Governance Review
 
-Status: 0/100
+Status: 100/100
 
 Goal: review release handoff audit trails before external communication so Friday can prove the latest packet is ready or sent, no blocker carryover remains, superseded/revoked packets are not active, and acknowledgement notes are present.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed handoff governance review model that consumes handoff audit trails.
+- [x] Add review states for approved, held, needs-acknowledgement, stale-active-packet, and blocked-carryover.
+- [x] Add CLI and JSON commands that create governance reviews without sending, deploying, building, or mutating external systems.
+- [x] Add dashboard import/rendering for approval state, latest packet, stale/superseded/revoked warnings, acknowledgement gaps, and copyable governance notes.
+- [x] Add focused Rust/TypeScript coverage for review scoring, stale packet detection, acknowledgement enforcement, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Handoff Dispatch Checklist` and convert approved governance reviews into a final local operator checklist before any external send.
+
+## Next Set: Friday Release Handoff Dispatch Checklist
+
+Status: 0/100
+
+Goal: turn approved handoff governance reviews into a final local dispatch checklist so Friday can verify recipients, attachments, notes, privacy boundaries, and no-send safeguards before any external communication.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed handoff governance review model that consumes handoff audit trails.
-- [ ] Add review states for approved, held, needs-acknowledgement, stale-active-packet, and blocked-carryover.
-- [ ] Add CLI and JSON commands that create governance reviews without sending, deploying, building, or mutating external systems.
-- [ ] Add dashboard import/rendering for approval state, latest packet, stale/superseded/revoked warnings, acknowledgement gaps, and copyable governance notes.
-- [ ] Add focused Rust/TypeScript coverage for review scoring, stale packet detection, acknowledgement enforcement, command safety, and dashboard rendering.
+- [ ] Add a typed handoff dispatch checklist model that consumes governance reviews.
+- [ ] Add checklist states for ready, held, missing-recipient, missing-attachment, privacy-review, and blocked.
+- [ ] Add CLI and JSON commands that generate dispatch checklists without sending, deploying, building, or mutating external systems.
+- [ ] Add dashboard import/rendering for recipients, attachments, privacy notes, no-send warnings, and copyable dispatch checklist.
+- [ ] Add focused Rust/TypeScript coverage for checklist readiness, privacy boundary enforcement, missing attachment detection, command safety, and dashboard rendering.
