@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "runner-status-groups",
-            "Grouped runner history summaries",
+            "runner-approval-modal-contract",
+            "Approval modal contract",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostRunnerUxReport` groups trusted runner history into succeeded, failed, timed-out, cancelled, and denied summaries",
-            "open the next dashboard approval UI set",
+            "`FridayTrustedHostRunnerApprovalUiReport` exposes a typed approval dialog contract with reason fields, command preview, controls, snooze, undo, and release-review paths",
+            "open the next live runner state set",
         ),
         item(
-            "runner-retry-copy-affordances",
-            "Retry and copy affordances",
+            "runner-keyboard-controls",
+            "Keyboard-accessible controls",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostRunnerAffordance` exposes copy-command, retry, and cancel metadata while keeping retry approval explicit",
-            "open the next dashboard approval UI set",
+            "`extensions/flow-webext/src/ui/app.ts` renders approve, deny, copy, retry, cancel, snooze, and undo controls with keyboard shortcut metadata and button handlers",
+            "open the next live runner state set",
         ),
         item(
-            "runner-clear-status-copy",
-            "Cancellation and timeout copy",
+            "runner-audit-reasons",
+            "Approval and denial audit reasons",
             20,
             CompletionItemStatus::Done,
-            "`runner_status_operator_copy` gives clear operator-facing copy for timeout, cancelled, denied, failed, and succeeded states",
-            "open the next dashboard approval UI set",
+            "`FridayTrustedHostRunnerRequest` and `FridayTrustedHostRunnerResult` persist operator reasons for approved, denied, and cancelled runner records",
+            "open the next live runner state set",
         ),
         item(
-            "runner-ui-smoke",
-            "Runner UX smoke checks",
+            "runner-undo-snooze-affordances",
+            "Undo and snooze affordances",
             20,
             CompletionItemStatus::Done,
-            "`npm run smoke:dashboard` covers trusted runner UX grouping and retry/copy affordance normalization",
-            "open the next dashboard approval UI set",
+            "`FridayTrustedHostRunnerApprovalUiReport` includes snooze options and immutable-history undo copy for pending approval drafts",
+            "open the next live runner state set",
         ),
         item(
-            "runner-release-review-notes",
-            "Operator release-review notes",
+            "runner-approval-smoke",
+            "Approval modal smoke checks",
             20,
             CompletionItemStatus::Done,
-            "`FridayTrustedHostRunnerOperatorNote` links runner history back to release-review artifacts for shipping checks",
-            "open the next dashboard approval UI set",
+            "`npm run smoke:dashboard` covers approval modal normalization, reason requirements, keyboard shortcuts, snooze, and undo controls",
+            "open the next live runner state set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Dashboard Runner UX".to_string(),
+        name: "Friday Runner Approval UI".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Make trusted runner history and live progress easy to understand, retry, cancel, and audit from the dashboard without clutter or blocking the UI.".to_string(),
+        loop_rule: "Turn trusted runner UX metadata into a polished dashboard approval surface with keyboard-accessible controls, audit reasons, and live-safe affordances.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_dashboard_runner_ux_loop() {
+    fn active_set_tracks_friday_runner_approval_ui_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Dashboard Runner UX");
+        assert_eq!(set.name, "Friday Runner Approval UI");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

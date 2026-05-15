@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Runner Approval UI at 100/100 with a typed approval modal contract, keyboard-accessible approve/deny/copy/retry/cancel/snooze/undo controls, persisted operator audit reasons, visible dashboard approval handling, smoke coverage, and release-review links
+- opened Friday Live Runner State as the next set for live pending/running/finished runner state instead of stale-import-only dashboard updates
 - completed Friday Dashboard Runner UX at 100/100 with grouped trusted runner history summaries, retry/copy/cancel affordances, clear timeout/cancellation copy, dashboard UX import rendering, smoke coverage, and release-review notes
 - opened Friday Runner Approval UI as the next set for native approve, deny, retry, copy, cancel, and audit-reason interactions
 - completed Friday Trusted Host Runner at 100/100 with an approved-only bounded runner, timeout/cancellation/output limits, trusted runner history persistence, CLI/JSON runner commands, dashboard runner-result import, and focused runner tests

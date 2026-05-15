@@ -302,16 +302,34 @@ Goal: make trusted runner history and live progress easy to understand, retry, c
 
 This set is complete. The next loop should open `Friday Runner Approval UI` and make approve, deny, retry, copy, and cancel interactions feel native in the visible dashboard without weakening local-only safety.
 
-## Next Set: Friday Runner Approval UI
+## Completed Set: Friday Runner Approval UI
 
-Status: 0/100
+Status: 100/100
 
 Goal: turn trusted runner UX metadata into a polished dashboard approval surface with keyboard-accessible controls, audit reasons, and live-safe affordances.
 
+### Done
+
+- [x] Add a dedicated approval modal contract for trusted runner actions.
+- [x] Add keyboard-accessible approve, deny, copy, retry, and cancel controls.
+- [x] Capture operator approval or denial reasons in the runner audit trail.
+- [x] Add undo/snooze affordances for pending dashboard execution handoffs.
+- [x] Add focused UI smoke checks for approval-modal rendering and audit reason persistence.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Live Runner State` and make pending, running, cancelled, timed-out, failed, and completed runner states update from a live desktop host without polling brittle CLI text.
+
+## Next Set: Friday Live Runner State
+
+Status: 0/100
+
+Goal: connect trusted runner approval and history UX to live state transitions so the dashboard can show pending, running, completed, failed, timed-out, cancelled, and denied work without confusing stale imports for live execution.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a dedicated approval modal contract for trusted runner actions.
-- [ ] Add keyboard-accessible approve, deny, copy, retry, and cancel controls.
-- [ ] Capture operator approval or denial reasons in the runner audit trail.
-- [ ] Add undo/snooze affordances for pending dashboard execution handoffs.
-- [ ] Add focused UI smoke checks for approval-modal rendering and audit reason persistence.
+- [ ] Add a typed live runner state record separate from immutable history.
+- [ ] Add a local-only state writer/reader for pending, running, finished, and stale runner jobs.
+- [ ] Add dashboard rendering for live runner progress without blocking the UI.
+- [ ] Add stale-state recovery copy and cleanup affordances.
+- [ ] Add focused tests for state transitions and stale import handling.

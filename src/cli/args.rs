@@ -128,6 +128,7 @@ pub enum Command {
         execute: bool,
         cancel: bool,
         history_file: String,
+        reason: Option<String>,
     },
     /// Run or dry-run one approved trusted host command and print JSON
     FridayTrustedHostRunnerJson {
@@ -137,6 +138,7 @@ pub enum Command {
         execute: bool,
         cancel: bool,
         history_file: String,
+        reason: Option<String>,
     },
     /// Show grouped trusted host runner history UX for dashboard imports
     FridayTrustedHostRunnerUx {
@@ -145,6 +147,16 @@ pub enum Command {
     },
     /// Print grouped trusted host runner history UX as JSON
     FridayTrustedHostRunnerUxJson {
+        history_file: String,
+        release_review_file: String,
+    },
+    /// Show trusted runner approval modal contract
+    FridayTrustedHostRunnerApprovalUi {
+        history_file: String,
+        release_review_file: String,
+    },
+    /// Print trusted runner approval modal contract as JSON
+    FridayTrustedHostRunnerApprovalUiJson {
         history_file: String,
         release_review_file: String,
     },
@@ -628,7 +640,7 @@ impl Args {
                 }
             }
             "--friday-trusted-host-runner" | "--friday-dashboard-trusted-runner" => {
-                let (input_dir, action_id, approve, execute, cancel, history_file) =
+                let (input_dir, action_id, approve, execute, cancel, history_file, reason) =
                     parse_friday_trusted_host_runner_args(&args);
                 Command::FridayTrustedHostRunner {
                     input_dir,
@@ -637,10 +649,11 @@ impl Args {
                     execute,
                     cancel,
                     history_file,
+                    reason,
                 }
             }
             "--friday-trusted-host-runner-json" | "--friday-dashboard-trusted-runner-json" => {
-                let (input_dir, action_id, approve, execute, cancel, history_file) =
+                let (input_dir, action_id, approve, execute, cancel, history_file, reason) =
                     parse_friday_trusted_host_runner_args(&args);
                 Command::FridayTrustedHostRunnerJson {
                     input_dir,
@@ -649,6 +662,7 @@ impl Args {
                     execute,
                     cancel,
                     history_file,
+                    reason,
                 }
             }
             "--friday-trusted-host-runner-ux" | "--friday-dashboard-trusted-runner-ux" => {
@@ -664,6 +678,24 @@ impl Args {
                 let (history_file, release_review_file) =
                     parse_friday_trusted_host_runner_ux_args(&args);
                 Command::FridayTrustedHostRunnerUxJson {
+                    history_file,
+                    release_review_file,
+                }
+            }
+            "--friday-trusted-host-runner-approval-ui"
+            | "--friday-dashboard-trusted-runner-approval-ui" => {
+                let (history_file, release_review_file) =
+                    parse_friday_trusted_host_runner_ux_args(&args);
+                Command::FridayTrustedHostRunnerApprovalUi {
+                    history_file,
+                    release_review_file,
+                }
+            }
+            "--friday-trusted-host-runner-approval-ui-json"
+            | "--friday-dashboard-trusted-runner-approval-ui-json" => {
+                let (history_file, release_review_file) =
+                    parse_friday_trusted_host_runner_ux_args(&args);
+                Command::FridayTrustedHostRunnerApprovalUiJson {
                     history_file,
                     release_review_file,
                 }
@@ -1048,7 +1080,7 @@ fn parse_friday_screenshot_vlm_args(args: &[String]) -> (String, String, Option<
 
 fn parse_friday_trusted_host_runner_args(
     args: &[String],
-) -> (String, Option<String>, bool, bool, bool, String) {
+) -> (String, Option<String>, bool, bool, bool, String, Option<String>) {
     let input_dir = args
         .get(2)
         .filter(|value| !value.starts_with("--"))
@@ -1060,7 +1092,16 @@ fn parse_friday_trusted_host_runner_args(
     let cancel = args.iter().any(|value| value == "--cancel");
     let history_file = flag_value(args, "--history")
         .unwrap_or_else(|| format!("{input_dir}/trusted-host-runner-history.json"));
-    (input_dir, action_id, approve, execute, cancel, history_file)
+    let reason = flag_value(args, "--reason");
+    (
+        input_dir,
+        action_id,
+        approve,
+        execute,
+        cancel,
+        history_file,
+        reason,
+    )
 }
 
 fn parse_friday_trusted_host_runner_ux_args(args: &[String]) -> (String, String) {

@@ -43,8 +43,8 @@ use flow::friday::{
     friday_media_affordances, friday_multimodal_route, friday_multimodal_ui_diagnostics,
     friday_multimodal_visual_check, friday_operator_readiness_report, friday_route_visual_report,
     friday_route_visual_report_for_root, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    friday_trusted_host_runner_ux_report, run_friday_trusted_host_command_with_executor,
-    run_friday_vlm_contract,
+    friday_trusted_host_runner_approval_ui_report, friday_trusted_host_runner_ux_report,
+    run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
     append_friday_trusted_host_runner_history, read_friday_trusted_host_runner_history,
 };
 use flow::long_context::RlmBridge;
@@ -950,14 +950,14 @@ fn friday_dashboard_export_writes_dashboard_bundle() {
 
     assert_eq!(
         bundle.completion.name,
-        "Friday Dashboard Runner UX"
+        "Friday Runner Approval UI"
     );
     assert_eq!(bundle.completion.current_score_out_of_100, 100);
     assert_eq!(bundle.manifest.score_out_of_100, 100);
     assert_eq!(bundle.export_history.record_count, 1);
     assert_eq!(
         bundle.release_review.loop_name,
-        "Friday Dashboard Runner UX"
+        "Friday Runner Approval UI"
     );
     assert!(PathBuf::from(&bundle.manifest.dashboard_history_json).exists());
     assert!(PathBuf::from(&bundle.manifest.release_review_json).exists());
@@ -997,7 +997,7 @@ fn friday_dashboard_panel_consumes_exported_bundle() {
     export_friday_dashboard_bundle(&root).unwrap();
     let panel = friday_dashboard_panel_from_export(&root).unwrap();
 
-    assert_eq!(panel.loop_name, "Friday Dashboard Runner UX");
+    assert_eq!(panel.loop_name, "Friday Runner Approval UI");
     assert_eq!(panel.score_out_of_100, 100);
     assert_eq!(panel.status, FridayDashboardPanelStatus::Warning);
     assert_eq!(panel.cards.len(), 8);
@@ -1092,7 +1092,7 @@ fn friday_dashboard_export_history_tracks_checkpoints() {
     assert_eq!(history.score_delta_from_previous, 0);
     assert_eq!(history.readiness_delta_from_previous, 0);
     assert!(history.records.iter().all(|record| {
-        record.loop_name == "Friday Dashboard Runner UX"
+        record.loop_name == "Friday Runner Approval UI"
             && record.manifest_json.ends_with("manifest.json")
     }));
 
@@ -1111,7 +1111,7 @@ fn friday_dashboard_release_review_links_release_artifacts() {
     export_friday_dashboard_bundle(&root).unwrap();
 
     let review = friday_dashboard_release_review_from_export(&root).unwrap();
-    assert_eq!(review.loop_name, "Friday Dashboard Runner UX");
+    assert_eq!(review.loop_name, "Friday Runner Approval UI");
     assert_eq!(review.score_out_of_100, 100);
     assert!(review.total_count >= 6);
     assert!(review
@@ -1293,6 +1293,7 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
         timeout_ms: 25,
         stdout_limit_bytes: 8,
         stderr_limit_bytes: 8,
+        operator_reason: Some("operator approved dashboard readiness retry".to_string()),
         ..Default::default()
     };
     let success = run_friday_trusted_host_command_with_executor(
@@ -1312,16 +1313,24 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     assert_eq!(success.exit_code, Some(0));
     assert!(success.stdout_truncated);
     assert_eq!(success.timeout_ms, 25);
+    assert_eq!(
+        success.operator_reason.as_deref(),
+        Some("operator approved dashboard readiness retry")
+    );
 
     let denied = run_friday_trusted_host_command_with_executor(
         &record,
-        &FridayTrustedHostRunnerRequest::default(),
+        &FridayTrustedHostRunnerRequest {
+            operator_reason: Some("not safe yet".to_string()),
+            ..Default::default()
+        },
         &StubTrustedHostExecutor {
             output: Err("executor should not run".to_string()),
         },
     );
     assert_eq!(denied.status, FridayTrustedHostRunnerStatus::Denied);
     assert!(denied.stderr_summary.contains("approval"));
+    assert_eq!(denied.operator_reason.as_deref(), Some("not safe yet"));
 
     let cancelled = run_friday_trusted_host_command_with_executor(
         &record,
@@ -1429,6 +1438,36 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
         .operator_notes
         .iter()
         .any(|note| note.release_review_path.ends_with("release-review.json")));
+    let approval_ui =
+        friday_trusted_host_runner_approval_ui_report(&loaded, root.join("release-review.json"));
+    assert_eq!(approval_ui.modal_id, "trusted-runner-approval");
+    assert!(approval_ui.audit_reason_required);
+    assert!(approval_ui.controls.iter().any(|control| {
+        control.kind == "approve"
+            && control.requires_reason
+            && control.requires_approval
+            && control
+                .keyboard_shortcut
+                .as_ref()
+                .is_some_and(|shortcut| shortcut.key == "Ctrl+Enter")
+    }));
+    assert!(approval_ui.controls.iter().any(|control| {
+        control.kind == "deny"
+            && control.requires_reason
+            && !control.requires_approval
+            && control.command.contains("--reason")
+    }));
+    assert!(approval_ui
+        .controls
+        .iter()
+        .any(|control| control.kind == "snooze"));
+    assert!(approval_ui
+        .controls
+        .iter()
+        .any(|control| control.kind == "undo"));
+    assert!(approval_ui
+        .release_review_path
+        .ends_with("release-review.json"));
 
     let _ = fs::remove_dir_all(&root);
 }

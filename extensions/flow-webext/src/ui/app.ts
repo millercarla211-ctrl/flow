@@ -2,11 +2,14 @@ import { requestQuickContext, replaceSelection, toggleOverlay } from "../runtime
 import {
   dispatchDashboardCommand,
   normalizeDashboardHostCommandResults,
+  normalizeTrustedHostRunnerApprovalUi,
   normalizeTrustedHostRunnerResults,
   normalizeTrustedHostRunnerUx,
   persistDashboardCommandResult,
   readDashboardCommandResults,
   type FlowDashboardCommandResult,
+  type FlowDashboardRunnerApprovalControl,
+  type FlowDashboardRunnerApprovalUiReport,
   type FlowDashboardRunnerUxReport,
   type FlowDashboardCommandStatus,
 } from "../runtime/dashboard-actions";
@@ -43,6 +46,8 @@ type UiState = {
   dashboardActionStates: Record<string, "idle" | "loading" | "success" | "error" | "blocked">;
   dashboardActionResults: FlowDashboardCommandResult[];
   dashboardRunnerUx: FlowDashboardRunnerUxReport | null;
+  dashboardRunnerApprovalUi: FlowDashboardRunnerApprovalUiReport | null;
+  dashboardRunnerApprovalReason: string;
 };
 
 const TASK_OPTIONS: Array<{ task: FlowTask; label: string; detail: string }> = [
@@ -946,6 +951,77 @@ function renderDashboardActionResults(
   `;
 }
 
+function renderRunnerApprovalModal(
+  approvalUi: FlowDashboardRunnerApprovalUiReport | null,
+  reason: string,
+) {
+  if (!approvalUi) {
+    return "";
+  }
+
+  return `
+    <article
+      class="feature-card dashboard-runner-approval"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="${escapeHtml(approvalUi.modalId)}-title"
+    >
+      <div class="card-topline">
+        <span class="eyebrow">Trusted runner approval</span>
+        <span class="badge ${badgeTone(approvalUi.latestActionId ? "pending" : "blocked")}">
+          ${approvalUi.resultCount} history
+        </span>
+      </div>
+      <h3 id="${escapeHtml(approvalUi.modalId)}-title">${escapeHtml(approvalUi.title)}</h3>
+      <p>${escapeHtml(approvalUi.body)}</p>
+      <code>${escapeHtml(approvalUi.commandPreview)}</code>
+      <label class="runner-reason">
+        ${escapeHtml(approvalUi.reasonLabel)}
+        <textarea
+          id="dashboard-runner-approval-reason"
+          rows="3"
+          placeholder="${escapeHtml(approvalUi.reasonPlaceholder)}"
+        >${escapeHtml(reason)}</textarea>
+      </label>
+      <div class="actions dashboard-actions">
+        ${approvalUi.controls
+          .map(
+            (control) => `
+              <button
+                type="button"
+                class="secondary dashboard-runner-approval-control"
+                data-action="dashboard-runner-approval-control"
+                data-runner-approval-control-id="${escapeHtml(control.id)}"
+                aria-label="${escapeHtml(control.ariaLabel || control.label)}"
+                title="${escapeHtml(control.detail)}"
+                ${control.disabled ? "disabled" : ""}
+              >
+                ${escapeHtml(control.label)}
+                ${
+                  control.keyboardShortcut?.key
+                    ? `<small>${escapeHtml(control.keyboardShortcut.key)}</small>`
+                    : ""
+                }
+              </button>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="meta-list">
+        ${approvalUi.snoozeOptions
+          .map(
+            (option) => `
+              <span><strong>${escapeHtml(option.label)}</strong> ${option.durationSeconds}s</span>
+            `,
+          )
+          .join("")}
+        <span><strong>Undo</strong> ${escapeHtml(approvalUi.undoNote)}</span>
+        <span><strong>Review</strong> ${escapeHtml(approvalUi.releaseReviewPath)}</span>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -1138,6 +1214,10 @@ function renderDashboard(state: UiState) {
       ${renderDashboardRail(state)}
 
       ${renderDashboardActionResults(state.dashboardActionResults, state.dashboardRunnerUx)}
+      ${renderRunnerApprovalModal(
+        state.dashboardRunnerApprovalUi,
+        state.dashboardRunnerApprovalReason,
+      )}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1255,6 +1335,8 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardActionStates: {},
     dashboardActionResults: readDashboardCommandResults(dashboardBinding.route),
     dashboardRunnerUx: null,
+    dashboardRunnerApprovalUi: null,
+    dashboardRunnerApprovalReason: "",
   };
 
   function render() {
@@ -1546,15 +1628,75 @@ export async function mountFlowApp(surfaceInput: string) {
       const parsed = JSON.parse(text) as unknown;
       const results = normalizeTrustedHostRunnerResults(parsed);
       const runnerUx = normalizeTrustedHostRunnerUx(parsed);
+      const approvalUi = normalizeTrustedHostRunnerApprovalUi(parsed);
       state.dashboardRunnerUx = runnerUx ?? state.dashboardRunnerUx;
+      state.dashboardRunnerApprovalUi = approvalUi ?? state.dashboardRunnerApprovalUi;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = runnerUx
+      state.status = approvalUi
+        ? `Imported trusted runner approval UI with ${approvalUi.controls.length} control(s) from ${file.name}.`
+        : runnerUx
         ? `Imported trusted runner UX with ${runnerUx.resultCount} history result(s) from ${file.name}.`
         : `Imported ${results.length} trusted runner result(s) from ${file.name}.`;
     } catch (error) {
       state.status = `Trusted runner import failed: ${String(error)}`;
     }
 
+    render();
+  }
+
+  function runnerCommandWithReason(control: FlowDashboardRunnerApprovalControl) {
+    const reason = state.dashboardRunnerApprovalReason.trim();
+    if (!control.command.trim()) {
+      return "";
+    }
+    return control.command.replace(
+      /"<(?:audit|denial|cancel) reason>"/g,
+      `"${reason.replaceAll('"', "'")}"`,
+    );
+  }
+
+  async function runRunnerApprovalControl(controlId: string) {
+    const control = state.dashboardRunnerApprovalUi?.controls.find((item) => item.id === controlId);
+    if (!control) {
+      return;
+    }
+    if (control.disabled) {
+      state.status = control.disabledReason ?? "This approval control is unavailable.";
+      render();
+      return;
+    }
+    if (control.kind === "snooze") {
+      state.status = "Trusted runner approval draft snoozed in the dashboard.";
+      render();
+      return;
+    }
+    if (control.kind === "undo") {
+      state.dashboardRunnerApprovalReason = "";
+      state.status = "Trusted runner approval draft cleared.";
+      render();
+      return;
+    }
+    if (control.requiresReason && !state.dashboardRunnerApprovalReason.trim()) {
+      state.status = "Add a short audit reason before preparing this trusted runner action.";
+      render();
+      return;
+    }
+
+    const command = runnerCommandWithReason(control);
+    if (!command.trim()) {
+      state.status = control.detail;
+      render();
+      return;
+    }
+
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = `${control.label}: command copied. ${
+        control.requiresApproval ? "Approval is preserved in the command." : ""
+      }`;
+    } catch {
+      state.status = `${control.label}: ${command}`;
+    }
     render();
   }
 
@@ -1629,6 +1771,36 @@ export async function mountFlowApp(surfaceInput: string) {
         if (file) {
           void importDashboardRunnerJson(file);
         }
+      });
+
+    mountRoot
+      .querySelector<HTMLTextAreaElement>("#dashboard-runner-approval-reason")
+      ?.addEventListener("input", (event) => {
+        state.dashboardRunnerApprovalReason = (event.currentTarget as HTMLTextAreaElement).value;
+      });
+
+    mountRoot
+      .querySelector(".dashboard-runner-approval")
+      ?.addEventListener("keydown", (event) => {
+        const keyboardEvent = event as KeyboardEvent;
+        if (keyboardEvent.ctrlKey && keyboardEvent.key === "Enter") {
+          keyboardEvent.preventDefault();
+          void runRunnerApprovalControl("approve");
+        } else if (keyboardEvent.key === "Escape") {
+          keyboardEvent.preventDefault();
+          void runRunnerApprovalControl("deny");
+        }
+      });
+
+    mountRoot
+      .querySelectorAll<HTMLButtonElement>("[data-action='dashboard-runner-approval-control']")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          const controlId = button.dataset.runnerApprovalControlId;
+          if (controlId) {
+            void runRunnerApprovalControl(controlId);
+          }
+        });
       });
 
     mountRoot

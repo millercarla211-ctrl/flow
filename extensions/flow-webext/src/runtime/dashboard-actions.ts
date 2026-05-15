@@ -57,6 +57,41 @@ export interface FlowDashboardRunnerOperatorNote {
   releaseReviewPath: string;
 }
 
+export interface FlowDashboardRunnerApprovalControl {
+  id: string;
+  kind: string;
+  label: string;
+  command: string;
+  detail: string;
+  ariaLabel: string;
+  keyboardShortcut: {
+    key: string;
+    label: string;
+    detail: string;
+  } | null;
+  requiresReason: boolean;
+  requiresApproval: boolean;
+  disabled: boolean;
+  disabledReason: string | null;
+}
+
+export interface FlowDashboardRunnerApprovalUiReport {
+  historyJson: string;
+  resultCount: number;
+  modalId: string;
+  latestActionId: string | null;
+  title: string;
+  body: string;
+  commandPreview: string;
+  reasonLabel: string;
+  reasonPlaceholder: string;
+  auditReasonRequired: boolean;
+  controls: FlowDashboardRunnerApprovalControl[];
+  snoozeOptions: Array<{ id: string; label: string; durationSeconds: number }>;
+  undoNote: string;
+  releaseReviewPath: string;
+}
+
 export interface FlowDashboardRunnerUxReport {
   historyJson: string;
   resultCount: number;
@@ -390,6 +425,95 @@ export function normalizeTrustedHostRunnerUx(value: unknown): FlowDashboardRunne
     statusSummaries: summaries,
     affordances,
     operatorNotes,
+  };
+}
+
+export function normalizeTrustedHostRunnerApprovalUi(
+  value: unknown,
+): FlowDashboardRunnerApprovalUiReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const controls = arrayValue(record.controls)
+    .map((item): FlowDashboardRunnerApprovalControl | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const control = item as Record<string, unknown>;
+      const shortcut =
+        control.keyboard_shortcut && typeof control.keyboard_shortcut === "object"
+          ? (control.keyboard_shortcut as Record<string, unknown>)
+          : control.keyboardShortcut && typeof control.keyboardShortcut === "object"
+            ? (control.keyboardShortcut as Record<string, unknown>)
+            : null;
+      const id = stringValue(control.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        kind: stringValue(control.kind),
+        label: stringValue(control.label) || id,
+        command: stringValue(control.command),
+        detail: stringValue(control.detail),
+        ariaLabel: stringValue(control.aria_label, control.ariaLabel),
+        keyboardShortcut: shortcut
+          ? {
+              key: stringValue(shortcut.key),
+              label: stringValue(shortcut.label),
+              detail: stringValue(shortcut.detail),
+            }
+          : null,
+        requiresReason: booleanValue(control.requires_reason, control.requiresReason),
+        requiresApproval: booleanValue(control.requires_approval, control.requiresApproval),
+        disabled: booleanValue(control.disabled),
+        disabledReason: stringValue(control.disabled_reason, control.disabledReason) || null,
+      };
+    })
+    .filter((item): item is FlowDashboardRunnerApprovalControl => item !== null);
+
+  if (controls.length === 0) {
+    return null;
+  }
+
+  return {
+    historyJson: stringValue(record.history_json, record.historyJson),
+    resultCount: numberValue(record.result_count, record.resultCount),
+    modalId: stringValue(record.modal_id, record.modalId) || "trusted-runner-approval",
+    latestActionId: stringValue(record.latest_action_id, record.latestActionId) || null,
+    title: stringValue(record.title) || "Approve trusted runner action",
+    body: stringValue(record.body),
+    commandPreview: stringValue(record.command_preview, record.commandPreview),
+    reasonLabel: stringValue(record.reason_label, record.reasonLabel) || "Audit reason",
+    reasonPlaceholder: stringValue(record.reason_placeholder, record.reasonPlaceholder),
+    auditReasonRequired: booleanValue(
+      record.audit_reason_required,
+      record.auditReasonRequired,
+    ),
+    controls,
+    snoozeOptions: arrayValue(record.snooze_options, record.snoozeOptions)
+      .map((item) => {
+        if (!item || typeof item !== "object") {
+          return null;
+        }
+        const option = item as Record<string, unknown>;
+        const id = stringValue(option.id);
+        if (!id) {
+          return null;
+        }
+        return {
+          id,
+          label: stringValue(option.label) || id,
+          durationSeconds: numberValue(option.duration_seconds, option.durationSeconds),
+        };
+      })
+      .filter((item): item is { id: string; label: string; durationSeconds: number } => {
+        return item !== null;
+      }),
+    undoNote: stringValue(record.undo_note, record.undoNote),
+    releaseReviewPath: stringValue(record.release_review_path, record.releaseReviewPath),
   };
 }
 

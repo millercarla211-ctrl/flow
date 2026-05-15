@@ -45,6 +45,7 @@ pub struct FridayTrustedHostRunnerRequest {
     pub timeout_ms: u64,
     pub stdout_limit_bytes: usize,
     pub stderr_limit_bytes: usize,
+    pub operator_reason: Option<String>,
 }
 
 impl Default for FridayTrustedHostRunnerRequest {
@@ -55,6 +56,7 @@ impl Default for FridayTrustedHostRunnerRequest {
             timeout_ms: DEFAULT_TIMEOUT_MS,
             stdout_limit_bytes: DEFAULT_OUTPUT_LIMIT_BYTES,
             stderr_limit_bytes: DEFAULT_OUTPUT_LIMIT_BYTES,
+            operator_reason: None,
         }
     }
 }
@@ -105,6 +107,7 @@ pub struct FridayTrustedHostRunnerResult {
     pub timeout_ms: u64,
     pub approved: bool,
     pub cancelled: bool,
+    pub operator_reason: Option<String>,
     pub audit_event: String,
     pub recorded_at_unix_ms: u128,
 }
@@ -170,6 +173,59 @@ impl FridayTrustedHostRunnerUxReport {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerKeyboardShortcut {
+    pub key: String,
+    pub label: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerApprovalControl {
+    pub id: String,
+    pub kind: String,
+    pub label: String,
+    pub command: String,
+    pub detail: String,
+    pub aria_label: String,
+    pub keyboard_shortcut: Option<FridayTrustedHostRunnerKeyboardShortcut>,
+    pub requires_reason: bool,
+    pub requires_approval: bool,
+    pub disabled: bool,
+    pub disabled_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerSnoozeOption {
+    pub id: String,
+    pub label: String,
+    pub duration_seconds: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FridayTrustedHostRunnerApprovalUiReport {
+    pub history_json: String,
+    pub result_count: usize,
+    pub modal_id: String,
+    pub latest_action_id: Option<String>,
+    pub title: String,
+    pub body: String,
+    pub command_preview: String,
+    pub reason_label: String,
+    pub reason_placeholder: String,
+    pub audit_reason_required: bool,
+    pub controls: Vec<FridayTrustedHostRunnerApprovalControl>,
+    pub snooze_options: Vec<FridayTrustedHostRunnerSnoozeOption>,
+    pub undo_note: String,
+    pub release_review_path: String,
+}
+
+impl FridayTrustedHostRunnerApprovalUiReport {
+    pub fn to_pretty_json(&self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(self)
+    }
+}
+
 pub fn friday_trusted_host_runner_ux_report(
     history: &FridayTrustedHostRunnerHistory,
     release_review_path: impl AsRef<Path>,
@@ -226,6 +282,62 @@ pub fn friday_trusted_host_runner_ux_report_from_history_file(
 ) -> Result<FridayTrustedHostRunnerUxReport> {
     let history = read_friday_trusted_host_runner_history(history_path)?;
     Ok(friday_trusted_host_runner_ux_report(
+        &history,
+        release_review_path,
+    ))
+}
+
+pub fn friday_trusted_host_runner_approval_ui_report(
+    history: &FridayTrustedHostRunnerHistory,
+    release_review_path: impl AsRef<Path>,
+) -> FridayTrustedHostRunnerApprovalUiReport {
+    let latest = history.latest.as_ref();
+    let action_id = latest.map(|result| result.action_id.clone());
+    let command = latest
+        .map(|result| result.command.clone())
+        .unwrap_or_else(|| "flow --completion".to_string());
+    let disabled_reason = latest
+        .is_none()
+        .then(|| "No trusted runner history record is available yet.".to_string());
+    let release_review_path = path_string(release_review_path.as_ref());
+
+    FridayTrustedHostRunnerApprovalUiReport {
+        history_json: history.history_json.clone(),
+        result_count: history.result_count,
+        modal_id: "trusted-runner-approval".to_string(),
+        latest_action_id: action_id.clone(),
+        title: "Approve trusted runner action".to_string(),
+        body: "Review the local command, write a short audit reason, then choose the explicit action Friday should prepare."
+            .to_string(),
+        command_preview: command.clone(),
+        reason_label: "Audit reason".to_string(),
+        reason_placeholder: "Example: rerun readiness after dashboard export refresh".to_string(),
+        audit_reason_required: true,
+        controls: runner_approval_controls(action_id.as_deref(), &command, disabled_reason),
+        snooze_options: vec![
+            FridayTrustedHostRunnerSnoozeOption {
+                id: "snooze-5m".to_string(),
+                label: "Snooze 5 minutes".to_string(),
+                duration_seconds: 300,
+            },
+            FridayTrustedHostRunnerSnoozeOption {
+                id: "snooze-30m".to_string(),
+                label: "Snooze 30 minutes".to_string(),
+                duration_seconds: 1_800,
+            },
+        ],
+        undo_note: "Undo only clears the dashboard approval draft; finished runner history remains immutable for audit."
+            .to_string(),
+        release_review_path,
+    }
+}
+
+pub fn friday_trusted_host_runner_approval_ui_report_from_history_file(
+    history_path: impl AsRef<Path>,
+    release_review_path: impl AsRef<Path>,
+) -> Result<FridayTrustedHostRunnerApprovalUiReport> {
+    let history = read_friday_trusted_host_runner_history(history_path)?;
+    Ok(friday_trusted_host_runner_approval_ui_report(
         &history,
         release_review_path,
     ))
@@ -422,8 +534,149 @@ fn runner_result(
         timeout_ms: request.timeout_ms,
         approved: request.approved,
         cancelled: request.cancel_requested || status == FridayTrustedHostRunnerStatus::Cancelled,
+        operator_reason: request
+            .operator_reason
+            .as_deref()
+            .map(|reason| summarize_output(reason.trim(), 240).0)
+            .filter(|reason| !reason.is_empty()),
         audit_event: format!("trusted-host-runner-{}", status.label()),
         recorded_at_unix_ms: unix_ms(),
+    }
+}
+
+fn runner_approval_controls(
+    action_id: Option<&str>,
+    command: &str,
+    disabled_reason: Option<String>,
+) -> Vec<FridayTrustedHostRunnerApprovalControl> {
+    let action_id = action_id.unwrap_or("unknown-action");
+    let disabled = disabled_reason.is_some();
+    vec![
+        approval_control(
+            "approve",
+            "approve",
+            "Approve and run",
+            &format!(
+                "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id {action_id} --approve --execute --reason \"<audit reason>\""
+            ),
+            "Approve this local command and run it through the trusted host runner.",
+            Some(("Ctrl+Enter", "Approve", "Approve and copy the approved runner command.")),
+            true,
+            true,
+            disabled,
+            disabled_reason.clone(),
+        ),
+        approval_control(
+            "deny",
+            "deny",
+            "Deny",
+            &format!(
+                "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id {action_id} --reason \"<denial reason>\""
+            ),
+            "Record a denial reason without executing the local command.",
+            Some(("Esc", "Deny", "Deny this pending approval draft.")),
+            true,
+            false,
+            disabled,
+            disabled_reason.clone(),
+        ),
+        approval_control(
+            "copy",
+            "copy-command",
+            "Copy command",
+            command,
+            "Copy the underlying local command without executing it.",
+            Some(("Ctrl+C", "Copy", "Copy the current trusted runner command.")),
+            false,
+            false,
+            disabled,
+            disabled_reason.clone(),
+        ),
+        approval_control(
+            "retry",
+            "retry",
+            "Retry with approval",
+            &format!(
+                "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id {action_id} --approve --execute --reason \"<audit reason>\""
+            ),
+            "Retry the action only after a fresh explicit approval reason.",
+            Some(("Ctrl+R", "Retry", "Prepare a retry with explicit approval.")),
+            true,
+            true,
+            disabled,
+            disabled_reason.clone(),
+        ),
+        approval_control(
+            "cancel",
+            "cancel",
+            "Cancel",
+            &format!(
+                "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id {action_id} --cancel --reason \"<cancel reason>\""
+            ),
+            "Cancel the pending runner action before execution.",
+            Some(("Ctrl+Backspace", "Cancel", "Cancel this pending runner action.")),
+            true,
+            false,
+            disabled,
+            disabled_reason.clone(),
+        ),
+        approval_control(
+            "snooze",
+            "snooze",
+            "Snooze",
+            "",
+            "Hide the approval draft temporarily without changing immutable runner history.",
+            Some(("Ctrl+S", "Snooze", "Snooze this pending approval draft.")),
+            false,
+            false,
+            false,
+            None,
+        ),
+        approval_control(
+            "undo",
+            "undo",
+            "Undo draft",
+            "",
+            "Clear the dashboard approval draft without touching existing runner history.",
+            Some(("Ctrl+Z", "Undo", "Undo the current approval draft.")),
+            false,
+            false,
+            false,
+            None,
+        ),
+    ]
+}
+
+fn approval_control(
+    id: &str,
+    kind: &str,
+    label: &str,
+    command: &str,
+    detail: &str,
+    keyboard_shortcut: Option<(&str, &str, &str)>,
+    requires_reason: bool,
+    requires_approval: bool,
+    disabled: bool,
+    disabled_reason: Option<String>,
+) -> FridayTrustedHostRunnerApprovalControl {
+    FridayTrustedHostRunnerApprovalControl {
+        id: id.to_string(),
+        kind: kind.to_string(),
+        label: label.to_string(),
+        command: command.to_string(),
+        detail: detail.to_string(),
+        aria_label: format!("{label}: {detail}"),
+        keyboard_shortcut: keyboard_shortcut.map(|(key, label, detail)| {
+            FridayTrustedHostRunnerKeyboardShortcut {
+                key: key.to_string(),
+                label: label.to_string(),
+                detail: detail.to_string(),
+            }
+        }),
+        requires_reason,
+        requires_approval,
+        disabled,
+        disabled_reason,
     }
 }
 

@@ -5,6 +5,7 @@ import {
 import {
   dispatchDashboardCommand,
   normalizeDashboardHostCommandResults,
+  normalizeTrustedHostRunnerApprovalUi,
   normalizeTrustedHostRunnerResults,
   normalizeTrustedHostRunnerUx,
 } from "../runtime/dashboard-actions";
@@ -234,6 +235,85 @@ export function dashboardSectionSmokeReport(
       },
     ],
   });
+  const trustedRunnerApprovalUi = normalizeTrustedHostRunnerApprovalUi({
+    history_json: "tmp/friday-dashboard/trusted-host-runner-history.json",
+    result_count: 1,
+    modal_id: "trusted-runner-approval",
+    latest_action_id: "host-open",
+    title: "Approve trusted runner action",
+    body: "Review the local command and write an audit reason.",
+    command_preview: "flow --completion",
+    reason_label: "Audit reason",
+    reason_placeholder: "why this command is safe",
+    audit_reason_required: true,
+    controls: [
+      {
+        id: "approve",
+        kind: "approve",
+        label: "Approve and run",
+        command:
+          "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id host-open --approve --execute --reason \"<audit reason>\"",
+        detail: "Approve and run.",
+        aria_label: "Approve and run",
+        keyboard_shortcut: {
+          key: "Ctrl+Enter",
+          label: "Approve",
+          detail: "Approve and copy the approved runner command.",
+        },
+        requires_reason: true,
+        requires_approval: true,
+        disabled: false,
+      },
+      {
+        id: "deny",
+        kind: "deny",
+        label: "Deny",
+        command:
+          "flow --friday-trusted-host-runner tmp/friday-dashboard --action-id host-open --reason \"<denial reason>\"",
+        detail: "Deny without execution.",
+        aria_label: "Deny",
+        keyboard_shortcut: {
+          key: "Esc",
+          label: "Deny",
+          detail: "Deny this approval draft.",
+        },
+        requires_reason: true,
+        requires_approval: false,
+        disabled: false,
+      },
+      {
+        id: "snooze",
+        kind: "snooze",
+        label: "Snooze",
+        command: "",
+        detail: "Temporarily hide this draft.",
+        aria_label: "Snooze",
+        requires_reason: false,
+        requires_approval: false,
+        disabled: false,
+      },
+      {
+        id: "undo",
+        kind: "undo",
+        label: "Undo draft",
+        command: "",
+        detail: "Clear the current draft.",
+        aria_label: "Undo draft",
+        requires_reason: false,
+        requires_approval: false,
+        disabled: false,
+      },
+    ],
+    snooze_options: [
+      {
+        id: "snooze-5m",
+        label: "Snooze 5 minutes",
+        duration_seconds: 300,
+      },
+    ],
+    undo_note: "Undo only clears the draft.",
+    release_review_path: "tmp/friday-dashboard/release-review.json",
+  });
   const checks = [
     check(
       "local-fallback-labelled",
@@ -324,6 +404,28 @@ export function dashboardSectionSmokeReport(
           (affordance) => affordance.kind === "copy-command" && !affordance.disabled,
         ) === true,
       `${trustedRunnerUx?.affordances.length ?? 0} trusted runner affordance(s)`,
+    ),
+    check(
+      "trusted-runner-approval-modal",
+      trustedRunnerApprovalUi?.modalId === "trusted-runner-approval" &&
+        trustedRunnerApprovalUi.controls.some(
+          (control) =>
+            control.kind === "approve" &&
+            control.requiresReason &&
+            control.requiresApproval &&
+            control.keyboardShortcut?.key === "Ctrl+Enter",
+        ) &&
+        trustedRunnerApprovalUi.controls.some(
+          (control) => control.kind === "deny" && control.keyboardShortcut?.key === "Esc",
+        ),
+      `${trustedRunnerApprovalUi?.controls.length ?? 0} approval control(s)`,
+    ),
+    check(
+      "trusted-runner-approval-draft-affordances",
+      trustedRunnerApprovalUi?.controls.some((control) => control.kind === "snooze") === true &&
+        trustedRunnerApprovalUi?.controls.some((control) => control.kind === "undo") === true &&
+        trustedRunnerApprovalUi.auditReasonRequired,
+      `${trustedRunnerApprovalUi?.snoozeOptions.length ?? 0} snooze option(s)`,
     ),
     check(
       "history-rail-renderable",
