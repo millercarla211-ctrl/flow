@@ -733,6 +733,33 @@ pub enum Command {
         publication_note: String,
         manual_publication_reference: Option<String>,
     },
+    /// Append a Friday release outbound review record
+    FridayReleaseOutboundReview {
+        ledger_file: String,
+        publication_control_file: String,
+        state: String,
+        reviewer: String,
+        review_note: String,
+        manual_publication_reference: Option<String>,
+        supersedes_review_id: Option<String>,
+    },
+    /// Print a Friday release outbound review ledger preview as JSON
+    FridayReleaseOutboundReviewJson {
+        ledger_file: String,
+        publication_control_file: String,
+        state: String,
+        reviewer: String,
+        review_note: String,
+        manual_publication_reference: Option<String>,
+        supersedes_review_id: Option<String>,
+    },
+    /// List an existing Friday release outbound review ledger
+    FridayReleaseOutboundReviewList { ledger_file: String },
+    /// Export an existing Friday release outbound review ledger
+    FridayReleaseOutboundReviewExport {
+        ledger_file: String,
+        output_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -2396,6 +2423,61 @@ impl Args {
                     manual_publication_reference,
                 }
             }
+            "--friday-release-outbound-review" | "--friday-outbound-review" => {
+                let (
+                    ledger_file,
+                    publication_control_file,
+                    state,
+                    reviewer,
+                    review_note,
+                    manual_publication_reference,
+                    supersedes_review_id,
+                ) = parse_friday_release_outbound_review_args(&args);
+                Command::FridayReleaseOutboundReview {
+                    ledger_file,
+                    publication_control_file,
+                    state,
+                    reviewer,
+                    review_note,
+                    manual_publication_reference,
+                    supersedes_review_id,
+                }
+            }
+            "--friday-release-outbound-review-json" | "--friday-outbound-review-json" => {
+                let (
+                    ledger_file,
+                    publication_control_file,
+                    state,
+                    reviewer,
+                    review_note,
+                    manual_publication_reference,
+                    supersedes_review_id,
+                ) = parse_friday_release_outbound_review_args(&args);
+                Command::FridayReleaseOutboundReviewJson {
+                    ledger_file,
+                    publication_control_file,
+                    state,
+                    reviewer,
+                    review_note,
+                    manual_publication_reference,
+                    supersedes_review_id,
+                }
+            }
+            "--friday-release-outbound-review-list" | "--friday-outbound-review-list" => {
+                Command::FridayReleaseOutboundReviewList {
+                    ledger_file: parse_friday_release_outbound_review_ledger_file_arg(&args),
+                }
+            }
+            "--friday-release-outbound-review-export" | "--friday-outbound-review-export" => {
+                let ledger_file = parse_friday_release_outbound_review_ledger_file_arg(&args);
+                let output_file = flag_value(&args, "--output").unwrap_or_else(|| {
+                    "tmp/friday-dashboard/release-outbound-review-ledger-export.json".to_string()
+                });
+                Command::FridayReleaseOutboundReviewExport {
+                    ledger_file,
+                    output_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -4001,6 +4083,67 @@ fn parse_friday_release_publication_control_args(
         publication_note,
         manual_publication_reference,
     )
+}
+
+fn parse_friday_release_outbound_review_args(
+    args: &[String],
+) -> (
+    String,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let ledger_file = flag_value(args, "--ledger")
+        .or_else(|| flag_value(args, "--output"))
+        .unwrap_or_else(|| format!("{export_dir}/release-outbound-review-ledger.json"));
+    let publication_control_file = flag_value(args, "--publication-control")
+        .or_else(|| flag_value(args, "--control"))
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-publication-control.json"));
+    let state = flag_value(args, "--state").unwrap_or_else(|| "draft".to_string());
+    let reviewer = flag_value(args, "--reviewer")
+        .or_else(|| flag_value(args, "--operator"))
+        .unwrap_or_else(|| "operator".to_string());
+    let review_note = flag_value(args, "--review-note")
+        .or_else(|| flag_value(args, "--note"))
+        .unwrap_or_else(|| "Reviewed local-only outbound release copy.".to_string());
+    let manual_publication_reference = flag_value(args, "--manual-publication-reference")
+        .or_else(|| flag_value(args, "--reference"))
+        .filter(|value| !value.trim().is_empty());
+    let supersedes_review_id = flag_value(args, "--supersedes")
+        .or_else(|| flag_value(args, "--supersedes-review"))
+        .filter(|value| !value.trim().is_empty());
+
+    (
+        ledger_file,
+        publication_control_file,
+        state,
+        reviewer,
+        review_note,
+        manual_publication_reference,
+        supersedes_review_id,
+    )
+}
+
+fn parse_friday_release_outbound_review_ledger_file_arg(args: &[String]) -> String {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    flag_value(args, "--ledger")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-outbound-review-ledger.json"))
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

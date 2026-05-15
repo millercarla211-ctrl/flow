@@ -917,16 +917,34 @@ Goal: turn completed handoff ledgers into local-only publication controls so Fri
 
 This set is complete. The next loop should open `Friday Release Outbound Review` and make final operator review explicit before any copied release note, deployment note, announcement, or external-send instruction can be treated as ready.
 
-## Next Set: Friday Release Outbound Review
+## Completed Set: Friday Release Outbound Review
 
-Status: 0/100
+Status: 100/100
 
 Goal: add a final local review surface for publication controls so Friday can distinguish drafted copy, operator-reviewed copy, held copy, and manually published outcomes without sending, publishing, deploying, uploading, or emailing.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed outbound-review model that consumes publication controls and records final operator review decisions.
+- [x] Add review states for draft, reviewed, changes-requested, held, blocked, manually-published, revoked, and superseded.
+- [x] Add append/list/export/JSON commands for outbound reviews without performing external mutation.
+- [x] Add dashboard import/rendering for review history, active publication control, copy safety, manual-publish references, and final operator notes.
+- [x] Add focused Rust/TypeScript coverage for reviewed copy, blocked publication controls, manual-publish references, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release External Receipt Archive` and preserve human-owned external publication, send, deploy, upload, or announcement receipts as local evidence without fetching or mutating external systems.
+
+## Next Set: Friday Release External Receipt Archive
+
+Status: 0/100
+
+Goal: preserve human-owned external publication/send/deploy receipts as local evidence so Friday can connect outbound reviews to real-world operator outcomes without fetching, sending, deploying, uploading, emailing, or mutating external systems.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed outbound-review model that consumes publication controls and records final operator review decisions.
-- [ ] Add review states for draft, reviewed, changes-requested, held, blocked, manually-published, revoked, and superseded.
-- [ ] Add append/list/export/JSON commands for outbound reviews without performing external mutation.
-- [ ] Add dashboard import/rendering for review history, active publication control, copy safety, manual-publish references, and final operator notes.
-- [ ] Add focused Rust/TypeScript coverage for reviewed copy, blocked publication controls, manual-publish references, command safety, and dashboard rendering.
+- [ ] Add a typed external receipt archive that consumes outbound review ledgers.
+- [ ] Add receipt states for draft, attached, verified, stale, missing, revoked, superseded, and blocked.
+- [ ] Add append/list/export/JSON commands that never fetch, send, deploy, upload, email, or mutate external systems.
+- [ ] Add dashboard import/rendering for receipt history, reviewed copy, manual references, evidence paths, and copyable audit notes.
+- [ ] Add focused Rust/TypeScript coverage for receipt attachability, blocked reviews, stale evidence, command safety, and dashboard rendering.

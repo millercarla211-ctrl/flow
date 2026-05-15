@@ -43,14 +43,16 @@ use crate::friday::{
     FridayReleaseHandoffDispatchChecklist, FridayReleaseHandoffDispatchChecklistRequest,
     FridayReleaseHandoffDispatchGovernanceReview, FridayReleaseHandoffGovernanceReview,
     FridayReleaseHandoffPacket, FridayReleaseIncidentArchive, FridayReleaseIncidentOutcome,
-    FridayReleaseOperatorChecklistReport, FridayReleaseOwnerFollowUpBoardReport,
-    FridayReleasePostPromotionMonitorReport, FridayReleasePreventionPlanReport,
-    FridayReleasePromotionDecision, FridayReleasePromotionLedger,
-    FridayReleasePromotionRecordRequest, FridayReleasePublicationControl,
-    FridayReleasePublicationRequest, FridayReleasePublicationState,
-    FridayReleaseQaCommandCenterReport, FridayReleaseRecoveryRunbookReport,
-    FridayReleaseRollbackDrillReport, FridayReleaseStabilityBoardReport, FridayResearchReport,
-    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleaseOperatorChecklistReport, FridayReleaseOutboundReviewLedger,
+    FridayReleaseOutboundReviewRequest, FridayReleaseOutboundReviewState,
+    FridayReleaseOwnerFollowUpBoardReport, FridayReleasePostPromotionMonitorReport,
+    FridayReleasePreventionPlanReport, FridayReleasePromotionDecision,
+    FridayReleasePromotionLedger, FridayReleasePromotionRecordRequest,
+    FridayReleasePublicationControl, FridayReleasePublicationRequest,
+    FridayReleasePublicationState, FridayReleaseQaCommandCenterReport,
+    FridayReleaseRecoveryRunbookReport, FridayReleaseRollbackDrillReport,
+    FridayReleaseStabilityBoardReport, FridayResearchReport, FridayResearchWorkflow,
+    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
@@ -62,7 +64,8 @@ use crate::friday::{
     append_friday_release_handoff_completion_to_ledger,
     append_friday_release_handoff_dispatch_audit_to_trail,
     append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
-    append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
+    append_friday_release_outbound_review_to_ledger, append_friday_release_promotion_to_ledger,
+    append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -86,12 +89,13 @@ use crate::friday::{
     friday_release_handoff_dispatch_governance_review_report,
     friday_release_handoff_governance_review_report, friday_release_handoff_packet_report,
     friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
-    friday_release_operator_checklist_report, friday_release_owner_followup_board_report,
-    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
-    friday_release_promotion_ledger_report, friday_release_publication_control_report,
-    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
-    friday_release_rollback_drill_report, friday_release_stability_board_report,
-    friday_research_search_plan, friday_route_visual_report,
+    friday_release_operator_checklist_report, friday_release_outbound_review_ledger_report,
+    friday_release_outbound_review_record_from_publication_control,
+    friday_release_owner_followup_board_report, friday_release_post_promotion_monitor_report,
+    friday_release_prevention_plan_report, friday_release_promotion_ledger_report,
+    friday_release_publication_control_report, friday_release_qa_command_center_report,
+    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
+    friday_release_stability_board_report, friday_research_search_plan, friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
@@ -102,9 +106,10 @@ use crate::friday::{
     read_friday_release_escalation_ledger, read_friday_release_handoff_audit_trail,
     read_friday_release_handoff_completion_ledger,
     read_friday_release_handoff_dispatch_audit_trail, read_friday_release_incident_archive,
-    read_friday_release_promotion_ledger, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
-    run_friday_trusted_host_command, run_friday_trusted_host_command_bridge,
-    run_friday_vlm_contract, write_friday_release_checkpoint_evidence_vault,
+    read_friday_release_outbound_review_ledger, read_friday_release_promotion_ledger,
+    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
+    run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
+    write_friday_release_checkpoint_evidence_vault,
     write_friday_release_checkpoint_review_board_report,
     write_friday_release_checkpoint_signoff_ledger, write_friday_release_deployment_gate,
     write_friday_release_escalation_ledger, write_friday_release_evidence_attachment_review,
@@ -115,7 +120,7 @@ use crate::friday::{
     write_friday_release_handoff_dispatch_governance_review,
     write_friday_release_handoff_governance_review, write_friday_release_handoff_packet,
     write_friday_release_incident_archive, write_friday_release_operator_checklist,
-    write_friday_release_owner_followup_board_report,
+    write_friday_release_outbound_review_ledger, write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_publication_control,
     write_friday_release_qa_command_center_report, write_friday_release_recovery_runbook_report,
@@ -2076,6 +2081,79 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", control.to_pretty_json()?);
         }
 
+        Command::FridayReleaseOutboundReview {
+            ledger_file,
+            publication_control_file,
+            state,
+            reviewer,
+            review_note,
+            manual_publication_reference,
+            supersedes_review_id,
+        } => {
+            let ledger = append_friday_release_outbound_review_to_ledger(
+                resolve_repo_relative_path(&ledger_file),
+                resolve_repo_relative_path(&publication_control_file),
+                FridayReleaseOutboundReviewRequest {
+                    state: FridayReleaseOutboundReviewState::parse(&state)?,
+                    reviewer,
+                    review_note,
+                    manual_publication_reference,
+                    supersedes_review_id,
+                },
+            )?;
+            print_friday_release_outbound_review_ledger(&ledger);
+        }
+
+        Command::FridayReleaseOutboundReviewJson {
+            ledger_file,
+            publication_control_file,
+            state,
+            reviewer,
+            review_note,
+            manual_publication_reference,
+            supersedes_review_id,
+        } => {
+            let ledger_path = resolve_repo_relative_path(&ledger_file);
+            let mut records = read_friday_release_outbound_review_ledger(&ledger_path)
+                .map(|ledger| ledger.records)
+                .unwrap_or_default();
+            records.push(
+                friday_release_outbound_review_record_from_publication_control(
+                    resolve_repo_relative_path(&publication_control_file),
+                    FridayReleaseOutboundReviewRequest {
+                        state: FridayReleaseOutboundReviewState::parse(&state)?,
+                        reviewer,
+                        review_note,
+                        manual_publication_reference,
+                        supersedes_review_id,
+                    },
+                )?,
+            );
+            let ledger = friday_release_outbound_review_ledger_report(&ledger_path, records);
+            println!("{}", ledger.to_pretty_json()?);
+        }
+
+        Command::FridayReleaseOutboundReviewList { ledger_file } => {
+            let ledger = read_friday_release_outbound_review_ledger(resolve_repo_relative_path(
+                &ledger_file,
+            ))?;
+            print_friday_release_outbound_review_ledger(&ledger);
+        }
+
+        Command::FridayReleaseOutboundReviewExport {
+            ledger_file,
+            output_file,
+        } => {
+            let ledger = read_friday_release_outbound_review_ledger(resolve_repo_relative_path(
+                &ledger_file,
+            ))?;
+            write_friday_release_outbound_review_ledger(
+                resolve_repo_relative_path(&output_file),
+                &ledger,
+            )?;
+            print_friday_release_outbound_review_ledger(&ledger);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -2705,6 +2783,16 @@ fn print_interactive_help() {
     println!("                           Write local-only release publication control JSON");
     println!("  --friday-release-publication-control-json [export-dir] [--completion-ledger file]");
     println!("                           Print release publication control as JSON");
+    println!("  --friday-release-outbound-review [--ledger file] [--publication-control file]");
+    println!("                           Append a local outbound review record without publishing");
+    println!(
+        "  --friday-release-outbound-review-json [--ledger file] [--publication-control file]"
+    );
+    println!("                           Print outbound review ledger preview as JSON");
+    println!("  --friday-release-outbound-review-list [--ledger file]");
+    println!("                           List an existing outbound review ledger");
+    println!("  --friday-release-outbound-review-export [--ledger file] [--output file]");
+    println!("                           Export an existing outbound review ledger JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -5320,6 +5408,64 @@ fn print_friday_release_publication_control(control: &FridayReleasePublicationCo
     println!();
     println!("Commands:");
     for command in &control.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_outbound_review_ledger(ledger: &FridayReleaseOutboundReviewLedger) {
+    println!("Friday Release Outbound Review");
+    println!("==============================");
+    println!(
+        "Records: {} | reviewed: {} | manual: {} | blocked: {} | copy-safe: {}",
+        ledger.record_count,
+        ledger.reviewed_count,
+        ledger.manual_publication_count,
+        ledger.blocked_count,
+        ledger.copy_safe_count
+    );
+    println!(
+        "Active review: {} | latest state: {} | latest publication: {}",
+        ledger.active_review_id.as_deref().unwrap_or("none"),
+        ledger
+            .latest_state
+            .map(|state| state.label())
+            .unwrap_or("none"),
+        ledger
+            .latest_publication_state
+            .map(|state| state.label())
+            .unwrap_or("none")
+    );
+    println!(
+        "Gate blockers: {} | unresolved blockers: {} | blocked reviews: {}",
+        ledger.release_gate_blocking_count,
+        ledger.unresolved_blocker_count,
+        ledger.blocked_review_count
+    );
+    println!("Ledger: {}", ledger.ledger_json);
+    println!();
+    println!("Recent reviews:");
+    for record in ledger.records.iter().rev().take(8) {
+        println!(
+            "  - {} [{}] {}",
+            record.reviewer,
+            record.state.label(),
+            record.publication_control_id
+        );
+        println!(
+            "    publication: {} | ready: {} | blockers: {} | copy-safe: {}",
+            record.publication_state.label(),
+            yes_no(record.ready_to_publish),
+            record.release_gate_blocking_count,
+            yes_no(record.copy_safe)
+        );
+        println!("    note: {}", record.review_note);
+        if let Some(reference) = &record.manual_publication_reference {
+            println!("    manual reference: {reference}");
+        }
+    }
+    println!();
+    println!("Commands:");
+    for command in &ledger.commands {
         println!("  - {command}");
     }
 }

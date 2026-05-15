@@ -38,6 +38,7 @@ use flow::friday::{
     FridayReleaseHandoffDispatchChecklistState, FridayReleaseHandoffDispatchGovernanceState,
     FridayReleaseHandoffGovernanceState, FridayReleaseHandoffPacketSectionKind,
     FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
+    FridayReleaseOutboundReviewRequest, FridayReleaseOutboundReviewState,
     FridayReleaseOwnerFollowUpCompletionState, FridayReleasePreventionActionKind,
     FridayReleasePreventionFindingKind, FridayReleasePromotionDecision,
     FridayReleasePromotionRecordRequest, FridayReleasePublicationRequest,
@@ -74,12 +75,14 @@ use flow::friday::{
     friday_release_handoff_dispatch_governance_review_report,
     friday_release_handoff_governance_review_report, friday_release_handoff_packet_report,
     friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
-    friday_release_operator_checklist_report, friday_release_owner_followup_board_report_at,
-    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
-    friday_release_publication_control_report, friday_release_qa_command_center_report,
-    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
-    friday_release_stability_board_report, friday_route_visual_report,
-    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
+    friday_release_operator_checklist_report, friday_release_outbound_review_ledger_report,
+    friday_release_outbound_review_record_from_publication_control,
+    friday_release_owner_followup_board_report_at, friday_release_post_promotion_monitor_report,
+    friday_release_prevention_plan_report, friday_release_publication_control_report,
+    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
+    friday_release_rollback_drill_report, friday_release_stability_board_report,
+    friday_route_visual_report, friday_route_visual_report_for_root,
+    friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -97,7 +100,8 @@ use flow::friday::{
     write_friday_release_handoff_dispatch_checklist,
     write_friday_release_handoff_dispatch_governance_review,
     write_friday_release_handoff_governance_review, write_friday_release_handoff_packet,
-    write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
+    write_friday_release_operator_checklist, write_friday_release_outbound_review_ledger,
+    write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_publication_control,
     write_friday_release_qa_command_center_report, write_friday_release_recovery_runbook_report,
@@ -3124,6 +3128,66 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
         command.contains("--friday-release-publication-control")
             && command.contains("--completion-ledger")
     }));
+    let release_outbound_review_ledger_path = root.join("release-outbound-review-ledger.json");
+    let release_outbound_review_record =
+        friday_release_outbound_review_record_from_publication_control(
+            &release_publication_control_path,
+            FridayReleaseOutboundReviewRequest {
+                state: FridayReleaseOutboundReviewState::Reviewed,
+                reviewer: "release-operator".to_string(),
+                review_note:
+                    "Review the outbound copy, but keep it local until publication blockers clear."
+                        .to_string(),
+                manual_publication_reference: None,
+                supersedes_review_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        release_outbound_review_record.state,
+        FridayReleaseOutboundReviewState::Blocked
+    );
+    assert!(!release_outbound_review_record.copy_safe);
+    assert!(!release_outbound_review_record.externally_mutated_by_friday);
+    assert!(release_outbound_review_record.release_gate_blocking_count > 0);
+    assert!(release_outbound_review_record.unresolved_blocker_count > 0);
+    assert!(
+        release_outbound_review_record
+            .review_notes_copy
+            .contains("Friday release outbound review")
+    );
+    assert!(
+        release_outbound_review_record
+            .review_notes_copy
+            .contains("Friday did not send, publish, deploy, upload, or email")
+    );
+    let release_outbound_review_ledger = friday_release_outbound_review_ledger_report(
+        &release_outbound_review_ledger_path,
+        vec![release_outbound_review_record],
+    );
+    write_friday_release_outbound_review_ledger(
+        &release_outbound_review_ledger_path,
+        &release_outbound_review_ledger,
+    )
+    .unwrap();
+    assert_eq!(release_outbound_review_ledger.record_count, 1);
+    assert_eq!(release_outbound_review_ledger.blocked_count, 1);
+    assert_eq!(release_outbound_review_ledger.reviewed_count, 0);
+    assert_eq!(release_outbound_review_ledger.copy_safe_count, 0);
+    assert_eq!(release_outbound_review_ledger.blocked_review_count, 1);
+    assert!(
+        release_outbound_review_ledger
+            .outbound_summary_copy
+            .contains("Friday release outbound review")
+    );
+    assert!(
+        release_outbound_review_ledger
+            .commands
+            .iter()
+            .any(|command| {
+                command.contains("--friday-release-outbound-review") && command.contains("--ledger")
+            })
+    );
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

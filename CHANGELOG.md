@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Outbound Review at 100/100 with typed local-only outbound review ledgers, draft/reviewed/changes-requested/held/blocked/manually-published/revoked/superseded states, append/list/export/JSON commands, dashboard import/rendering, copy-safe review counts, no-external-mutation notes, and focused Rust/TypeScript coverage
+- opened Friday Release External Receipt Archive as the next set for preserving human-owned publication, send, deploy, upload, or announcement receipts as local evidence without fetching or mutating external systems
 - completed Friday Release Publication Control at 100/100 with typed local-only publication controls, draft/ready/held/blocked/published-manually/revoked/superseded states, CLI/JSON commands, release notes/deployment notes/announcement/send-instruction copy, dashboard import/rendering, blocker-safe readiness, and focused Rust/TypeScript coverage
 - opened Friday Release Outbound Review as the next set for final operator review of copied release notes, deployment notes, announcements, and manual-publication references without external mutation
 - completed Friday Release Handoff Completion Ledger at 100/100 with typed local-only completion ledgers, draft/completed/manually-sent/held/revoked/superseded/blocked states, append/list/export/JSON commands, blocked-governance safety downgrades, dashboard import/rendering, copyable completion summaries, and focused Rust/TypeScript coverage

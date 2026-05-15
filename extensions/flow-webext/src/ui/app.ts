@@ -21,6 +21,7 @@ import {
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
   normalizeReleaseOwnerFollowUpBoard,
+  normalizeReleaseOutboundReviewLedger,
   normalizeReleasePostPromotionMonitor,
   normalizeReleasePreventionPlan,
   normalizeReleasePromotionLedger,
@@ -70,6 +71,7 @@ import {
   type FlowReleaseIncidentArchive,
   type FlowReleaseOperatorChecklistReport,
   type FlowReleaseOwnerFollowUpBoardReport,
+  type FlowReleaseOutboundReviewLedger,
   type FlowReleasePostPromotionMonitorReport,
   type FlowReleasePreventionPlanReport,
   type FlowReleasePromotionLedger,
@@ -148,6 +150,7 @@ type UiState = {
   dashboardReleaseHandoffDispatchGovernanceReview: FlowReleaseHandoffDispatchGovernanceReview | null;
   dashboardReleaseHandoffCompletionLedger: FlowReleaseHandoffCompletionLedger | null;
   dashboardReleasePublicationControl: FlowReleasePublicationControl | null;
+  dashboardReleaseOutboundReviewLedger: FlowReleaseOutboundReviewLedger | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -3225,6 +3228,68 @@ function renderReleasePublicationControl(control: FlowReleasePublicationControl 
   `;
 }
 
+function renderReleaseOutboundReviewLedger(ledger: FlowReleaseOutboundReviewLedger | null) {
+  if (!ledger) {
+    return "";
+  }
+  return `
+    <article class="feature-card dashboard-release-outbound-review">
+      <div class="card-topline">
+        <span class="eyebrow">Release outbound review</span>
+        <span class="badge ${badgeTone(ledger.blockedReviewCount > 0 ? "blocked" : "ready")}">
+          ${escapeHtml(ledger.latestState ?? "draft")}
+        </span>
+      </div>
+      <h3>Operator-reviewed outbound copy</h3>
+      <p>${escapeHtml(ledger.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${ledger.recordCount}</strong><small>records</small></span>
+        <span><strong>${ledger.reviewedCount}</strong><small>reviewed</small></span>
+        <span><strong>${ledger.manualPublicationCount}</strong><small>manual</small></span>
+        <span><strong>${ledger.copySafeCount}</strong><small>copy-safe</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Active review</strong> ${escapeHtml(ledger.activeReviewId ?? "none")}</span>
+        <span><strong>Latest control</strong> ${escapeHtml(ledger.latestPublicationControlId ?? "none")}</span>
+        <span><strong>Publication</strong> ${escapeHtml(ledger.latestPublicationState ?? "none")}</span>
+        <span><strong>Ledger</strong> ${escapeHtml(ledger.ledgerJson)}</span>
+      </div>
+      ${
+        ledger.releaseGateBlockingCount > 0 || ledger.unresolvedBlockerCount > 0
+          ? `<p class="soft-warning">This outbound review keeps ${ledger.releaseGateBlockingCount} gate blocker(s) and ${ledger.unresolvedBlockerCount} unresolved blocker(s) local.</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${ledger.records
+          .slice()
+          .reverse()
+          .slice(0, 8)
+          .map(
+            (record) => `
+              <div class="runner-package-file ${
+                record.copySafe && !record.externallyMutatedByFriday ? "present" : "missing"
+              }">
+                <strong>${escapeHtml(record.reviewer)} - ${escapeHtml(record.state)}</strong>
+                <small>${record.copySafe ? "copy-safe" : "local hold"} / ${escapeHtml(record.publicationState)}</small>
+                <code>${escapeHtml(record.publicationControlJson || "inline")}</code>
+                <span>${escapeHtml(record.reviewNote)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-outbound-review-command">
+          Copy review command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-outbound-review-notes">
+          Copy review notes
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -3459,6 +3524,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseHandoffDispatchGovernanceReview(state.dashboardReleaseHandoffDispatchGovernanceReview)}
       ${renderReleaseHandoffCompletionLedger(state.dashboardReleaseHandoffCompletionLedger)}
       ${renderReleasePublicationControl(state.dashboardReleasePublicationControl)}
+      ${renderReleaseOutboundReviewLedger(state.dashboardReleaseOutboundReviewLedger)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3612,6 +3678,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseHandoffDispatchGovernanceReview: null,
     dashboardReleaseHandoffCompletionLedger: null,
     dashboardReleasePublicationControl: null,
+    dashboardReleaseOutboundReviewLedger: null,
   };
 
   function render() {
@@ -3944,6 +4011,8 @@ export async function mountFlowApp(surfaceInput: string) {
         normalizeReleaseHandoffCompletionLedger(parsed);
       const releasePublicationControl =
         normalizeReleasePublicationControl(parsed);
+      const releaseOutboundReviewLedger =
+        normalizeReleaseOutboundReviewLedger(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -4012,8 +4081,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseHandoffCompletionLedger ?? state.dashboardReleaseHandoffCompletionLedger;
       state.dashboardReleasePublicationControl =
         releasePublicationControl ?? state.dashboardReleasePublicationControl;
+      state.dashboardReleaseOutboundReviewLedger =
+        releaseOutboundReviewLedger ?? state.dashboardReleaseOutboundReviewLedger;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releasePublicationControl
+      state.status = releaseOutboundReviewLedger
+        ? `Imported release outbound review ledger with ${releaseOutboundReviewLedger.recordCount} record(s) from ${file.name}.`
+        : releasePublicationControl
         ? `Imported release publication control ${releasePublicationControl.state} at ${releasePublicationControl.scoreOutOf100}/100 from ${file.name}.`
         : releaseHandoffCompletionLedger
         ? `Imported release handoff completion ledger with ${releaseHandoffCompletionLedger.recordCount} record(s) from ${file.name}.`
@@ -5067,6 +5140,39 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseOutboundReviewCommand() {
+    const command = state.dashboardReleaseOutboundReviewLedger?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release outbound review command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release outbound review command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseOutboundReviewNotes() {
+    const copy =
+      state.dashboardReleaseOutboundReviewLedger?.outboundSummaryCopy ?? "";
+    if (!copy) {
+      state.status = "No release outbound review notes are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release outbound review notes copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -5499,6 +5605,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-publication-send']")
       ?.addEventListener("click", () => {
         void copyReleasePublicationSendInstructions();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-outbound-review-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseOutboundReviewCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-outbound-review-notes']")
+      ?.addEventListener("click", () => {
+        void copyReleaseOutboundReviewNotes();
       });
 
     mountRoot

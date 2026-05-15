@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-publication-control-model",
-            "Typed release publication control model",
+            "release-outbound-review-model",
+            "Typed release outbound review model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleasePublicationControl` consumes completion ledgers and marks local-only publication readiness",
-            "open the next Friday release outbound review set",
+            "`FridayReleaseOutboundReviewLedger` consumes publication controls and preserves local operator decisions",
+            "open the next Friday release external receipt archive set",
         ),
         item(
-            "release-publication-control-states",
-            "Draft, ready, held, blocked, published-manually, revoked, and superseded states",
+            "release-outbound-review-states",
+            "Draft, reviewed, changes-requested, held, blocked, manually-published, revoked, and superseded states",
             20,
             CompletionItemStatus::Done,
-            "publication controls downgrade unsafe ready/published-manually requests to blocked when completion ledgers still carry blockers",
-            "open the next Friday release outbound review set",
+            "outbound reviews downgrade unsafe reviewed/manually-published requests to blocked while publication controls still carry blockers",
+            "open the next Friday release external receipt archive set",
         ),
         item(
-            "release-publication-control-cli",
-            "Release publication control CLI and JSON commands",
+            "release-outbound-review-cli",
+            "Release outbound review CLI, JSON, list, and export commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-publication-control` prepares release notes, deployment notes, announcements, and send instructions without external publication",
-            "open the next Friday release outbound review set",
+            "`flow --friday-release-outbound-review` appends local review records without sending, publishing, deploying, uploading, or emailing",
+            "open the next Friday release external receipt archive set",
         ),
         item(
-            "release-publication-control-dashboard",
-            "Dashboard release publication control rendering",
+            "release-outbound-review-dashboard",
+            "Dashboard release outbound review rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports publication controls and renders readiness, blockers, latest completion, command copy, release notes, and send instructions",
-            "open the next Friday release outbound review set",
+            "the visible dashboard imports outbound review ledgers and renders reviewed/manual/blocked counts, copy-safe state, latest publication control, commands, and review notes",
+            "open the next Friday release external receipt archive set",
         ),
         item(
-            "release-publication-control-coverage",
-            "Release publication control Rust and TypeScript coverage",
+            "release-outbound-review-coverage",
+            "Release outbound review Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify publication readiness, blocked ledgers, manual-publish safety, and dashboard rendering",
-            "open the next Friday release outbound review set",
+            "focused Rust integration coverage plus dashboard smoke checks verify blocked review downgrades, no-external-mutation copy, import normalization, and dashboard rendering",
+            "open the next Friday release external receipt archive set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Publication Control".to_string(),
+        name: "Friday Release Outbound Review".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Prepare release notes, deployment notes, announcements, and external-send instructions locally without publishing or mutating external systems.".to_string(),
+        loop_rule: "Record final operator review of copied release notes, deployment notes, announcements, and manual publication references without mutating external systems.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_publication_control_loop() {
+    fn active_set_tracks_friday_release_outbound_review_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Publication Control");
+        assert_eq!(set.name, "Friday Release Outbound Review");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

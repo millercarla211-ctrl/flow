@@ -1988,6 +1988,80 @@ export interface FlowReleasePublicationControl {
   commands: string[];
 }
 
+export type FlowReleaseOutboundReviewState =
+  | "draft"
+  | "reviewed"
+  | "changes-requested"
+  | "held"
+  | "blocked"
+  | "manually-published"
+  | "revoked"
+  | "superseded";
+
+export interface FlowReleaseOutboundReviewRecord {
+  reviewId: string;
+  publicationControlId: string;
+  publicationControlJson: string;
+  recordedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  state: FlowReleaseOutboundReviewState;
+  reviewer: string;
+  reviewNote: string;
+  manualPublicationReference: string | null;
+  supersedesReviewId: string | null;
+  publicationState: FlowReleasePublicationState;
+  publicationStatus: FlowDashboardPanelStatus;
+  readyToPublish: boolean;
+  publicationScoreOutOf100: number;
+  publicationBlockerCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  activeCompletionId: string | null;
+  latestGovernanceReviewId: string | null;
+  releaseNotesCopy: string;
+  deploymentNoteCopy: string;
+  announcementCopy: string;
+  externalSendInstructionsCopy: string;
+  active: boolean;
+  copySafe: boolean;
+  externallyMutatedByFriday: boolean;
+  reviewNotesCopy: string;
+  summary: string;
+}
+
+export interface FlowReleaseOutboundReviewLedger {
+  ledgerId: string;
+  ledgerJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  recordCount: number;
+  draftCount: number;
+  reviewedCount: number;
+  changesRequestedCount: number;
+  heldCount: number;
+  blockedCount: number;
+  manuallyPublishedCount: number;
+  revokedCount: number;
+  supersededCount: number;
+  activeReviewId: string | null;
+  latestReviewId: string | null;
+  latestState: FlowReleaseOutboundReviewState | null;
+  latestPublicationControlId: string | null;
+  latestPublicationState: FlowReleasePublicationState | null;
+  copySafeCount: number;
+  reviewedSafeCount: number;
+  blockedReviewCount: number;
+  manualPublicationCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  records: FlowReleaseOutboundReviewRecord[];
+  outboundSummaryCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -6090,6 +6164,188 @@ export function normalizeReleasePublicationControl(
   };
 }
 
+export function normalizeReleaseOutboundReviewLedger(
+  value: unknown,
+): FlowReleaseOutboundReviewLedger | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const root = value as Record<string, unknown>;
+  const ledger =
+    root.ledger_id || root.ledgerId || root.records
+      ? root
+      : root.release_outbound_review_ledger &&
+          typeof root.release_outbound_review_ledger === "object"
+        ? (root.release_outbound_review_ledger as Record<string, unknown>)
+        : root.releaseOutboundReviewLedger &&
+            typeof root.releaseOutboundReviewLedger === "object"
+          ? (root.releaseOutboundReviewLedger as Record<string, unknown>)
+          : root;
+  const records = arrayValue(ledger.records)
+    .map((item): FlowReleaseOutboundReviewRecord | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const reviewId = stringValue(record.review_id, record.reviewId);
+      if (!reviewId) {
+        return null;
+      }
+      return {
+        reviewId,
+        publicationControlId: stringValue(
+          record.publication_control_id,
+          record.publicationControlId,
+        ),
+        publicationControlJson: stringValue(
+          record.publication_control_json,
+          record.publicationControlJson,
+        ),
+        recordedAtUnixMs: stringValue(record.recorded_at_unix_ms, record.recordedAtUnixMs),
+        productName: stringValue(record.product_name, record.productName),
+        localOnly: booleanValue(record.local_only, record.localOnly),
+        state: releaseOutboundReviewState(stringValue(record.state)),
+        reviewer: stringValue(record.reviewer, record.operator),
+        reviewNote: stringValue(record.review_note, record.reviewNote),
+        manualPublicationReference:
+          stringValue(
+            record.manual_publication_reference,
+            record.manualPublicationReference,
+          ) || null,
+        supersedesReviewId:
+          stringValue(record.supersedes_review_id, record.supersedesReviewId) || null,
+        publicationState: releasePublicationState(
+          stringValue(record.publication_state, record.publicationState),
+        ),
+        publicationStatus: panelStatus(
+          stringValue(record.publication_status, record.publicationStatus),
+        ),
+        readyToPublish: booleanValue(record.ready_to_publish, record.readyToPublish),
+        publicationScoreOutOf100: numberValue(
+          record.publication_score_out_of_100,
+          record.publicationScoreOutOf100,
+        ),
+        publicationBlockerCount: numberValue(
+          record.publication_blocker_count,
+          record.publicationBlockerCount,
+        ),
+        releaseGateBlockingCount: numberValue(
+          record.release_gate_blocking_count,
+          record.releaseGateBlockingCount,
+        ),
+        unresolvedBlockerCount: numberValue(
+          record.unresolved_blocker_count,
+          record.unresolvedBlockerCount,
+        ),
+        activeCompletionId:
+          stringValue(record.active_completion_id, record.activeCompletionId) || null,
+        latestGovernanceReviewId:
+          stringValue(
+            record.latest_governance_review_id,
+            record.latestGovernanceReviewId,
+          ) || null,
+        releaseNotesCopy: stringValue(record.release_notes_copy, record.releaseNotesCopy),
+        deploymentNoteCopy: stringValue(
+          record.deployment_note_copy,
+          record.deploymentNoteCopy,
+        ),
+        announcementCopy: stringValue(record.announcement_copy, record.announcementCopy),
+        externalSendInstructionsCopy: stringValue(
+          record.external_send_instructions_copy,
+          record.externalSendInstructionsCopy,
+        ),
+        active: booleanValue(record.active),
+        copySafe: booleanValue(record.copy_safe, record.copySafe),
+        externallyMutatedByFriday: booleanValue(
+          record.externally_mutated_by_friday,
+          record.externallyMutatedByFriday,
+        ),
+        reviewNotesCopy: stringValue(record.review_notes_copy, record.reviewNotesCopy),
+        summary: stringValue(record.summary),
+      };
+    })
+    .filter((record): record is FlowReleaseOutboundReviewRecord => record !== null);
+  const ledgerId = stringValue(ledger.ledger_id, ledger.ledgerId);
+
+  if (!ledgerId && records.length === 0) {
+    return null;
+  }
+
+  return {
+    ledgerId,
+    ledgerJson: stringValue(ledger.ledger_json, ledger.ledgerJson),
+    generatedAtUnixMs: stringValue(ledger.generated_at_unix_ms, ledger.generatedAtUnixMs),
+    productName: stringValue(ledger.product_name, ledger.productName),
+    localOnly: booleanValue(ledger.local_only, ledger.localOnly),
+    recordCount: numberValue(ledger.record_count, ledger.recordCount),
+    draftCount: numberValue(ledger.draft_count, ledger.draftCount),
+    reviewedCount: numberValue(ledger.reviewed_count, ledger.reviewedCount),
+    changesRequestedCount: numberValue(
+      ledger.changes_requested_count,
+      ledger.changesRequestedCount,
+    ),
+    heldCount: numberValue(ledger.held_count, ledger.heldCount),
+    blockedCount: numberValue(ledger.blocked_count, ledger.blockedCount),
+    manuallyPublishedCount: numberValue(
+      ledger.manually_published_count,
+      ledger.manuallyPublishedCount,
+    ),
+    revokedCount: numberValue(ledger.revoked_count, ledger.revokedCount),
+    supersededCount: numberValue(ledger.superseded_count, ledger.supersededCount),
+    activeReviewId: stringValue(ledger.active_review_id, ledger.activeReviewId) || null,
+    latestReviewId: stringValue(ledger.latest_review_id, ledger.latestReviewId) || null,
+    latestState:
+      ledger.latest_state || ledger.latestState
+        ? releaseOutboundReviewState(stringValue(ledger.latest_state, ledger.latestState))
+        : null,
+    latestPublicationControlId:
+      stringValue(
+        ledger.latest_publication_control_id,
+        ledger.latestPublicationControlId,
+      ) || null,
+    latestPublicationState:
+      ledger.latest_publication_state || ledger.latestPublicationState
+        ? releasePublicationState(
+            stringValue(ledger.latest_publication_state, ledger.latestPublicationState),
+          )
+        : null,
+    copySafeCount: numberValue(ledger.copy_safe_count, ledger.copySafeCount),
+    reviewedSafeCount: numberValue(
+      ledger.reviewed_safe_count,
+      ledger.reviewedSafeCount,
+      ledger.copy_safe_count,
+      ledger.copySafeCount,
+    ),
+    blockedReviewCount: numberValue(
+      ledger.blocked_review_count,
+      ledger.blockedReviewCount,
+    ),
+    manualPublicationCount: numberValue(
+      ledger.manual_publication_count,
+      ledger.manualPublicationCount,
+      ledger.manually_published_count,
+      ledger.manuallyPublishedCount,
+    ),
+    releaseGateBlockingCount: numberValue(
+      ledger.release_gate_blocking_count,
+      ledger.releaseGateBlockingCount,
+    ),
+    unresolvedBlockerCount: numberValue(
+      ledger.unresolved_blocker_count,
+      ledger.unresolvedBlockerCount,
+    ),
+    records,
+    outboundSummaryCopy: stringValue(
+      ledger.outbound_summary_copy,
+      ledger.outboundSummaryCopy,
+    ),
+    summary: stringValue(ledger.summary),
+    commands: arrayValue(ledger.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -6685,6 +6941,22 @@ function releasePublicationState(value: string): FlowReleasePublicationState {
     value === "held" ||
     value === "blocked" ||
     value === "published-manually" ||
+    value === "revoked" ||
+    value === "superseded"
+  ) {
+    return value;
+  }
+  return "draft";
+}
+
+function releaseOutboundReviewState(value: string): FlowReleaseOutboundReviewState {
+  if (
+    value === "draft" ||
+    value === "reviewed" ||
+    value === "changes-requested" ||
+    value === "held" ||
+    value === "blocked" ||
+    value === "manually-published" ||
     value === "revoked" ||
     value === "superseded"
   ) {

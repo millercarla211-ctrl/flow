@@ -24,6 +24,7 @@ import {
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
   normalizeReleaseOwnerFollowUpBoard,
+  normalizeReleaseOutboundReviewLedger,
   normalizeReleasePostPromotionMonitor,
   normalizeReleasePreventionPlan,
   normalizeReleasePromotionLedger,
@@ -2930,6 +2931,87 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-publication-control-json --output tmp/friday-dashboard/release-publication-control.json --completion-ledger tmp/friday-dashboard/release-handoff-completion-ledger.json --state draft --operator <name>",
     ],
   });
+  const releaseOutboundReviewLedger = normalizeReleaseOutboundReviewLedger({
+    ledger_id: "friday-release-outbound-review-ledger-smoke",
+    ledger_json: "tmp/friday-dashboard/release-outbound-review-ledger.json",
+    generated_at_unix_ms: 31,
+    product_name: "Friday",
+    local_only: true,
+    record_count: 1,
+    draft_count: 0,
+    reviewed_count: 0,
+    changes_requested_count: 0,
+    held_count: 0,
+    blocked_count: 1,
+    manually_published_count: 0,
+    revoked_count: 0,
+    superseded_count: 0,
+    active_review_id:
+      "friday-release-outbound-review-friday-release-publication-control-smoke-31",
+    latest_review_id:
+      "friday-release-outbound-review-friday-release-publication-control-smoke-31",
+    latest_state: "blocked",
+    latest_publication_control_id: "friday-release-publication-control-smoke",
+    latest_publication_state: "blocked",
+    copy_safe_count: 0,
+    reviewed_safe_count: 0,
+    blocked_review_count: 1,
+    manual_publication_count: 0,
+    release_gate_blocking_count: 3,
+    unresolved_blocker_count: 3,
+    records: [
+      {
+        review_id:
+          "friday-release-outbound-review-friday-release-publication-control-smoke-31",
+        publication_control_id: "friday-release-publication-control-smoke",
+        publication_control_json: "tmp/friday-dashboard/release-publication-control.json",
+        recorded_at_unix_ms: 31,
+        product_name: "Friday",
+        local_only: true,
+        state: "blocked",
+        reviewer: "release-operator",
+        review_note:
+          "Outbound copy remains local until publication blockers are cleared.",
+        manual_publication_reference: "",
+        supersedes_review_id: "",
+        publication_state: "blocked",
+        publication_status: "blocked",
+        ready_to_publish: false,
+        publication_score_out_of_100: 31,
+        publication_blocker_count: 3,
+        release_gate_blocking_count: 3,
+        unresolved_blocker_count: 3,
+        active_completion_id:
+          "friday-release-handoff-completion-friday-release-handoff-dispatch-governance-review-smoke-29",
+        latest_governance_review_id:
+          "friday-release-handoff-dispatch-governance-review-smoke",
+        release_notes_copy:
+          "Friday release notes\nPublication state: blocked\nNo external publication by Friday: true",
+        deployment_note_copy:
+          "Friday deployment note\nState: blocked\nFriday did not deploy or mutate external systems.",
+        announcement_copy: "Friday update\nStatus: blocked",
+        external_send_instructions_copy:
+          "Friday will not send, publish, deploy, upload, or email this automatically.",
+        active: true,
+        copy_safe: false,
+        externally_mutated_by_friday: false,
+        review_notes_copy:
+          "Friday release outbound review\nFriday did not send, publish, deploy, upload, or email.",
+        summary:
+          "release-operator recorded outbound review friday-release-publication-control-smoke as blocked with 3 publication blocker(s).",
+      },
+    ],
+    outbound_summary_copy:
+      "Friday release outbound review\n- release-operator [blocked] friday-release-publication-control-smoke -> Outbound copy remains local until publication blockers are cleared.",
+    summary:
+      "Friday release outbound review ledger has 1 record(s), 0 reviewed, 0 changes requested, 0 manually published, 1 blocked, and 0 safe reviewed outcome(s).",
+    commands: [
+      "flow --friday-release-outbound-review --ledger tmp/friday-dashboard/release-outbound-review-ledger.json --publication-control <release-publication-control.json> --state draft --operator <name>",
+      "flow --friday-release-outbound-review-list --ledger tmp/friday-dashboard/release-outbound-review-ledger.json",
+      "flow --friday-release-outbound-review-export --ledger tmp/friday-dashboard/release-outbound-review-ledger.json --output tmp/friday-dashboard/release-outbound-review-ledger.json",
+      "flow --friday-release-outbound-review-json --ledger tmp/friday-dashboard/release-outbound-review-ledger.json --publication-control <release-publication-control.json>",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -3790,6 +3872,32 @@ export function dashboardSectionSmokeReport(
           command.includes("--friday-release-publication-control"),
         ),
       `${releasePublicationControl?.scoreOutOf100 ?? 0}/100 publication control score`,
+    ),
+    check(
+      "release-outbound-review-ledger-importable",
+      releaseOutboundReviewLedger?.recordCount === 1 &&
+        releaseOutboundReviewLedger.blockedCount === 1 &&
+        releaseOutboundReviewLedger.activeReviewId?.includes(
+          "friday-release-outbound-review",
+        ) === true,
+      `${releaseOutboundReviewLedger?.recordCount ?? 0} outbound review record(s)`,
+    ),
+    check(
+      "release-outbound-review-ledger-copy",
+      releaseOutboundReviewLedger !== null &&
+        releaseOutboundReviewLedger.records.some(
+          (record) =>
+            record.state === "blocked" &&
+            !record.copySafe &&
+            !record.externallyMutatedByFriday,
+        ) &&
+        releaseOutboundReviewLedger.outboundSummaryCopy.includes(
+          "Friday release outbound review",
+        ) &&
+        releaseOutboundReviewLedger.commands.some((command) =>
+          command.includes("--friday-release-outbound-review"),
+        ),
+      `${releaseOutboundReviewLedger?.copySafeCount ?? 0} outbound copy-safe review(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",
