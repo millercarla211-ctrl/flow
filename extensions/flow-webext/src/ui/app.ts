@@ -12,6 +12,7 @@ import {
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseHandoffAuditTrail,
+  normalizeReleaseHandoffDispatchChecklist,
   normalizeReleaseHandoffGovernanceReview,
   normalizeReleaseHandoffPacket,
   normalizeReleaseIncidentArchive,
@@ -56,6 +57,7 @@ import {
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseEvidenceSlaMonitorReport,
   type FlowReleaseHandoffAuditTrail,
+  type FlowReleaseHandoffDispatchChecklist,
   type FlowReleaseHandoffGovernanceReview,
   type FlowReleaseHandoffPacket,
   type FlowReleaseIncidentArchive,
@@ -133,6 +135,7 @@ type UiState = {
   dashboardReleaseHandoffPacket: FlowReleaseHandoffPacket | null;
   dashboardReleaseHandoffAuditTrail: FlowReleaseHandoffAuditTrail | null;
   dashboardReleaseHandoffGovernanceReview: FlowReleaseHandoffGovernanceReview | null;
+  dashboardReleaseHandoffDispatchChecklist: FlowReleaseHandoffDispatchChecklist | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -2888,6 +2891,71 @@ function renderReleaseHandoffGovernanceReview(
   `;
 }
 
+function renderReleaseHandoffDispatchChecklist(
+  checklist: FlowReleaseHandoffDispatchChecklist | null,
+) {
+  if (!checklist) {
+    return "";
+  }
+
+  const status = checklist.readyToDispatch
+    ? "ready"
+    : checklist.releaseGateBlockingCount > 0
+      ? "blocked"
+      : "warning";
+
+  return `
+    <article class="feature-card dashboard-release-handoff-dispatch-checklist">
+      <div class="card-topline">
+        <span class="eyebrow">Release handoff dispatch</span>
+        <span class="badge ${badgeTone(status)}">${escapeHtml(checklist.state)}</span>
+      </div>
+      <h3>${checklist.readyToDispatch ? "Dispatch checklist is ready" : "Dispatch checklist is on hold"}</h3>
+      <p>${escapeHtml(checklist.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${checklist.readyCount}/${checklist.itemCount}</strong><small>ready</small></span>
+        <span><strong>${checklist.recipientCount}</strong><small>recipients</small></span>
+        <span><strong>${checklist.attachmentCount}</strong><small>attachments</small></span>
+        <span><strong>${checklist.releaseGateBlockingCount}</strong><small>blocks</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Latest packet</strong> ${escapeHtml(checklist.latestPacketId ?? "none")}</span>
+        <span><strong>Active packet</strong> ${escapeHtml(checklist.activePacketId ?? "none")}</span>
+        <span><strong>Checklist</strong> ${escapeHtml(checklist.checklistJson)}</span>
+        <span><strong>Governance</strong> ${escapeHtml(checklist.governanceReviewJson)}</span>
+      </div>
+      ${
+        checklist.releaseGateBlockingCount > 0
+          ? `<p class="soft-warning">${checklist.releaseGateBlockingCount} dispatch blocker(s) remain before any external send.</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${checklist.items
+          .slice(0, 8)
+          .map(
+            (item) => `
+              <div class="runner-package-file ${item.releaseGateBlocking ? "missing" : "present"}">
+                <strong>${escapeHtml(item.title)}</strong>
+                <small>${escapeHtml(item.source)} - ${escapeHtml(item.state)}</small>
+                <code>${escapeHtml(item.evidencePath || "inline")}</code>
+                <span>${escapeHtml(item.nextAction)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-dispatch-command">
+          Copy checklist command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-handoff-dispatch-checklist">
+          Copy dispatch checklist
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -3117,6 +3185,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseHandoffPacket(state.dashboardReleaseHandoffPacket)}
       ${renderReleaseHandoffAuditTrail(state.dashboardReleaseHandoffAuditTrail)}
       ${renderReleaseHandoffGovernanceReview(state.dashboardReleaseHandoffGovernanceReview)}
+      ${renderReleaseHandoffDispatchChecklist(state.dashboardReleaseHandoffDispatchChecklist)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3265,6 +3334,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseHandoffPacket: null,
     dashboardReleaseHandoffAuditTrail: null,
     dashboardReleaseHandoffGovernanceReview: null,
+    dashboardReleaseHandoffDispatchChecklist: null,
   };
 
   function render() {
@@ -3587,6 +3657,8 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseHandoffAuditTrail = normalizeReleaseHandoffAuditTrail(parsed);
       const releaseHandoffGovernanceReview =
         normalizeReleaseHandoffGovernanceReview(parsed);
+      const releaseHandoffDispatchChecklist =
+        normalizeReleaseHandoffDispatchChecklist(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -3644,8 +3716,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseHandoffAuditTrail ?? state.dashboardReleaseHandoffAuditTrail;
       state.dashboardReleaseHandoffGovernanceReview =
         releaseHandoffGovernanceReview ?? state.dashboardReleaseHandoffGovernanceReview;
+      state.dashboardReleaseHandoffDispatchChecklist =
+        releaseHandoffDispatchChecklist ?? state.dashboardReleaseHandoffDispatchChecklist;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseHandoffGovernanceReview
+      state.status = releaseHandoffDispatchChecklist
+        ? `Imported release handoff dispatch checklist with ${releaseHandoffDispatchChecklist.itemCount} item(s) from ${file.name}.`
+        : releaseHandoffGovernanceReview
         ? `Imported release handoff governance review at ${releaseHandoffGovernanceReview.scoreOutOf100}/100 from ${file.name}.`
         : releaseHandoffAuditTrail
         ? `Imported release handoff audit trail with ${releaseHandoffAuditTrail.recordCount} record(s) from ${file.name}.`
@@ -4509,6 +4585,39 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseHandoffDispatchCommand() {
+    const command = state.dashboardReleaseHandoffDispatchChecklist?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release handoff dispatch checklist command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release handoff dispatch checklist command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseHandoffDispatchChecklist() {
+    const copy =
+      state.dashboardReleaseHandoffDispatchChecklist?.dispatchChecklistCopy ?? "";
+    if (!copy) {
+      state.status = "No release handoff dispatch checklist is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release handoff dispatch checklist copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -4875,6 +4984,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-governance-notes']")
       ?.addEventListener("click", () => {
         void copyReleaseHandoffGovernanceNotes();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-dispatch-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffDispatchCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-handoff-dispatch-checklist']")
+      ?.addEventListener("click", () => {
+        void copyReleaseHandoffDispatchChecklist();
       });
 
     mountRoot

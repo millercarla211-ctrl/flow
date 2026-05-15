@@ -15,6 +15,7 @@ import {
   normalizeReleaseEvidenceSlaMonitor,
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseHandoffAuditTrail,
+  normalizeReleaseHandoffDispatchChecklist,
   normalizeReleaseHandoffGovernanceReview,
   normalizeReleaseHandoffPacket,
   normalizeReleaseIncidentArchive,
@@ -2515,6 +2516,120 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-handoff-governance-review-json --output tmp/friday-dashboard/release-handoff-governance-review.json --trail tmp/friday-dashboard/release-handoff-audit-trail.json",
     ],
   });
+  const releaseHandoffDispatchChecklist = normalizeReleaseHandoffDispatchChecklist({
+    checklist_id: "friday-release-handoff-dispatch-checklist-smoke",
+    checklist_json: "tmp/friday-dashboard/release-handoff-dispatch-checklist.json",
+    generated_at_unix_ms: 26,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    state: "blocked",
+    ready_to_dispatch: false,
+    governance_review_id: "friday-release-handoff-governance-review-smoke",
+    governance_review_json: "tmp/friday-dashboard/release-handoff-governance-review.json",
+    governance_state: "blocked-carryover",
+    approved_for_external_handoff: false,
+    latest_packet_id: "friday-release-handoff-packet-smoke",
+    active_packet_id: "friday-release-handoff-packet-smoke",
+    recipient_count: 1,
+    attachment_count: 1,
+    dispatch_note_count: 1,
+    privacy_boundary_count: 0,
+    no_send_safeguard_count: 1,
+    item_count: 6,
+    ready_count: 3,
+    missing_recipient_count: 0,
+    missing_attachment_count: 1,
+    privacy_review_count: 1,
+    held_count: 0,
+    blocked_count: 1,
+    release_gate_blocking_count: 3,
+    items: [
+      {
+        id: "governance-review",
+        source: "governance-review",
+        state: "blocked",
+        required: true,
+        ready: false,
+        release_gate_blocking: true,
+        title: "Governance review approval",
+        detail: "Governance review is blocked-carryover.",
+        evidence_path: "tmp/friday-dashboard/release-handoff-governance-review.json",
+        next_action: "Resolve governance findings before preparing external dispatch.",
+      },
+      {
+        id: "recipient-1",
+        source: "recipient",
+        state: "ready",
+        required: true,
+        ready: true,
+        release_gate_blocking: false,
+        title: "Dispatch recipient",
+        detail: "release-operator@example.com",
+        evidence_path: "",
+        next_action: "Confirm this recipient is allowed to receive the handoff.",
+      },
+      {
+        id: "attachment-1",
+        source: "attachment",
+        state: "missing-attachment",
+        required: true,
+        ready: false,
+        release_gate_blocking: true,
+        title: "Dispatch attachment",
+        detail: "Attachment path is missing or unreadable.",
+        evidence_path: "tmp/friday-dashboard/missing-handoff-packet.txt",
+        next_action: "Create or correct this attachment path before dispatch.",
+      },
+      {
+        id: "dispatch-note",
+        source: "dispatch-note",
+        state: "ready",
+        required: true,
+        ready: true,
+        release_gate_blocking: false,
+        title: "Dispatch note",
+        detail: "No external send is performed by this checklist.",
+        evidence_path: "",
+        next_action: "Keep the dispatch note in the operator handoff record.",
+      },
+      {
+        id: "privacy-boundary",
+        source: "privacy-boundary",
+        state: "privacy-review",
+        required: true,
+        ready: false,
+        release_gate_blocking: true,
+        title: "Privacy boundary",
+        detail: "No privacy boundary note was supplied.",
+        evidence_path: "",
+        next_action:
+          "Record what may and may not leave the local machine before external handoff.",
+      },
+      {
+        id: "no-send-safeguard",
+        source: "no-send-safeguard",
+        state: "ready",
+        required: true,
+        ready: true,
+        release_gate_blocking: false,
+        title: "No-send safeguard",
+        detail:
+          "This checklist command only writes local JSON and never sends, uploads, deploys, or mutates external systems.",
+        evidence_path: "",
+        next_action:
+          "Use a separate explicit operator action if external sending is ever approved.",
+      },
+    ],
+    dispatch_checklist_copy:
+      "Friday release handoff dispatch checklist\nStatus: hold dispatch\nRecipients:\n- release-operator@example.com\nAttachments:\n- tmp/friday-dashboard/missing-handoff-packet.txt",
+    summary:
+      "Friday release handoff dispatch checklist is blocked with 6 item(s), 1 recipient(s), 1 attachment(s), 0 privacy note(s), and 3 blocking issue(s).",
+    commands: [
+      "flow --friday-release-handoff-dispatch-checklist --output tmp/friday-dashboard/release-handoff-dispatch-checklist.json --governance-review tmp/friday-dashboard/release-handoff-governance-review.json --recipient <recipient> --attachment <file>",
+      "flow --friday-release-handoff-dispatch-checklist-json --output tmp/friday-dashboard/release-handoff-dispatch-checklist.json --governance-review tmp/friday-dashboard/release-handoff-governance-review.json --recipient <recipient> --attachment <file>",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -3252,8 +3367,33 @@ export function dashboardSectionSmokeReport(
         ) &&
         releaseHandoffGovernanceReview.commands.some((command) =>
           command.includes("--friday-release-handoff-governance-review"),
-        ),
+      ),
       `${releaseHandoffGovernanceReview?.blockedCarryoverCount ?? 0} governance carryover blocker(s)`,
+    ),
+    check(
+      "release-handoff-dispatch-checklist-importable",
+      releaseHandoffDispatchChecklist?.state === "blocked" &&
+        releaseHandoffDispatchChecklist.itemCount === 6 &&
+        releaseHandoffDispatchChecklist.releaseGateBlockingCount === 3,
+      `${releaseHandoffDispatchChecklist?.itemCount ?? 0} dispatch checklist item(s)`,
+    ),
+    check(
+      "release-handoff-dispatch-checklist-copy",
+      releaseHandoffDispatchChecklist !== null &&
+        !releaseHandoffDispatchChecklist.readyToDispatch &&
+        releaseHandoffDispatchChecklist.items.some(
+          (item) =>
+            item.source === "privacy-boundary" &&
+            item.state === "privacy-review" &&
+            item.releaseGateBlocking,
+        ) &&
+        releaseHandoffDispatchChecklist.dispatchChecklistCopy.includes(
+          "Friday release handoff dispatch checklist",
+        ) &&
+        releaseHandoffDispatchChecklist.commands.some((command) =>
+          command.includes("--friday-release-handoff-dispatch-checklist"),
+        ),
+      `${releaseHandoffDispatchChecklist?.privacyReviewCount ?? 0} dispatch privacy review item(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

@@ -827,16 +827,34 @@ Goal: review release handoff audit trails before external communication so Frida
 
 This set is complete. The next loop should open `Friday Release Handoff Dispatch Checklist` and convert approved governance reviews into a final local operator checklist before any external send.
 
-## Next Set: Friday Release Handoff Dispatch Checklist
+## Completed Set: Friday Release Handoff Dispatch Checklist
 
-Status: 0/100
+Status: 100/100
 
 Goal: turn approved handoff governance reviews into a final local dispatch checklist so Friday can verify recipients, attachments, notes, privacy boundaries, and no-send safeguards before any external communication.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed handoff dispatch checklist model that consumes governance reviews.
+- [x] Add checklist states for ready, held, missing-recipient, missing-attachment, privacy-review, and blocked.
+- [x] Add CLI and JSON commands that generate dispatch checklists without sending, deploying, building, or mutating external systems.
+- [x] Add dashboard import/rendering for recipients, attachments, privacy notes, no-send warnings, and copyable dispatch checklist.
+- [x] Add focused Rust/TypeScript coverage for checklist readiness, privacy boundary enforcement, missing attachment detection, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Handoff Dispatch Audit` and preserve generated dispatch checklists plus operator final decisions as local history before any external send.
+
+## Next Set: Friday Release Handoff Dispatch Audit
+
+Status: 0/100
+
+Goal: preserve every generated release handoff dispatch checklist and operator decision as a local audit history before any external communication happens.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed handoff dispatch checklist model that consumes governance reviews.
-- [ ] Add checklist states for ready, held, missing-recipient, missing-attachment, privacy-review, and blocked.
-- [ ] Add CLI and JSON commands that generate dispatch checklists without sending, deploying, building, or mutating external systems.
-- [ ] Add dashboard import/rendering for recipients, attachments, privacy notes, no-send warnings, and copyable dispatch checklist.
-- [ ] Add focused Rust/TypeScript coverage for checklist readiness, privacy boundary enforcement, missing attachment detection, command safety, and dashboard rendering.
+- [ ] Add a typed handoff dispatch audit model that consumes dispatch checklists.
+- [ ] Add audit states for draft, ready, held, approved, sent-manually, revoked, and blocked.
+- [ ] Add append, list, export, and JSON commands without sending, deploying, building, uploading, or mutating external systems.
+- [ ] Add dashboard import/rendering for dispatch history, latest checklist, operator final decision, blockers, and copyable audit summary.
+- [ ] Add focused Rust/TypeScript coverage for audit append/list behavior, final decision preservation, blocker carryover, command safety, and dashboard rendering.

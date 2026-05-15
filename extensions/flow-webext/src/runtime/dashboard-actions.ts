@@ -1667,6 +1667,69 @@ export interface FlowReleaseHandoffGovernanceReview {
   commands: string[];
 }
 
+export type FlowReleaseHandoffDispatchChecklistState =
+  | "ready"
+  | "held"
+  | "missing-recipient"
+  | "missing-attachment"
+  | "privacy-review"
+  | "blocked";
+
+export type FlowReleaseHandoffDispatchChecklistSource =
+  | "governance-review"
+  | "recipient"
+  | "attachment"
+  | "dispatch-note"
+  | "privacy-boundary"
+  | "no-send-safeguard";
+
+export interface FlowReleaseHandoffDispatchChecklistItem {
+  id: string;
+  source: FlowReleaseHandoffDispatchChecklistSource;
+  state: FlowReleaseHandoffDispatchChecklistState;
+  required: boolean;
+  ready: boolean;
+  releaseGateBlocking: boolean;
+  title: string;
+  detail: string;
+  evidencePath: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseHandoffDispatchChecklist {
+  checklistId: string;
+  checklistJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  state: FlowReleaseHandoffDispatchChecklistState;
+  readyToDispatch: boolean;
+  governanceReviewId: string;
+  governanceReviewJson: string;
+  governanceState: FlowReleaseHandoffGovernanceState;
+  approvedForExternalHandoff: boolean;
+  latestPacketId: string | null;
+  activePacketId: string | null;
+  recipientCount: number;
+  attachmentCount: number;
+  dispatchNoteCount: number;
+  privacyBoundaryCount: number;
+  noSendSafeguardCount: number;
+  itemCount: number;
+  readyCount: number;
+  missingRecipientCount: number;
+  missingAttachmentCount: number;
+  privacyReviewCount: number;
+  heldCount: number;
+  blockedCount: number;
+  releaseGateBlockingCount: number;
+  items: FlowReleaseHandoffDispatchChecklistItem[];
+  dispatchChecklistCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -5132,6 +5195,127 @@ export function normalizeReleaseHandoffGovernanceReview(
   };
 }
 
+export function normalizeReleaseHandoffDispatchChecklist(
+  value: unknown,
+): FlowReleaseHandoffDispatchChecklist | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const checklist =
+    root.release_handoff_dispatch_checklist &&
+    typeof root.release_handoff_dispatch_checklist === "object"
+      ? (root.release_handoff_dispatch_checklist as Record<string, unknown>)
+      : root.releaseHandoffDispatchChecklist &&
+          typeof root.releaseHandoffDispatchChecklist === "object"
+        ? (root.releaseHandoffDispatchChecklist as Record<string, unknown>)
+        : root;
+  const checklistId = stringValue(checklist.checklist_id, checklist.checklistId);
+  const items = arrayValue(checklist.items)
+    .map((item): FlowReleaseHandoffDispatchChecklistItem | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const checklistItem = item as Record<string, unknown>;
+      const id = stringValue(checklistItem.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        source: releaseHandoffDispatchChecklistSource(stringValue(checklistItem.source)),
+        state: releaseHandoffDispatchChecklistState(stringValue(checklistItem.state)),
+        required: booleanValue(checklistItem.required),
+        ready: booleanValue(checklistItem.ready),
+        releaseGateBlocking: booleanValue(
+          checklistItem.release_gate_blocking,
+          checklistItem.releaseGateBlocking,
+        ),
+        title: stringValue(checklistItem.title),
+        detail: stringValue(checklistItem.detail),
+        evidencePath: stringValue(checklistItem.evidence_path, checklistItem.evidencePath),
+        nextAction: stringValue(checklistItem.next_action, checklistItem.nextAction),
+      };
+    })
+    .filter((item): item is FlowReleaseHandoffDispatchChecklistItem => item !== null);
+
+  if (!checklistId && items.length === 0) {
+    return null;
+  }
+
+  return {
+    checklistId,
+    checklistJson: stringValue(checklist.checklist_json, checklist.checklistJson),
+    generatedAtUnixMs: stringValue(
+      checklist.generated_at_unix_ms,
+      checklist.generatedAtUnixMs,
+    ),
+    productName: stringValue(checklist.product_name, checklist.productName),
+    localOnly: booleanValue(checklist.local_only, checklist.localOnly),
+    status: panelStatus(stringValue(checklist.status)),
+    state: releaseHandoffDispatchChecklistState(stringValue(checklist.state)),
+    readyToDispatch: booleanValue(checklist.ready_to_dispatch, checklist.readyToDispatch),
+    governanceReviewId: stringValue(
+      checklist.governance_review_id,
+      checklist.governanceReviewId,
+    ),
+    governanceReviewJson: stringValue(
+      checklist.governance_review_json,
+      checklist.governanceReviewJson,
+    ),
+    governanceState: releaseHandoffGovernanceState(
+      stringValue(checklist.governance_state, checklist.governanceState),
+    ),
+    approvedForExternalHandoff: booleanValue(
+      checklist.approved_for_external_handoff,
+      checklist.approvedForExternalHandoff,
+    ),
+    latestPacketId: stringValue(checklist.latest_packet_id, checklist.latestPacketId) || null,
+    activePacketId: stringValue(checklist.active_packet_id, checklist.activePacketId) || null,
+    recipientCount: numberValue(checklist.recipient_count, checklist.recipientCount),
+    attachmentCount: numberValue(checklist.attachment_count, checklist.attachmentCount),
+    dispatchNoteCount: numberValue(checklist.dispatch_note_count, checklist.dispatchNoteCount),
+    privacyBoundaryCount: numberValue(
+      checklist.privacy_boundary_count,
+      checklist.privacyBoundaryCount,
+    ),
+    noSendSafeguardCount: numberValue(
+      checklist.no_send_safeguard_count,
+      checklist.noSendSafeguardCount,
+    ),
+    itemCount: numberValue(checklist.item_count, checklist.itemCount),
+    readyCount: numberValue(checklist.ready_count, checklist.readyCount),
+    missingRecipientCount: numberValue(
+      checklist.missing_recipient_count,
+      checklist.missingRecipientCount,
+    ),
+    missingAttachmentCount: numberValue(
+      checklist.missing_attachment_count,
+      checklist.missingAttachmentCount,
+    ),
+    privacyReviewCount: numberValue(
+      checklist.privacy_review_count,
+      checklist.privacyReviewCount,
+    ),
+    heldCount: numberValue(checklist.held_count, checklist.heldCount),
+    blockedCount: numberValue(checklist.blocked_count, checklist.blockedCount),
+    releaseGateBlockingCount: numberValue(
+      checklist.release_gate_blocking_count,
+      checklist.releaseGateBlockingCount,
+    ),
+    items,
+    dispatchChecklistCopy: stringValue(
+      checklist.dispatch_checklist_copy,
+      checklist.dispatchChecklistCopy,
+    ),
+    summary: stringValue(checklist.summary),
+    commands: arrayValue(checklist.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -5623,6 +5807,38 @@ function releaseHandoffGovernanceSource(value: string): FlowReleaseHandoffGovern
     return value;
   }
   return "audit-trail";
+}
+
+function releaseHandoffDispatchChecklistState(
+  value: string,
+): FlowReleaseHandoffDispatchChecklistState {
+  if (
+    value === "ready" ||
+    value === "held" ||
+    value === "missing-recipient" ||
+    value === "missing-attachment" ||
+    value === "privacy-review" ||
+    value === "blocked"
+  ) {
+    return value;
+  }
+  return "held";
+}
+
+function releaseHandoffDispatchChecklistSource(
+  value: string,
+): FlowReleaseHandoffDispatchChecklistSource {
+  if (
+    value === "governance-review" ||
+    value === "recipient" ||
+    value === "attachment" ||
+    value === "dispatch-note" ||
+    value === "privacy-boundary" ||
+    value === "no-send-safeguard"
+  ) {
+    return value;
+  }
+  return "dispatch-note";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

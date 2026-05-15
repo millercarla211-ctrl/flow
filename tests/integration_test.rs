@@ -32,21 +32,23 @@ use flow::friday::{
     FridayReleaseEscalationOwnerResponse, FridayReleaseEvidenceAttachmentState,
     FridayReleaseEvidenceEscalationLevel, FridayReleaseEvidenceSlaState,
     FridayReleaseHandoffAuditRequest, FridayReleaseHandoffAuditState,
-    FridayReleaseHandoffGovernanceState, FridayReleaseHandoffPacketSectionKind,
-    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
-    FridayReleaseOwnerFollowUpCompletionState, FridayReleasePreventionActionKind,
-    FridayReleasePreventionFindingKind, FridayReleasePromotionDecision,
-    FridayReleasePromotionRecordRequest, FridayReleaseQaCheckStatus, FridayResearchWorkflow,
-    FridayRouteVisualStatus, FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor,
-    FridayTrustedHostCommandRawOutput, FridayTrustedHostLiveRunnerRecord,
-    FridayTrustedHostLiveRunnerStatus, FridayTrustedHostRunnerCancellationToken,
-    FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerRequest,
-    FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus, FridayUiStateKind, FridayUiStateTone,
-    FridayUiVisualCheckStatus, FridayVerificationStatus, FridayWorkspaceStore,
-    append_friday_release_candidate_to_archive, append_friday_release_checkpoint_signoff_to_ledger,
-    append_friday_release_escalation_to_ledger, append_friday_release_handoff_audit_to_trail,
-    append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
-    append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
+    FridayReleaseHandoffDispatchChecklistRequest, FridayReleaseHandoffDispatchChecklistSource,
+    FridayReleaseHandoffDispatchChecklistState, FridayReleaseHandoffGovernanceState,
+    FridayReleaseHandoffPacketSectionKind, FridayReleaseIncidentOutcome,
+    FridayReleaseIncidentSeverity, FridayReleaseOwnerFollowUpCompletionState,
+    FridayReleasePreventionActionKind, FridayReleasePreventionFindingKind,
+    FridayReleasePromotionDecision, FridayReleasePromotionRecordRequest,
+    FridayReleaseQaCheckStatus, FridayResearchWorkflow, FridayRouteVisualStatus,
+    FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
+    FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
+    FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
+    FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
+    FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus, FridayVerificationStatus,
+    FridayWorkspaceStore, append_friday_release_candidate_to_archive,
+    append_friday_release_checkpoint_signoff_to_ledger, append_friday_release_escalation_to_ledger,
+    append_friday_release_handoff_audit_to_trail, append_friday_release_incident_to_archive,
+    append_friday_release_operator_signoff, append_friday_release_promotion_to_ledger,
+    append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -61,14 +63,16 @@ use flow::friday::{
     friday_release_candidate_entry_from_gate, friday_release_checkpoint_evidence_vault_report,
     friday_release_checkpoint_review_board_report, friday_release_deployment_gate_report,
     friday_release_evidence_attachment_review_report, friday_release_evidence_export_kit_report,
-    friday_release_evidence_sla_monitor_report_at, friday_release_handoff_governance_review_report,
-    friday_release_handoff_packet_report, friday_release_incident_archive_report,
-    friday_release_incident_entry_from_sources, friday_release_operator_checklist_report,
-    friday_release_owner_followup_board_report_at, friday_release_post_promotion_monitor_report,
-    friday_release_prevention_plan_report, friday_release_qa_command_center_report,
-    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
-    friday_release_stability_board_report, friday_route_visual_report,
-    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
+    friday_release_evidence_sla_monitor_report_at,
+    friday_release_handoff_dispatch_checklist_report,
+    friday_release_handoff_governance_review_report, friday_release_handoff_packet_report,
+    friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
+    friday_release_operator_checklist_report, friday_release_owner_followup_board_report_at,
+    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
+    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
+    friday_release_rollback_drill_report, friday_release_stability_board_report,
+    friday_route_visual_report, friday_route_visual_report_for_root,
+    friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -81,6 +85,7 @@ use flow::friday::{
     write_friday_release_checkpoint_review_board_report, write_friday_release_deployment_gate,
     write_friday_release_evidence_attachment_review, write_friday_release_evidence_export_kit,
     write_friday_release_evidence_sla_monitor_report,
+    write_friday_release_handoff_dispatch_checklist,
     write_friday_release_handoff_governance_review, write_friday_release_handoff_packet,
     write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
@@ -2793,6 +2798,74 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
             .any(|command| {
                 command.contains("--friday-release-handoff-governance-review")
                     && command.contains("--trail")
+            })
+    );
+    let release_handoff_dispatch_attachment_path = root.join("dispatch-packet.txt");
+    fs::write(
+        &release_handoff_dispatch_attachment_path,
+        "Friday handoff packet attachment",
+    )
+    .unwrap();
+    let release_handoff_dispatch_checklist_path =
+        root.join("release-handoff-dispatch-checklist.json");
+    let release_handoff_dispatch_checklist = friday_release_handoff_dispatch_checklist_report(
+        &release_handoff_dispatch_checklist_path,
+        &release_handoff_governance_review_path,
+        FridayReleaseHandoffDispatchChecklistRequest {
+            recipients: vec!["release-operator@example.com".to_string()],
+            attachments: vec![
+                release_handoff_dispatch_attachment_path
+                    .to_string_lossy()
+                    .to_string(),
+            ],
+            dispatch_note: "Do not send externally until operator approval.".to_string(),
+            privacy_note: String::new(),
+        },
+    );
+    write_friday_release_handoff_dispatch_checklist(
+        &release_handoff_dispatch_checklist_path,
+        &release_handoff_dispatch_checklist,
+    )
+    .unwrap();
+    assert!(!release_handoff_dispatch_checklist.ready_to_dispatch);
+    assert_eq!(
+        release_handoff_dispatch_checklist.state,
+        FridayReleaseHandoffDispatchChecklistState::Blocked
+    );
+    assert_eq!(
+        release_handoff_dispatch_checklist.governance_review_id,
+        release_handoff_governance_review.review_id
+    );
+    assert_eq!(release_handoff_dispatch_checklist.recipient_count, 1);
+    assert_eq!(release_handoff_dispatch_checklist.attachment_count, 1);
+    assert_eq!(
+        release_handoff_dispatch_checklist.no_send_safeguard_count,
+        1
+    );
+    assert!(release_handoff_dispatch_checklist.privacy_review_count > 0);
+    assert!(release_handoff_dispatch_checklist.blocked_count > 0);
+    assert!(release_handoff_dispatch_checklist.release_gate_blocking_count > 0);
+    assert!(release_handoff_dispatch_checklist.items.iter().any(|item| {
+        item.source == FridayReleaseHandoffDispatchChecklistSource::PrivacyBoundary
+            && item.state == FridayReleaseHandoffDispatchChecklistState::PrivacyReview
+            && item.release_gate_blocking
+    }));
+    assert!(release_handoff_dispatch_checklist.items.iter().any(|item| {
+        item.source == FridayReleaseHandoffDispatchChecklistSource::NoSendSafeguard
+            && item.state == FridayReleaseHandoffDispatchChecklistState::Ready
+    }));
+    assert!(
+        release_handoff_dispatch_checklist
+            .dispatch_checklist_copy
+            .contains("Friday release handoff dispatch checklist")
+    );
+    assert!(
+        release_handoff_dispatch_checklist
+            .commands
+            .iter()
+            .any(|command| {
+                command.contains("--friday-release-handoff-dispatch-checklist")
+                    && command.contains("--governance-review")
             })
     );
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();

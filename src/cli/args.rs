@@ -635,6 +635,24 @@ pub enum Command {
         review_file: String,
         trail_file: String,
     },
+    /// Write a Friday release handoff dispatch checklist
+    FridayReleaseHandoffDispatchChecklist {
+        checklist_file: String,
+        governance_review_file: String,
+        recipients: Vec<String>,
+        attachments: Vec<String>,
+        dispatch_note: String,
+        privacy_note: String,
+    },
+    /// Print a Friday release handoff dispatch checklist as JSON
+    FridayReleaseHandoffDispatchChecklistJson {
+        checklist_file: String,
+        governance_review_file: String,
+        recipients: Vec<String>,
+        attachments: Vec<String>,
+        dispatch_note: String,
+        privacy_note: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -2096,6 +2114,44 @@ impl Args {
                     trail_file,
                 }
             }
+            "--friday-release-handoff-dispatch-checklist"
+            | "--friday-handoff-dispatch-checklist" => {
+                let (
+                    checklist_file,
+                    governance_review_file,
+                    recipients,
+                    attachments,
+                    dispatch_note,
+                    privacy_note,
+                ) = parse_friday_release_handoff_dispatch_checklist_args(&args);
+                Command::FridayReleaseHandoffDispatchChecklist {
+                    checklist_file,
+                    governance_review_file,
+                    recipients,
+                    attachments,
+                    dispatch_note,
+                    privacy_note,
+                }
+            }
+            "--friday-release-handoff-dispatch-checklist-json"
+            | "--friday-handoff-dispatch-checklist-json" => {
+                let (
+                    checklist_file,
+                    governance_review_file,
+                    recipients,
+                    attachments,
+                    dispatch_note,
+                    privacy_note,
+                ) = parse_friday_release_handoff_dispatch_checklist_args(&args);
+                Command::FridayReleaseHandoffDispatchChecklistJson {
+                    checklist_file,
+                    governance_review_file,
+                    recipients,
+                    attachments,
+                    dispatch_note,
+                    privacy_note,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -3505,6 +3561,41 @@ fn parse_friday_release_handoff_governance_review_args(args: &[String]) -> (Stri
         .unwrap_or_else(|| format!("{export_dir}/release-handoff-audit-trail.json"));
 
     (review_file, trail_file)
+}
+
+fn parse_friday_release_handoff_dispatch_checklist_args(
+    args: &[String],
+) -> (String, String, Vec<String>, Vec<String>, String, String) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let checklist_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--checklist"))
+        .unwrap_or_else(|| format!("{export_dir}/release-handoff-dispatch-checklist.json"));
+    let governance_review_file = flag_value(args, "--governance-review")
+        .or_else(|| flag_value(args, "--review"))
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-handoff-governance-review.json"));
+    let recipients = repeated_flag_values(args, "--recipient");
+    let attachments = repeated_flag_values(args, "--attachment");
+    let dispatch_note = flag_value(args, "--dispatch-note")
+        .or_else(|| flag_value(args, "--note"))
+        .unwrap_or_else(|| "No external send is performed by this checklist.".to_string());
+    let privacy_note = flag_value(args, "--privacy-note")
+        .or_else(|| flag_value(args, "--privacy"))
+        .unwrap_or_default();
+
+    (
+        checklist_file,
+        governance_review_file,
+        recipients,
+        attachments,
+        dispatch_note,
+        privacy_note,
+    )
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {
