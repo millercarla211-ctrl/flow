@@ -10,6 +10,7 @@ import {
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
+  normalizeReleaseOwnerFollowUpBoard,
   normalizeReleasePostPromotionMonitor,
   normalizeReleasePreventionPlan,
   normalizeReleasePromotionLedger,
@@ -1655,6 +1656,97 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-prevention-plan-json --output tmp/friday-dashboard/release-prevention-plan.json --incident-archive tmp/friday-dashboard/release-incident-archive.json --stability-board tmp/friday-dashboard/release-stability-board.json",
     ],
   });
+  const releaseOwnerFollowUpBoard = normalizeReleaseOwnerFollowUpBoard({
+    board_id: "friday-release-owner-followup-board-smoke",
+    board_json: "tmp/friday-dashboard/release-owner-followup-board.json",
+    generated_at_unix_ms: 16,
+    product_name: "Friday",
+    local_only: true,
+    status: "blocked",
+    score_out_of_100: 50,
+    ready_for_next_checkpoint: false,
+    prevention_plan_json: "tmp/friday-dashboard/release-prevention-plan.json",
+    incident_archive_json: "tmp/friday-dashboard/release-incident-archive.json",
+    stability_board_json: "tmp/friday-dashboard/release-stability-board.json",
+    record_count: 2,
+    owner_count: 1,
+    ready_count: 1,
+    waiting_count: 0,
+    blocked_count: 0,
+    overdue_count: 1,
+    complete_count: 0,
+    evidence_missing_count: 1,
+    gate_blocking_count: 1,
+    owner_groups: [
+      {
+        owner: "release-operator",
+        record_count: 2,
+        ready_count: 1,
+        waiting_count: 0,
+        blocked_count: 0,
+        overdue_count: 1,
+        complete_count: 0,
+        evidence_missing_count: 1,
+        records: ["followup-prevent-critical-incidents", "followup-prevent-rollback-recovery-gap"],
+      },
+    ],
+    records: [
+      {
+        id: "followup-prevent-critical-incidents",
+        action_id: "prevent-critical-incidents",
+        owner: "release-operator",
+        title: "Assign prevention owner",
+        summary: "Critical incident history needs explicit prevention evidence.",
+        completion_state: "ready",
+        evidence_state: "present",
+        source_path: "tmp/friday-dashboard/release-recovery-runbook.json",
+        evidence_path: "tmp/friday-dashboard/release-prevention-plan.json",
+        evidence_request:
+          "Review the attached evidence at tmp/friday-dashboard/release-prevention-plan.json and confirm the owner follow-up is still current.",
+        due_after_unix_ms: 16,
+        due_before_unix_ms: 86400016,
+        overdue: false,
+        required: true,
+        release_gate_blocking: false,
+        command:
+          "flow --friday-release-prevention-plan --output tmp/friday-dashboard/release-prevention-plan.json --incident-archive tmp/friday-dashboard/release-incident-archive.json --stability-board tmp/friday-dashboard/release-stability-board.json",
+        assignment_copy:
+          "@release-operator - Assign prevention owner\nState: ready\nEvidence: Review the attached evidence.",
+        next_action: "Assign prevention owners for every critical incident.",
+      },
+      {
+        id: "followup-prevent-rollback-recovery-gap",
+        action_id: "prevent-rollback-recovery-gap",
+        owner: "release-operator",
+        title: "Harden rollback drill evidence",
+        summary: "Friday needs a clean rollback recovery path.",
+        completion_state: "overdue",
+        evidence_state: "missing",
+        source_path: "tmp/friday-dashboard/release-rollback-drill.json",
+        evidence_path: "tmp/friday-dashboard/release-rollback-drill.json",
+        evidence_request:
+          "Attach evidence at tmp/friday-dashboard/release-rollback-drill.json before the next checkpoint.",
+        due_after_unix_ms: 16,
+        due_before_unix_ms: 16,
+        overdue: true,
+        required: true,
+        release_gate_blocking: true,
+        command:
+          "flow --friday-release-rollback-drill-json --output tmp/friday-dashboard/release-rollback-drill.json --dry-run",
+        assignment_copy:
+          "@release-operator - Harden rollback drill evidence\nState: overdue\nCommand: flow --friday-release-rollback-drill-json --output tmp/friday-dashboard/release-rollback-drill.json --dry-run",
+        next_action: "Run a clean rollback drill and attach the result.",
+      },
+    ],
+    assignment_copy:
+      "Friday release owner follow-up board\n- @release-operator [ready] Assign prevention owner -> Assign prevention owners for every critical incident.\n- @release-operator [overdue] Harden rollback drill evidence -> Run a clean rollback drill and attach the result.",
+    summary:
+      "Friday owner follow-up board is 50/100 with 1 owner, 2 assignments, 1 overdue item, and 1 release gate blocker.",
+    commands: [
+      "flow --friday-release-owner-followup-board --output tmp/friday-dashboard/release-owner-followup-board.json --prevention-plan tmp/friday-dashboard/release-prevention-plan.json",
+      "flow --friday-release-owner-followup-board-json --output tmp/friday-dashboard/release-owner-followup-board.json --prevention-plan tmp/friday-dashboard/release-prevention-plan.json",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -2129,6 +2221,30 @@ export function dashboardSectionSmokeReport(
           command.includes("--friday-release-prevention-plan"),
         ),
       `${releasePreventionPlan?.actionCount ?? 0} prevention action(s)`,
+    ),
+    check(
+      "release-owner-followup-board-importable",
+      releaseOwnerFollowUpBoard?.scoreOutOf100 === 50 &&
+        releaseOwnerFollowUpBoard.ownerCount === 1 &&
+        releaseOwnerFollowUpBoard.overdueCount === 1,
+      `${releaseOwnerFollowUpBoard?.recordCount ?? 0} owner follow-up record(s)`,
+    ),
+    check(
+      "release-owner-followup-board-assignments",
+      releaseOwnerFollowUpBoard !== null &&
+        releaseOwnerFollowUpBoard.ownerGroups.some(
+          (group) => group.owner === "release-operator" && group.evidenceMissingCount === 1,
+        ) &&
+        releaseOwnerFollowUpBoard.records.some(
+          (record) =>
+            record.completionState === "overdue" &&
+            record.command.includes("--dry-run") &&
+            record.assignmentCopy.includes("@release-operator"),
+        ) &&
+        releaseOwnerFollowUpBoard.commands.some((command) =>
+          command.includes("--friday-release-owner-followup-board"),
+        ),
+      `${releaseOwnerFollowUpBoard?.evidenceMissingCount ?? 0} missing owner evidence request(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

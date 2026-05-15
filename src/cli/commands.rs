@@ -32,12 +32,12 @@ use crate::friday::{
     FridayReleaseDeploymentGateReport, FridayReleaseDeploymentTarget,
     FridayReleaseEvidenceExportKitReport, FridayReleaseIncidentArchive,
     FridayReleaseIncidentOutcome, FridayReleaseOperatorChecklistReport,
-    FridayReleasePostPromotionMonitorReport, FridayReleasePreventionPlanReport,
-    FridayReleasePromotionDecision, FridayReleasePromotionLedger,
-    FridayReleasePromotionRecordRequest, FridayReleaseQaCommandCenterReport,
-    FridayReleaseRecoveryRunbookReport, FridayReleaseRollbackDrillReport,
-    FridayReleaseStabilityBoardReport, FridayResearchReport, FridayResearchWorkflow,
-    FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
+    FridayReleaseOwnerFollowUpBoardReport, FridayReleasePostPromotionMonitorReport,
+    FridayReleasePreventionPlanReport, FridayReleasePromotionDecision,
+    FridayReleasePromotionLedger, FridayReleasePromotionRecordRequest,
+    FridayReleaseQaCommandCenterReport, FridayReleaseRecoveryRunbookReport,
+    FridayReleaseRollbackDrillReport, FridayReleaseStabilityBoardReport, FridayResearchReport,
+    FridayResearchWorkflow, FridayRuntimeSurfaceStore, FridayTrustedHostLiveRunnerState,
     FridayTrustedHostRunnerApprovalUiReport, FridayTrustedHostRunnerBridgeReport,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerCancellationUxReport,
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
@@ -59,10 +59,11 @@ use crate::friday::{
     friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
     friday_release_evidence_export_kit_report, friday_release_incident_archive_report,
     friday_release_incident_entry_from_sources, friday_release_operator_checklist_report,
-    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
-    friday_release_promotion_ledger_report, friday_release_qa_command_center_report,
-    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
-    friday_release_stability_board_report, friday_research_search_plan, friday_route_visual_report,
+    friday_release_owner_followup_board_report, friday_release_post_promotion_monitor_report,
+    friday_release_prevention_plan_report, friday_release_promotion_ledger_report,
+    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
+    friday_release_rollback_drill_report, friday_release_stability_board_report,
+    friday_research_search_plan, friday_route_visual_report,
     friday_trusted_host_live_runner_state_from_history_file,
     friday_trusted_host_runner_approval_ui_report_from_history_file,
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
@@ -74,7 +75,8 @@ use crate::friday::{
     run_friday_trusted_host_command, run_friday_trusted_host_command_bridge,
     run_friday_vlm_contract, write_friday_release_deployment_gate,
     write_friday_release_evidence_export_kit, write_friday_release_incident_archive,
-    write_friday_release_operator_checklist, write_friday_release_post_promotion_monitor_report,
+    write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
+    write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_qa_command_center_report,
     write_friday_release_recovery_runbook_report, write_friday_release_rollback_drill_report,
     write_friday_release_stability_board_report, write_friday_trusted_host_live_runner_state,
@@ -1374,6 +1376,32 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayReleaseOwnerFollowUpBoard {
+            board_file,
+            prevention_plan_file,
+        } => {
+            let report = friday_release_owner_followup_board_report(
+                resolve_repo_relative_path(&board_file),
+                resolve_repo_relative_path(&prevention_plan_file),
+            );
+            write_friday_release_owner_followup_board_report(
+                resolve_repo_relative_path(&board_file),
+                &report,
+            )?;
+            print_friday_release_owner_followup_board(&report);
+        }
+
+        Command::FridayReleaseOwnerFollowUpBoardJson {
+            board_file,
+            prevention_plan_file,
+        } => {
+            let report = friday_release_owner_followup_board_report(
+                resolve_repo_relative_path(&board_file),
+                resolve_repo_relative_path(&prevention_plan_file),
+            );
+            println!("{}", report.to_pretty_json()?);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1917,6 +1945,10 @@ fn print_interactive_help() {
     println!("                           Write release prevention plan JSON without remediation");
     println!("  --friday-release-prevention-plan-json [export-dir]");
     println!("                           Print release prevention plan as JSON");
+    println!("  --friday-release-owner-followup-board [export-dir]");
+    println!("                           Write owner follow-up board JSON without remediation");
+    println!("  --friday-release-owner-followup-board-json [export-dir]");
+    println!("                           Print owner follow-up board as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -3829,6 +3861,55 @@ fn print_friday_release_prevention_plan(report: &FridayReleasePreventionPlanRepo
         println!("    owner: {}", action.owner);
         println!("    command: {}", action.command);
         println!("    next: {}", action.next_action);
+    }
+    println!();
+    println!("Commands:");
+    for command in &report.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_owner_followup_board(report: &FridayReleaseOwnerFollowUpBoardReport) {
+    println!("Friday Release Owner Follow-up Board");
+    println!("====================================");
+    println!(
+        "Score: {} / 100 | status: {} | ready for next checkpoint: {}",
+        report.score_out_of_100,
+        report.status.label(),
+        yes_no(report.ready_for_next_checkpoint)
+    );
+    println!(
+        "Owners: {} | records: {} | ready: {} | waiting: {} | overdue: {} | gate blocks: {}",
+        report.owner_count,
+        report.record_count,
+        report.ready_count,
+        report.waiting_count,
+        report.overdue_count,
+        report.gate_blocking_count
+    );
+    println!("Board: {}", report.board_json);
+    println!("Prevention plan: {}", report.prevention_plan_json);
+    println!();
+    println!("Owner groups:");
+    for group in &report.owner_groups {
+        println!(
+            "  - @{}: {} record(s), {} missing evidence, {} overdue",
+            group.owner, group.record_count, group.evidence_missing_count, group.overdue_count
+        );
+    }
+    println!();
+    println!("Assignments:");
+    for record in &report.records {
+        println!(
+            "  - @{} {} [{} / {}]",
+            record.owner,
+            record.title,
+            record.completion_state.label(),
+            record.evidence_state.label()
+        );
+        println!("    due before: {}", record.due_before_unix_ms);
+        println!("    evidence: {}", record.evidence_request);
+        println!("    command: {}", record.command);
     }
     println!();
     println!("Commands:");

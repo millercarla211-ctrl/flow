@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-prevention-planner-model",
-            "Typed release prevention planner model",
+            "release-owner-followup-board-model",
+            "Typed owner follow-up board model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleasePreventionPlanReport` consumes the release incident archive and current stability board",
-            "open the next release owner follow-up board set",
+            "`FridayReleaseOwnerFollowUpBoardReport` consumes the release prevention plan and turns prevention actions into reviewable owner records",
+            "open the next release evidence SLA monitor set",
         ),
         item(
-            "release-prevention-planner-recurrence",
-            "Recurrence and blocker detection",
+            "release-owner-followup-board-fields",
+            "Owner assignments, due windows, and evidence gates",
             20,
             CompletionItemStatus::Done,
-            "prevention findings detect critical incidents, repeated failure classes, stale evidence, missing evidence, missing incident notes, rollback gaps, and checkpoint gate blockers",
-            "open the next release owner follow-up board set",
+            "follow-up records include owner, completion state, due windows, evidence request text, overdue detection, release-gate blocking flags, and assignment copy",
+            "open the next release evidence SLA monitor set",
         ),
         item(
-            "release-prevention-planner-cli",
-            "Prevention plan CLI and JSON commands",
+            "release-owner-followup-board-cli",
+            "Owner follow-up CLI and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-prevention-plan` and JSON mode generate owner-ready prevention actions without executing remediation commands",
-            "open the next release owner follow-up board set",
+            "`flow --friday-release-owner-followup-board` and JSON mode generate follow-up assignments without executing remediation commands",
+            "open the next release evidence SLA monitor set",
         ),
         item(
-            "release-prevention-planner-dashboard",
-            "Dashboard prevention plan rendering",
+            "release-owner-followup-board-dashboard",
+            "Dashboard owner follow-up rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports prevention plan JSON and renders findings, recurrence counts, owner-ready actions, gate blockers, and copyable owner text",
-            "open the next release owner follow-up board set",
+            "the visible dashboard imports owner follow-up JSON and renders owner groups, due/evidence states, blockers, copyable commands, and assignment text",
+            "open the next release evidence SLA monitor set",
         ),
         item(
-            "release-prevention-planner-coverage",
-            "Prevention planner Rust and TypeScript coverage",
+            "release-owner-followup-board-coverage",
+            "Owner follow-up Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify recurrence scoring, blocked-plan states, dry-run command safety, owner-copy text, and dashboard rendering",
-            "open the next release owner follow-up board set",
+            "focused Rust integration coverage plus dashboard smoke checks verify owner grouping, overdue detection, evidence gates, command safety, and dashboard rendering",
+            "open the next release evidence SLA monitor set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Prevention Planner".to_string(),
+        name: "Friday Release Owner Follow-up Board".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Convert Friday incident history and stability evidence into owner-ready prevention work and release-blocking evidence gates.".to_string(),
+        loop_rule: "Turn Friday prevention actions into owner-ready follow-up assignments with due windows, evidence requests, and completion gates.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_prevention_planner_loop() {
+    fn active_set_tracks_friday_release_owner_followup_board_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Prevention Planner");
+        assert_eq!(set.name, "Friday Release Owner Follow-up Board");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

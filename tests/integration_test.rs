@@ -27,7 +27,8 @@ use flow::friday::{
     FridayMultimodalSurface, FridayOperatorReadinessStatus, FridayPermissionScope,
     FridayPreviewRunner, FridayReleaseCandidateArchiveEntry, FridayReleaseChecklistSignoffDecision,
     FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget,
-    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity, FridayReleasePreventionActionKind,
+    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
+    FridayReleaseOwnerFollowUpCompletionState, FridayReleasePreventionActionKind,
     FridayReleasePreventionFindingKind, FridayReleasePromotionDecision,
     FridayReleasePromotionRecordRequest, FridayReleaseQaCheckStatus, FridayResearchWorkflow,
     FridayRouteVisualStatus, FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor,
@@ -53,11 +54,11 @@ use flow::friday::{
     friday_release_candidate_entry_from_gate, friday_release_deployment_gate_report,
     friday_release_evidence_export_kit_report, friday_release_incident_archive_report,
     friday_release_incident_entry_from_sources, friday_release_operator_checklist_report,
-    friday_release_post_promotion_monitor_report, friday_release_prevention_plan_report,
-    friday_release_qa_command_center_report, friday_release_recovery_runbook_report,
-    friday_release_rollback_drill_report, friday_release_stability_board_report,
-    friday_route_visual_report, friday_route_visual_report_for_root,
-    friday_trusted_host_live_runner_state_from_history,
+    friday_release_owner_followup_board_report_at, friday_release_post_promotion_monitor_report,
+    friday_release_prevention_plan_report, friday_release_qa_command_center_report,
+    friday_release_recovery_runbook_report, friday_release_rollback_drill_report,
+    friday_release_stability_board_report, friday_route_visual_report,
+    friday_route_visual_report_for_root, friday_trusted_host_live_runner_state_from_history,
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
@@ -67,7 +68,8 @@ use flow::friday::{
     run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command_bridge_with_executor,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
     write_friday_release_deployment_gate, write_friday_release_evidence_export_kit,
-    write_friday_release_operator_checklist, write_friday_release_post_promotion_monitor_report,
+    write_friday_release_operator_checklist, write_friday_release_owner_followup_board_report,
+    write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_qa_command_center_report,
     write_friday_release_recovery_runbook_report, write_friday_release_rollback_drill_report,
     write_friday_release_stability_board_report, write_friday_trusted_host_live_runner_state,
@@ -2358,6 +2360,45 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
             .iter()
             .any(|command| command.contains("--friday-release-prevention-plan"))
     );
+    let owner_followup_board_path = root.join("release-owner-followup-board.json");
+    let owner_followup_board = friday_release_owner_followup_board_report_at(
+        &owner_followup_board_path,
+        &prevention_plan_path,
+        1,
+    );
+    write_friday_release_owner_followup_board_report(
+        &owner_followup_board_path,
+        &owner_followup_board,
+    )
+    .unwrap();
+    assert_eq!(
+        owner_followup_board.record_count,
+        prevention_plan.action_count
+    );
+    assert!(owner_followup_board.owner_count > 0);
+    assert!(owner_followup_board.evidence_missing_count > 0);
+    assert!(owner_followup_board.overdue_count > 0);
+    assert!(owner_followup_board.gate_blocking_count > 0);
+    assert!(
+        owner_followup_board
+            .owner_groups
+            .iter()
+            .any(|group| { group.owner == "release-operator" && group.evidence_missing_count > 0 })
+    );
+    assert!(owner_followup_board.records.iter().any(|record| {
+        record.completion_state == FridayReleaseOwnerFollowUpCompletionState::Overdue
+            && record.assignment_copy.contains("@release-operator")
+            && record.command.contains("--dry-run")
+    }));
+    assert!(
+        owner_followup_board
+            .assignment_copy
+            .contains("Friday release owner follow-up board")
+    );
+    assert!(owner_followup_board.commands.iter().any(|command| {
+        command.contains("--friday-release-owner-followup-board")
+            && command.contains("--prevention-plan")
+    }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

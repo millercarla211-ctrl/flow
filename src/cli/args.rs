@@ -478,6 +478,16 @@ pub enum Command {
         incident_archive_file: String,
         stability_board_file: String,
     },
+    /// Write the Friday release owner follow-up board
+    FridayReleaseOwnerFollowUpBoard {
+        board_file: String,
+        prevention_plan_file: String,
+    },
+    /// Print the Friday release owner follow-up board as JSON
+    FridayReleaseOwnerFollowUpBoardJson {
+        board_file: String,
+        prevention_plan_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -1648,6 +1658,22 @@ impl Args {
                     stability_board_file,
                 }
             }
+            "--friday-release-owner-followup-board" | "--friday-owner-followup-board" => {
+                let (board_file, prevention_plan_file) =
+                    parse_friday_release_owner_followup_board_args(&args);
+                Command::FridayReleaseOwnerFollowUpBoard {
+                    board_file,
+                    prevention_plan_file,
+                }
+            }
+            "--friday-release-owner-followup-board-json" | "--friday-owner-followup-board-json" => {
+                let (board_file, prevention_plan_file) =
+                    parse_friday_release_owner_followup_board_args(&args);
+                Command::FridayReleaseOwnerFollowUpBoardJson {
+                    board_file,
+                    prevention_plan_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -2762,6 +2788,23 @@ fn parse_friday_release_prevention_plan_args(args: &[String]) -> (String, String
         .unwrap_or_else(|| format!("{export_dir}/release-stability-board.json"));
 
     (plan_file, incident_archive_file, stability_board_file)
+}
+
+fn parse_friday_release_owner_followup_board_args(args: &[String]) -> (String, String) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let board_file = flag_value(args, "--output")
+        .or_else(|| flag_value(args, "--board"))
+        .unwrap_or_else(|| format!("{export_dir}/release-owner-followup-board.json"));
+    let prevention_plan_file = flag_value(args, "--prevention-plan")
+        .or_else(|| flag_value(args, "--plan"))
+        .unwrap_or_else(|| format!("{export_dir}/release-prevention-plan.json"));
+
+    (board_file, prevention_plan_file)
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

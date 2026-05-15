@@ -647,16 +647,34 @@ Goal: convert archived release incidents into a prevention plan that identifies 
 
 This set is complete. The next loop should open `Friday Release Owner Follow-up Board` and turn prevention actions into reviewable owner assignments, due windows, evidence requests, and completion gates.
 
-## Next Set: Friday Release Owner Follow-up Board
+## Completed Set: Friday Release Owner Follow-up Board
 
-Status: 0/100
+Status: 100/100
 
 Goal: turn prevention-plan actions into owner-ready follow-up records with due windows, evidence requirements, completion states, and dashboard review controls.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed owner follow-up board model that consumes the release prevention plan.
+- [x] Add owner assignment, due-window, evidence-request, and completion-state fields for each prevention action.
+- [x] Add CLI and JSON commands for generating follow-up boards without executing remediation commands.
+- [x] Add dashboard import/rendering for owners, due windows, evidence requests, completion blockers, and copyable assignment text.
+- [x] Add focused Rust/TypeScript coverage for owner grouping, overdue detection, evidence gates, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Evidence SLA Monitor` and watch owner follow-up records, prevention-plan evidence, and stability artifacts for freshness, due-window breaches, and escalation-ready release blockers.
+
+## Next Set: Friday Release Evidence SLA Monitor
+
+Status: 0/100
+
+Goal: monitor owner follow-up boards and release evidence freshness against explicit SLA windows so Friday can escalate stale or overdue release blockers before the next checkpoint.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed owner follow-up board model that consumes the release prevention plan.
-- [ ] Add owner assignment, due-window, evidence-request, and completion-state fields for each prevention action.
-- [ ] Add CLI and JSON commands for generating follow-up boards without executing remediation commands.
-- [ ] Add dashboard import/rendering for owners, due windows, evidence requests, completion blockers, and copyable assignment text.
-- [ ] Add focused Rust/TypeScript coverage for owner grouping, overdue detection, evidence gates, command safety, and dashboard rendering.
+- [ ] Add a typed release evidence SLA monitor model that consumes owner follow-up boards, prevention plans, and stability evidence.
+- [ ] Add freshness, due-window, escalation, and acknowledgement states for each release evidence requirement.
+- [ ] Add CLI and JSON commands for generating SLA monitor reports without running builds, deployments, or remediation commands.
+- [ ] Add dashboard import/rendering for SLA status, overdue owners, escalation copy, and acknowledgement blockers.
+- [ ] Add focused Rust/TypeScript coverage for SLA scoring, stale evidence, owner escalation grouping, command safety, and dashboard rendering.

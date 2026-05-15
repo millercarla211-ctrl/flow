@@ -1039,6 +1039,76 @@ export interface FlowReleasePreventionPlanReport {
   commands: string[];
 }
 
+export type FlowReleaseOwnerFollowUpCompletionState =
+  | "ready"
+  | "needs-evidence"
+  | "blocked"
+  | "complete"
+  | "overdue";
+
+export type FlowReleaseOwnerFollowUpEvidenceState = "present" | "missing" | "not-required";
+
+export interface FlowReleaseOwnerFollowUpRecord {
+  id: string;
+  actionId: string;
+  owner: string;
+  title: string;
+  summary: string;
+  completionState: FlowReleaseOwnerFollowUpCompletionState;
+  evidenceState: FlowReleaseOwnerFollowUpEvidenceState;
+  sourcePath: string;
+  evidencePath: string;
+  evidenceRequest: string;
+  dueAfterUnixMs: string;
+  dueBeforeUnixMs: string;
+  overdue: boolean;
+  required: boolean;
+  releaseGateBlocking: boolean;
+  command: string;
+  assignmentCopy: string;
+  nextAction: string;
+}
+
+export interface FlowReleaseOwnerFollowUpGroup {
+  owner: string;
+  recordCount: number;
+  readyCount: number;
+  waitingCount: number;
+  blockedCount: number;
+  overdueCount: number;
+  completeCount: number;
+  evidenceMissingCount: number;
+  records: string[];
+}
+
+export interface FlowReleaseOwnerFollowUpBoardReport {
+  boardId: string;
+  boardJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  status: FlowDashboardPanelStatus;
+  scoreOutOf100: number;
+  readyForNextCheckpoint: boolean;
+  preventionPlanJson: string;
+  incidentArchiveJson: string;
+  stabilityBoardJson: string;
+  recordCount: number;
+  ownerCount: number;
+  readyCount: number;
+  waitingCount: number;
+  blockedCount: number;
+  overdueCount: number;
+  completeCount: number;
+  evidenceMissingCount: number;
+  gateBlockingCount: number;
+  ownerGroups: FlowReleaseOwnerFollowUpGroup[];
+  records: FlowReleaseOwnerFollowUpRecord[];
+  assignmentCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -3370,6 +3440,124 @@ export function normalizeReleasePreventionPlan(
   };
 }
 
+export function normalizeReleaseOwnerFollowUpBoard(
+  value: unknown,
+): FlowReleaseOwnerFollowUpBoardReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const board =
+    root.release_owner_followup_board && typeof root.release_owner_followup_board === "object"
+      ? (root.release_owner_followup_board as Record<string, unknown>)
+      : root.releaseOwnerFollowUpBoard && typeof root.releaseOwnerFollowUpBoard === "object"
+        ? (root.releaseOwnerFollowUpBoard as Record<string, unknown>)
+        : root;
+  const boardId = stringValue(board.board_id, board.boardId);
+  const records = arrayValue(board.records)
+    .map((item): FlowReleaseOwnerFollowUpRecord | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const id = stringValue(record.id);
+      if (!id) {
+        return null;
+      }
+      return {
+        id,
+        actionId: stringValue(record.action_id, record.actionId),
+        owner: stringValue(record.owner),
+        title: stringValue(record.title),
+        summary: stringValue(record.summary),
+        completionState: releaseOwnerFollowUpCompletionState(
+          stringValue(record.completion_state, record.completionState),
+        ),
+        evidenceState: releaseOwnerFollowUpEvidenceState(
+          stringValue(record.evidence_state, record.evidenceState),
+        ),
+        sourcePath: stringValue(record.source_path, record.sourcePath),
+        evidencePath: stringValue(record.evidence_path, record.evidencePath),
+        evidenceRequest: stringValue(record.evidence_request, record.evidenceRequest),
+        dueAfterUnixMs: stringValue(record.due_after_unix_ms, record.dueAfterUnixMs),
+        dueBeforeUnixMs: stringValue(record.due_before_unix_ms, record.dueBeforeUnixMs),
+        overdue: booleanValue(record.overdue),
+        required: booleanValue(record.required),
+        releaseGateBlocking: booleanValue(record.release_gate_blocking, record.releaseGateBlocking),
+        command: stringValue(record.command),
+        assignmentCopy: stringValue(record.assignment_copy, record.assignmentCopy),
+        nextAction: stringValue(record.next_action, record.nextAction),
+      };
+    })
+    .filter((record): record is FlowReleaseOwnerFollowUpRecord => record !== null);
+  const ownerGroups = arrayValue(board.owner_groups, board.ownerGroups)
+    .map((item): FlowReleaseOwnerFollowUpGroup | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const group = item as Record<string, unknown>;
+      const owner = stringValue(group.owner);
+      if (!owner) {
+        return null;
+      }
+      return {
+        owner,
+        recordCount: numberValue(group.record_count, group.recordCount),
+        readyCount: numberValue(group.ready_count, group.readyCount),
+        waitingCount: numberValue(group.waiting_count, group.waitingCount),
+        blockedCount: numberValue(group.blocked_count, group.blockedCount),
+        overdueCount: numberValue(group.overdue_count, group.overdueCount),
+        completeCount: numberValue(group.complete_count, group.completeCount),
+        evidenceMissingCount: numberValue(
+          group.evidence_missing_count,
+          group.evidenceMissingCount,
+        ),
+        records: arrayValue(group.records)
+          .map((record) => stringValue(record))
+          .filter(Boolean),
+      };
+    })
+    .filter((group): group is FlowReleaseOwnerFollowUpGroup => group !== null);
+
+  if (!boardId && records.length === 0) {
+    return null;
+  }
+
+  return {
+    boardId,
+    boardJson: stringValue(board.board_json, board.boardJson),
+    generatedAtUnixMs: stringValue(board.generated_at_unix_ms, board.generatedAtUnixMs),
+    productName: stringValue(board.product_name, board.productName),
+    localOnly: booleanValue(board.local_only, board.localOnly),
+    status: panelStatus(stringValue(board.status)),
+    scoreOutOf100: numberValue(board.score_out_of_100, board.scoreOutOf100),
+    readyForNextCheckpoint: booleanValue(
+      board.ready_for_next_checkpoint,
+      board.readyForNextCheckpoint,
+    ),
+    preventionPlanJson: stringValue(board.prevention_plan_json, board.preventionPlanJson),
+    incidentArchiveJson: stringValue(board.incident_archive_json, board.incidentArchiveJson),
+    stabilityBoardJson: stringValue(board.stability_board_json, board.stabilityBoardJson),
+    recordCount: numberValue(board.record_count, board.recordCount),
+    ownerCount: numberValue(board.owner_count, board.ownerCount),
+    readyCount: numberValue(board.ready_count, board.readyCount),
+    waitingCount: numberValue(board.waiting_count, board.waitingCount),
+    blockedCount: numberValue(board.blocked_count, board.blockedCount),
+    overdueCount: numberValue(board.overdue_count, board.overdueCount),
+    completeCount: numberValue(board.complete_count, board.completeCount),
+    evidenceMissingCount: numberValue(board.evidence_missing_count, board.evidenceMissingCount),
+    gateBlockingCount: numberValue(board.gate_blocking_count, board.gateBlockingCount),
+    ownerGroups,
+    records,
+    assignmentCopy: stringValue(board.assignment_copy, board.assignmentCopy),
+    summary: stringValue(board.summary),
+    commands: arrayValue(board.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -3643,6 +3831,28 @@ function releasePreventionActionStatus(value: string): FlowReleasePreventionActi
     return value;
   }
   return "blocked";
+}
+
+function releaseOwnerFollowUpCompletionState(
+  value: string,
+): FlowReleaseOwnerFollowUpCompletionState {
+  if (
+    value === "ready" ||
+    value === "needs-evidence" ||
+    value === "blocked" ||
+    value === "complete" ||
+    value === "overdue"
+  ) {
+    return value;
+  }
+  return "blocked";
+}
+
+function releaseOwnerFollowUpEvidenceState(value: string): FlowReleaseOwnerFollowUpEvidenceState {
+  if (value === "present" || value === "missing" || value === "not-required") {
+    return value;
+  }
+  return "missing";
 }
 
 function deploymentDecision(value: string): FlowReleaseDeploymentGateDecision {

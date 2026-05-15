@@ -7,6 +7,7 @@ import {
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseIncidentArchive,
   normalizeReleaseOperatorChecklist,
+  normalizeReleaseOwnerFollowUpBoard,
   normalizeReleasePostPromotionMonitor,
   normalizeReleasePreventionPlan,
   normalizeReleasePromotionLedger,
@@ -41,6 +42,7 @@ import {
   type FlowReleaseEvidenceExportKitReport,
   type FlowReleaseIncidentArchive,
   type FlowReleaseOperatorChecklistReport,
+  type FlowReleaseOwnerFollowUpBoardReport,
   type FlowReleasePostPromotionMonitorReport,
   type FlowReleasePreventionPlanReport,
   type FlowReleasePromotionLedger,
@@ -103,6 +105,7 @@ type UiState = {
   dashboardReleaseRecoveryRunbook: FlowReleaseRecoveryRunbookReport | null;
   dashboardReleaseIncidentArchive: FlowReleaseIncidentArchive | null;
   dashboardReleasePreventionPlan: FlowReleasePreventionPlanReport | null;
+  dashboardReleaseOwnerFollowUpBoard: FlowReleaseOwnerFollowUpBoardReport | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -2208,6 +2211,71 @@ function renderReleasePreventionPlan(plan: FlowReleasePreventionPlanReport | nul
   `;
 }
 
+function renderReleaseOwnerFollowUpBoard(board: FlowReleaseOwnerFollowUpBoardReport | null) {
+  if (!board) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-release-owner-followup-board">
+      <div class="card-topline">
+        <span class="eyebrow">Owner follow-up</span>
+        <span class="badge ${badgeTone(board.status)}">${board.scoreOutOf100} / 100</span>
+      </div>
+      <h3>${board.readyForNextCheckpoint ? "Owner evidence is clear" : "Owner evidence is still required"}</h3>
+      <p>${escapeHtml(board.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${board.ownerCount}</strong><small>owners</small></span>
+        <span><strong>${board.recordCount}</strong><small>records</small></span>
+        <span><strong>${board.overdueCount}</strong><small>overdue</small></span>
+        <span><strong>${board.gateBlockingCount}</strong><small>gate blocks</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Ready</strong> ${board.readyCount}</span>
+        <span><strong>Waiting</strong> ${board.waitingCount}</span>
+        <span><strong>Missing evidence</strong> ${board.evidenceMissingCount}</span>
+        <span><strong>Plan</strong> ${escapeHtml(board.preventionPlanJson)}</span>
+      </div>
+      <div class="runner-package-files">
+        ${board.records
+          .slice(0, 6)
+          .map(
+            (record) => `
+              <div class="runner-package-file ${
+                record.completionState === "complete" || record.completionState === "ready"
+                  ? "present"
+                  : "missing"
+              }">
+                <strong>@${escapeHtml(record.owner)} - ${escapeHtml(record.title)}</strong>
+                <small>${escapeHtml(record.completionState)} - ${escapeHtml(record.evidenceState)}</small>
+                <code>${escapeHtml(record.command)}</code>
+                <span>${escapeHtml(record.evidenceRequest)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="note-list">
+        ${board.ownerGroups
+          .slice(0, 4)
+          .map(
+            (group) =>
+              `<span>@${escapeHtml(group.owner)}: ${group.recordCount} item(s), ${group.evidenceMissingCount} evidence request(s), ${group.overdueCount} overdue</span>`,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-owner-followup-board-command">
+          Copy board command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-owner-followup-board-assignment">
+          Copy assignments
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -2427,6 +2495,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseRecoveryRunbook(state.dashboardReleaseRecoveryRunbook)}
       ${renderReleaseIncidentArchive(state.dashboardReleaseIncidentArchive)}
       ${renderReleasePreventionPlan(state.dashboardReleasePreventionPlan)}
+      ${renderReleaseOwnerFollowUpBoard(state.dashboardReleaseOwnerFollowUpBoard)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -2565,6 +2634,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseRecoveryRunbook: null,
     dashboardReleaseIncidentArchive: null,
     dashboardReleasePreventionPlan: null,
+    dashboardReleaseOwnerFollowUpBoard: null,
   };
 
   function render() {
@@ -2873,6 +2943,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const releaseRecoveryRunbook = normalizeReleaseRecoveryRunbook(parsed);
       const releaseIncidentArchive = normalizeReleaseIncidentArchive(parsed);
       const releasePreventionPlan = normalizeReleasePreventionPlan(parsed);
+      const releaseOwnerFollowUpBoard = normalizeReleaseOwnerFollowUpBoard(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -2910,8 +2981,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseIncidentArchive ?? state.dashboardReleaseIncidentArchive;
       state.dashboardReleasePreventionPlan =
         releasePreventionPlan ?? state.dashboardReleasePreventionPlan;
+      state.dashboardReleaseOwnerFollowUpBoard =
+        releaseOwnerFollowUpBoard ?? state.dashboardReleaseOwnerFollowUpBoard;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releasePreventionPlan
+      state.status = releaseOwnerFollowUpBoard
+        ? `Imported owner follow-up board at ${releaseOwnerFollowUpBoard.scoreOutOf100}/100 from ${file.name}.`
+        : releasePreventionPlan
         ? `Imported prevention plan at ${releasePreventionPlan.scoreOutOf100}/100 from ${file.name}.`
         : releaseIncidentArchive
         ? `Imported incident archive with ${releaseIncidentArchive.incidentCount} incident(s) from ${file.name}.`
@@ -3419,6 +3494,38 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseOwnerFollowUpBoardCommand() {
+    const command = state.dashboardReleaseOwnerFollowUpBoard?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No owner follow-up board command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Owner follow-up board command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseOwnerFollowUpBoardAssignments() {
+    const copy = state.dashboardReleaseOwnerFollowUpBoard?.assignmentCopy ?? "";
+    if (!copy) {
+      state.status = "No owner follow-up assignments are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Owner follow-up assignments copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -3659,6 +3766,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-prevention-plan-owner-copy']")
       ?.addEventListener("click", () => {
         void copyReleasePreventionPlanOwnerCopy();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-owner-followup-board-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseOwnerFollowUpBoardCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-owner-followup-board-assignment']")
+      ?.addEventListener("click", () => {
+        void copyReleaseOwnerFollowUpBoardAssignments();
       });
 
     mountRoot

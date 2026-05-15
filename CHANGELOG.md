@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Owner Follow-up Board at 100/100 with typed local-only owner assignments, due windows, evidence requests, completion states, non-executing CLI/JSON commands, dashboard import/rendering, copyable assignment text, and focused Rust/TypeScript coverage
+- opened Friday Release Evidence SLA Monitor as the next set for watching owner follow-up records, prevention-plan evidence, stability artifacts, freshness windows, and escalation-ready blockers
 - completed Friday Release Prevention Planner at 100/100 with typed local-only prevention plans, recurrence detection, release-gate blockers, owner-ready actions, non-executing CLI/JSON commands, dashboard import/rendering, copyable owner text, and focused Rust/TypeScript coverage
 - opened Friday Release Owner Follow-up Board as the next set for turning prevention actions into owner assignments, due windows, evidence requests, and completion gates
 - completed Friday Release Incident Archive at 100/100 with typed local-only incident history, severity/outcome/follow-up/prevention taxonomies, append/list/export CLI commands, dashboard import/rendering, copyable follow-up actions, and focused Rust/TypeScript coverage
