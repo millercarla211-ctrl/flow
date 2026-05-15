@@ -196,6 +196,21 @@ pub enum Command {
         state_file: String,
         output_file: String,
     },
+    /// Append a release package to the trusted runner release timeline
+    FridayTrustedRunnerReleaseArchive {
+        timeline_file: String,
+        package_file: String,
+    },
+    /// Print trusted runner release package timeline as JSON
+    FridayTrustedRunnerReleaseTimelineJson {
+        timeline_file: String,
+        package_files: Vec<String>,
+    },
+    /// Show trusted runner release package timeline
+    FridayTrustedRunnerReleaseTimeline {
+        timeline_file: String,
+        package_files: Vec<String>,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -825,6 +840,33 @@ impl Args {
                     output_file,
                 }
             }
+            "--friday-trusted-runner-release-archive"
+            | "--friday-dashboard-trusted-runner-release-archive" => {
+                let (timeline_file, package_file) =
+                    parse_friday_trusted_runner_release_archive_args(&args);
+                Command::FridayTrustedRunnerReleaseArchive {
+                    timeline_file,
+                    package_file,
+                }
+            }
+            "--friday-trusted-runner-release-timeline-json"
+            | "--friday-dashboard-trusted-runner-release-timeline-json" => {
+                let (timeline_file, package_files) =
+                    parse_friday_trusted_runner_release_timeline_args(&args);
+                Command::FridayTrustedRunnerReleaseTimelineJson {
+                    timeline_file,
+                    package_files,
+                }
+            }
+            "--friday-trusted-runner-release-timeline"
+            | "--friday-dashboard-trusted-runner-release-timeline" => {
+                let (timeline_file, package_files) =
+                    parse_friday_trusted_runner_release_timeline_args(&args);
+                Command::FridayTrustedRunnerReleaseTimeline {
+                    timeline_file,
+                    package_files,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -1358,6 +1400,36 @@ fn parse_friday_trusted_host_runner_release_package_args(
     (export_dir, history_file, state_file, output_file)
 }
 
+fn parse_friday_trusted_runner_release_archive_args(args: &[String]) -> (String, String) {
+    let positional = positional_values(args, &["--timeline", "--package"]);
+    let timeline_file = flag_value(args, "--timeline")
+        .or_else(|| positional.first().cloned())
+        .unwrap_or_else(|| "tmp/friday-dashboard/trusted-runner-release-timeline.json".to_string());
+    let package_file = flag_value(args, "--package")
+        .or_else(|| positional.get(1).cloned())
+        .unwrap_or_else(|| "tmp/friday-dashboard/trusted-runner-release-package.json".to_string());
+    (timeline_file, package_file)
+}
+
+fn parse_friday_trusted_runner_release_timeline_args(args: &[String]) -> (String, Vec<String>) {
+    let positional = positional_values(args, &["--timeline", "--package"]);
+    let timeline_from_flag = flag_value(args, "--timeline");
+    let timeline_file = timeline_from_flag
+        .clone()
+        .or_else(|| positional.first().cloned())
+        .unwrap_or_else(|| "tmp/friday-dashboard/trusted-runner-release-timeline.json".to_string());
+    let positional_packages = if timeline_from_flag.is_some() {
+        positional
+    } else {
+        positional.into_iter().skip(1).collect::<Vec<_>>()
+    };
+    let package_files = repeated_flag_values(args, "--package")
+        .into_iter()
+        .chain(positional_packages)
+        .collect::<Vec<_>>();
+    (timeline_file, package_files)
+}
+
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {
     flag_value(args, "--state")
         .unwrap_or_else(|| format!("{input_dir}/trusted-host-live-state.json"))
@@ -1367,6 +1439,32 @@ fn flag_value(args: &[String], flag: &str) -> Option<String> {
     args.windows(2)
         .find(|window| window[0] == flag)
         .map(|window| window[1].clone())
+}
+
+fn repeated_flag_values(args: &[String], flag: &str) -> Vec<String> {
+    args.windows(2)
+        .filter(|window| window[0] == flag)
+        .map(|window| window[1].clone())
+        .collect()
+}
+
+fn positional_values(args: &[String], value_flags: &[&str]) -> Vec<String> {
+    let mut values = Vec::new();
+    let mut index = 2;
+    while index < args.len() {
+        let value = &args[index];
+        if value_flags.contains(&value.as_str()) {
+            index += 2;
+            continue;
+        }
+        if value.starts_with("--") {
+            index += 1;
+            continue;
+        }
+        values.push(value.clone());
+        index += 1;
+    }
+    values
 }
 
 fn parse_two_path_args(args: &[String], usage: &str) -> (String, String) {

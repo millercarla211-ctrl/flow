@@ -10,6 +10,7 @@ import {
   normalizeTrustedHostRunnerResults,
   normalizeTrustedHostRunnerUx,
   normalizeTrustedRunnerReleasePackage,
+  normalizeTrustedRunnerReleaseTimeline,
   persistDashboardCommandResult,
   readDashboardCommandResults,
   type FlowDashboardCommandResult,
@@ -20,6 +21,7 @@ import {
   type FlowDashboardRunnerCancellationUxReport,
   type FlowDashboardRunnerOperatorReviewReport,
   type FlowDashboardRunnerReleasePackageReport,
+  type FlowDashboardRunnerReleaseTimeline,
   type FlowDashboardRunnerUxReport,
   type FlowDashboardCommandStatus,
 } from "../runtime/dashboard-actions";
@@ -63,6 +65,7 @@ type UiState = {
   dashboardRunnerCancellationDrafts: Record<string, string>;
   dashboardRunnerOperatorReview: FlowDashboardRunnerOperatorReviewReport | null;
   dashboardRunnerReleasePackage: FlowDashboardRunnerReleasePackageReport | null;
+  dashboardRunnerReleaseTimeline: FlowDashboardRunnerReleaseTimeline | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -1325,6 +1328,61 @@ function renderRunnerReleasePackage(pkg: FlowDashboardRunnerReleasePackageReport
   `;
 }
 
+function renderRunnerReleaseTimeline(timeline: FlowDashboardRunnerReleaseTimeline | null) {
+  if (!timeline) {
+    return "";
+  }
+
+  return `
+    <article class="feature-card dashboard-runner-timeline">
+      <div class="card-topline">
+        <span class="eyebrow">Trusted runner evidence timeline</span>
+        <span class="badge ${badgeTone(timeline.missingEvidenceRegressions ? "blocked" : "ready")}">
+          ${timeline.missingEvidenceRegressions ? "regression" : "stable"}
+        </span>
+      </div>
+      <p>Compare release packages before shipping. Latest package: ${escapeHtml(
+        timeline.latestPackageId ?? "none",
+      )}.</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${timeline.packageCount}</strong><small>packages</small></span>
+        <span><strong>${timeline.missingEvidenceRegressions}</strong><small>missing regressions</small></span>
+        <span><strong>${timeline.warningRegressions}</strong><small>warning regressions</small></span>
+      </div>
+      ${
+        timeline.warnings.length
+          ? `<div class="note-list">${timeline.warnings
+              .map((warning) => `<span>${escapeHtml(warning)}</span>`)
+              .join("")}</div>`
+          : "<p>No timeline regressions detected.</p>"
+      }
+      <div class="runner-package-files">
+        ${timeline.entries
+          .slice(-4)
+          .map(
+            (entry) => `
+              <div class="runner-package-file ${entry.readyToShip ? "present" : "missing"}">
+                <strong>${escapeHtml(entry.packageId)}</strong>
+                <small>${entry.readyToShip ? "ready" : "review"} - ${entry.warningCount} warning(s)</small>
+                <code>${escapeHtml(entry.packageJson)}</code>
+                <code>${escapeHtml(entry.packageSignature)}</code>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      ${
+        timeline.diffs.length
+          ? `<div class="note-list">${timeline.diffs
+              .slice(-3)
+              .map((diff) => `<span>${escapeHtml(diff.summary)}</span>`)
+              .join("")}</div>`
+          : ""
+      }
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -1528,6 +1586,7 @@ function renderDashboard(state: UiState) {
       )}
       ${renderRunnerOperatorReview(state.dashboardRunnerOperatorReview)}
       ${renderRunnerReleasePackage(state.dashboardRunnerReleasePackage)}
+      ${renderRunnerReleaseTimeline(state.dashboardRunnerReleaseTimeline)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -1652,6 +1711,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardRunnerCancellationDrafts: readRunnerCancellationDrafts(),
     dashboardRunnerOperatorReview: null,
     dashboardRunnerReleasePackage: null,
+    dashboardRunnerReleaseTimeline: null,
   };
 
   function render() {
@@ -1947,6 +2007,7 @@ export async function mountFlowApp(surfaceInput: string) {
       const liveState = normalizeTrustedHostLiveRunnerState(parsed);
       const operatorReview = normalizeTrustedHostRunnerOperatorReview(parsed);
       const releasePackage = normalizeTrustedRunnerReleasePackage(parsed);
+      const releaseTimeline = normalizeTrustedRunnerReleaseTimeline(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -1959,8 +2020,12 @@ export async function mountFlowApp(surfaceInput: string) {
         operatorReview ?? state.dashboardRunnerOperatorReview;
       state.dashboardRunnerReleasePackage =
         releasePackage ?? state.dashboardRunnerReleasePackage;
+      state.dashboardRunnerReleaseTimeline =
+        releaseTimeline ?? state.dashboardRunnerReleaseTimeline;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releasePackage
+      state.status = releaseTimeline
+        ? `Imported trusted runner release timeline with ${releaseTimeline.packageCount} package(s) from ${file.name}.`
+        : releasePackage
         ? `Imported trusted runner release package with ${releasePackage.manifest.evidenceCount} evidence item(s) from ${file.name}.`
         : operatorReview
         ? `Imported trusted runner operator review with ${operatorReview.matchedCount} matched record(s) from ${file.name}.`

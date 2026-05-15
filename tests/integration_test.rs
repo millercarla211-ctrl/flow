@@ -32,6 +32,7 @@ use flow::friday::{
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
     FridayUiStateKind, FridayUiStateTone, FridayUiVisualCheckStatus, FridayVerificationStatus,
     FridayWorkspaceStore, append_friday_trusted_host_runner_history,
+    append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
     export_friday_dashboard_bundle, friday_dashboard_export_history_from_export,
@@ -46,9 +47,10 @@ use flow::friday::{
     friday_trusted_host_runner_approval_ui_report,
     friday_trusted_host_runner_cancellation_ux_report,
     friday_trusted_host_runner_operator_review_report, friday_trusted_host_runner_ux_report,
-    friday_trusted_runner_release_package_report, read_friday_trusted_host_live_runner_state,
-    read_friday_trusted_host_runner_history, refresh_friday_trusted_host_live_runner_state,
-    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
+    friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
+    read_friday_trusted_host_live_runner_state, read_friday_trusted_host_runner_history,
+    refresh_friday_trusted_host_live_runner_state, run_friday_ocr_smoke,
+    run_friday_screenshot_vlm_handoff,
     run_friday_trusted_host_command_bridge_with_executor,
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
     write_friday_trusted_host_live_runner_state, write_friday_trusted_runner_release_package,
@@ -1748,6 +1750,49 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
         .warnings
         .iter()
         .any(|warning| warning.contains("missing")));
+    let first_package_path = root.join("trusted-runner-release-package-1.json");
+    let second_package_path = root.join("trusted-runner-release-package-2.json");
+    let mut first_package = release_package.clone();
+    first_package.summary = "Trusted runner release package is ready.".to_string();
+    first_package.ready_to_ship = true;
+    first_package.warnings.clear();
+    first_package.manifest.package_id = "trusted-runner-release-1".to_string();
+    first_package.manifest.generated_at_unix_ms = 1;
+    first_package.manifest.package_json = first_package_path.to_string_lossy().replace('\\', "/");
+    first_package.manifest.warning_count = 0;
+    first_package.manifest.package_signature = "sig-1".to_string();
+    let mut second_package = missing_package.clone();
+    second_package.manifest.package_id = "trusted-runner-release-2".to_string();
+    second_package.manifest.generated_at_unix_ms = 2;
+    second_package.manifest.package_json = second_package_path.to_string_lossy().replace('\\', "/");
+    second_package.manifest.package_signature = "sig-2".to_string();
+    write_friday_trusted_runner_release_package(&first_package_path, &first_package).unwrap();
+    write_friday_trusted_runner_release_package(&second_package_path, &second_package).unwrap();
+    let timeline_path = root.join("trusted-runner-release-timeline.json");
+    let archived = append_friday_trusted_runner_release_package_to_timeline(
+        &timeline_path,
+        &first_package_path,
+    )
+    .unwrap();
+    assert_eq!(archived.package_count, 1);
+    let timeline = friday_trusted_runner_release_timeline_report(
+        &timeline_path,
+        &[second_package_path.clone()],
+    );
+    assert_eq!(timeline.package_count, 2);
+    assert_eq!(
+        timeline.latest_package_id.as_deref(),
+        Some("trusted-runner-release-2")
+    );
+    assert_eq!(timeline.missing_evidence_regressions, 1);
+    assert_eq!(timeline.warning_regressions, 1);
+    assert_eq!(timeline.signature_changes, 1);
+    assert!(timeline.diffs.iter().any(|diff| {
+        diff.regression
+            && diff.from_package_id == "trusted-runner-release-1"
+            && diff.to_package_id == "trusted-runner-release-2"
+            && diff.missing_delta > 0
+    }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);
     let live_refreshed = refresh_friday_trusted_host_live_runner_state(&live_loaded);

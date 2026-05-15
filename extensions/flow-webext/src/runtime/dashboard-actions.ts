@@ -272,6 +272,52 @@ export interface FlowDashboardRunnerReleasePackageReport {
   incidentMarkdown: string;
 }
 
+export interface FlowDashboardRunnerReleaseTimelineEntry {
+  packageId: string;
+  packageJson: string;
+  generatedAtUnixMs: string;
+  readyToShip: boolean;
+  evidenceCount: number;
+  missingCount: number;
+  warningCount: number;
+  staleWarningCount: number;
+  packageSignature: string;
+  missingEvidenceIds: string[];
+  summary: string;
+}
+
+export interface FlowDashboardRunnerReleaseTimelineDiff {
+  fromPackageId: string;
+  toPackageId: string;
+  evidenceDelta: number;
+  missingDelta: number;
+  warningDelta: number;
+  staleWarningDelta: number;
+  signatureChanged: boolean;
+  newMissingEvidenceIds: string[];
+  resolvedMissingEvidenceIds: string[];
+  regression: boolean;
+  summary: string;
+}
+
+export interface FlowDashboardRunnerReleaseTimeline {
+  timelineId: string;
+  timelineJson: string;
+  generatedAtUnixMs: string;
+  localOnly: boolean;
+  packageCount: number;
+  readyCount: number;
+  blockedCount: number;
+  latestPackageId: string | null;
+  latestPackageJson: string | null;
+  missingEvidenceRegressions: number;
+  warningRegressions: number;
+  signatureChanges: number;
+  warnings: string[];
+  entries: FlowDashboardRunnerReleaseTimelineEntry[];
+  diffs: FlowDashboardRunnerReleaseTimelineDiff[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -1131,6 +1177,113 @@ export function normalizeTrustedRunnerReleasePackage(
     cancellationUx: normalizeTrustedHostRunnerCancellationUx(report.cancellation_ux ?? report.cancellationUx),
     liveState: normalizeTrustedHostLiveRunnerState(report.live_state ?? report.liveState),
     incidentMarkdown: stringValue(report.incident_markdown, report.incidentMarkdown),
+  };
+}
+
+export function normalizeTrustedRunnerReleaseTimeline(
+  value: unknown,
+): FlowDashboardRunnerReleaseTimeline | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const root = value as Record<string, unknown>;
+  const timeline =
+    root.release_timeline && typeof root.release_timeline === "object"
+      ? (root.release_timeline as Record<string, unknown>)
+      : root.releaseTimeline && typeof root.releaseTimeline === "object"
+        ? (root.releaseTimeline as Record<string, unknown>)
+        : root;
+  const entries = arrayValue(timeline.entries)
+    .map((item): FlowDashboardRunnerReleaseTimelineEntry | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const entry = item as Record<string, unknown>;
+      const packageId = stringValue(entry.package_id, entry.packageId);
+      if (!packageId) {
+        return null;
+      }
+      return {
+        packageId,
+        packageJson: stringValue(entry.package_json, entry.packageJson),
+        generatedAtUnixMs: stringValue(entry.generated_at_unix_ms, entry.generatedAtUnixMs),
+        readyToShip: booleanValue(entry.ready_to_ship, entry.readyToShip),
+        evidenceCount: numberValue(entry.evidence_count, entry.evidenceCount),
+        missingCount: numberValue(entry.missing_count, entry.missingCount),
+        warningCount: numberValue(entry.warning_count, entry.warningCount),
+        staleWarningCount: numberValue(entry.stale_warning_count, entry.staleWarningCount),
+        packageSignature: stringValue(entry.package_signature, entry.packageSignature),
+        missingEvidenceIds: arrayValue(entry.missing_evidence_ids, entry.missingEvidenceIds)
+          .map((id) => stringValue(id))
+          .filter(Boolean),
+        summary: stringValue(entry.summary),
+      };
+    })
+    .filter((item): item is FlowDashboardRunnerReleaseTimelineEntry => item !== null);
+  const diffs = arrayValue(timeline.diffs)
+    .map((item): FlowDashboardRunnerReleaseTimelineDiff | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const diff = item as Record<string, unknown>;
+      const fromPackageId = stringValue(diff.from_package_id, diff.fromPackageId);
+      const toPackageId = stringValue(diff.to_package_id, diff.toPackageId);
+      if (!fromPackageId || !toPackageId) {
+        return null;
+      }
+      return {
+        fromPackageId,
+        toPackageId,
+        evidenceDelta: numberValue(diff.evidence_delta, diff.evidenceDelta),
+        missingDelta: numberValue(diff.missing_delta, diff.missingDelta),
+        warningDelta: numberValue(diff.warning_delta, diff.warningDelta),
+        staleWarningDelta: numberValue(diff.stale_warning_delta, diff.staleWarningDelta),
+        signatureChanged: booleanValue(diff.signature_changed, diff.signatureChanged),
+        newMissingEvidenceIds: arrayValue(
+          diff.new_missing_evidence_ids,
+          diff.newMissingEvidenceIds,
+        )
+          .map((id) => stringValue(id))
+          .filter(Boolean),
+        resolvedMissingEvidenceIds: arrayValue(
+          diff.resolved_missing_evidence_ids,
+          diff.resolvedMissingEvidenceIds,
+        )
+          .map((id) => stringValue(id))
+          .filter(Boolean),
+        regression: booleanValue(diff.regression),
+        summary: stringValue(diff.summary),
+      };
+    })
+    .filter((item): item is FlowDashboardRunnerReleaseTimelineDiff => item !== null);
+
+  if (entries.length === 0 && diffs.length === 0) {
+    return null;
+  }
+
+  return {
+    timelineId: stringValue(timeline.timeline_id, timeline.timelineId),
+    timelineJson: stringValue(timeline.timeline_json, timeline.timelineJson),
+    generatedAtUnixMs: stringValue(timeline.generated_at_unix_ms, timeline.generatedAtUnixMs),
+    localOnly: booleanValue(timeline.local_only, timeline.localOnly),
+    packageCount: numberValue(timeline.package_count, timeline.packageCount),
+    readyCount: numberValue(timeline.ready_count, timeline.readyCount),
+    blockedCount: numberValue(timeline.blocked_count, timeline.blockedCount),
+    latestPackageId: stringValue(timeline.latest_package_id, timeline.latestPackageId) || null,
+    latestPackageJson:
+      stringValue(timeline.latest_package_json, timeline.latestPackageJson) || null,
+    missingEvidenceRegressions: numberValue(
+      timeline.missing_evidence_regressions,
+      timeline.missingEvidenceRegressions,
+    ),
+    warningRegressions: numberValue(timeline.warning_regressions, timeline.warningRegressions),
+    signatureChanges: numberValue(timeline.signature_changes, timeline.signatureChanges),
+    warnings: arrayValue(timeline.warnings)
+      .map((warning) => stringValue(warning))
+      .filter(Boolean),
+    entries,
+    diffs,
   };
 }
 

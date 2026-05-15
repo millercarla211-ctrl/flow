@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Trusted Runner Evidence Timeline at 100/100 with typed package history, package-to-package diff/regression summaries, local-only archive/timeline CLI commands, dashboard timeline import rendering, and focused Rust/TypeScript coverage
+- opened Friday Release Operator Checklist as the next set for evidence-backed release signoff, blocker categorization, local audit history, and dashboard review controls
 - completed Friday Trusted Runner Release Package at 100/100 with a signed local-only evidence manifest, history/live-state/release-review merging, incident markdown, CLI/JSON generation commands, dashboard package import rendering, and focused Rust/TypeScript coverage
 - opened Friday Trusted Runner Evidence Timeline as the next set for package history, diff warnings, archive commands, dashboard comparison, and freshness review
 - completed Friday Trusted Runner Operator Review at 100/100 with typed status/action/time-window filters, release-gate summaries, export-ready incident notes, dashboard review rendering, CLI/JSON review commands, and focused Rust/TypeScript coverage

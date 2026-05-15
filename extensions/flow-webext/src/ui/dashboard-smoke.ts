@@ -13,6 +13,7 @@ import {
   normalizeTrustedHostRunnerResults,
   normalizeTrustedHostRunnerUx,
   normalizeTrustedRunnerReleasePackage,
+  normalizeTrustedRunnerReleaseTimeline,
 } from "../runtime/dashboard-actions";
 import type { FlowDashboardProductUiBinding } from "../runtime/protocol";
 
@@ -562,6 +563,64 @@ export function dashboardSectionSmokeReport(
     live_state: trustedLiveRunnerState,
     incident_markdown: "### Failed: Run host report",
   });
+  const trustedReleaseTimeline = normalizeTrustedRunnerReleaseTimeline({
+    timeline_id: "trusted-runner-release-timeline-smoke",
+    timeline_json: "tmp/friday-dashboard/trusted-runner-release-timeline.json",
+    generated_at_unix_ms: 3,
+    local_only: true,
+    package_count: 2,
+    ready_count: 1,
+    blocked_count: 1,
+    latest_package_id: "trusted-runner-release-2",
+    latest_package_json: "tmp/friday-dashboard/trusted-runner-release-package-2.json",
+    missing_evidence_regressions: 1,
+    warning_regressions: 1,
+    signature_changes: 1,
+    warnings: ["1 package comparison introduced new missing evidence."],
+    entries: [
+      {
+        package_id: "trusted-runner-release-1",
+        package_json: "tmp/friday-dashboard/trusted-runner-release-package-1.json",
+        generated_at_unix_ms: 1,
+        ready_to_ship: true,
+        evidence_count: 6,
+        missing_count: 0,
+        warning_count: 0,
+        stale_warning_count: 0,
+        package_signature: "sig-1",
+        missing_evidence_ids: [],
+        summary: "Ready.",
+      },
+      {
+        package_id: "trusted-runner-release-2",
+        package_json: "tmp/friday-dashboard/trusted-runner-release-package-2.json",
+        generated_at_unix_ms: 2,
+        ready_to_ship: false,
+        evidence_count: 6,
+        missing_count: 1,
+        warning_count: 2,
+        stale_warning_count: 1,
+        package_signature: "sig-2",
+        missing_evidence_ids: ["runner-live-state"],
+        summary: "Needs review.",
+      },
+    ],
+    diffs: [
+      {
+        from_package_id: "trusted-runner-release-1",
+        to_package_id: "trusted-runner-release-2",
+        evidence_delta: 0,
+        missing_delta: 1,
+        warning_delta: 2,
+        stale_warning_delta: 1,
+        signature_changed: true,
+        new_missing_evidence_ids: ["runner-live-state"],
+        resolved_missing_evidence_ids: [],
+        regression: true,
+        summary: "trusted-runner-release-2 regressed from trusted-runner-release-1.",
+      },
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -796,6 +855,21 @@ export function dashboardSectionSmokeReport(
         trustedReleasePackage.manifest.missingCount === 1 &&
         trustedReleasePackage.warnings.some((warning) => warning.includes("blocks release")),
       `${trustedReleasePackage?.manifest.warningCount ?? 0} release package warning(s)`,
+    ),
+    check(
+      "trusted-runner-release-timeline-importable",
+      trustedReleaseTimeline?.localOnly === true &&
+        trustedReleaseTimeline.packageCount === 2 &&
+        trustedReleaseTimeline.latestPackageId === "trusted-runner-release-2",
+      `${trustedReleaseTimeline?.packageCount ?? 0} release package(s)`,
+    ),
+    check(
+      "trusted-runner-release-timeline-regression",
+      trustedReleaseTimeline?.missingEvidenceRegressions === 1 &&
+        trustedReleaseTimeline.diffs.some(
+          (diff) => diff.regression && diff.newMissingEvidenceIds.includes("runner-live-state"),
+        ),
+      `${trustedReleaseTimeline?.missingEvidenceRegressions ?? 0} missing evidence regression(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

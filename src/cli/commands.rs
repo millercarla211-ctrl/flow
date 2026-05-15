@@ -34,7 +34,9 @@ use crate::friday::{
     FridayTrustedHostRunnerOperatorReviewFilter, FridayTrustedHostRunnerOperatorReviewReport,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerResult, FridayTrustedHostRunnerStatus,
     FridayTrustedHostRunnerUxReport, FridayTrustedRunnerReleasePackageReport,
-    FridayUiIntegrationStatus, FridayWorkspaceStore, append_friday_trusted_host_runner_history,
+    FridayTrustedRunnerReleaseTimeline, FridayUiIntegrationStatus, FridayWorkspaceStore,
+    append_friday_trusted_host_runner_history,
+    append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report,
     default_friday_local_execution_checks, default_friday_product_plan,
     default_friday_ui_integration_plan, export_friday_dashboard_bundle, friday_answer_search_plan,
@@ -48,10 +50,10 @@ use crate::friday::{
     friday_trusted_host_runner_cancellation_ux_report_from_state_file,
     friday_trusted_host_runner_operator_review_report_from_history_file,
     friday_trusted_host_runner_ux_report_from_history_file,
-    friday_trusted_runner_release_package_report, run_friday_ocr_smoke,
-    run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
+    friday_trusted_runner_release_package_report, friday_trusted_runner_release_timeline_report,
+    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
     run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
-    write_friday_trusted_runner_release_package,
+    write_friday_trusted_runner_release_package, write_friday_trusted_runner_release_timeline,
     write_friday_trusted_host_live_runner_state,
 };
 use crate::models::{
@@ -696,6 +698,51 @@ pub async fn execute(command: Command) -> Result<()> {
             println!("{}", report.to_pretty_json()?);
         }
 
+        Command::FridayTrustedRunnerReleaseArchive {
+            timeline_file,
+            package_file,
+        } => {
+            let timeline = append_friday_trusted_runner_release_package_to_timeline(
+                resolve_repo_relative_path(&timeline_file),
+                resolve_repo_relative_path(&package_file),
+            )?;
+            print_friday_trusted_runner_release_timeline(&timeline);
+        }
+
+        Command::FridayTrustedRunnerReleaseTimelineJson {
+            timeline_file,
+            package_files,
+        } => {
+            let package_paths = package_files
+                .iter()
+                .map(|path| resolve_repo_relative_path(path))
+                .collect::<Vec<_>>();
+            let timeline = friday_trusted_runner_release_timeline_report(
+                resolve_repo_relative_path(&timeline_file),
+                &package_paths,
+            );
+            println!("{}", timeline.to_pretty_json()?);
+        }
+
+        Command::FridayTrustedRunnerReleaseTimeline {
+            timeline_file,
+            package_files,
+        } => {
+            let package_paths = package_files
+                .iter()
+                .map(|path| resolve_repo_relative_path(path))
+                .collect::<Vec<_>>();
+            let timeline = friday_trusted_runner_release_timeline_report(
+                resolve_repo_relative_path(&timeline_file),
+                &package_paths,
+            );
+            write_friday_trusted_runner_release_timeline(
+                resolve_repo_relative_path(&timeline_file),
+                &timeline,
+            )?;
+            print_friday_trusted_runner_release_timeline(&timeline);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -1175,6 +1222,12 @@ fn print_interactive_help() {
     println!("                           Write trusted runner release package JSON");
     println!("  --friday-trusted-host-runner-release-package-json [export-dir]");
     println!("                           Print trusted runner release package as JSON");
+    println!("  --friday-trusted-runner-release-archive [timeline-file] [package-file]");
+    println!("                           Append a package to the trusted runner release timeline");
+    println!("  --friday-trusted-runner-release-timeline [timeline-file] [--package file]");
+    println!("                           Show and write trusted runner release package timeline");
+    println!("  --friday-trusted-runner-release-timeline-json [timeline-file] [--package file]");
+    println!("                           Print trusted runner release package timeline as JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -2286,6 +2339,64 @@ fn print_friday_trusted_runner_release_package_report(
             file.sha256.as_deref().unwrap_or("missing")
         );
         println!("    {}", file.path);
+    }
+}
+
+fn print_friday_trusted_runner_release_timeline(timeline: &FridayTrustedRunnerReleaseTimeline) {
+    println!("Friday Trusted Runner Release Timeline");
+    println!("======================================");
+    println!("Timeline: {}", timeline.timeline_json);
+    println!(
+        "Packages: {} | ready: {} | blocked: {} | regressions: {} missing, {} warning | signature changes: {}",
+        timeline.package_count,
+        timeline.ready_count,
+        timeline.blocked_count,
+        timeline.missing_evidence_regressions,
+        timeline.warning_regressions,
+        timeline.signature_changes
+    );
+    if let Some(latest) = &timeline.latest_package_id {
+        println!("Latest: {}", latest);
+    }
+    println!();
+    println!("Warnings:");
+    if timeline.warnings.is_empty() {
+        println!("  - none");
+    } else {
+        for warning in &timeline.warnings {
+            println!("  - {}", warning);
+        }
+    }
+    println!();
+    println!("Packages:");
+    for entry in &timeline.entries {
+        println!(
+            "  - {} ready={} missing={} warnings={} stale={} signature={}",
+            entry.package_id,
+            yes_no(entry.ready_to_ship),
+            entry.missing_count,
+            entry.warning_count,
+            entry.stale_warning_count,
+            entry.package_signature
+        );
+        println!("    {}", entry.package_json);
+    }
+    println!();
+    println!("Diffs:");
+    if timeline.diffs.is_empty() {
+        println!("  - none");
+    } else {
+        for diff in &timeline.diffs {
+            println!(
+                "  - {} -> {} regression={} missing_delta={} warning_delta={}",
+                diff.from_package_id,
+                diff.to_package_id,
+                yes_no(diff.regression),
+                diff.missing_delta,
+                diff.warning_delta
+            );
+            println!("    {}", diff.summary);
+        }
     }
 }
 

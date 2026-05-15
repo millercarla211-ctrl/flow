@@ -410,16 +410,34 @@ Goal: package trusted-runner evidence into one signed, reviewable, local-only re
 
 This set is complete. The next loop should open `Friday Trusted Runner Evidence Timeline` and make release packages comparable over time with diff warnings, archive commands, and visible package-history review.
 
-## Next Set: Friday Trusted Runner Evidence Timeline
+## Completed Set: Friday Trusted Runner Evidence Timeline
 
-Status: 0/100
+Status: 100/100
 
 Goal: make trusted-runner release packages comparable over time so operators can spot regressions, stale evidence, missing artifacts, and recurring command failures before shipping.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed trusted-runner package timeline/history model that can load multiple release package JSON files.
+- [x] Add package-to-package diff summaries for missing evidence, warning count changes, stale runner changes, and signature changes.
+- [x] Add CLI and JSON archive commands for appending release packages to a local evidence timeline without running host commands.
+- [x] Add dashboard timeline rendering with compare controls, regression warnings, and latest-package freshness copy.
+- [x] Add focused Rust/TypeScript coverage for timeline loading, diff warnings, archive writes, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Operator Checklist` and turn package/timeline evidence into a signed checklist that operators can review before shipping.
+
+## Next Set: Friday Release Operator Checklist
+
+Status: 0/100
+
+Goal: turn release package and evidence-timeline data into a concise operator checklist with explicit signoff, unresolved-blocker copy, and local-only audit history.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed trusted-runner package timeline/history model that can load multiple release package JSON files.
-- [ ] Add package-to-package diff summaries for missing evidence, warning count changes, stale runner changes, and signature changes.
-- [ ] Add CLI and JSON archive commands for appending release packages to a local evidence timeline without running host commands.
-- [ ] Add dashboard timeline rendering with compare controls, regression warnings, and latest-package freshness copy.
-- [ ] Add focused Rust/TypeScript coverage for timeline loading, diff warnings, archive writes, and dashboard rendering.
+- [ ] Add a typed release checklist model that consumes release packages, timelines, TODO, changelog, and dashboard readiness.
+- [ ] Add blocker categorization for missing evidence, warning regressions, stale live state, pending runner work, and unreviewed changes.
+- [ ] Add CLI and JSON commands for creating checklist reports and appending local signoff records.
+- [ ] Add dashboard checklist rendering with signoff controls, reason capture, and latest-check freshness copy.
+- [ ] Add focused Rust/TypeScript coverage for checklist generation, signoff persistence, blocker copy, and dashboard rendering.
