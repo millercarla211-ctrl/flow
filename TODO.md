@@ -1007,16 +1007,34 @@ Goal: connect release closure ledgers into a local continuity journal so Friday 
 
 This set is complete. The next loop should open `Friday Release Learning Register` and turn continuity journals into prevention lessons, decision patterns, and next-release commitments without external mutation.
 
-## Next Set: Friday Release Learning Register
+## Completed Set: Friday Release Learning Register
 
-Status: 0/100
+Status: 100/100
 
 Goal: convert release continuity journals into a local learning register so Friday can track repeated release lessons, prevention experiments, operator decisions, quality gates, and next-cycle commitments without changing external systems.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed learning register that consumes release continuity journals.
+- [x] Add learning categories for lesson, prevention-experiment, decision-pattern, quality-gate, owner-commitment, and retired-learning.
+- [x] Add append/list/export/JSON commands that preserve learning history without external mutation.
+- [x] Add dashboard import/rendering for release lessons, prevention experiments, decision patterns, quality gates, and next-cycle commitments.
+- [x] Add focused Rust/TypeScript coverage for continuity ingestion, repeated lesson detection, owner commitments, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Knowledge Index` and make release learning searchable, filterable, and comparable across local release cycles without external mutation.
+
+## Next Set: Friday Release Knowledge Index
+
+Status: 0/100
+
+Goal: index release learning registers into a searchable local knowledge surface so Friday can compare lessons, owners, quality gates, blocker themes, and next-cycle commitments across release cycles without mutating external systems.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed learning register that consumes release continuity journals.
-- [ ] Add learning categories for lesson, prevention-experiment, decision-pattern, quality-gate, owner-commitment, and retired-learning.
-- [ ] Add append/list/export/JSON commands that preserve learning history without external mutation.
-- [ ] Add dashboard import/rendering for release lessons, prevention experiments, decision patterns, quality gates, and next-cycle commitments.
-- [ ] Add focused Rust/TypeScript coverage for continuity ingestion, repeated lesson detection, owner commitments, command safety, and dashboard rendering.
+- [ ] Add a typed knowledge index that consumes release learning registers.
+- [ ] Add index dimensions for lesson-theme, owner, quality-gate, blocker-theme, decision-pattern, and commitment-target.
+- [ ] Add generate/list/export/JSON commands that preserve searchable learning history without external mutation.
+- [ ] Add dashboard import/rendering for searchable lessons, owner filters, recurring blocker themes, quality gates, and commitment targets.
+- [ ] Add focused Rust/TypeScript coverage for learning ingestion, repeated theme indexing, owner/gate filtering, command safety, and dashboard rendering.

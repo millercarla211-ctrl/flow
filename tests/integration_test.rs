@@ -40,14 +40,14 @@ use flow::friday::{
     FridayReleaseHandoffDispatchChecklistRequest, FridayReleaseHandoffDispatchChecklistSource,
     FridayReleaseHandoffDispatchChecklistState, FridayReleaseHandoffDispatchGovernanceState,
     FridayReleaseHandoffGovernanceState, FridayReleaseHandoffPacketSectionKind,
-    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity,
-    FridayReleaseOutboundReviewRequest, FridayReleaseOutboundReviewState,
-    FridayReleaseOwnerFollowUpCompletionState, FridayReleasePreventionActionKind,
-    FridayReleasePreventionFindingKind, FridayReleasePromotionDecision,
-    FridayReleasePromotionRecordRequest, FridayReleasePublicationRequest,
-    FridayReleasePublicationState, FridayReleaseQaCheckStatus, FridayReleaseReceiptReviewDecision,
-    FridayResearchWorkflow, FridayRouteVisualStatus, FridayRuntimeSurfaceStore,
-    FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
+    FridayReleaseIncidentOutcome, FridayReleaseIncidentSeverity, FridayReleaseLearningCategory,
+    FridayReleaseLearningRequest, FridayReleaseOutboundReviewRequest,
+    FridayReleaseOutboundReviewState, FridayReleaseOwnerFollowUpCompletionState,
+    FridayReleasePreventionActionKind, FridayReleasePreventionFindingKind,
+    FridayReleasePromotionDecision, FridayReleasePromotionRecordRequest,
+    FridayReleasePublicationRequest, FridayReleasePublicationState, FridayReleaseQaCheckStatus,
+    FridayReleaseReceiptReviewDecision, FridayResearchWorkflow, FridayRouteVisualStatus,
+    FridayRuntimeSurfaceStore, FridayTrustedHostCommandExecutor, FridayTrustedHostCommandRawOutput,
     FridayTrustedHostLiveRunnerRecord, FridayTrustedHostLiveRunnerStatus,
     FridayTrustedHostRunnerCancellationToken, FridayTrustedHostRunnerOperatorReviewFilter,
     FridayTrustedHostRunnerRequest, FridayTrustedHostRunnerStatus, FridayUiIntegrationStatus,
@@ -84,7 +84,9 @@ use flow::friday::{
     friday_release_handoff_dispatch_governance_review_report,
     friday_release_handoff_governance_review_report, friday_release_handoff_packet_report,
     friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
-    friday_release_operator_checklist_report, friday_release_outbound_review_ledger_report,
+    friday_release_learning_record_from_continuity_journal,
+    friday_release_learning_register_report, friday_release_operator_checklist_report,
+    friday_release_outbound_review_ledger_report,
     friday_release_outbound_review_record_from_publication_control,
     friday_release_owner_followup_board_report_at, friday_release_post_promotion_monitor_report,
     friday_release_prevention_plan_report, friday_release_publication_control_report,
@@ -110,8 +112,8 @@ use flow::friday::{
     write_friday_release_handoff_dispatch_checklist,
     write_friday_release_handoff_dispatch_governance_review,
     write_friday_release_handoff_governance_review, write_friday_release_handoff_packet,
-    write_friday_release_operator_checklist, write_friday_release_outbound_review_ledger,
-    write_friday_release_owner_followup_board_report,
+    write_friday_release_learning_register, write_friday_release_operator_checklist,
+    write_friday_release_outbound_review_ledger, write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_publication_control,
     write_friday_release_qa_command_center_report,
@@ -3434,6 +3436,64 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     );
     assert!(release_continuity_journal.commands.iter().any(|command| {
         command.contains("--friday-release-continuity") && command.contains("--journal")
+    }));
+    let release_learning_register_path = root.join("release-learning-register.json");
+    let release_learning_record = friday_release_learning_record_from_continuity_journal(
+        &release_continuity_journal_path,
+        FridayReleaseLearningRequest {
+            category: FridayReleaseLearningCategory::QualityGate,
+            operator: "release-operator".to_string(),
+            learning: "Blocked receipt reviews need a continuity quality gate.".to_string(),
+            owner: Some("platform".to_string()),
+            next_cycle_commitment: Some(
+                "Review blocker-pattern continuity before closing the next release.".to_string(),
+            ),
+            quality_gate: Some("No release closure without continuity review.".to_string()),
+            retires_learning_id: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        release_learning_record.category,
+        FridayReleaseLearningCategory::QualityGate
+    );
+    assert_eq!(release_learning_record.repeated_lesson_count, 1);
+    assert!(release_learning_record.owner_commitment_count >= 1);
+    assert!(!release_learning_record.externally_mutated_by_friday);
+    assert!(
+        release_learning_record
+            .learning_notes_copy
+            .contains("Friday release learning register")
+    );
+    assert!(
+        release_learning_record
+            .learning_notes_copy
+            .contains("No external mutation by Friday: true")
+    );
+    let release_learning_register = friday_release_learning_register_report(
+        &release_learning_register_path,
+        vec![release_learning_record],
+    );
+    write_friday_release_learning_register(
+        &release_learning_register_path,
+        &release_learning_register,
+    )
+    .unwrap();
+    assert_eq!(release_learning_register.record_count, 1);
+    assert_eq!(release_learning_register.quality_gate_count, 1);
+    assert_eq!(release_learning_register.repeated_lesson_count, 1);
+    assert!(
+        release_learning_register
+            .next_cycle_commitments_copy
+            .contains("Friday release learning register")
+    );
+    assert!(
+        release_learning_register
+            .next_cycle_commitments_copy
+            .contains("Friday did not fetch, send, publish, deploy, upload, or email")
+    );
+    assert!(release_learning_register.commands.iter().any(|command| {
+        command.contains("--friday-release-learning") && command.contains("--register")
     }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);

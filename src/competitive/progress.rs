@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-continuity-journal-model",
-            "Typed release continuity journal model",
+            "release-learning-register-model",
+            "Typed release learning register model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseContinuityJournal` consumes release closure ledgers and preserves local release outcome history",
-            "open the next Friday release learning register set",
+            "`FridayReleaseLearningRegister` consumes release continuity journals and preserves lessons, gates, commitments, and prevention history",
+            "open the next Friday release knowledge index set",
         ),
         item(
-            "release-continuity-entry-kinds",
-            "Outcome, carryover, blocker-pattern, next-release-note, operator-decision, and superseded-history journal kinds",
+            "release-learning-categories",
+            "Lesson, prevention-experiment, decision-pattern, quality-gate, owner-commitment, and retired-learning categories",
             20,
             CompletionItemStatus::Done,
-            "continuity entries keep historical outcomes, recurring blockers, carryover owners, operator decisions, and superseded history distinct",
-            "open the next Friday release learning register set",
+            "learning records keep prevention experiments, decision patterns, quality gates, owner commitments, and retired history distinct",
+            "open the next Friday release knowledge index set",
         ),
         item(
-            "release-continuity-cli",
-            "Release continuity append, list, export, and JSON commands",
+            "release-learning-cli",
+            "Release learning append, list, export, and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-continuity` preserves continuity history without fetching, sending, publishing, deploying, uploading, or emailing",
-            "open the next Friday release learning register set",
+            "`flow --friday-release-learning` preserves learning history without fetching, sending, publishing, deploying, uploading, or emailing",
+            "open the next Friday release knowledge index set",
         ),
         item(
-            "release-continuity-dashboard",
-            "Dashboard release continuity journal rendering",
+            "release-learning-dashboard",
+            "Dashboard release learning register rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports continuity journals and renders outcome history, recurring blockers, carryover ownership, command copy, and next-release notes",
-            "open the next Friday release learning register set",
+            "the visible dashboard imports learning registers and renders release lessons, prevention experiments, decision patterns, quality gates, and next-cycle commitments",
+            "open the next Friday release knowledge index set",
         ),
         item(
-            "release-continuity-coverage",
-            "Release continuity Rust and TypeScript coverage",
+            "release-learning-coverage",
+            "Release learning Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify closure history ingestion, recurring blocker detection, carryover summaries, command safety, and dashboard rendering",
-            "open the next Friday release learning register set",
+            "focused Rust integration coverage plus dashboard smoke checks verify continuity ingestion, repeated lesson detection, owner commitments, command safety, and dashboard rendering",
+            "open the next Friday release knowledge index set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Continuity Journal".to_string(),
+        name: "Friday Release Learning Register".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Connect release closure ledgers into a local continuity journal for historical outcomes, recurring blockers, carryover commitments, and next-release planning without external mutation.".to_string(),
+        loop_rule: "Convert release continuity journals into a local learning register for repeated lessons, prevention experiments, decisions, gates, and next-cycle commitments without external mutation.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_continuity_journal_loop() {
+    fn active_set_tracks_friday_release_learning_register_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Continuity Journal");
+        assert_eq!(set.name, "Friday Release Learning Register");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

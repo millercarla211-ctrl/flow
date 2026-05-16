@@ -2350,6 +2350,76 @@ export interface FlowReleaseContinuityJournal {
   commands: string[];
 }
 
+export type FlowReleaseLearningCategory =
+  | "lesson"
+  | "prevention-experiment"
+  | "decision-pattern"
+  | "quality-gate"
+  | "owner-commitment"
+  | "retired-learning";
+
+export interface FlowReleaseLearningRecord {
+  learningId: string;
+  continuityJournalId: string;
+  continuityJournalJson: string;
+  recordedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  category: FlowReleaseLearningCategory;
+  operator: string;
+  learning: string;
+  owner: string | null;
+  nextCycleCommitment: string | null;
+  qualityGate: string | null;
+  retiresLearningId: string | null;
+  latestContinuityEntryId: string | null;
+  latestContinuityEntryKind: FlowReleaseContinuityEntryKind | null;
+  continuityEntryCount: number;
+  outcomeEntryCount: number;
+  carryoverEntryCount: number;
+  blockerPatternCount: number;
+  nextReleaseNoteCount: number;
+  operatorDecisionCount: number;
+  recurringBlockerCount: number;
+  carryoverCommitmentCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  repeatedLessonCount: number;
+  ownerCommitmentCount: number;
+  qualityGateCount: number;
+  active: boolean;
+  externallyMutatedByFriday: boolean;
+  learningNotesCopy: string;
+  summary: string;
+}
+
+export interface FlowReleaseLearningRegister {
+  registerId: string;
+  registerJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  recordCount: number;
+  lessonCount: number;
+  preventionExperimentCount: number;
+  decisionPatternCount: number;
+  qualityGateCount: number;
+  ownerCommitmentCount: number;
+  retiredLearningCount: number;
+  activeLearningId: string | null;
+  latestLearningId: string | null;
+  latestCategory: FlowReleaseLearningCategory | null;
+  latestContinuityJournalId: string | null;
+  repeatedLessonCount: number;
+  nextCycleCommitmentCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  records: FlowReleaseLearningRecord[];
+  nextCycleCommitmentsCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -7353,6 +7423,212 @@ export function normalizeReleaseContinuityJournal(
   };
 }
 
+export function normalizeReleaseLearningRegister(
+  value: unknown,
+): FlowReleaseLearningRegister | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const root = value as Record<string, unknown>;
+  const register =
+    root.register_id || root.registerId || root.records
+      ? root
+      : root.release_learning_register &&
+          typeof root.release_learning_register === "object"
+        ? (root.release_learning_register as Record<string, unknown>)
+        : root.releaseLearningRegister &&
+            typeof root.releaseLearningRegister === "object"
+          ? (root.releaseLearningRegister as Record<string, unknown>)
+          : root;
+  const records = arrayValue(register.records)
+    .map((item): FlowReleaseLearningRecord | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const learningId = stringValue(record.learning_id, record.learningId);
+      if (!learningId) {
+        return null;
+      }
+      return {
+        learningId,
+        continuityJournalId: stringValue(
+          record.continuity_journal_id,
+          record.continuityJournalId,
+        ),
+        continuityJournalJson: stringValue(
+          record.continuity_journal_json,
+          record.continuityJournalJson,
+        ),
+        recordedAtUnixMs: stringValue(
+          record.recorded_at_unix_ms,
+          record.recordedAtUnixMs,
+        ),
+        productName: stringValue(record.product_name, record.productName),
+        localOnly: booleanValue(record.local_only, record.localOnly),
+        category: releaseLearningCategory(stringValue(record.category)),
+        operator: stringValue(record.operator),
+        learning: stringValue(record.learning),
+        owner: stringValue(record.owner) || null,
+        nextCycleCommitment:
+          stringValue(record.next_cycle_commitment, record.nextCycleCommitment) ||
+          null,
+        qualityGate: stringValue(record.quality_gate, record.qualityGate) || null,
+        retiresLearningId:
+          stringValue(record.retires_learning_id, record.retiresLearningId) || null,
+        latestContinuityEntryId:
+          stringValue(
+            record.latest_continuity_entry_id,
+            record.latestContinuityEntryId,
+          ) || null,
+        latestContinuityEntryKind:
+          record.latest_continuity_entry_kind || record.latestContinuityEntryKind
+            ? releaseContinuityEntryKind(
+                stringValue(
+                  record.latest_continuity_entry_kind,
+                  record.latestContinuityEntryKind,
+                ),
+              )
+            : null,
+        continuityEntryCount: numberValue(
+          record.continuity_entry_count,
+          record.continuityEntryCount,
+        ),
+        outcomeEntryCount: numberValue(
+          record.outcome_entry_count,
+          record.outcomeEntryCount,
+        ),
+        carryoverEntryCount: numberValue(
+          record.carryover_entry_count,
+          record.carryoverEntryCount,
+        ),
+        blockerPatternCount: numberValue(
+          record.blocker_pattern_count,
+          record.blockerPatternCount,
+        ),
+        nextReleaseNoteCount: numberValue(
+          record.next_release_note_count,
+          record.nextReleaseNoteCount,
+        ),
+        operatorDecisionCount: numberValue(
+          record.operator_decision_count,
+          record.operatorDecisionCount,
+        ),
+        recurringBlockerCount: numberValue(
+          record.recurring_blocker_count,
+          record.recurringBlockerCount,
+        ),
+        carryoverCommitmentCount: numberValue(
+          record.carryover_commitment_count,
+          record.carryoverCommitmentCount,
+        ),
+        releaseGateBlockingCount: numberValue(
+          record.release_gate_blocking_count,
+          record.releaseGateBlockingCount,
+        ),
+        unresolvedBlockerCount: numberValue(
+          record.unresolved_blocker_count,
+          record.unresolvedBlockerCount,
+        ),
+        repeatedLessonCount: numberValue(
+          record.repeated_lesson_count,
+          record.repeatedLessonCount,
+        ),
+        ownerCommitmentCount: numberValue(
+          record.owner_commitment_count,
+          record.ownerCommitmentCount,
+        ),
+        qualityGateCount: numberValue(record.quality_gate_count, record.qualityGateCount),
+        active: booleanValue(record.active),
+        externallyMutatedByFriday: booleanValue(
+          record.externally_mutated_by_friday,
+          record.externallyMutatedByFriday,
+        ),
+        learningNotesCopy: stringValue(
+          record.learning_notes_copy,
+          record.learningNotesCopy,
+        ),
+        summary: stringValue(record.summary),
+      };
+    })
+    .filter((record): record is FlowReleaseLearningRecord => record !== null);
+  const registerId = stringValue(register.register_id, register.registerId);
+
+  if (!registerId && records.length === 0) {
+    return null;
+  }
+
+  return {
+    registerId,
+    registerJson: stringValue(register.register_json, register.registerJson),
+    generatedAtUnixMs: stringValue(
+      register.generated_at_unix_ms,
+      register.generatedAtUnixMs,
+    ),
+    productName: stringValue(register.product_name, register.productName),
+    localOnly: booleanValue(register.local_only, register.localOnly),
+    recordCount: numberValue(register.record_count, register.recordCount),
+    lessonCount: numberValue(register.lesson_count, register.lessonCount),
+    preventionExperimentCount: numberValue(
+      register.prevention_experiment_count,
+      register.preventionExperimentCount,
+    ),
+    decisionPatternCount: numberValue(
+      register.decision_pattern_count,
+      register.decisionPatternCount,
+    ),
+    qualityGateCount: numberValue(register.quality_gate_count, register.qualityGateCount),
+    ownerCommitmentCount: numberValue(
+      register.owner_commitment_count,
+      register.ownerCommitmentCount,
+    ),
+    retiredLearningCount: numberValue(
+      register.retired_learning_count,
+      register.retiredLearningCount,
+    ),
+    activeLearningId:
+      stringValue(register.active_learning_id, register.activeLearningId) || null,
+    latestLearningId:
+      stringValue(register.latest_learning_id, register.latestLearningId) || null,
+    latestCategory:
+      register.latest_category || register.latestCategory
+        ? releaseLearningCategory(
+            stringValue(register.latest_category, register.latestCategory),
+          )
+        : null,
+    latestContinuityJournalId:
+      stringValue(
+        register.latest_continuity_journal_id,
+        register.latestContinuityJournalId,
+      ) || null,
+    repeatedLessonCount: numberValue(
+      register.repeated_lesson_count,
+      register.repeatedLessonCount,
+    ),
+    nextCycleCommitmentCount: numberValue(
+      register.next_cycle_commitment_count,
+      register.nextCycleCommitmentCount,
+    ),
+    releaseGateBlockingCount: numberValue(
+      register.release_gate_blocking_count,
+      register.releaseGateBlockingCount,
+    ),
+    unresolvedBlockerCount: numberValue(
+      register.unresolved_blocker_count,
+      register.unresolvedBlockerCount,
+    ),
+    records,
+    nextCycleCommitmentsCopy: stringValue(
+      register.next_cycle_commitments_copy,
+      register.nextCycleCommitmentsCopy,
+    ),
+    summary: stringValue(register.summary),
+    commands: arrayValue(register.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -8061,6 +8337,20 @@ function releaseContinuityEntryKind(
     return value;
   }
   return "outcome";
+}
+
+function releaseLearningCategory(value: string): FlowReleaseLearningCategory {
+  if (
+    value === "lesson" ||
+    value === "prevention-experiment" ||
+    value === "decision-pattern" ||
+    value === "quality-gate" ||
+    value === "owner-commitment" ||
+    value === "retired-learning"
+  ) {
+    return value;
+  }
+  return "lesson";
 }
 
 function releasePublicationBlockerKind(value: string): FlowReleasePublicationBlockerKind {

@@ -47,6 +47,7 @@ use crate::friday::{
     FridayReleaseHandoffDispatchChecklist, FridayReleaseHandoffDispatchChecklistRequest,
     FridayReleaseHandoffDispatchGovernanceReview, FridayReleaseHandoffGovernanceReview,
     FridayReleaseHandoffPacket, FridayReleaseIncidentArchive, FridayReleaseIncidentOutcome,
+    FridayReleaseLearningCategory, FridayReleaseLearningRegister, FridayReleaseLearningRequest,
     FridayReleaseOperatorChecklistReport, FridayReleaseOutboundReviewLedger,
     FridayReleaseOutboundReviewRequest, FridayReleaseOutboundReviewState,
     FridayReleaseOwnerFollowUpBoardReport, FridayReleasePostPromotionMonitorReport,
@@ -69,9 +70,9 @@ use crate::friday::{
     append_friday_release_handoff_audit_to_trail,
     append_friday_release_handoff_completion_to_ledger,
     append_friday_release_handoff_dispatch_audit_to_trail,
-    append_friday_release_incident_to_archive, append_friday_release_operator_signoff,
-    append_friday_release_outbound_review_to_ledger, append_friday_release_promotion_to_ledger,
-    append_friday_trusted_host_runner_history,
+    append_friday_release_incident_to_archive, append_friday_release_learning_to_register,
+    append_friday_release_operator_signoff, append_friday_release_outbound_review_to_ledger,
+    append_friday_release_promotion_to_ledger, append_friday_trusted_host_runner_history,
     append_friday_trusted_runner_release_package_to_timeline,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     default_friday_product_plan, default_friday_ui_integration_plan,
@@ -100,7 +101,9 @@ use crate::friday::{
     friday_release_handoff_dispatch_governance_review_report,
     friday_release_handoff_governance_review_report, friday_release_handoff_packet_report,
     friday_release_incident_archive_report, friday_release_incident_entry_from_sources,
-    friday_release_operator_checklist_report, friday_release_outbound_review_ledger_report,
+    friday_release_learning_record_from_continuity_journal,
+    friday_release_learning_register_report, friday_release_operator_checklist_report,
+    friday_release_outbound_review_ledger_report,
     friday_release_outbound_review_record_from_publication_control,
     friday_release_owner_followup_board_report, friday_release_post_promotion_monitor_report,
     friday_release_prevention_plan_report, friday_release_promotion_ledger_report,
@@ -119,10 +122,10 @@ use crate::friday::{
     read_friday_release_escalation_ledger, read_friday_release_external_receipt_archive,
     read_friday_release_handoff_audit_trail, read_friday_release_handoff_completion_ledger,
     read_friday_release_handoff_dispatch_audit_trail, read_friday_release_incident_archive,
-    read_friday_release_outbound_review_ledger, read_friday_release_promotion_ledger,
-    run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff, run_friday_trusted_host_command,
-    run_friday_trusted_host_command_bridge, run_friday_vlm_contract,
-    write_friday_release_checkpoint_evidence_vault,
+    read_friday_release_learning_register, read_friday_release_outbound_review_ledger,
+    read_friday_release_promotion_ledger, run_friday_ocr_smoke, run_friday_screenshot_vlm_handoff,
+    run_friday_trusted_host_command, run_friday_trusted_host_command_bridge,
+    run_friday_vlm_contract, write_friday_release_checkpoint_evidence_vault,
     write_friday_release_checkpoint_review_board_report,
     write_friday_release_checkpoint_signoff_ledger, write_friday_release_closure_ledger,
     write_friday_release_continuity_journal, write_friday_release_deployment_gate,
@@ -134,8 +137,9 @@ use crate::friday::{
     write_friday_release_handoff_dispatch_checklist,
     write_friday_release_handoff_dispatch_governance_review,
     write_friday_release_handoff_governance_review, write_friday_release_handoff_packet,
-    write_friday_release_incident_archive, write_friday_release_operator_checklist,
-    write_friday_release_outbound_review_ledger, write_friday_release_owner_followup_board_report,
+    write_friday_release_incident_archive, write_friday_release_learning_register,
+    write_friday_release_operator_checklist, write_friday_release_outbound_review_ledger,
+    write_friday_release_owner_followup_board_report,
     write_friday_release_post_promotion_monitor_report,
     write_friday_release_prevention_plan_report, write_friday_release_publication_control,
     write_friday_release_qa_command_center_report,
@@ -2418,6 +2422,83 @@ pub async fn execute(command: Command) -> Result<()> {
             print_friday_release_continuity_journal(&journal);
         }
 
+        Command::FridayReleaseLearning {
+            register_file,
+            continuity_journal_file,
+            category,
+            operator,
+            learning,
+            owner,
+            next_cycle_commitment,
+            quality_gate,
+            retires_learning_id,
+        } => {
+            let register = append_friday_release_learning_to_register(
+                resolve_repo_relative_path(&register_file),
+                resolve_repo_relative_path(&continuity_journal_file),
+                FridayReleaseLearningRequest {
+                    category: FridayReleaseLearningCategory::parse(&category)?,
+                    operator,
+                    learning,
+                    owner,
+                    next_cycle_commitment,
+                    quality_gate,
+                    retires_learning_id,
+                },
+            )?;
+            print_friday_release_learning_register(&register);
+        }
+
+        Command::FridayReleaseLearningJson {
+            register_file,
+            continuity_journal_file,
+            category,
+            operator,
+            learning,
+            owner,
+            next_cycle_commitment,
+            quality_gate,
+            retires_learning_id,
+        } => {
+            let register_path = resolve_repo_relative_path(&register_file);
+            let mut records = read_friday_release_learning_register(&register_path)
+                .map(|register| register.records)
+                .unwrap_or_default();
+            records.push(friday_release_learning_record_from_continuity_journal(
+                resolve_repo_relative_path(&continuity_journal_file),
+                FridayReleaseLearningRequest {
+                    category: FridayReleaseLearningCategory::parse(&category)?,
+                    operator,
+                    learning,
+                    owner,
+                    next_cycle_commitment,
+                    quality_gate,
+                    retires_learning_id,
+                },
+            )?);
+            let register = friday_release_learning_register_report(&register_path, records);
+            println!("{}", register.to_pretty_json()?);
+        }
+
+        Command::FridayReleaseLearningList { register_file } => {
+            let register =
+                read_friday_release_learning_register(resolve_repo_relative_path(&register_file))?;
+            print_friday_release_learning_register(&register);
+        }
+
+        Command::FridayReleaseLearningExport {
+            register_file,
+            output_file,
+        } => {
+            let register =
+                read_friday_release_learning_register(resolve_repo_relative_path(&register_file))?;
+            write_friday_release_learning_register(
+                resolve_repo_relative_path(&output_file),
+                &register,
+            )?;
+            print_friday_release_learning_register(&register);
+        }
+
         Command::FridayTrustedHostLiveState {
             state_file,
             history_file,
@@ -3089,6 +3170,14 @@ fn print_interactive_help() {
     println!("                           List an existing release continuity journal");
     println!("  --friday-release-continuity-export [--journal file] [--output file]");
     println!("                           Export an existing release continuity journal JSON");
+    println!("  --friday-release-learning [--register file] [--continuity-journal file]");
+    println!("                           Append a local release learning register record");
+    println!("  --friday-release-learning-json [--register file] [--continuity-journal file]");
+    println!("                           Print release learning register preview as JSON");
+    println!("  --friday-release-learning-list [--register file]");
+    println!("                           List an existing release learning register");
+    println!("  --friday-release-learning-export [--register file] [--output file]");
+    println!("                           Export an existing release learning register JSON");
     println!("  --friday-trusted-host-live-state [state-file] [--history file]");
     println!("                           Show trusted runner live state from local state/history");
     println!("  --friday-trusted-host-live-state-json [state-file] [--history file]");
@@ -5987,6 +6076,70 @@ fn print_friday_release_continuity_journal(journal: &FridayReleaseContinuityJour
     println!();
     println!("Commands:");
     for command in &journal.commands {
+        println!("  - {command}");
+    }
+}
+
+fn print_friday_release_learning_register(register: &FridayReleaseLearningRegister) {
+    println!("Friday Release Learning Register");
+    println!("================================");
+    println!(
+        "Records: {} | lessons: {} | experiments: {} | decisions: {} | gates: {} | commitments: {}",
+        register.record_count,
+        register.lesson_count,
+        register.prevention_experiment_count,
+        register.decision_pattern_count,
+        register.quality_gate_count,
+        register.owner_commitment_count
+    );
+    println!(
+        "Active learning: {} | latest continuity journal: {} | latest category: {}",
+        register.active_learning_id.as_deref().unwrap_or("none"),
+        register
+            .latest_continuity_journal_id
+            .as_deref()
+            .unwrap_or("none"),
+        register
+            .latest_category
+            .map(|category| category.label())
+            .unwrap_or("none")
+    );
+    println!(
+        "Repeated lessons: {} | next-cycle commitments: {}",
+        register.repeated_lesson_count, register.next_cycle_commitment_count
+    );
+    println!(
+        "Gate blockers: {} | unresolved blockers: {}",
+        register.release_gate_blocking_count, register.unresolved_blocker_count
+    );
+    println!("Register: {}", register.register_json);
+    println!();
+    println!("Records:");
+    for record in &register.records {
+        println!(
+            "  - {} [{}] {}",
+            record.learning_id,
+            record.category.label(),
+            record.summary
+        );
+        println!("    continuity journal: {}", record.continuity_journal_json);
+        println!("    learning: {}", record.learning);
+        if let Some(owner) = &record.owner {
+            println!("    owner: {owner}");
+        }
+        if let Some(gate) = &record.quality_gate {
+            println!("    quality gate: {gate}");
+        }
+        if let Some(commitment) = &record.next_cycle_commitment {
+            println!("    next cycle: {commitment}");
+        }
+    }
+    if register.records.is_empty() {
+        println!("  - none");
+    }
+    println!();
+    println!("Commands:");
+    for command in &register.commands {
         println!("  - {command}");
     }
 }

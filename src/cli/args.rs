@@ -859,6 +859,37 @@ pub enum Command {
         journal_file: String,
         output_file: String,
     },
+    /// Append a Friday release learning register record
+    FridayReleaseLearning {
+        register_file: String,
+        continuity_journal_file: String,
+        category: String,
+        operator: String,
+        learning: String,
+        owner: Option<String>,
+        next_cycle_commitment: Option<String>,
+        quality_gate: Option<String>,
+        retires_learning_id: Option<String>,
+    },
+    /// Print a Friday release learning register preview as JSON
+    FridayReleaseLearningJson {
+        register_file: String,
+        continuity_journal_file: String,
+        category: String,
+        operator: String,
+        learning: String,
+        owner: Option<String>,
+        next_cycle_commitment: Option<String>,
+        quality_gate: Option<String>,
+        retires_learning_id: Option<String>,
+    },
+    /// List an existing Friday release learning register
+    FridayReleaseLearningList { register_file: String },
+    /// Export an existing Friday release learning register
+    FridayReleaseLearningExport {
+        register_file: String,
+        output_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -2774,6 +2805,69 @@ impl Args {
                     output_file,
                 }
             }
+            "--friday-release-learning" | "--friday-learning" => {
+                let (
+                    register_file,
+                    continuity_journal_file,
+                    category,
+                    operator,
+                    learning,
+                    owner,
+                    next_cycle_commitment,
+                    quality_gate,
+                    retires_learning_id,
+                ) = parse_friday_release_learning_args(&args);
+                Command::FridayReleaseLearning {
+                    register_file,
+                    continuity_journal_file,
+                    category,
+                    operator,
+                    learning,
+                    owner,
+                    next_cycle_commitment,
+                    quality_gate,
+                    retires_learning_id,
+                }
+            }
+            "--friday-release-learning-json" | "--friday-learning-json" => {
+                let (
+                    register_file,
+                    continuity_journal_file,
+                    category,
+                    operator,
+                    learning,
+                    owner,
+                    next_cycle_commitment,
+                    quality_gate,
+                    retires_learning_id,
+                ) = parse_friday_release_learning_args(&args);
+                Command::FridayReleaseLearningJson {
+                    register_file,
+                    continuity_journal_file,
+                    category,
+                    operator,
+                    learning,
+                    owner,
+                    next_cycle_commitment,
+                    quality_gate,
+                    retires_learning_id,
+                }
+            }
+            "--friday-release-learning-list" | "--friday-learning-list" => {
+                Command::FridayReleaseLearningList {
+                    register_file: parse_friday_release_learning_register_file_arg(&args),
+                }
+            }
+            "--friday-release-learning-export" | "--friday-learning-export" => {
+                let register_file = parse_friday_release_learning_register_file_arg(&args);
+                let output_file = flag_value(&args, "--output").unwrap_or_else(|| {
+                    "tmp/friday-dashboard/release-learning-register-export.json".to_string()
+                });
+                Command::FridayReleaseLearningExport {
+                    register_file,
+                    output_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -4661,6 +4755,76 @@ fn parse_friday_release_continuity_journal_file_arg(args: &[String]) -> String {
     flag_value(args, "--journal")
         .or_else(|| flag_value(args, "--input"))
         .unwrap_or_else(|| format!("{export_dir}/release-continuity-journal.json"))
+}
+
+fn parse_friday_release_learning_args(
+    args: &[String],
+) -> (
+    String,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let register_file = flag_value(args, "--register")
+        .or_else(|| flag_value(args, "--output"))
+        .unwrap_or_else(|| format!("{export_dir}/release-learning-register.json"));
+    let continuity_journal_file = flag_value(args, "--continuity-journal")
+        .or_else(|| flag_value(args, "--journal"))
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-continuity-journal.json"));
+    let category = flag_value(args, "--category").unwrap_or_else(|| "lesson".to_string());
+    let operator = flag_value(args, "--operator")
+        .or_else(|| flag_value(args, "--reviewer"))
+        .unwrap_or_else(|| "operator".to_string());
+    let learning = flag_value(args, "--learning")
+        .or_else(|| flag_value(args, "--lesson"))
+        .or_else(|| flag_value(args, "--note"))
+        .unwrap_or_else(|| "Recorded local release learning.".to_string());
+    let owner = flag_value(args, "--owner").filter(|value| !value.trim().is_empty());
+    let next_cycle_commitment = flag_value(args, "--next-cycle")
+        .or_else(|| flag_value(args, "--commitment"))
+        .filter(|value| !value.trim().is_empty());
+    let quality_gate = flag_value(args, "--quality-gate")
+        .or_else(|| flag_value(args, "--gate"))
+        .filter(|value| !value.trim().is_empty());
+    let retires_learning_id = flag_value(args, "--retires")
+        .or_else(|| flag_value(args, "--retires-learning"))
+        .filter(|value| !value.trim().is_empty());
+
+    (
+        register_file,
+        continuity_journal_file,
+        category,
+        operator,
+        learning,
+        owner,
+        next_cycle_commitment,
+        quality_gate,
+        retires_learning_id,
+    )
+}
+
+fn parse_friday_release_learning_register_file_arg(args: &[String]) -> String {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    flag_value(args, "--register")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-learning-register.json"))
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

@@ -17,6 +17,7 @@ import {
   normalizeReleaseExternalReceiptArchive,
   normalizeReleaseClosureLedger,
   normalizeReleaseContinuityJournal,
+  normalizeReleaseLearningRegister,
   normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffCompletionLedger,
   normalizeReleaseHandoffDispatchAuditTrail,
@@ -3335,6 +3336,82 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-continuity-json --journal tmp/friday-dashboard/release-continuity-journal.json --closure-ledger <release-closure-ledger.json>",
     ],
   });
+  const releaseLearningRegister = normalizeReleaseLearningRegister({
+    register_id: "friday-release-learning-register-smoke",
+    register_json: "tmp/friday-dashboard/release-learning-register.json",
+    generated_at_unix_ms: 36,
+    product_name: "Friday",
+    local_only: true,
+    record_count: 1,
+    lesson_count: 0,
+    prevention_experiment_count: 0,
+    decision_pattern_count: 0,
+    quality_gate_count: 1,
+    owner_commitment_count: 0,
+    retired_learning_count: 0,
+    active_learning_id:
+      "friday-release-learning-friday-release-continuity-journal-smoke-36",
+    latest_learning_id:
+      "friday-release-learning-friday-release-continuity-journal-smoke-36",
+    latest_category: "quality-gate",
+    latest_continuity_journal_id: "friday-release-continuity-journal-smoke",
+    repeated_lesson_count: 1,
+    next_cycle_commitment_count: 1,
+    release_gate_blocking_count: 3,
+    unresolved_blocker_count: 3,
+    records: [
+      {
+        learning_id:
+          "friday-release-learning-friday-release-continuity-journal-smoke-36",
+        continuity_journal_id: "friday-release-continuity-journal-smoke",
+        continuity_journal_json:
+          "tmp/friday-dashboard/release-continuity-journal.json",
+        recorded_at_unix_ms: 36,
+        product_name: "Friday",
+        local_only: true,
+        category: "quality-gate",
+        operator: "release-operator",
+        learning: "Blocked receipt reviews need a continuity quality gate.",
+        owner: "platform",
+        next_cycle_commitment:
+          "Review blocker-pattern continuity before closing the next release.",
+        quality_gate: "No release closure without continuity review.",
+        retires_learning_id: "",
+        latest_continuity_entry_id:
+          "friday-release-continuity-friday-release-closure-ledger-smoke-35",
+        latest_continuity_entry_kind: "blocker-pattern",
+        continuity_entry_count: 1,
+        outcome_entry_count: 0,
+        carryover_entry_count: 0,
+        blocker_pattern_count: 1,
+        next_release_note_count: 0,
+        operator_decision_count: 0,
+        recurring_blocker_count: 1,
+        carryover_commitment_count: 1,
+        release_gate_blocking_count: 3,
+        unresolved_blocker_count: 3,
+        repeated_lesson_count: 1,
+        owner_commitment_count: 2,
+        quality_gate_count: 1,
+        active: true,
+        externally_mutated_by_friday: false,
+        learning_notes_copy:
+          "Friday release learning register\nCategory: quality-gate\nOperator: release-operator\nOwner: platform\nFriday did not fetch, send, publish, deploy, upload, or email.\nNo external mutation by Friday: true",
+        summary:
+          "release-operator recorded quality-gate learning for friday-release-continuity-journal-smoke with 1 repeated lesson signal(s) and 2 owner commitment(s).",
+      },
+    ],
+    next_cycle_commitments_copy:
+      "Friday release learning register\n- [quality-gate] release-operator -> Blocked receipt reviews need a continuity quality gate.\n  owner: platform\n  quality gate: No release closure without continuity review.\n  next cycle: Review blocker-pattern continuity before closing the next release.\n  repeated lessons: 1, owner commitments: 2\nFriday did not fetch, send, publish, deploy, upload, or email.",
+    summary:
+      "Friday release learning register has 1 record(s), 0 lesson(s), 0 prevention experiment(s), 0 decision pattern(s), 1 quality gate(s), and 0 owner commitment(s).",
+    commands: [
+      "flow --friday-release-learning --register tmp/friday-dashboard/release-learning-register.json --continuity-journal <release-continuity-journal.json> --category lesson --operator <name>",
+      "flow --friday-release-learning-list --register tmp/friday-dashboard/release-learning-register.json",
+      "flow --friday-release-learning-export --register tmp/friday-dashboard/release-learning-register.json --output tmp/friday-dashboard/release-learning-register.json",
+      "flow --friday-release-learning-json --register tmp/friday-dashboard/release-learning-register.json --continuity-journal <release-continuity-journal.json>",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -4332,8 +4409,36 @@ export function dashboardSectionSmokeReport(
         ) &&
         releaseContinuityJournal.commands.some((command) =>
           command.includes("--friday-release-continuity"),
-        ),
+      ),
       `${releaseContinuityJournal?.recurringBlockerCount ?? 0} recurring blocker signal(s)`,
+    ),
+    check(
+      "release-learning-register-importable",
+      releaseLearningRegister?.recordCount === 1 &&
+        releaseLearningRegister.qualityGateCount === 1 &&
+        releaseLearningRegister.activeLearningId?.includes("friday-release-learning") ===
+          true,
+      `${releaseLearningRegister?.recordCount ?? 0} release learning record(s)`,
+    ),
+    check(
+      "release-learning-register-copy",
+      releaseLearningRegister !== null &&
+        releaseLearningRegister.records.some(
+          (record) =>
+            record.category === "quality-gate" &&
+            record.owner === "platform" &&
+            !record.externallyMutatedByFriday,
+        ) &&
+        releaseLearningRegister.nextCycleCommitmentsCopy.includes(
+          "Friday release learning register",
+        ) &&
+        releaseLearningRegister.nextCycleCommitmentsCopy.includes(
+          "Friday did not fetch, send, publish, deploy, upload, or email",
+        ) &&
+        releaseLearningRegister.commands.some((command) =>
+          command.includes("--friday-release-learning"),
+        ),
+      `${releaseLearningRegister?.repeatedLessonCount ?? 0} repeated lesson signal(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

@@ -14,6 +14,7 @@ import {
   normalizeReleaseExternalReceiptArchive,
   normalizeReleaseClosureLedger,
   normalizeReleaseContinuityJournal,
+  normalizeReleaseLearningRegister,
   normalizeReleaseReceiptReviewBoard,
   normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffDispatchAuditTrail,
@@ -68,6 +69,7 @@ import {
   type FlowReleaseExternalReceiptArchive,
   type FlowReleaseClosureLedger,
   type FlowReleaseContinuityJournal,
+  type FlowReleaseLearningRegister,
   type FlowReleaseReceiptReviewBoardReport,
   type FlowReleaseHandoffAuditTrail,
   type FlowReleaseHandoffDispatchAuditTrail,
@@ -163,6 +165,7 @@ type UiState = {
   dashboardReleaseReceiptReviewBoard: FlowReleaseReceiptReviewBoardReport | null;
   dashboardReleaseClosureLedger: FlowReleaseClosureLedger | null;
   dashboardReleaseContinuityJournal: FlowReleaseContinuityJournal | null;
+  dashboardReleaseLearningRegister: FlowReleaseLearningRegister | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -3561,6 +3564,70 @@ function renderReleaseContinuityJournal(journal: FlowReleaseContinuityJournal | 
   `;
 }
 
+function renderReleaseLearningRegister(register: FlowReleaseLearningRegister | null) {
+  if (!register) {
+    return "";
+  }
+  return `
+    <article class="feature-card dashboard-release-learning-register">
+      <div class="card-topline">
+        <span class="eyebrow">Release learning</span>
+        <span class="badge ${badgeTone(register.repeatedLessonCount > 0 ? "warning" : "ready")}">
+          ${escapeHtml(register.latestCategory ?? "lesson")}
+        </span>
+      </div>
+      <h3>Learning register</h3>
+      <p>${escapeHtml(register.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${register.recordCount}</strong><small>records</small></span>
+        <span><strong>${register.lessonCount}</strong><small>lessons</small></span>
+        <span><strong>${register.qualityGateCount}</strong><small>gates</small></span>
+        <span><strong>${register.ownerCommitmentCount}</strong><small>owners</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Active learning</strong> ${escapeHtml(register.activeLearningId ?? "none")}</span>
+        <span><strong>Continuity journal</strong> ${escapeHtml(register.latestContinuityJournalId ?? "none")}</span>
+        <span><strong>Repeated lessons</strong> ${register.repeatedLessonCount}</span>
+        <span><strong>Register</strong> ${escapeHtml(register.registerJson)}</span>
+      </div>
+      ${
+        register.nextCycleCommitmentCount > 0 || register.repeatedLessonCount > 0
+          ? `<p class="soft-warning">Next cycle carries ${register.nextCycleCommitmentCount} commitment(s) and ${register.repeatedLessonCount} repeated lesson signal(s).</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${register.records
+          .slice()
+          .reverse()
+          .slice(0, 8)
+          .map(
+            (record) => `
+              <div class="runner-package-file ${
+                record.qualityGateCount > 0 || record.ownerCommitmentCount > 0
+                  ? "present"
+                  : "missing"
+              }">
+                <strong>${escapeHtml(record.operator)} - ${escapeHtml(record.category)}</strong>
+                <small>${escapeHtml(record.owner ?? "unassigned")} / ${escapeHtml(record.latestContinuityEntryKind ?? "no continuity")}</small>
+                <code>${escapeHtml(record.continuityJournalJson || "inline")}</code>
+                <span>${escapeHtml(record.learning)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-learning-command">
+          Copy learning command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-learning-commitments">
+          Copy next-cycle commitments
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -3800,6 +3867,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseReceiptReviewBoard(state.dashboardReleaseReceiptReviewBoard)}
       ${renderReleaseClosureLedger(state.dashboardReleaseClosureLedger)}
       ${renderReleaseContinuityJournal(state.dashboardReleaseContinuityJournal)}
+      ${renderReleaseLearningRegister(state.dashboardReleaseLearningRegister)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3958,6 +4026,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseReceiptReviewBoard: null,
     dashboardReleaseClosureLedger: null,
     dashboardReleaseContinuityJournal: null,
+    dashboardReleaseLearningRegister: null,
   };
 
   function render() {
@@ -4300,6 +4369,8 @@ export async function mountFlowApp(surfaceInput: string) {
         normalizeReleaseClosureLedger(parsed);
       const releaseContinuityJournal =
         normalizeReleaseContinuityJournal(parsed);
+      const releaseLearningRegister =
+        normalizeReleaseLearningRegister(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -4378,8 +4449,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseClosureLedger ?? state.dashboardReleaseClosureLedger;
       state.dashboardReleaseContinuityJournal =
         releaseContinuityJournal ?? state.dashboardReleaseContinuityJournal;
+      state.dashboardReleaseLearningRegister =
+        releaseLearningRegister ?? state.dashboardReleaseLearningRegister;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseContinuityJournal
+      state.status = releaseLearningRegister
+        ? `Imported release learning register with ${releaseLearningRegister.recordCount} record(s) from ${file.name}.`
+        : releaseContinuityJournal
         ? `Imported release continuity journal with ${releaseContinuityJournal.entryCount} entry(s) from ${file.name}.`
         : releaseClosureLedger
         ? `Imported release closure ledger with ${releaseClosureLedger.recordCount} record(s) from ${file.name}.`
@@ -5608,6 +5683,39 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseLearningCommand() {
+    const command = state.dashboardReleaseLearningRegister?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release learning command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release learning command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseLearningCommitments() {
+    const copy =
+      state.dashboardReleaseLearningRegister?.nextCycleCommitmentsCopy ?? "";
+    if (!copy) {
+      state.status = "No release learning commitments are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release learning next-cycle commitments copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -6100,6 +6208,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-continuity-notes']")
       ?.addEventListener("click", () => {
         void copyReleaseContinuityNotes();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-learning-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseLearningCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-learning-commitments']")
+      ?.addEventListener("click", () => {
+        void copyReleaseLearningCommitments();
       });
 
     mountRoot
