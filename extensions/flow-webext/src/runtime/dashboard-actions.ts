@@ -2282,6 +2282,74 @@ export interface FlowReleaseClosureLedger {
   commands: string[];
 }
 
+export type FlowReleaseContinuityEntryKind =
+  | "outcome"
+  | "carryover"
+  | "blocker-pattern"
+  | "next-release-note"
+  | "operator-decision"
+  | "superseded-history";
+
+export interface FlowReleaseContinuityEntry {
+  entryId: string;
+  closureLedgerId: string;
+  closureLedgerJson: string;
+  recordedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  entryKind: FlowReleaseContinuityEntryKind;
+  operator: string;
+  note: string;
+  owner: string | null;
+  nextReleaseTarget: string | null;
+  supersedesEntryId: string | null;
+  latestClosureId: string | null;
+  latestClosureState: FlowReleaseClosureState | null;
+  latestReceiptReviewId: string | null;
+  latestReviewDecision: FlowReleaseReceiptReviewDecision | null;
+  closureRecordCount: number;
+  closedOutcomeCount: number;
+  carryoverOutcomeCount: number;
+  blockedOutcomeCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  recurringBlockerCount: number;
+  carryoverCommitmentCount: number;
+  active: boolean;
+  externallyMutatedByFriday: boolean;
+  entryNotesCopy: string;
+  summary: string;
+}
+
+export interface FlowReleaseContinuityJournal {
+  journalId: string;
+  journalJson: string;
+  generatedAtUnixMs: string;
+  productName: string;
+  localOnly: boolean;
+  entryCount: number;
+  outcomeEntryCount: number;
+  carryoverEntryCount: number;
+  blockerPatternCount: number;
+  nextReleaseNoteCount: number;
+  operatorDecisionCount: number;
+  supersededHistoryCount: number;
+  activeEntryId: string | null;
+  latestEntryId: string | null;
+  latestEntryKind: FlowReleaseContinuityEntryKind | null;
+  latestClosureLedgerId: string | null;
+  latestClosureState: FlowReleaseClosureState | null;
+  closedOutcomeCount: number;
+  carryoverCommitmentCount: number;
+  recurringBlockerCount: number;
+  releaseGateBlockingCount: number;
+  unresolvedBlockerCount: number;
+  records: FlowReleaseContinuityEntry[];
+  nextReleaseNotesCopy: string;
+  summary: string;
+  commands: string[];
+}
+
 const RESULT_LIMIT = 8;
 const RESULT_STORAGE_PREFIX = "flow.dashboard.actionResults.";
 
@@ -7078,6 +7146,213 @@ export function normalizeReleaseClosureLedger(
   };
 }
 
+export function normalizeReleaseContinuityJournal(
+  value: unknown,
+): FlowReleaseContinuityJournal | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const root = value as Record<string, unknown>;
+  const journal =
+    root.journal_id || root.journalId || root.records
+      ? root
+      : root.release_continuity_journal &&
+          typeof root.release_continuity_journal === "object"
+        ? (root.release_continuity_journal as Record<string, unknown>)
+        : root.releaseContinuityJournal &&
+            typeof root.releaseContinuityJournal === "object"
+          ? (root.releaseContinuityJournal as Record<string, unknown>)
+          : root;
+  const records = arrayValue(journal.records)
+    .map((item): FlowReleaseContinuityEntry | null => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      const entryId = stringValue(record.entry_id, record.entryId);
+      if (!entryId) {
+        return null;
+      }
+      return {
+        entryId,
+        closureLedgerId: stringValue(
+          record.closure_ledger_id,
+          record.closureLedgerId,
+        ),
+        closureLedgerJson: stringValue(
+          record.closure_ledger_json,
+          record.closureLedgerJson,
+        ),
+        recordedAtUnixMs: stringValue(
+          record.recorded_at_unix_ms,
+          record.recordedAtUnixMs,
+        ),
+        productName: stringValue(record.product_name, record.productName),
+        localOnly: booleanValue(record.local_only, record.localOnly),
+        entryKind: releaseContinuityEntryKind(
+          stringValue(record.entry_kind, record.entryKind),
+        ),
+        operator: stringValue(record.operator),
+        note: stringValue(record.note),
+        owner: stringValue(record.owner) || null,
+        nextReleaseTarget:
+          stringValue(record.next_release_target, record.nextReleaseTarget) || null,
+        supersedesEntryId:
+          stringValue(record.supersedes_entry_id, record.supersedesEntryId) || null,
+        latestClosureId:
+          stringValue(record.latest_closure_id, record.latestClosureId) || null,
+        latestClosureState:
+          record.latest_closure_state || record.latestClosureState
+            ? releaseClosureState(
+                stringValue(record.latest_closure_state, record.latestClosureState),
+              )
+            : null,
+        latestReceiptReviewId:
+          stringValue(
+            record.latest_receipt_review_id,
+            record.latestReceiptReviewId,
+          ) || null,
+        latestReviewDecision:
+          record.latest_review_decision || record.latestReviewDecision
+            ? releaseReceiptReviewDecision(
+                stringValue(record.latest_review_decision, record.latestReviewDecision),
+              )
+            : null,
+        closureRecordCount: numberValue(
+          record.closure_record_count,
+          record.closureRecordCount,
+        ),
+        closedOutcomeCount: numberValue(
+          record.closed_outcome_count,
+          record.closedOutcomeCount,
+        ),
+        carryoverOutcomeCount: numberValue(
+          record.carryover_outcome_count,
+          record.carryoverOutcomeCount,
+        ),
+        blockedOutcomeCount: numberValue(
+          record.blocked_outcome_count,
+          record.blockedOutcomeCount,
+        ),
+        releaseGateBlockingCount: numberValue(
+          record.release_gate_blocking_count,
+          record.releaseGateBlockingCount,
+        ),
+        unresolvedBlockerCount: numberValue(
+          record.unresolved_blocker_count,
+          record.unresolvedBlockerCount,
+        ),
+        recurringBlockerCount: numberValue(
+          record.recurring_blocker_count,
+          record.recurringBlockerCount,
+        ),
+        carryoverCommitmentCount: numberValue(
+          record.carryover_commitment_count,
+          record.carryoverCommitmentCount,
+        ),
+        active: booleanValue(record.active),
+        externallyMutatedByFriday: booleanValue(
+          record.externally_mutated_by_friday,
+          record.externallyMutatedByFriday,
+        ),
+        entryNotesCopy: stringValue(record.entry_notes_copy, record.entryNotesCopy),
+        summary: stringValue(record.summary),
+      };
+    })
+    .filter((record): record is FlowReleaseContinuityEntry => record !== null);
+  const journalId = stringValue(journal.journal_id, journal.journalId);
+
+  if (!journalId && records.length === 0) {
+    return null;
+  }
+
+  return {
+    journalId,
+    journalJson: stringValue(journal.journal_json, journal.journalJson),
+    generatedAtUnixMs: stringValue(
+      journal.generated_at_unix_ms,
+      journal.generatedAtUnixMs,
+    ),
+    productName: stringValue(journal.product_name, journal.productName),
+    localOnly: booleanValue(journal.local_only, journal.localOnly),
+    entryCount: numberValue(journal.entry_count, journal.entryCount),
+    outcomeEntryCount: numberValue(
+      journal.outcome_entry_count,
+      journal.outcomeEntryCount,
+    ),
+    carryoverEntryCount: numberValue(
+      journal.carryover_entry_count,
+      journal.carryoverEntryCount,
+    ),
+    blockerPatternCount: numberValue(
+      journal.blocker_pattern_count,
+      journal.blockerPatternCount,
+    ),
+    nextReleaseNoteCount: numberValue(
+      journal.next_release_note_count,
+      journal.nextReleaseNoteCount,
+    ),
+    operatorDecisionCount: numberValue(
+      journal.operator_decision_count,
+      journal.operatorDecisionCount,
+    ),
+    supersededHistoryCount: numberValue(
+      journal.superseded_history_count,
+      journal.supersededHistoryCount,
+    ),
+    activeEntryId:
+      stringValue(journal.active_entry_id, journal.activeEntryId) || null,
+    latestEntryId:
+      stringValue(journal.latest_entry_id, journal.latestEntryId) || null,
+    latestEntryKind:
+      journal.latest_entry_kind || journal.latestEntryKind
+        ? releaseContinuityEntryKind(
+            stringValue(journal.latest_entry_kind, journal.latestEntryKind),
+          )
+        : null,
+    latestClosureLedgerId:
+      stringValue(
+        journal.latest_closure_ledger_id,
+        journal.latestClosureLedgerId,
+      ) || null,
+    latestClosureState:
+      journal.latest_closure_state || journal.latestClosureState
+        ? releaseClosureState(
+            stringValue(journal.latest_closure_state, journal.latestClosureState),
+          )
+        : null,
+    closedOutcomeCount: numberValue(
+      journal.closed_outcome_count,
+      journal.closedOutcomeCount,
+    ),
+    carryoverCommitmentCount: numberValue(
+      journal.carryover_commitment_count,
+      journal.carryoverCommitmentCount,
+    ),
+    recurringBlockerCount: numberValue(
+      journal.recurring_blocker_count,
+      journal.recurringBlockerCount,
+    ),
+    releaseGateBlockingCount: numberValue(
+      journal.release_gate_blocking_count,
+      journal.releaseGateBlockingCount,
+    ),
+    unresolvedBlockerCount: numberValue(
+      journal.unresolved_blocker_count,
+      journal.unresolvedBlockerCount,
+    ),
+    records,
+    nextReleaseNotesCopy: stringValue(
+      journal.next_release_notes_copy,
+      journal.nextReleaseNotesCopy,
+    ),
+    summary: stringValue(journal.summary),
+    commands: arrayValue(journal.commands)
+      .map((command) => stringValue(command))
+      .filter(Boolean),
+  };
+}
+
 function normalizeReleaseSignoff(value: unknown): FlowReleaseChecklistSignoff | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -7770,6 +8045,22 @@ function releaseClosureState(value: string): FlowReleaseClosureState {
     return value;
   }
   return "draft";
+}
+
+function releaseContinuityEntryKind(
+  value: string,
+): FlowReleaseContinuityEntryKind {
+  if (
+    value === "outcome" ||
+    value === "carryover" ||
+    value === "blocker-pattern" ||
+    value === "next-release-note" ||
+    value === "operator-decision" ||
+    value === "superseded-history"
+  ) {
+    return value;
+  }
+  return "outcome";
 }
 
 function releasePublicationBlockerKind(value: string): FlowReleasePublicationBlockerKind {

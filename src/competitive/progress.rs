@@ -50,52 +50,52 @@ pub struct CompletionSet {
 pub fn active_completion_set() -> CompletionSet {
     let items = vec![
         item(
-            "release-closure-ledger-model",
-            "Typed release closure ledger model",
+            "release-continuity-journal-model",
+            "Typed release continuity journal model",
             20,
             CompletionItemStatus::Done,
-            "`FridayReleaseClosureLedger` consumes release receipt review boards and preserves local closure history",
-            "open the next Friday release continuity journal set",
+            "`FridayReleaseContinuityJournal` consumes release closure ledgers and preserves local release outcome history",
+            "open the next Friday release learning register set",
         ),
         item(
-            "release-closure-states",
-            "Draft, closed, held, carryover, blocked, revoked, and superseded closure states",
+            "release-continuity-entry-kinds",
+            "Outcome, carryover, blocker-pattern, next-release-note, operator-decision, and superseded-history journal kinds",
             20,
             CompletionItemStatus::Done,
-            "closed requests downgrade to blocked while receipt review blockers remain, and carryover commitments stay explicit",
-            "open the next Friday release continuity journal set",
+            "continuity entries keep historical outcomes, recurring blockers, carryover owners, operator decisions, and superseded history distinct",
+            "open the next Friday release learning register set",
         ),
         item(
-            "release-closure-cli",
-            "Release closure append, list, export, and JSON commands",
+            "release-continuity-cli",
+            "Release continuity append, list, export, and JSON commands",
             20,
             CompletionItemStatus::Done,
-            "`flow --friday-release-closure` preserves closure records without fetching, sending, publishing, deploying, uploading, or emailing",
-            "open the next Friday release continuity journal set",
+            "`flow --friday-release-continuity` preserves continuity history without fetching, sending, publishing, deploying, uploading, or emailing",
+            "open the next Friday release learning register set",
         ),
         item(
-            "release-closure-dashboard",
-            "Dashboard release closure ledger rendering",
+            "release-continuity-dashboard",
+            "Dashboard release continuity journal rendering",
             20,
             CompletionItemStatus::Done,
-            "the visible dashboard imports closure ledgers and renders closure history, active review, carryover, blockers, command copy, and closure summaries",
-            "open the next Friday release continuity journal set",
+            "the visible dashboard imports continuity journals and renders outcome history, recurring blockers, carryover ownership, command copy, and next-release notes",
+            "open the next Friday release learning register set",
         ),
         item(
-            "release-closure-coverage",
-            "Release closure Rust and TypeScript coverage",
+            "release-continuity-coverage",
+            "Release continuity Rust and TypeScript coverage",
             20,
             CompletionItemStatus::Done,
-            "focused Rust integration coverage plus dashboard smoke checks verify blocked closure downgrades, no-fetch/no-send copy, ledger import normalization, and dashboard rendering",
-            "open the next Friday release continuity journal set",
+            "focused Rust integration coverage plus dashboard smoke checks verify closure history ingestion, recurring blocker detection, carryover summaries, command safety, and dashboard rendering",
+            "open the next Friday release learning register set",
         ),
     ];
 
     CompletionSet {
-        name: "Friday Release Closure Ledger".to_string(),
+        name: "Friday Release Continuity Journal".to_string(),
         target_score_out_of_100: 100,
         current_score_out_of_100: score_items(&items),
-        loop_rule: "Preserve reviewed receipt outcomes, operator closure notes, carryover commitments, and final local release history without external mutation.".to_string(),
+        loop_rule: "Connect release closure ledgers into a local continuity journal for historical outcomes, recurring blockers, carryover commitments, and next-release planning without external mutation.".to_string(),
         items,
     }
 }
@@ -137,9 +137,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_set_tracks_friday_release_closure_ledger_loop() {
+    fn active_set_tracks_friday_release_continuity_journal_loop() {
         let set = active_completion_set();
-        assert_eq!(set.name, "Friday Release Closure Ledger");
+        assert_eq!(set.name, "Friday Release Continuity Journal");
         assert_eq!(set.current_score_out_of_100, 100);
         assert!(
             set.items

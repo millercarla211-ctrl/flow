@@ -28,6 +28,7 @@ use flow::friday::{
     FridayPreviewRunner, FridayReleaseCandidateArchiveEntry, FridayReleaseChecklistSignoffDecision,
     FridayReleaseCheckpointDecision, FridayReleaseCheckpointSignoffDecision,
     FridayReleaseCheckpointSignoffRequest, FridayReleaseClosureRequest, FridayReleaseClosureState,
+    FridayReleaseContinuityEntryKind, FridayReleaseContinuityRequest,
     FridayReleaseDeploymentGateDecision, FridayReleaseDeploymentTarget,
     FridayReleaseEscalationGateOutcome, FridayReleaseEscalationOwnerResponse,
     FridayReleaseEvidenceAttachmentState, FridayReleaseEvidenceEscalationLevel,
@@ -70,9 +71,11 @@ use flow::friday::{
     friday_operator_readiness_report, friday_release_candidate_archive_report,
     friday_release_candidate_entry_from_gate, friday_release_checkpoint_evidence_vault_report,
     friday_release_checkpoint_review_board_report, friday_release_closure_ledger_report,
-    friday_release_closure_record_from_receipt_review, friday_release_deployment_gate_report,
-    friday_release_evidence_attachment_review_report, friday_release_evidence_export_kit_report,
-    friday_release_evidence_sla_monitor_report_at, friday_release_external_receipt_archive_report,
+    friday_release_closure_record_from_receipt_review,
+    friday_release_continuity_entry_from_closure_ledger, friday_release_continuity_journal_report,
+    friday_release_deployment_gate_report, friday_release_evidence_attachment_review_report,
+    friday_release_evidence_export_kit_report, friday_release_evidence_sla_monitor_report_at,
+    friday_release_external_receipt_archive_report,
     friday_release_external_receipt_record_from_outbound_review,
     friday_release_handoff_completion_ledger_report,
     friday_release_handoff_completion_record_from_governance_review,
@@ -99,8 +102,9 @@ use flow::friday::{
     run_friday_trusted_host_command_with_executor, run_friday_vlm_contract,
     write_friday_release_checkpoint_evidence_vault,
     write_friday_release_checkpoint_review_board_report, write_friday_release_closure_ledger,
-    write_friday_release_deployment_gate, write_friday_release_evidence_attachment_review,
-    write_friday_release_evidence_export_kit, write_friday_release_evidence_sla_monitor_report,
+    write_friday_release_continuity_journal, write_friday_release_deployment_gate,
+    write_friday_release_evidence_attachment_review, write_friday_release_evidence_export_kit,
+    write_friday_release_evidence_sla_monitor_report,
     write_friday_release_external_receipt_archive, write_friday_release_handoff_completion_ledger,
     write_friday_release_handoff_dispatch_audit_trail,
     write_friday_release_handoff_dispatch_checklist,
@@ -3375,6 +3379,61 @@ fn friday_dashboard_trusted_host_runner_executes_only_approved_bounded_commands(
     );
     assert!(release_closure_ledger.commands.iter().any(|command| {
         command.contains("--friday-release-closure") && command.contains("--ledger")
+    }));
+    let release_continuity_journal_path = root.join("release-continuity-journal.json");
+    let release_continuity_entry = friday_release_continuity_entry_from_closure_ledger(
+        &release_closure_ledger_path,
+        FridayReleaseContinuityRequest {
+            entry_kind: FridayReleaseContinuityEntryKind::BlockerPattern,
+            operator: "release-operator".to_string(),
+            note: "Carry blocked receipt review into the next release plan.".to_string(),
+            owner: Some("platform".to_string()),
+            next_release_target: Some("next-100".to_string()),
+            supersedes_entry_id: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        release_continuity_entry.entry_kind,
+        FridayReleaseContinuityEntryKind::BlockerPattern
+    );
+    assert_eq!(release_continuity_entry.recurring_blocker_count, 1);
+    assert_eq!(release_continuity_entry.carryover_commitment_count, 1);
+    assert!(!release_continuity_entry.externally_mutated_by_friday);
+    assert!(
+        release_continuity_entry
+            .entry_notes_copy
+            .contains("Friday release continuity journal")
+    );
+    assert!(
+        release_continuity_entry
+            .entry_notes_copy
+            .contains("No external mutation by Friday: true")
+    );
+    let release_continuity_journal = friday_release_continuity_journal_report(
+        &release_continuity_journal_path,
+        vec![release_continuity_entry],
+    );
+    write_friday_release_continuity_journal(
+        &release_continuity_journal_path,
+        &release_continuity_journal,
+    )
+    .unwrap();
+    assert_eq!(release_continuity_journal.entry_count, 1);
+    assert_eq!(release_continuity_journal.blocker_pattern_count, 1);
+    assert_eq!(release_continuity_journal.recurring_blocker_count, 1);
+    assert!(
+        release_continuity_journal
+            .next_release_notes_copy
+            .contains("Friday release continuity journal")
+    );
+    assert!(
+        release_continuity_journal
+            .next_release_notes_copy
+            .contains("Friday did not fetch, send, publish, deploy, upload, or email")
+    );
+    assert!(release_continuity_journal.commands.iter().any(|command| {
+        command.contains("--friday-release-continuity") && command.contains("--journal")
     }));
     let live_loaded = read_friday_trusted_host_live_runner_state(&live_state_path).unwrap();
     assert_eq!(live_loaded.record_count, 2);

@@ -16,6 +16,7 @@ import {
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseExternalReceiptArchive,
   normalizeReleaseClosureLedger,
+  normalizeReleaseContinuityJournal,
   normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffCompletionLedger,
   normalizeReleaseHandoffDispatchAuditTrail,
@@ -3262,6 +3263,78 @@ export function dashboardSectionSmokeReport(
       "flow --friday-release-closure-json --ledger tmp/friday-dashboard/release-closure-ledger.json --receipt-review <release-receipt-review-board.json>",
     ],
   });
+  const releaseContinuityJournal = normalizeReleaseContinuityJournal({
+    journal_id: "friday-release-continuity-journal-smoke",
+    journal_json: "tmp/friday-dashboard/release-continuity-journal.json",
+    generated_at_unix_ms: 35,
+    product_name: "Friday",
+    local_only: true,
+    entry_count: 1,
+    outcome_entry_count: 0,
+    carryover_entry_count: 0,
+    blocker_pattern_count: 1,
+    next_release_note_count: 0,
+    operator_decision_count: 0,
+    superseded_history_count: 0,
+    active_entry_id:
+      "friday-release-continuity-friday-release-closure-ledger-smoke-35",
+    latest_entry_id:
+      "friday-release-continuity-friday-release-closure-ledger-smoke-35",
+    latest_entry_kind: "blocker-pattern",
+    latest_closure_ledger_id: "friday-release-closure-ledger-smoke",
+    latest_closure_state: "blocked",
+    closed_outcome_count: 0,
+    carryover_commitment_count: 1,
+    recurring_blocker_count: 1,
+    release_gate_blocking_count: 3,
+    unresolved_blocker_count: 3,
+    records: [
+      {
+        entry_id:
+          "friday-release-continuity-friday-release-closure-ledger-smoke-35",
+        closure_ledger_id: "friday-release-closure-ledger-smoke",
+        closure_ledger_json: "tmp/friday-dashboard/release-closure-ledger.json",
+        recorded_at_unix_ms: 35,
+        product_name: "Friday",
+        local_only: true,
+        entry_kind: "blocker-pattern",
+        operator: "release-operator",
+        note: "Carry blocked receipt review into the next release plan.",
+        owner: "platform",
+        next_release_target: "next-100",
+        supersedes_entry_id: "",
+        latest_closure_id:
+          "friday-release-closure-friday-release-receipt-review-board-smoke-34",
+        latest_closure_state: "blocked",
+        latest_receipt_review_id: "friday-release-receipt-review-board-smoke",
+        latest_review_decision: "blocked-review",
+        closure_record_count: 1,
+        closed_outcome_count: 0,
+        carryover_outcome_count: 1,
+        blocked_outcome_count: 1,
+        release_gate_blocking_count: 3,
+        unresolved_blocker_count: 3,
+        recurring_blocker_count: 1,
+        carryover_commitment_count: 1,
+        active: true,
+        externally_mutated_by_friday: false,
+        entry_notes_copy:
+          "Friday release continuity journal\nKind: blocker-pattern\nOperator: release-operator\nOwner: platform\nFriday did not fetch, send, publish, deploy, upload, or email.\nNo external mutation by Friday: true",
+        summary:
+          "release-operator recorded blocker-pattern continuity for friday-release-closure-ledger-smoke with 1 carryover commitment(s) and 1 recurring blocker signal(s).",
+      },
+    ],
+    next_release_notes_copy:
+      "Friday release continuity journal\n- [blocker-pattern] release-operator -> Carry blocked receipt review into the next release plan.\n  owner: platform\n  next release: next-100\n  carryover commitments: 1, recurring blocker signals: 1\nFriday did not fetch, send, publish, deploy, upload, or email.",
+    summary:
+      "Friday release continuity journal has 1 entry(s), 0 outcome note(s), 0 carryover note(s), 1 blocker pattern(s), and 0 next-release note(s).",
+    commands: [
+      "flow --friday-release-continuity --journal tmp/friday-dashboard/release-continuity-journal.json --closure-ledger <release-closure-ledger.json> --kind outcome --operator <name>",
+      "flow --friday-release-continuity-list --journal tmp/friday-dashboard/release-continuity-journal.json",
+      "flow --friday-release-continuity-export --journal tmp/friday-dashboard/release-continuity-journal.json --output tmp/friday-dashboard/release-continuity-journal.json",
+      "flow --friday-release-continuity-json --journal tmp/friday-dashboard/release-continuity-journal.json --closure-ledger <release-closure-ledger.json>",
+    ],
+  });
   const trustedBridgeLiveRunnerState = normalizeTrustedHostLiveRunnerState({
     dashboard_import_guidance:
       "Import live-state JSON for current work; import runner history JSON only for audit history.",
@@ -4231,8 +4304,36 @@ export function dashboardSectionSmokeReport(
         ) &&
         releaseClosureLedger.commands.some((command) =>
           command.includes("--friday-release-closure"),
-        ),
+      ),
       `${releaseClosureLedger?.blockedOutcomeCount ?? 0} release closure blocked outcome(s)`,
+    ),
+    check(
+      "release-continuity-journal-importable",
+      releaseContinuityJournal?.entryCount === 1 &&
+        releaseContinuityJournal.blockerPatternCount === 1 &&
+        releaseContinuityJournal.activeEntryId?.includes("friday-release-continuity") ===
+          true,
+      `${releaseContinuityJournal?.entryCount ?? 0} release continuity entry(s)`,
+    ),
+    check(
+      "release-continuity-journal-copy",
+      releaseContinuityJournal !== null &&
+        releaseContinuityJournal.records.some(
+          (record) =>
+            record.entryKind === "blocker-pattern" &&
+            record.owner === "platform" &&
+            !record.externallyMutatedByFriday,
+        ) &&
+        releaseContinuityJournal.nextReleaseNotesCopy.includes(
+          "Friday release continuity journal",
+        ) &&
+        releaseContinuityJournal.nextReleaseNotesCopy.includes(
+          "Friday did not fetch, send, publish, deploy, upload, or email",
+        ) &&
+        releaseContinuityJournal.commands.some((command) =>
+          command.includes("--friday-release-continuity"),
+        ),
+      `${releaseContinuityJournal?.recurringBlockerCount ?? 0} recurring blocker signal(s)`,
     ),
     check(
       "trusted-bridge-live-runner-importable",

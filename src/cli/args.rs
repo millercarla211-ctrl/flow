@@ -830,6 +830,35 @@ pub enum Command {
         ledger_file: String,
         output_file: String,
     },
+    /// Append a Friday release continuity journal entry
+    FridayReleaseContinuity {
+        journal_file: String,
+        closure_ledger_file: String,
+        entry_kind: String,
+        operator: String,
+        note: String,
+        owner: Option<String>,
+        next_release_target: Option<String>,
+        supersedes_entry_id: Option<String>,
+    },
+    /// Print a Friday release continuity journal preview as JSON
+    FridayReleaseContinuityJson {
+        journal_file: String,
+        closure_ledger_file: String,
+        entry_kind: String,
+        operator: String,
+        note: String,
+        owner: Option<String>,
+        next_release_target: Option<String>,
+        supersedes_entry_id: Option<String>,
+    },
+    /// List an existing Friday release continuity journal
+    FridayReleaseContinuityList { journal_file: String },
+    /// Export an existing Friday release continuity journal
+    FridayReleaseContinuityExport {
+        journal_file: String,
+        output_file: String,
+    },
     /// Show trusted runner live state projected from history or a live state file
     FridayTrustedHostLiveState {
         state_file: String,
@@ -2686,6 +2715,65 @@ impl Args {
                     output_file,
                 }
             }
+            "--friday-release-continuity" | "--friday-continuity" => {
+                let (
+                    journal_file,
+                    closure_ledger_file,
+                    entry_kind,
+                    operator,
+                    note,
+                    owner,
+                    next_release_target,
+                    supersedes_entry_id,
+                ) = parse_friday_release_continuity_args(&args);
+                Command::FridayReleaseContinuity {
+                    journal_file,
+                    closure_ledger_file,
+                    entry_kind,
+                    operator,
+                    note,
+                    owner,
+                    next_release_target,
+                    supersedes_entry_id,
+                }
+            }
+            "--friday-release-continuity-json" | "--friday-continuity-json" => {
+                let (
+                    journal_file,
+                    closure_ledger_file,
+                    entry_kind,
+                    operator,
+                    note,
+                    owner,
+                    next_release_target,
+                    supersedes_entry_id,
+                ) = parse_friday_release_continuity_args(&args);
+                Command::FridayReleaseContinuityJson {
+                    journal_file,
+                    closure_ledger_file,
+                    entry_kind,
+                    operator,
+                    note,
+                    owner,
+                    next_release_target,
+                    supersedes_entry_id,
+                }
+            }
+            "--friday-release-continuity-list" | "--friday-continuity-list" => {
+                Command::FridayReleaseContinuityList {
+                    journal_file: parse_friday_release_continuity_journal_file_arg(&args),
+                }
+            }
+            "--friday-release-continuity-export" | "--friday-continuity-export" => {
+                let journal_file = parse_friday_release_continuity_journal_file_arg(&args);
+                let output_file = flag_value(&args, "--output").unwrap_or_else(|| {
+                    "tmp/friday-dashboard/release-continuity-journal-export.json".to_string()
+                });
+                Command::FridayReleaseContinuityExport {
+                    journal_file,
+                    output_file,
+                }
+            }
             "--friday-trusted-host-live-state" | "--friday-dashboard-trusted-live-state" => {
                 let (state_file, history_file) = parse_friday_trusted_host_live_state_args(&args);
                 Command::FridayTrustedHostLiveState {
@@ -4508,6 +4596,71 @@ fn parse_friday_release_closure_ledger_file_arg(args: &[String]) -> String {
     flag_value(args, "--ledger")
         .or_else(|| flag_value(args, "--input"))
         .unwrap_or_else(|| format!("{export_dir}/release-closure-ledger.json"))
+}
+
+fn parse_friday_release_continuity_args(
+    args: &[String],
+) -> (
+    String,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    let journal_file = flag_value(args, "--journal")
+        .or_else(|| flag_value(args, "--output"))
+        .unwrap_or_else(|| format!("{export_dir}/release-continuity-journal.json"));
+    let closure_ledger_file = flag_value(args, "--closure-ledger")
+        .or_else(|| flag_value(args, "--closure"))
+        .or_else(|| flag_value(args, "--ledger"))
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-closure-ledger.json"));
+    let entry_kind = flag_value(args, "--kind").unwrap_or_else(|| "outcome".to_string());
+    let operator = flag_value(args, "--operator")
+        .or_else(|| flag_value(args, "--reviewer"))
+        .unwrap_or_else(|| "operator".to_string());
+    let note = flag_value(args, "--continuity-note")
+        .or_else(|| flag_value(args, "--note"))
+        .unwrap_or_else(|| "Recorded local release continuity note.".to_string());
+    let owner = flag_value(args, "--owner").filter(|value| !value.trim().is_empty());
+    let next_release_target = flag_value(args, "--next-release")
+        .or_else(|| flag_value(args, "--target"))
+        .filter(|value| !value.trim().is_empty());
+    let supersedes_entry_id = flag_value(args, "--supersedes")
+        .or_else(|| flag_value(args, "--supersedes-entry"))
+        .filter(|value| !value.trim().is_empty());
+
+    (
+        journal_file,
+        closure_ledger_file,
+        entry_kind,
+        operator,
+        note,
+        owner,
+        next_release_target,
+        supersedes_entry_id,
+    )
+}
+
+fn parse_friday_release_continuity_journal_file_arg(args: &[String]) -> String {
+    let export_dir = flag_value(args, "--export-dir").unwrap_or_else(|| {
+        args.get(2)
+            .filter(|value| !value.starts_with("--"))
+            .cloned()
+            .unwrap_or_else(|| "tmp/friday-dashboard".to_string())
+    });
+    flag_value(args, "--journal")
+        .or_else(|| flag_value(args, "--input"))
+        .unwrap_or_else(|| format!("{export_dir}/release-continuity-journal.json"))
 }
 
 fn trusted_host_state_file_arg(args: &[String], input_dir: &str) -> String {

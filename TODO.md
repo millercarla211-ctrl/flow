@@ -989,16 +989,34 @@ Goal: preserve receipt review board outcomes as a local closure history so Frida
 
 This set is complete. The next loop should open `Friday Release Continuity Journal` and turn closure ledgers into a searchable local continuity surface for next-release planning, carryover ownership, and historical release outcome review.
 
-## Next Set: Friday Release Continuity Journal
+## Completed Set: Friday Release Continuity Journal
 
-Status: 0/100
+Status: 100/100
 
 Goal: connect release closure ledgers into a local continuity journal so Friday can show historical release outcomes, recurring blockers, carryover commitments, and next-release planning notes without external mutation.
 
+### Completed To Reach 100/100
+
+- [x] Add a typed continuity journal that consumes release closure ledgers.
+- [x] Add journal entry kinds for outcome, carryover, blocker-pattern, next-release-note, operator-decision, and superseded-history.
+- [x] Add append/list/export/JSON commands that preserve continuity history without external mutation.
+- [x] Add dashboard import/rendering for release outcome history, recurring blockers, carryover ownership, and copyable next-release notes.
+- [x] Add focused Rust/TypeScript coverage for closure history ingestion, recurring blocker detection, carryover summaries, command safety, and dashboard rendering.
+
+### Completed Control Rule
+
+This set is complete. The next loop should open `Friday Release Learning Register` and turn continuity journals into prevention lessons, decision patterns, and next-release commitments without external mutation.
+
+## Next Set: Friday Release Learning Register
+
+Status: 0/100
+
+Goal: convert release continuity journals into a local learning register so Friday can track repeated release lessons, prevention experiments, operator decisions, quality gates, and next-cycle commitments without changing external systems.
+
 ### Remaining To Reach 100/100
 
-- [ ] Add a typed continuity journal that consumes release closure ledgers.
-- [ ] Add journal entry kinds for outcome, carryover, blocker-pattern, next-release-note, operator-decision, and superseded-history.
-- [ ] Add append/list/export/JSON commands that preserve continuity history without external mutation.
-- [ ] Add dashboard import/rendering for release outcome history, recurring blockers, carryover ownership, and copyable next-release notes.
-- [ ] Add focused Rust/TypeScript coverage for closure history ingestion, recurring blocker detection, carryover summaries, command safety, and dashboard rendering.
+- [ ] Add a typed learning register that consumes release continuity journals.
+- [ ] Add learning categories for lesson, prevention-experiment, decision-pattern, quality-gate, owner-commitment, and retired-learning.
+- [ ] Add append/list/export/JSON commands that preserve learning history without external mutation.
+- [ ] Add dashboard import/rendering for release lessons, prevention experiments, decision patterns, quality gates, and next-cycle commitments.
+- [ ] Add focused Rust/TypeScript coverage for continuity ingestion, repeated lesson detection, owner commitments, command safety, and dashboard rendering.

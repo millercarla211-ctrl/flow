@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- completed Friday Release Continuity Journal at 100/100 with typed local-only continuity entries, outcome/carryover/blocker-pattern/next-release-note/operator-decision/superseded-history kinds, append/list/export/JSON commands, dashboard import/rendering, copyable next-release notes, recurring blocker and carryover summaries, and focused Rust/TypeScript coverage
+- opened Friday Release Learning Register as the next set for converting continuity journals into prevention lessons, decision patterns, quality gates, owner commitments, and next-cycle learning history
 - completed Friday Release Closure Ledger at 100/100 with typed local-only closure records, draft/closed/held/carryover/blocked/revoked/superseded states, append/list/export/JSON commands, dashboard import/rendering, copyable closure summaries, no-fetch/no-send safety copy, and focused Rust/TypeScript coverage
 - opened Friday Release Continuity Journal as the next set for connecting closure ledgers into historical release outcomes, recurring blockers, carryover commitments, and next-release planning notes
 - completed Friday Release Receipt Review Board at 100/100 with typed local-only review boards, verified/held/missing/stale/blocked/revoked/carryover decisions, CLI/JSON commands, dashboard import/rendering, copyable review notes, no-fetch/no-send safety copy, and focused Rust/TypeScript coverage

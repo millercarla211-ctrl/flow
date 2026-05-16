@@ -13,6 +13,7 @@ import {
   normalizeReleaseEvidenceExportKit,
   normalizeReleaseExternalReceiptArchive,
   normalizeReleaseClosureLedger,
+  normalizeReleaseContinuityJournal,
   normalizeReleaseReceiptReviewBoard,
   normalizeReleaseHandoffAuditTrail,
   normalizeReleaseHandoffDispatchAuditTrail,
@@ -66,6 +67,7 @@ import {
   type FlowReleaseEvidenceSlaMonitorReport,
   type FlowReleaseExternalReceiptArchive,
   type FlowReleaseClosureLedger,
+  type FlowReleaseContinuityJournal,
   type FlowReleaseReceiptReviewBoardReport,
   type FlowReleaseHandoffAuditTrail,
   type FlowReleaseHandoffDispatchAuditTrail,
@@ -160,6 +162,7 @@ type UiState = {
   dashboardReleaseExternalReceiptArchive: FlowReleaseExternalReceiptArchive | null;
   dashboardReleaseReceiptReviewBoard: FlowReleaseReceiptReviewBoardReport | null;
   dashboardReleaseClosureLedger: FlowReleaseClosureLedger | null;
+  dashboardReleaseContinuityJournal: FlowReleaseContinuityJournal | null;
 };
 
 const RUNNER_CANCELLATION_DRAFT_KEY = "flow.dashboard.runnerCancellationDrafts";
@@ -3494,6 +3497,70 @@ function renderReleaseClosureLedger(ledger: FlowReleaseClosureLedger | null) {
   `;
 }
 
+function renderReleaseContinuityJournal(journal: FlowReleaseContinuityJournal | null) {
+  if (!journal) {
+    return "";
+  }
+  return `
+    <article class="feature-card dashboard-release-continuity-journal">
+      <div class="card-topline">
+        <span class="eyebrow">Release continuity</span>
+        <span class="badge ${badgeTone(journal.recurringBlockerCount > 0 ? "warning" : "ready")}">
+          ${escapeHtml(journal.latestEntryKind ?? "outcome")}
+        </span>
+      </div>
+      <h3>Continuity journal</h3>
+      <p>${escapeHtml(journal.summary)}</p>
+      <div class="dashboard-history-metrics">
+        <span><strong>${journal.entryCount}</strong><small>entries</small></span>
+        <span><strong>${journal.outcomeEntryCount}</strong><small>outcomes</small></span>
+        <span><strong>${journal.carryoverEntryCount}</strong><small>carryover</small></span>
+        <span><strong>${journal.blockerPatternCount}</strong><small>patterns</small></span>
+      </div>
+      <div class="meta-list">
+        <span><strong>Active entry</strong> ${escapeHtml(journal.activeEntryId ?? "none")}</span>
+        <span><strong>Latest ledger</strong> ${escapeHtml(journal.latestClosureLedgerId ?? "none")}</span>
+        <span><strong>Closure state</strong> ${escapeHtml(journal.latestClosureState ?? "none")}</span>
+        <span><strong>Journal</strong> ${escapeHtml(journal.journalJson)}</span>
+      </div>
+      ${
+        journal.recurringBlockerCount > 0 || journal.carryoverCommitmentCount > 0
+          ? `<p class="soft-warning">Next release planning carries ${journal.carryoverCommitmentCount} commitment(s) and ${journal.recurringBlockerCount} recurring blocker signal(s).</p>`
+          : ""
+      }
+      <div class="runner-package-files">
+        ${journal.records
+          .slice()
+          .reverse()
+          .slice(0, 8)
+          .map(
+            (record) => `
+              <div class="runner-package-file ${
+                record.entryKind === "outcome" && record.recurringBlockerCount === 0
+                  ? "present"
+                  : "missing"
+              }">
+                <strong>${escapeHtml(record.operator)} - ${escapeHtml(record.entryKind)}</strong>
+                <small>${escapeHtml(record.owner ?? "unassigned")} / ${escapeHtml(record.nextReleaseTarget ?? "no target")}</small>
+                <code>${escapeHtml(record.closureLedgerJson || "inline")}</code>
+                <span>${escapeHtml(record.note)}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" data-action="dashboard-release-continuity-command">
+          Copy continuity command
+        </button>
+        <button type="button" class="secondary" data-action="dashboard-release-continuity-notes">
+          Copy next-release notes
+        </button>
+      </div>
+    </article>
+  `;
+}
+
 function renderDashboardCard(
   card: FlowDashboardProductUiCardBinding,
   actionStates: UiState["dashboardActionStates"],
@@ -3732,6 +3799,7 @@ function renderDashboard(state: UiState) {
       ${renderReleaseExternalReceiptArchive(state.dashboardReleaseExternalReceiptArchive)}
       ${renderReleaseReceiptReviewBoard(state.dashboardReleaseReceiptReviewBoard)}
       ${renderReleaseClosureLedger(state.dashboardReleaseClosureLedger)}
+      ${renderReleaseContinuityJournal(state.dashboardReleaseContinuityJournal)}
 
       <article class="feature-card">
         <div class="card-topline">
@@ -3889,6 +3957,7 @@ export async function mountFlowApp(surfaceInput: string) {
     dashboardReleaseExternalReceiptArchive: null,
     dashboardReleaseReceiptReviewBoard: null,
     dashboardReleaseClosureLedger: null,
+    dashboardReleaseContinuityJournal: null,
   };
 
   function render() {
@@ -4229,6 +4298,8 @@ export async function mountFlowApp(surfaceInput: string) {
         normalizeReleaseReceiptReviewBoard(parsed);
       const releaseClosureLedger =
         normalizeReleaseClosureLedger(parsed);
+      const releaseContinuityJournal =
+        normalizeReleaseContinuityJournal(parsed);
       const cancellationUx =
         normalizeTrustedHostRunnerCancellationUx(parsed) ??
         (liveState ? buildTrustedHostRunnerCancellationUx(liveState) : null);
@@ -4305,8 +4376,12 @@ export async function mountFlowApp(surfaceInput: string) {
         releaseReceiptReviewBoard ?? state.dashboardReleaseReceiptReviewBoard;
       state.dashboardReleaseClosureLedger =
         releaseClosureLedger ?? state.dashboardReleaseClosureLedger;
+      state.dashboardReleaseContinuityJournal =
+        releaseContinuityJournal ?? state.dashboardReleaseContinuityJournal;
       state.dashboardActionResults = [...results, ...state.dashboardActionResults].slice(0, 8);
-      state.status = releaseClosureLedger
+      state.status = releaseContinuityJournal
+        ? `Imported release continuity journal with ${releaseContinuityJournal.entryCount} entry(s) from ${file.name}.`
+        : releaseClosureLedger
         ? `Imported release closure ledger with ${releaseClosureLedger.recordCount} record(s) from ${file.name}.`
         : releaseReceiptReviewBoard
         ? `Imported release receipt review board ${releaseReceiptReviewBoard.decision} at ${releaseReceiptReviewBoard.scoreOutOf100}/100 from ${file.name}.`
@@ -5500,6 +5575,39 @@ export async function mountFlowApp(surfaceInput: string) {
     render();
   }
 
+  async function copyReleaseContinuityCommand() {
+    const command = state.dashboardReleaseContinuityJournal?.commands[0] ?? "";
+    if (!command) {
+      state.status = "No release continuity command is available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(command);
+      state.status = "Release continuity command copied.";
+    } catch {
+      state.status = command;
+    }
+    render();
+  }
+
+  async function copyReleaseContinuityNotes() {
+    const copy =
+      state.dashboardReleaseContinuityJournal?.nextReleaseNotesCopy ?? "";
+    if (!copy) {
+      state.status = "No release continuity notes are available.";
+      render();
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(copy);
+      state.status = "Release continuity next-release notes copied.";
+    } catch {
+      state.status = copy;
+    }
+    render();
+  }
+
   function bind() {
     mountRoot
       .querySelector<HTMLButtonElement>("[data-action='dashboard-import-click']")
@@ -5980,6 +6088,18 @@ export async function mountFlowApp(surfaceInput: string) {
       .querySelector<HTMLButtonElement>("[data-action='dashboard-release-closure-summary']")
       ?.addEventListener("click", () => {
         void copyReleaseClosureSummary();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-continuity-command']")
+      ?.addEventListener("click", () => {
+        void copyReleaseContinuityCommand();
+      });
+
+    mountRoot
+      .querySelector<HTMLButtonElement>("[data-action='dashboard-release-continuity-notes']")
+      ?.addEventListener("click", () => {
+        void copyReleaseContinuityNotes();
       });
 
     mountRoot
