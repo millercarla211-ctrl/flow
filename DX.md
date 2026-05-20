@@ -15,3 +15,8 @@ I have also added forge folder project - which job is to do be version contron s
 4. provider - 60% complete
 5. forge - 50% complete
 So, rlm and serializer will be in the ai preprepare part and the metasearch is a tool that ai can use and provider is for connecting to remote ai platforms and forge is for version control system for code and media - so please make sure to add all the features in those projects and also make sure to add all the details in README file about each project and also about our main project "dx" and also about our goals and future plans - so that people can understand what we are trying to achieve with this project and also they can contribute to it if they want to - so please make sure to add all those details in README file.
+# May 22 DX Launch Worker Note
+
+Flow is the DX tool substrate for provider, metasearch, serializer, RLM, Forge, and token work. New worker chats should use `[@superpowers](plugin://superpowers@openai-curated)`, read `G:\Dx\WORKER_PROMPTS.md`, avoid local servers/heavy builds without permission, and update `TODO.md`, `CHANGELOG.md`, and this file when changing launch status.
+
+For the launch sprint, Flow workers should focus on token/RLM/serializer receipts and tool contracts that Zed can consume quickly. Do not rewrite broad editor JSON parsing before launch; expose small stable receipts under `G:\Dx\.dx\receipts`.

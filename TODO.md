@@ -1,5 +1,15 @@
 # Flow TODO
 
+## May 22 DX Launch Token / RLM / Serializer Lane
+
+Status: 0/100
+
+- [ ] Inspect `G:\Dx\token`, `G:\Workspaces\flow\trash\token`, and `G:\Dx\inspirations\openclaw\extensions\tokenjuice`.
+- [ ] Extract useful token budget/live-prune ideas into a clean DX receipt contract.
+- [ ] Connect serializer/RLM estimates to Zed-facing fields without broad JSON parser rewrites.
+- [ ] Preserve source, models, and existing Flow crates.
+- [ ] Ask before full builds, local servers, or heavy validation.
+
 Flow is not finished. Treat this file as the active product loop, not as a parking lot. When a set reaches 100/100, open the next set and keep moving.
 
 ## Completed Set: Completion Control Loop

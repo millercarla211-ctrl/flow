@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added May 22 launch notes for token/RLM/serializer workers and Zed-facing receipt contracts.
 - completed Friday Release Learning Register at 100/100 with typed local-only learning records, lesson/prevention-experiment/decision-pattern/quality-gate/owner-commitment/retired-learning categories, append/list/export/JSON commands, dashboard import/rendering, copyable next-cycle commitments, repeated lesson and owner commitment summaries, and focused Rust/TypeScript coverage
 - opened Friday Release Knowledge Index as the next set for making release learning searchable, filterable, and comparable across local release cycles
 - completed Friday Release Continuity Journal at 100/100 with typed local-only continuity entries, outcome/carryover/blocker-pattern/next-release-note/operator-decision/superseded-history kinds, append/list/export/JSON commands, dashboard import/rendering, copyable next-release notes, recurring blocker and carryover summaries, and focused Rust/TypeScript coverage
