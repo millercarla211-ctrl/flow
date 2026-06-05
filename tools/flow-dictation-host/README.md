@@ -12,12 +12,15 @@ cargo build --manifest-path tools\flow-dictation-host\Cargo.toml --target-dir G:
 .\target\debug\flow-dictate.exe --file <16k-mono-wav>
 .\target\debug\flow-dictate.exe --file <16k-mono-wav> --model parakeet-tdt-0.6b-v3-int8
 .\target\debug\flow-dictate.exe --file <16k-mono-wav> --model nemotron-speech-streaming-en-0.6b-int8
+.\target\debug\flow-dictate.exe --file <16k-mono-wav> --model whisper-tiny-ggml --whisper-bin <whisper-cli.exe> --whisper-model <ggml-tiny.bin>
 ```
 
-The focused host supports Sherpa Parakeet and Nemotron model bundles:
+The focused host supports Sherpa Parakeet, Sherpa Nemotron, and whisper.cpp Whisper model paths:
 
 - Parakeet TDT 0.6B v3 INT8, the default, under `models\stt\parakeet-tdt-0.6b-v3-int8`.
 - Nemotron Speech Streaming EN 0.6B INT8 under `models\stt\nemotron-speech-streaming-en-0.6b-int8`.
+- Whisper Tiny GGML as an explicit opt-in through `--model whisper-tiny-ggml`.
 
 Install or repair the default Parakeet bundle with `scripts\download_sherpa_parakeet_stt.ps1` before live dictation proof.
 Nemotron requires its own Sherpa transducer bundle in the path above.
+Whisper requires a local `whisper-cli.exe` and a GGML model file. Set `FLOW_WHISPER_CPP_BINARY` or pass `--whisper-bin`; set `FLOW_WHISPER_MODEL` or pass `--whisper-model`. Without those files, the host fails closed before transcription instead of falling back to another STT model.

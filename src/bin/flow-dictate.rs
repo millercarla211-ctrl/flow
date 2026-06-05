@@ -1,11 +1,13 @@
 #[cfg(not(windows))]
 compile_error!("flow-dictate currently depends on Win32 clipboard/focus/input APIs.");
 
+use std::fs;
 use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -15,8 +17,11 @@ use sherpa_onnx::{OfflineRecognizer, OfflineRecognizerConfig, OfflineTransducerM
 const SAMPLE_RATE: u32 = 16_000;
 const DEFAULT_STT_MODEL_KEY: &str = "parakeet-tdt-0.6b-v3-int8";
 const NEMOTRON_STT_MODEL_KEY: &str = "nemotron-speech-streaming-en-0.6b-int8";
+const WHISPER_STT_MODEL_KEY: &str = "whisper-tiny-ggml";
 const PARAKEET_STT_MODEL_ROOT: &str = "models/stt/parakeet-tdt-0.6b-v3-int8";
 const NEMOTRON_STT_MODEL_ROOT: &str = "models/stt/nemotron-speech-streaming-en-0.6b-int8";
+const WHISPER_STT_MODEL_FILE: &str = "models/stt/ggml-tiny.bin";
+const DEFAULT_WHISPER_LANGUAGE: &str = "en";
 const AUTO_START_FLOOR_RMS: f32 = 0.000001;
 const SILENCE_TIMEOUT: Duration = Duration::from_millis(650);
 const MAX_RECORDING_DURATION: Duration = Duration::from_secs(5);
@@ -127,8 +132,23 @@ struct CaptureStreamState {
 struct DictationSttModel {
     key: &'static str,
     label: &'static str,
-    root: &'static str,
+    runtime: DictationSttRuntime,
     setup_hint: &'static str,
+}
+
+#[derive(Clone, Copy)]
+enum DictationSttRuntime {
+    SherpaTransducer { root: &'static str },
+    WhisperCpp { model_file: &'static str },
+}
+
+enum DictationSttBackend {
+    SherpaTransducer(OfflineRecognizer),
+    WhisperCpp {
+        executable: PathBuf,
+        model: PathBuf,
+        language: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -164,7 +184,7 @@ fn main() -> Result<()> {
             .get(3)
             .map(String::as_str)
             .unwrap_or("recording_forced.wav");
-        run_forced_capture(seconds, output, None)?;
+        run_forced_capture(seconds, output, None, &args)?;
         return Ok(());
     }
     if matches!(args.get(1).map(String::as_str), Some("--capture-stt")) {
@@ -178,7 +198,7 @@ fn main() -> Result<()> {
             .map(String::as_str)
             .unwrap_or("recording_forced.wav");
         let selected_model = selected_stt_model(&args)?;
-        run_forced_capture(seconds, output, Some(selected_model))?;
+        run_forced_capture(seconds, output, Some(selected_model), &args)?;
         return Ok(());
     }
 
@@ -194,7 +214,7 @@ fn main() -> Result<()> {
         selected_model.label, selected_model.key
     );
     let started = Instant::now();
-    let mut recognizer = load_sherpa_transducer(selected_model)?;
+    let mut stt_backend = load_stt_backend(selected_model, &args)?;
     println!(
         "[stt] {} ready in {:.1}s",
         selected_model.label,
@@ -210,7 +230,7 @@ fn main() -> Result<()> {
             samples.len() as f32 / SAMPLE_RATE as f32,
             rms_energy(&samples)
         );
-        let text = transcribe_samples(&mut recognizer, &samples)?;
+        let text = transcribe_samples(&mut stt_backend, &samples)?;
         println!("[stt] \"{}\"", text);
         return Ok(());
     }
@@ -326,7 +346,7 @@ fn main() -> Result<()> {
             print!("[stt] transcribing... ");
             std::io::stdout().flush()?;
             let stt_started = Instant::now();
-            let text = transcribe_samples(&mut recognizer, &prepared.samples)?;
+            let text = transcribe_samples(&mut stt_backend, &prepared.samples)?;
             let stt_elapsed = stt_started.elapsed();
             println!("\"{}\"", text);
 
@@ -458,6 +478,7 @@ fn run_forced_capture(
     seconds: f32,
     output: &str,
     selected_model: Option<DictationSttModel>,
+    args: &[String],
 ) -> Result<()> {
     set_terminal_title("Flow Dictation - forced mic capture");
     println!("Flow Dictation Forced Capture");
@@ -517,7 +538,7 @@ fn run_forced_capture(
             selected_model.label
         );
         let load_started = Instant::now();
-        let mut recognizer = load_sherpa_transducer(selected_model)?;
+        let mut stt_backend = load_stt_backend(selected_model, args)?;
         let load_elapsed = load_started.elapsed();
         let prepare_started = Instant::now();
         let prepared = prepare_recording_for_stt(&captured);
@@ -534,7 +555,7 @@ fn run_forced_capture(
         write_wav(&prepared_output, SAMPLE_RATE, &prepared.samples)?;
         let prepared_save_elapsed = prepared_save_started.elapsed();
         let stt_started = Instant::now();
-        let text = transcribe_samples(&mut recognizer, &prepared.samples)?;
+        let text = transcribe_samples(&mut stt_backend, &prepared.samples)?;
         let stt_elapsed = stt_started.elapsed();
         println!("[stt] \"{}\"", text);
         let text = prepare_dictation_text(&text);
@@ -827,8 +848,27 @@ fn process_audio_chunk(data: &[f32], state: &AudioStreamState, runtime: &mut Aud
     }
 }
 
-fn load_sherpa_transducer(selected_model: DictationSttModel) -> Result<OfflineRecognizer> {
-    let root = std::path::Path::new(selected_model.root);
+fn load_stt_backend(
+    selected_model: DictationSttModel,
+    args: &[String],
+) -> Result<DictationSttBackend> {
+    match selected_model.runtime {
+        DictationSttRuntime::SherpaTransducer { root } => Ok(
+            DictationSttBackend::SherpaTransducer(load_sherpa_transducer(selected_model, root)?),
+        ),
+        DictationSttRuntime::WhisperCpp { model_file } => Ok(DictationSttBackend::WhisperCpp {
+            executable: resolve_whisper_cpp_binary(args)?,
+            model: resolve_whisper_model(args, model_file)?,
+            language: requested_whisper_language(args),
+        }),
+    }
+}
+
+fn load_sherpa_transducer(
+    selected_model: DictationSttModel,
+    root: &'static str,
+) -> Result<OfflineRecognizer> {
+    let root = Path::new(root);
     let encoder = root.join("encoder.int8.onnx");
     let decoder = root.join("decoder.int8.onnx");
     let joiner = root.join("joiner.int8.onnx");
@@ -868,22 +908,127 @@ fn selected_stt_model(args: &[String]) -> Result<DictationSttModel> {
         DEFAULT_STT_MODEL_KEY => Ok(DictationSttModel {
             key: DEFAULT_STT_MODEL_KEY,
             label: "Parakeet TDT 0.6B v3 INT8",
-            root: PARAKEET_STT_MODEL_ROOT,
+            runtime: DictationSttRuntime::SherpaTransducer {
+                root: PARAKEET_STT_MODEL_ROOT,
+            },
             setup_hint: "Run scripts/download_sherpa_parakeet_stt.ps1",
         }),
         NEMOTRON_STT_MODEL_KEY => Ok(DictationSttModel {
             key: NEMOTRON_STT_MODEL_KEY,
             label: "Nemotron Speech Streaming EN 0.6B INT8",
-            root: NEMOTRON_STT_MODEL_ROOT,
+            runtime: DictationSttRuntime::SherpaTransducer {
+                root: NEMOTRON_STT_MODEL_ROOT,
+            },
             setup_hint: "Install the Nemotron sherpa-onnx bundle under models/stt/nemotron-speech-streaming-en-0.6b-int8",
         }),
+        WHISPER_STT_MODEL_KEY => Ok(DictationSttModel {
+            key: WHISPER_STT_MODEL_KEY,
+            label: "Whisper Tiny GGML",
+            runtime: DictationSttRuntime::WhisperCpp {
+                model_file: WHISPER_STT_MODEL_FILE,
+            },
+            setup_hint: "Install whisper.cpp and place ggml-tiny.bin under models/stt/ggml-tiny.bin, or set --whisper-bin and --whisper-model",
+        }),
         other => Err(anyhow::anyhow!(
-            "Unsupported STT model '{}'. Focused host supports {}, {}.",
+            "Unsupported STT model '{}'. Focused host supports {}.",
             other,
-            DEFAULT_STT_MODEL_KEY,
-            NEMOTRON_STT_MODEL_KEY
+            supported_stt_models()
         )),
     }
+}
+
+fn supported_stt_models() -> &'static str {
+    "parakeet-tdt-0.6b-v3-int8, nemotron-speech-streaming-en-0.6b-int8, whisper-tiny-ggml"
+}
+
+fn resolve_whisper_cpp_binary(args: &[String]) -> Result<PathBuf> {
+    if let Some(path) =
+        option_value(args, "--whisper-bin").or_else(|| option_value(args, "--whisper-cpp"))
+    {
+        return require_existing_file(PathBuf::from(path), "--whisper-bin");
+    }
+
+    for env_name in [
+        "FLOW_WHISPER_CPP_BINARY",
+        "DX_WHISPER_CPP_BINARY",
+        "FLOW_WHISPER_CPP_EXE",
+        "FLOW_WHISPER_CPP",
+    ] {
+        if let Some(path) = std::env::var_os(env_name).map(PathBuf::from) {
+            return require_existing_file(path, env_name);
+        }
+    }
+
+    candidate_whisper_cpp_binaries()
+        .into_iter()
+        .find(|path| path.is_file())
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "whisper.cpp binary is missing. Set --whisper-bin or FLOW_WHISPER_CPP_BINARY to whisper-cli.exe before using {}.",
+                WHISPER_STT_MODEL_KEY
+            )
+        })
+}
+
+fn resolve_whisper_model(args: &[String], default_model_file: &'static str) -> Result<PathBuf> {
+    let path = option_value(args, "--whisper-model")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("FLOW_WHISPER_MODEL").map(PathBuf::from))
+        .or_else(|| std::env::var_os("DX_FLOW_WHISPER_MODEL").map(PathBuf::from))
+        .unwrap_or_else(|| PathBuf::from(default_model_file));
+
+    require_existing_file(
+        path,
+        "--whisper-model, FLOW_WHISPER_MODEL, or models/stt/ggml-tiny.bin",
+    )
+}
+
+fn requested_whisper_language(args: &[String]) -> String {
+    option_value(args, "--whisper-language")
+        .map(str::to_string)
+        .or_else(|| std::env::var("FLOW_WHISPER_LANGUAGE").ok())
+        .or_else(|| std::env::var("DX_FLOW_WHISPER_LANGUAGE").ok())
+        .filter(|language| !language.trim().is_empty())
+        .unwrap_or_else(|| DEFAULT_WHISPER_LANGUAGE.to_string())
+}
+
+fn require_existing_file(path: PathBuf, source: &str) -> Result<PathBuf> {
+    if path.is_file() {
+        Ok(path)
+    } else {
+        Err(anyhow::anyhow!(
+            "Required file from {} does not exist: {}",
+            source,
+            path.display()
+        ))
+    }
+}
+
+fn candidate_whisper_cpp_binaries() -> Vec<PathBuf> {
+    let executable = if cfg!(windows) {
+        "whisper-cli.exe"
+    } else {
+        "whisper-cli"
+    };
+    vec![
+        PathBuf::from("tools")
+            .join("whisper.cpp")
+            .join("build")
+            .join("bin")
+            .join("Release")
+            .join(executable),
+        PathBuf::from("tools")
+            .join("whisper.cpp")
+            .join("build")
+            .join("bin")
+            .join(executable),
+        PathBuf::from("runtime")
+            .join("whisper.cpp")
+            .join("build")
+            .join("bin")
+            .join("Release")
+            .join(executable),
+    ]
 }
 
 fn option_value<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
@@ -1008,7 +1153,20 @@ fn input_device_score(name: &str) -> i32 {
     score
 }
 
-fn transcribe_samples(recognizer: &mut OfflineRecognizer, samples: &[f32]) -> Result<String> {
+fn transcribe_samples(backend: &mut DictationSttBackend, samples: &[f32]) -> Result<String> {
+    match backend {
+        DictationSttBackend::SherpaTransducer(recognizer) => {
+            transcribe_with_sherpa(recognizer, samples)
+        }
+        DictationSttBackend::WhisperCpp {
+            executable,
+            model,
+            language,
+        } => transcribe_with_whisper_cpp(executable, model, language, samples),
+    }
+}
+
+fn transcribe_with_sherpa(recognizer: &mut OfflineRecognizer, samples: &[f32]) -> Result<String> {
     let stream = recognizer.create_stream();
     stream.accept_waveform(SAMPLE_RATE as i32, samples);
     recognizer.decode(&stream);
@@ -1016,6 +1174,63 @@ fn transcribe_samples(recognizer: &mut OfflineRecognizer, samples: &[f32]) -> Re
         .get_result()
         .ok_or_else(|| anyhow::anyhow!("sherpa-onnx returned no transcription result"))?;
     Ok(result.text)
+}
+
+fn transcribe_with_whisper_cpp(
+    executable: &Path,
+    model: &Path,
+    language: &str,
+    samples: &[f32],
+) -> Result<String> {
+    let temp_dir = std::env::temp_dir().join("flow-whisper-dictate");
+    fs::create_dir_all(&temp_dir)?;
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let prefix = temp_dir.join(format!("flow-whisper-{}-{}", std::process::id(), stamp));
+    let wav_path = prefix.with_extension("wav");
+    let text_path = prefix.with_extension("txt");
+
+    write_wav(&wav_path, SAMPLE_RATE, samples)?;
+
+    let output = Command::new(executable)
+        .arg("-m")
+        .arg(model)
+        .arg("-f")
+        .arg(&wav_path)
+        .arg("-l")
+        .arg(language)
+        .arg("-nt")
+        .arg("-otxt")
+        .arg("-of")
+        .arg(&prefix)
+        .output()
+        .with_context(|| {
+            format!(
+                "Failed to start whisper.cpp binary {}",
+                executable.display()
+            )
+        })?;
+
+    let _ = fs::remove_file(&wav_path);
+
+    if !output.status.success() {
+        let _ = fs::remove_file(&text_path);
+        return Err(anyhow::anyhow!(
+            "whisper.cpp STT failed with status {}. stdout: {} stderr: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout).trim(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+
+    let text = fs::read_to_string(&text_path)
+        .or_else(|_| Ok::<_, std::io::Error>(String::from_utf8_lossy(&output.stdout).into_owned()))
+        .context("whisper.cpp completed but did not produce a transcript")?;
+    let _ = fs::remove_file(&text_path);
+
+    Ok(text.trim().to_string())
 }
 
 struct PreparedRecording {
@@ -1382,7 +1597,7 @@ fn keyboard_input(virtual_key: u16, flags: u32) -> Input {
     }
 }
 
-fn write_wav(path: &str, sample_rate: u32, samples: &[f32]) -> Result<()> {
+fn write_wav(path: impl AsRef<Path>, sample_rate: u32, samples: &[f32]) -> Result<()> {
     use hound::{SampleFormat, WavSpec, WavWriter};
 
     let spec = WavSpec {
