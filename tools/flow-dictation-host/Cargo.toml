@@ -1,0 +1,17 @@
+[package]
+name = "flow-dictation-host"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "flow-dictate"
+path = "../../src/bin/flow-dictate.rs"
+
+[dependencies]
+anyhow = "1.0"
+cpal = "0.17"
+hound = "3.5"
+sherpa-onnx = "=1.13.1"
