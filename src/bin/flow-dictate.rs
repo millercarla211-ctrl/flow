@@ -13,7 +13,10 @@ use cpal::{Device, FromSample, Host, Sample, SampleFormat, SizedSample, Stream};
 use sherpa_onnx::{OfflineRecognizer, OfflineRecognizerConfig, OfflineTransducerModelConfig};
 
 const SAMPLE_RATE: u32 = 16_000;
-const PARAKEET_ROOT: &str = "models/stt/parakeet-tdt-0.6b-v3-int8";
+const DEFAULT_STT_MODEL_KEY: &str = "parakeet-tdt-0.6b-v3-int8";
+const NEMOTRON_STT_MODEL_KEY: &str = "nemotron-speech-streaming-en-0.6b-int8";
+const PARAKEET_STT_MODEL_ROOT: &str = "models/stt/parakeet-tdt-0.6b-v3-int8";
+const NEMOTRON_STT_MODEL_ROOT: &str = "models/stt/nemotron-speech-streaming-en-0.6b-int8";
 const AUTO_START_FLOOR_RMS: f32 = 0.000001;
 const SILENCE_TIMEOUT: Duration = Duration::from_millis(650);
 const MAX_RECORDING_DURATION: Duration = Duration::from_secs(5);
@@ -120,6 +123,14 @@ struct CaptureStreamState {
     input_sample_rate: u32,
 }
 
+#[derive(Clone, Copy)]
+struct DictationSttModel {
+    key: &'static str,
+    label: &'static str,
+    root: &'static str,
+    setup_hint: &'static str,
+}
+
 fn main() -> Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
     if matches!(args.get(1).map(String::as_str), Some("--devices")) {
@@ -153,7 +164,7 @@ fn main() -> Result<()> {
             .get(3)
             .map(String::as_str)
             .unwrap_or("recording_forced.wav");
-        run_forced_capture(seconds, output, false)?;
+        run_forced_capture(seconds, output, None)?;
         return Ok(());
     }
     if matches!(args.get(1).map(String::as_str), Some("--capture-stt")) {
@@ -166,25 +177,32 @@ fn main() -> Result<()> {
             .get(3)
             .map(String::as_str)
             .unwrap_or("recording_forced.wav");
-        run_forced_capture(seconds, output, true)?;
+        let selected_model = selected_stt_model(&args)?;
+        run_forced_capture(seconds, output, Some(selected_model))?;
         return Ok(());
     }
 
-    set_terminal_title("Flow Dictation - loading Parakeet");
+    let selected_model = selected_stt_model(&args)?;
+    set_terminal_title(&format!(
+        "Flow Dictation - loading {}",
+        selected_model.label
+    ));
     println!("Flow Dictation Lite");
     println!("===================");
-    println!("[stt] preloading Parakeet TDT 0.6B v3 INT8...");
-    let started = Instant::now();
-    let mut recognizer = load_parakeet()?;
     println!(
-        "[stt] Parakeet ready in {:.1}s",
+        "[stt] preloading {} ({})...",
+        selected_model.label, selected_model.key
+    );
+    let started = Instant::now();
+    let mut recognizer = load_sherpa_transducer(selected_model)?;
+    println!(
+        "[stt] {} ready in {:.1}s",
+        selected_model.label,
         started.elapsed().as_secs_f32()
     );
 
-    if matches!(args.get(1).map(String::as_str), Some("--file" | "-f")) {
-        let path = args
-            .get(2)
-            .context("Usage: flow-dictate --file <wav-path>")?;
+    if let Some(path) = option_value(&args, "--file").or_else(|| option_value(&args, "-f")) {
+        let path = Some(path).context("Usage: flow-dictate --file <wav-path>")?;
         let samples = load_wav_mono_16k(path)?;
         println!(
             "[file] {} samples ({:.2}s), rms={:.6}",
@@ -199,9 +217,8 @@ fn main() -> Result<()> {
 
     let host = cpal::default_host();
     let device = select_input_device(&host)?;
-    let device_name = device
-        .name()
-        .unwrap_or_else(|_| "unknown input device".to_string());
+    let device_name =
+        input_device_name(&device).unwrap_or_else(|| "unknown input device".to_string());
     let config = device.default_input_config()?;
     let channels = config.channels() as usize;
     let input_sample_rate = config.sample_rate();
@@ -371,9 +388,8 @@ fn run_audio_meter() -> Result<()> {
 
     let host = cpal::default_host();
     let device = select_input_device(&host)?;
-    let device_name = device
-        .name()
-        .unwrap_or_else(|_| "unknown input device".to_string());
+    let device_name =
+        input_device_name(&device).unwrap_or_else(|| "unknown input device".to_string());
     let config = device.default_input_config()?;
     let channels = config.channels() as usize;
     let input_sample_rate = config.sample_rate();
@@ -438,16 +454,19 @@ fn run_audio_meter() -> Result<()> {
     }
 }
 
-fn run_forced_capture(seconds: f32, output: &str, transcribe: bool) -> Result<()> {
+fn run_forced_capture(
+    seconds: f32,
+    output: &str,
+    selected_model: Option<DictationSttModel>,
+) -> Result<()> {
     set_terminal_title("Flow Dictation - forced mic capture");
     println!("Flow Dictation Forced Capture");
     println!("=============================");
 
     let host = cpal::default_host();
     let device = select_input_device(&host)?;
-    let device_name = device
-        .name()
-        .unwrap_or_else(|_| "unknown input device".to_string());
+    let device_name =
+        input_device_name(&device).unwrap_or_else(|| "unknown input device".to_string());
     let config = device.default_input_config()?;
     let channels = config.channels() as usize;
     let input_sample_rate = config.sample_rate();
@@ -492,10 +511,13 @@ fn run_forced_capture(seconds: f32, output: &str, transcribe: bool) -> Result<()
         nonzero_percent(&captured)
     );
 
-    if transcribe {
-        println!("[stt] loading Parakeet and transcribing forced capture...");
+    if let Some(selected_model) = selected_model {
+        println!(
+            "[stt] loading {} and transcribing forced capture...",
+            selected_model.label
+        );
         let load_started = Instant::now();
-        let mut recognizer = load_parakeet()?;
+        let mut recognizer = load_sherpa_transducer(selected_model)?;
         let load_elapsed = load_started.elapsed();
         let prepare_started = Instant::now();
         let prepared = prepare_recording_for_stt(&captured);
@@ -805,8 +827,8 @@ fn process_audio_chunk(data: &[f32], state: &AudioStreamState, runtime: &mut Aud
     }
 }
 
-fn load_parakeet() -> Result<OfflineRecognizer> {
-    let root = std::path::Path::new(PARAKEET_ROOT);
+fn load_sherpa_transducer(selected_model: DictationSttModel) -> Result<OfflineRecognizer> {
+    let root = std::path::Path::new(selected_model.root);
     let encoder = root.join("encoder.int8.onnx");
     let decoder = root.join("decoder.int8.onnx");
     let joiner = root.join("joiner.int8.onnx");
@@ -815,8 +837,10 @@ fn load_parakeet() -> Result<OfflineRecognizer> {
     for path in [&encoder, &decoder, &joiner, &tokens] {
         if !path.exists() {
             return Err(anyhow::anyhow!(
-                "Missing Parakeet file: {}. Run scripts/download_sherpa_parakeet_stt.ps1",
-                path.display()
+                "Missing {} file: {}. {}",
+                selected_model.label,
+                path.display(),
+                selected_model.setup_hint
             ));
         }
     }
@@ -830,8 +854,48 @@ fn load_parakeet() -> Result<OfflineRecognizer> {
     config.model_config.tokens = Some(tokens.to_string_lossy().into_owned());
     config.model_config.model_type = Some("nemo_transducer".to_string());
 
-    OfflineRecognizer::create(&config)
-        .ok_or_else(|| anyhow::anyhow!("Failed to initialize sherpa-onnx Parakeet recognizer"))
+    OfflineRecognizer::create(&config).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Failed to initialize sherpa-onnx recognizer for {}",
+            selected_model.key
+        )
+    })
+}
+
+fn selected_stt_model(args: &[String]) -> Result<DictationSttModel> {
+    let requested = option_value(args, "--model").unwrap_or(DEFAULT_STT_MODEL_KEY);
+    match requested {
+        DEFAULT_STT_MODEL_KEY => Ok(DictationSttModel {
+            key: DEFAULT_STT_MODEL_KEY,
+            label: "Parakeet TDT 0.6B v3 INT8",
+            root: PARAKEET_STT_MODEL_ROOT,
+            setup_hint: "Run scripts/download_sherpa_parakeet_stt.ps1",
+        }),
+        NEMOTRON_STT_MODEL_KEY => Ok(DictationSttModel {
+            key: NEMOTRON_STT_MODEL_KEY,
+            label: "Nemotron Speech Streaming EN 0.6B INT8",
+            root: NEMOTRON_STT_MODEL_ROOT,
+            setup_hint: "Install the Nemotron sherpa-onnx bundle under models/stt/nemotron-speech-streaming-en-0.6b-int8",
+        }),
+        other => Err(anyhow::anyhow!(
+            "Unsupported STT model '{}'. Focused host supports {}, {}.",
+            other,
+            DEFAULT_STT_MODEL_KEY,
+            NEMOTRON_STT_MODEL_KEY
+        )),
+    }
+}
+
+fn option_value<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
+    let inline_prefix = format!("{name}=");
+    args.iter()
+        .skip(1)
+        .find_map(|arg| arg.strip_prefix(&inline_prefix))
+        .or_else(|| {
+            args.windows(2).find_map(|window| {
+                (window[0] == name && !window[1].starts_with('-')).then_some(window[1].as_str())
+            })
+        })
 }
 
 fn select_input_device(host: &Host) -> Result<Device> {
@@ -848,11 +912,11 @@ fn select_input_device(host: &Host) -> Result<Device> {
     let requested = std::env::var("FLOW_INPUT_DEVICE").ok();
     let default_name = host
         .default_input_device()
-        .and_then(|device| device.name().ok());
+        .and_then(|device| input_device_name(&device));
 
     println!("[audio] input devices:");
     for device in &devices {
-        let name = device.name().unwrap_or_else(|_| "unknown".to_string());
+        let name = input_device_name(device).unwrap_or_else(|| "unknown".to_string());
         let score = input_device_score(&name);
         let marker = if Some(name.as_str()) == default_name.as_deref() {
             "default"
@@ -865,8 +929,7 @@ fn select_input_device(host: &Host) -> Result<Device> {
     if let Some(requested) = requested {
         let requested_lower = requested.to_ascii_lowercase();
         if let Some(device) = devices.iter().find(|device| {
-            device
-                .name()
+            input_device_name(device)
                 .map(|name| name.to_ascii_lowercase().contains(&requested_lower))
                 .unwrap_or(false)
         }) {
@@ -882,14 +945,14 @@ fn select_input_device(host: &Host) -> Result<Device> {
     let default = host.default_input_device();
     let default_score = default
         .as_ref()
-        .and_then(|device| device.name().ok())
+        .and_then(|device| input_device_name(device))
         .map(|name| input_device_score(&name))
         .unwrap_or(i32::MIN);
 
     let best = devices
         .iter()
         .filter_map(|device| {
-            let name = device.name().ok()?;
+            let name = input_device_name(device)?;
             Some((input_device_score(&name), device))
         })
         .max_by_key(|(score, _)| *score);
@@ -907,6 +970,13 @@ fn select_input_device(host: &Host) -> Result<Device> {
     default
         .or_else(|| devices.first().cloned())
         .context("No usable input device found")
+}
+
+fn input_device_name(device: &Device) -> Option<String> {
+    device
+        .description()
+        .map(|description| description.name().to_string())
+        .ok()
 }
 
 fn input_device_score(name: &str) -> i32 {
