@@ -1,3 +1,6 @@
+#[cfg(not(windows))]
+compile_error!("flow-dictate currently depends on Win32 clipboard/focus/input APIs.");
+
 use std::io::Write;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
