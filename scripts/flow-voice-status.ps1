@@ -13,6 +13,20 @@ function Test-AllPaths {
     return $true
 }
 
+function Test-AnyPath {
+    param([string[]]$Paths)
+    foreach ($path in $Paths) {
+        $resolved = Join-Path $repoRoot $path
+        if (Test-Path -LiteralPath $resolved) {
+            $item = Get-Item -LiteralPath $resolved
+            if ($item.Length -gt 0) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
 function Write-Check {
     param(
         [string]$Name,
@@ -76,9 +90,19 @@ $nemotron = Test-AllPaths @(
     "models/stt/nemotron-speech-streaming-en-0.6b-int8/joiner.int8.onnx",
     "models/stt/nemotron-speech-streaming-en-0.6b-int8/tokens.txt"
 )
+$whisperModel = Test-AllPaths @(
+    "models/stt/ggml-tiny.bin"
+)
+$whisperCli = Test-AnyPath @(
+    "tools/whisper.cpp/build/bin/Release/whisper-cli.exe",
+    "tools/whisper.cpp/build/bin/whisper-cli.exe",
+    "runtime/whisper.cpp/build/bin/Release/whisper-cli.exe"
+)
+$whisper = $whisperModel -and $whisperCli
 Write-Check "Moonshine tiny fallback" $moonshine "models/stt/"
 Write-Check "Parakeet TDT 0.6B v3 INT8" $parakeet "models/stt/parakeet-tdt-0.6b-v3-int8/"
 Write-Check "Nemotron Speech Streaming EN 0.6B INT8" $nemotron "models/stt/nemotron-speech-streaming-en-0.6b-int8/"
+Write-Check "Whisper Tiny GGML" $whisper "models/stt/ggml-tiny.bin + whisper.cpp whisper-cli.exe"
 
 Write-Host ""
 Write-Host "Runtime policy"
@@ -98,6 +122,8 @@ $artifactScore += [int](($wakeReady / $wakeCommands.Count) * 10)
 if ($moonshine) { $artifactScore += 4 }
 if ($parakeet) { $artifactScore += 4 }
 if ($nemotron) { $artifactScore += 2 }
+if ($whisper) { $artifactScore += 2 }
+$artifactScore = [Math]::Min(20, $artifactScore)
 $score = [Math]::Min(100, $repoScore + $artifactScore)
 
 Write-Host ""

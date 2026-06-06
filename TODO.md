@@ -8,8 +8,9 @@ Status: source-aligned, runtime proofs partial
 - [x] Document Parakeet as the default STT model and Nemotron / Whisper Tiny GGML as explicit opt-in models.
 - [x] Document Whisper binary, model, and language flag/env aliases used by Zed and the focused host.
 - [ ] Install or point Nemotron model files before claiming Nemotron runtime readiness.
-- [ ] Install or point a whisper.cpp binary plus GGML model before claiming Whisper runtime readiness.
-- [ ] Run governed non-live Parakeet, Nemotron, and Whisper file-smoke proofs before widening readiness claims.
+- [x] Install or point a whisper.cpp binary plus GGML model before claiming Whisper runtime readiness.
+- [ ] Run governed non-live Nemotron file-smoke proof before widening Nemotron readiness claims.
+- [x] Run governed non-live Whisper file-smoke proof through `flow-dictate --file ... --model whisper-tiny-ggml`.
 - [ ] Run governed live Zed microphone and Kokoro audible playback proof from the editor when authorized.
 
 ## May 22 DX Launch Token / RLM / Serializer Lane

@@ -35,6 +35,10 @@ tests/output/
 *.mp3
 !tests/fixtures/*.mp3
 
+# Local speech runtime downloads
+tools/whisper.cpp/
+runtime/whisper.cpp/
+
 # Logs
 *.log
 
