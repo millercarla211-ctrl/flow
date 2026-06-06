@@ -247,23 +247,20 @@ struct SherpaTransducerPaths {
 impl SherpaTransducerPaths {
     fn from_root(root: &Path) -> Option<Self> {
         Some(Self {
-            encoder: find_first_existing(root, &["encoder.int8.onnx", "encoder.onnx"])?,
-            decoder: find_first_existing(root, &["decoder.int8.onnx", "decoder.onnx"])?,
-            joiner: find_first_existing(root, &["joiner.int8.onnx", "joiner.onnx"])?,
-            tokens: root
-                .join("tokens.txt")
-                .exists()
-                .then(|| root.join("tokens.txt"))?,
+            encoder: find_first_nonempty(root, &["encoder.int8.onnx", "encoder.onnx"])?,
+            decoder: find_first_nonempty(root, &["decoder.int8.onnx", "decoder.onnx"])?,
+            joiner: find_first_nonempty(root, &["joiner.int8.onnx", "joiner.onnx"])?,
+            tokens: find_first_nonempty(root, &["tokens.txt"])?,
         })
     }
 }
 
 #[cfg(feature = "sherpa-stt")]
-fn find_first_existing(root: &Path, candidates: &[&str]) -> Option<PathBuf> {
+fn find_first_nonempty(root: &Path, candidates: &[&str]) -> Option<PathBuf> {
     candidates
         .iter()
         .map(|candidate| root.join(candidate))
-        .find(|path| path.exists())
+        .find(|path| file_is_nonempty(path))
 }
 
 fn sherpa_model_root_from_local_path(local_path: &str) -> Option<PathBuf> {
@@ -277,11 +274,17 @@ fn sherpa_model_root_from_local_path(local_path: &str) -> Option<PathBuf> {
 
 fn sherpa_transducer_files_ready(local_path: &str) -> bool {
     sherpa_model_root_from_local_path(local_path).is_some_and(|root| {
-        root.join("encoder.int8.onnx").exists()
-            && root.join("decoder.int8.onnx").exists()
-            && root.join("joiner.int8.onnx").exists()
-            && root.join("tokens.txt").exists()
+        file_is_nonempty(&root.join("encoder.int8.onnx"))
+            && file_is_nonempty(&root.join("decoder.int8.onnx"))
+            && file_is_nonempty(&root.join("joiner.int8.onnx"))
+            && file_is_nonempty(&root.join("tokens.txt"))
     })
+}
+
+fn file_is_nonempty(path: &Path) -> bool {
+    path.metadata()
+        .map(|metadata| metadata.is_file() && metadata.len() > 0)
+        .unwrap_or(false)
 }
 
 fn load_wav_mono_16k(audio_path: &str) -> Result<(Vec<f32>, u32, u16, u16)> {
@@ -332,6 +335,7 @@ fn load_wav_mono_16k(audio_path: &str) -> Result<(Vec<f32>, u32, u16, u16)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn missing_sherpa_model_bundle_is_not_ready() {
@@ -348,5 +352,25 @@ mod tests {
         )
         .unwrap();
         assert_eq!(root, PathBuf::from("models/stt/parakeet-tdt-0.6b-v3-int8"));
+    }
+
+    #[test]
+    fn empty_sherpa_model_bundle_is_not_ready() {
+        let root =
+            std::env::temp_dir().join(format!("flow-empty-sherpa-bundle-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        for file_name in [
+            "encoder.int8.onnx",
+            "decoder.int8.onnx",
+            "joiner.int8.onnx",
+            "tokens.txt",
+        ] {
+            fs::write(root.join(file_name), []).unwrap();
+        }
+
+        assert!(!sherpa_transducer_files_ready(&root.to_string_lossy()));
+
+        let _ = fs::remove_dir_all(root);
     }
 }

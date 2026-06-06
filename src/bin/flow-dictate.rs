@@ -875,9 +875,9 @@ fn load_sherpa_transducer(
     let tokens = root.join("tokens.txt");
 
     for path in [&encoder, &decoder, &joiner, &tokens] {
-        if !path.exists() {
+        if !file_is_nonempty(path) {
             return Err(anyhow::anyhow!(
-                "Missing {} file: {}. {}",
+                "Missing or empty {} file: {}. {}",
                 selected_model.label,
                 path.display(),
                 selected_model.setup_hint
@@ -993,15 +993,21 @@ fn requested_whisper_language(args: &[String]) -> String {
 }
 
 fn require_existing_file(path: PathBuf, source: &str) -> Result<PathBuf> {
-    if path.is_file() {
+    if file_is_nonempty(&path) {
         Ok(path)
     } else {
         Err(anyhow::anyhow!(
-            "Required file from {} does not exist: {}",
+            "Required file from {} does not exist or is empty: {}",
             source,
             path.display()
         ))
     }
+}
+
+fn file_is_nonempty(path: &Path) -> bool {
+    path.metadata()
+        .map(|metadata| metadata.is_file() && metadata.len() > 0)
+        .unwrap_or(false)
 }
 
 fn candidate_whisper_cpp_binaries() -> Vec<PathBuf> {
