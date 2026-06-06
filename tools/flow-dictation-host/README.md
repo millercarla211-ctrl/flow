@@ -1,7 +1,7 @@
 # Flow Dictation Host
 
 This package is a focused build host for `src/bin/flow-dictate.rs`.
-It keeps Zed's Agent composer STT helper build small by depending only on the audio, WAV, and Sherpa crates used by the dictation binary.
+It keeps Zed's Agent composer STT helper build small by depending on the audio, WAV, Sherpa transducer, and process-bound whisper.cpp paths used by the dictation binary.
 
 Run commands from the Flow repo root:
 

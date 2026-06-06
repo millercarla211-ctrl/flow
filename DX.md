@@ -20,3 +20,12 @@ So, rlm and serializer will be in the ai preprepare part and the metasearch is a
 Flow is the DX tool substrate for provider, metasearch, serializer, RLM, Forge, and token work. New worker chats should use `[@superpowers](plugin://superpowers@openai-curated)`, read `G:\Dx\WORKER_PROMPTS.md`, avoid local servers/heavy builds without permission, and update `TODO.md`, `CHANGELOG.md`, and this file when changing launch status.
 
 For the launch sprint, Flow workers should focus on token/RLM/serializer receipts and tool contracts that Zed can consume quickly. Do not rewrite broad editor JSON parsing before launch; expose small stable receipts under `G:\Dx\.dx\receipts`.
+
+# June 6 DX/Zed Flow Dictation Handoff
+
+`G:\Dx\flow` is now a copied Flow repo for the DX/Zed voice integration, not a junction-only placeholder. The focused dictation host is `src/bin/flow-dictate.rs`, built through `tools\flow-dictation-host\Cargo.toml`, and Zed's Agent composer calls it with `flow-dictate --file <wav> --model <key>`.
+
+- Default STT model: Parakeet TDT 0.6B v3 INT8 at `models\stt\parakeet-tdt-0.6b-v3-int8`.
+- Opt-in STT models: Nemotron Speech Streaming EN 0.6B INT8 through `--model nemotron-speech-streaming-en-0.6b-int8`, and Whisper Tiny GGML through `--model whisper-tiny-ggml`.
+- Whisper is a whisper.cpp subprocess path, not a Sherpa crate path. It resolves the binary through `--whisper-bin`, `--whisper-cpp`, `FLOW_WHISPER_CPP_BINARY`, `DX_WHISPER_CPP_BINARY`, `FLOW_WHISPER_CPP_EXE`, `FLOW_WHISPER_CPP`, or known Flow-local build paths; it resolves the model through `--whisper-model`, `FLOW_WHISPER_MODEL`, `DX_FLOW_WHISPER_MODEL`, or `models\stt\ggml-tiny.bin`; it resolves language through `--whisper-language`, `FLOW_WHISPER_LANGUAGE`, `DX_FLOW_WHISPER_LANGUAGE`, or `en`.
+- Current proof boundary: Parakeet model assets are present and the focused host exists; governed Nemotron smoke proof, governed Whisper smoke proof, live Zed microphone proof, and live Kokoro audible playback proof remain unclaimed.

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a June 6 DX/Zed dictation-host handoff covering `flow-dictate`, Parakeet default STT, Nemotron and Whisper Tiny GGML opt-in paths, Whisper binary/model/language flag and env aliases, and the remaining unclaimed Nemotron, Whisper, live microphone, and Kokoro playback proofs.
 - Added May 22 launch notes for token/RLM/serializer workers and Zed-facing receipt contracts.
 - completed Friday Release Learning Register at 100/100 with typed local-only learning records, lesson/prevention-experiment/decision-pattern/quality-gate/owner-commitment/retired-learning categories, append/list/export/JSON commands, dashboard import/rendering, copyable next-cycle commitments, repeated lesson and owner commitment summaries, and focused Rust/TypeScript coverage
 - opened Friday Release Knowledge Index as the next set for making release learning searchable, filterable, and comparable across local release cycles
