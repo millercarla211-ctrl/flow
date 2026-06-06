@@ -230,7 +230,15 @@ fn main() -> Result<()> {
             samples.len() as f32 / SAMPLE_RATE as f32,
             rms_energy(&samples)
         );
-        let text = transcribe_samples(&mut stt_backend, &samples)?;
+        let prepared = prepare_recording_for_stt(&samples);
+        println!(
+            "[process] prepared={:.2}s noise_floor={:.7} gain={:.1}x final_rms={:.6}",
+            prepared.samples.len() as f32 / SAMPLE_RATE as f32,
+            prepared.noise_floor,
+            prepared.gain,
+            prepared.final_rms
+        );
+        let text = transcribe_samples(&mut stt_backend, &prepared.samples)?;
         println!("[stt] \"{}\"", text);
         return Ok(());
     }
@@ -1625,4 +1633,21 @@ fn set_terminal_title(title: &str) {
     let sanitized = title.replace(['\x07', '\x1b'], "");
     print!("\x1b]0;{}\x07", sanitized);
     let _ = std::io::stdout().flush();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prepares_silent_recording_without_dropping_samples() {
+        let samples = vec![0.0; SAMPLE_RATE as usize];
+
+        let prepared = prepare_recording_for_stt(&samples);
+
+        assert_eq!(prepared.samples.len(), samples.len());
+        assert_eq!(prepared.noise_floor, 0.0);
+        assert_eq!(prepared.gain, 1.0);
+        assert_eq!(prepared.final_rms, 0.0);
+    }
 }
