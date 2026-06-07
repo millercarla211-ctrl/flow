@@ -1,5 +1,7 @@
 use std::{
-    env, fs,
+    env,
+    fs::{self, File},
+    io::BufReader,
     path::{Path, PathBuf},
 };
 
@@ -149,12 +151,73 @@ fn validate_wav_output(path: &Path) -> Result<()> {
     if size <= 44 {
         bail!("TTS output WAV is empty: {}", path.display());
     }
+
+    let reader = hound::WavReader::open(path)
+        .with_context(|| format!("TTS output is not a valid WAV file: {}", path.display()))?;
+    let spec = reader.spec();
+    if spec.channels == 0 {
+        bail!("TTS output WAV has no channels: {}", path.display());
+    }
+    if spec.sample_rate == 0 {
+        bail!("TTS output WAV has no sample rate: {}", path.display());
+    }
+    if spec.bits_per_sample == 0 {
+        bail!("TTS output WAV has no sample depth: {}", path.display());
+    }
+    if reader.duration() == 0 {
+        bail!("TTS output WAV has no audio samples: {}", path.display());
+    }
+    if !wav_contains_signal(reader, spec)? {
+        bail!(
+            "TTS output WAV only contains silent samples: {}",
+            path.display()
+        );
+    }
+
     Ok(())
+}
+
+fn wav_contains_signal(
+    mut reader: hound::WavReader<BufReader<File>>,
+    spec: hound::WavSpec,
+) -> Result<bool> {
+    match spec.sample_format {
+        hound::SampleFormat::Float => {
+            for sample in reader.samples::<f32>() {
+                if sample.context("Failed to read TTS WAV sample")?.abs() > f32::EPSILON {
+                    return Ok(true);
+                }
+            }
+        }
+        hound::SampleFormat::Int if spec.bits_per_sample <= 16 => {
+            for sample in reader.samples::<i16>() {
+                if sample.context("Failed to read TTS WAV sample")? != 0 {
+                    return Ok(true);
+                }
+            }
+        }
+        hound::SampleFormat::Int => {
+            for sample in reader.samples::<i32>() {
+                if sample.context("Failed to read TTS WAV sample")? != 0 {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+
+    Ok(false)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::TtsRequest;
+    use std::{
+        fs,
+        path::PathBuf,
+        process,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    use super::{TtsRequest, validate_wav_output};
 
     #[test]
     fn parses_text_and_output_path() {
@@ -186,5 +249,70 @@ mod tests {
         .to_string();
 
         assert!(error.contains("Missing --output"));
+    }
+
+    #[test]
+    fn accepts_valid_wav_output() {
+        let path = temporary_wav_path("valid");
+        write_wav(&path, &[120]).unwrap();
+
+        validate_wav_output(&path).unwrap();
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn rejects_invalid_wav_output() {
+        let path = temporary_wav_path("invalid");
+        fs::write(&path, vec![0; 128]).unwrap();
+
+        let error = validate_wav_output(&path).unwrap_err().to_string();
+
+        let _ = fs::remove_file(path);
+        assert!(error.contains("not a valid WAV"));
+    }
+
+    #[test]
+    fn rejects_empty_wav_output() {
+        let path = temporary_wav_path("empty");
+        write_wav(&path, &[]).unwrap();
+
+        let error = validate_wav_output(&path).unwrap_err().to_string();
+
+        let _ = fs::remove_file(path);
+        assert!(error.contains("empty") || error.contains("no audio samples"));
+    }
+
+    #[test]
+    fn rejects_silent_wav_output() {
+        let path = temporary_wav_path("silent");
+        write_wav(&path, &[0, 0, 0]).unwrap();
+
+        let error = validate_wav_output(&path).unwrap_err().to_string();
+
+        let _ = fs::remove_file(path);
+        assert!(error.contains("only contains silent samples"));
+    }
+
+    fn temporary_wav_path(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("flow-tts-{name}-{}-{nanos}.wav", process::id()))
+    }
+
+    fn write_wav(path: &PathBuf, samples: &[i16]) -> hound::Result<()> {
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 24_000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(path, spec)?;
+        for sample in samples {
+            writer.write_sample(*sample)?;
+        }
+        writer.finalize()
     }
 }
