@@ -80,6 +80,10 @@ name = "flow-dictate"
 path = "src/bin/flow-dictate.rs"
 required-features = ["sherpa-stt"]
 
+[[bin]]
+name = "flow-tts"
+path = "src/bin/flow-tts.rs"
+
 [[example]]
 name = "transcribe"
 path = "examples/transcribe.rs"

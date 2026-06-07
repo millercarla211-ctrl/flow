@@ -1,0 +1,20 @@
+[package]
+name = "flow-tts-host"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "flow-tts"
+path = "../../src/bin/flow-tts.rs"
+
+[dependencies]
+anyhow = "1.0"
+hound = "3.5"
+ndarray = "0.17"
+ndarray-npy = "0.10.0"
+ort = { version = "2.0.0-rc.12", features = ["download-binaries", "copy-dylibs"] }
+serde_json = "1.0"
+tokio = { version = "1.50", features = ["rt-multi-thread", "macros"] }
