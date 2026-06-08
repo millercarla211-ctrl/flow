@@ -4,10 +4,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    FridayLocalCheckStatus, FridayMediaAffordanceStatus, FridayUiVisualCheckStatus,
     default_friday_browser_verification_report, default_friday_local_execution_checks,
     friday_execution_handoff_report, friday_live_ui_route_binding_report, friday_media_affordances,
-    friday_multimodal_visual_check, friday_route_visual_report,
+    friday_multimodal_visual_check, friday_route_visual_report, FridayLocalCheckStatus,
+    FridayMediaAffordanceStatus, FridayUiVisualCheckStatus,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -261,7 +261,7 @@ fn desktop_host_item() -> FridayOperatorReadinessItem {
 
     item(
         "desktop-host",
-        "Desktop voice host and overlay entries",
+        "Desktop voice entrypoint files",
         status,
         percentage(present, files.len()),
         true,
@@ -269,8 +269,12 @@ fn desktop_host_item() -> FridayOperatorReadinessItem {
         files
             .iter()
             .map(|path| format!("{path}={}", present_label(Path::new(path).exists())))
+            .chain([
+                "live_zed_microphone=unclaimed".to_string(),
+                "kokoro_audible_playback=unclaimed".to_string(),
+            ])
             .collect(),
-        "Keep dictation and overlay entry points tracked before UI execution changes.",
+        "Keep dictation entrypoint files tracked; run governed live Zed microphone and audible playback proof before widening voice readiness claims.",
     )
 }
 
@@ -425,7 +429,11 @@ fn percentage(numerator: usize, denominator: usize) -> u8 {
 }
 
 fn present_label(present: bool) -> &'static str {
-    if present { "present" } else { "missing" }
+    if present {
+        "present"
+    } else {
+        "missing"
+    }
 }
 
 fn unix_ms() -> u128 {

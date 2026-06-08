@@ -97,7 +97,7 @@ Key library APIs:
   - one embeddable local runtime for chat, STT, TTS, and transcript cleanup
   - uses broker-selected local models instead of HTTP wrappers
   - defaults low-end devices to `qwen3-0.6b` for text generation
-  - lazy-loads Moonshine STT and Kokoro TTS on first use
+  - lazy-loads local STT/TTS runtimes on first use; the Zed dictation handoff uses the focused `flow-dictate` host with Parakeet by default, Whisper Tiny GGML as an explicit file-mode opt-in, and Nemotron still gated on governed proof
   - exposes `generate_text`, `transcribe_file`, `clean_transcription`, `synthesize_text`, and `transcribe_clean_and_synthesize_to_file`
 - `FlowLocalRuntimeSummary`
   - reports the selected local chat, STT, and TTS models for the current device
@@ -263,8 +263,9 @@ Flow is optimized for bad hardware first.
 Low-end 24/7 defaults:
 
 - `qwen3-0.6b` for fast local rewrites
-- `moonshine-tiny` as the smallest on-demand speech recognition fallback
-- `parakeet-tdt-0.6b-v3-int8` and `nemotron-speech-streaming-en-0.6b-int8` as optional sherpa-onnx STT upgrades when local artifacts exist
+- `moonshine-tiny` as the smallest embedded speech-recognition fallback for the legacy runtime path
+- `parakeet-tdt-0.6b-v3-int8` as the default focused dictation-host model for the Zed handoff
+- `nemotron-speech-streaming-en-0.6b-int8` and `whisper-tiny-ggml` as explicit STT opt-ins; Nemotron remains unclaimed until governed model smoke proof passes
 - `kokoro-onnx-int8` for lightweight voice confirmation
 - tight RAM budgets
 - aggressive unload-on-idle
@@ -341,7 +342,7 @@ Flow now includes a direct embeddable local-runtime API intended for hosts like 
 - `FlowLocalRuntime::generate_text(prompt)`
   - runs local text generation through the selected local chat model
 - `FlowLocalRuntime::transcribe_file(path)`
-  - runs local STT through Moonshine
+  - runs local STT through the embedded runtime path; the Zed handoff uses `flow-dictate --file <wav> --model <key>` so the selected Parakeet, Whisper, or Nemotron contract is explicit
 - `FlowLocalRuntime::clean_transcription(raw)`
   - runs local transcript cleanup through the selected local chat model
 - `FlowLocalRuntime::synthesize_text(text)`
@@ -562,6 +563,8 @@ Verified repository-scope release snapshot after the latest validation pass:
 
 This `100/100` score applies to the implemented scope inside this repository today. It does not mean every future platform ambition is already delivered.
 
+Voice proof boundary: this repository-scope snapshot is historical standalone Flow validation, not fresh live Zed editor proof. Live Zed microphone capture, governed Nemotron smoke proof, and audible Kokoro playback from the editor remain separate validation items.
+
 Newly added but not yet re-scored:
 
 - OS-aware automatic module bootstrap
@@ -598,4 +601,4 @@ Operational release docs now live in:
 
 ## Status
 
-Flow is production-ready for the current repository scope and still under active expansion for future platform depth, competitive uplift, and broader host integrations.
+Flow is production-ready for the current repository scope and still under active expansion for future platform depth, competitive uplift, and broader host integrations. That status does not by itself claim fresh live Zed microphone or audible Kokoro playback proof.

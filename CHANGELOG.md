@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Tightened DX/Zed voice handoff honesty: execution handoffs now distinguish declared artifact contracts from real artifact readiness, route visuals warn until screenshots exist, desktop voice readiness is labeled as entrypoint-file tracking, dashboard export copy no longer says "ready at 100" when warnings exist, and voice docs now keep live Zed microphone, Nemotron, and audible Kokoro proof unclaimed until governed validation reruns.
 - Added a June 6 DX/Zed dictation-host handoff covering `flow-dictate`, Parakeet default STT, Nemotron and Whisper Tiny GGML opt-in paths, Whisper binary/model/language flag and env aliases, and the remaining unclaimed Nemotron, Whisper, live microphone, and Kokoro playback proofs.
 - Added a Whisper Tiny GGML installer that fetches the ignored local whisper.cpp CPU x64 runtime and `ggml-tiny.bin`, normalizes nested release zip layouts into Flow's default binary path, and reports Whisper readiness in `flow-voice-status.ps1`.
 - Passed a direct copied-Flow Whisper file smoke through `flow-dictate --file G:\Temp\UserTemp\zed-flow-mic-proof\flow-mic-capture.wav --model whisper-tiny-ggml`, loading the installed default artifacts and returning `[stt] "(coughs)"`; live Zed composer proof remains separate.

@@ -21,9 +21,11 @@ This file tracks the verified release state of the standalone Flow core.
 
 This `100/100` score is for the code that exists in this repository today. It does not mean every long-term product ambition is finished across every OS, editor, browser store, or future multimodal/runtime integration.
 
+Voice proof boundary: this standalone Flow release status is historical repository-scope proof. It was not refreshed during the current source-only Zed voice audit and does not claim live Zed microphone capture, governed Nemotron smoke proof, or audible Kokoro playback from the editor.
+
 ## Verified Commands
 
-The following commands were re-run successfully on **April 27, 2026** from this repository:
+The following commands were re-run successfully on **April 27, 2026** from this repository. They are carried-forward standalone Flow release evidence, not fresh proof from the current Zed STT/TTS integration pass:
 
 - `cargo check`
 - `cargo test`
@@ -64,7 +66,7 @@ These changes were made after hitting real `link.exe` memory pressure, paging-fi
 
 ## Meaning
 
-Flow is now in a verified, production-ready state for the current repository scope:
+Flow is in a verified, production-ready state for the standalone current repository scope:
 
 - the Rust crate builds and tests cleanly
 - the browser/WASM planning crate builds cleanly

@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use super::{FridayWorkspaceArea, default_friday_ui_integration_plan};
+use super::{default_friday_ui_integration_plan, FridayWorkspaceArea};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -262,14 +262,14 @@ fn handoff_from_spec(
     let local_only = true;
     let permissions_ready = !spec.permission_scopes.is_empty();
     let recovery_ready = !spec.recovery_command.trim().is_empty();
-    let artifact_ready = spec
+    let artifact_contract_declared = spec
         .artifact_path
         .map(|path| path.ends_with(".json") || path.ends_with("manifest.json"))
         .unwrap_or(true);
     let status =
         if route_ready && command_bound && source_ready && permissions_ready && recovery_ready {
             FridayExecutionHandoffStatus::Passed
-        } else if source_ready && artifact_ready {
+        } else if source_ready && artifact_contract_declared {
             FridayExecutionHandoffStatus::Warning
         } else {
             FridayExecutionHandoffStatus::Failed
@@ -299,7 +299,7 @@ fn handoff_from_spec(
             format!("source_ready={source_ready}"),
             format!("permissions_ready={permissions_ready}"),
             format!("recovery_ready={recovery_ready}"),
-            format!("artifact_path_ready={artifact_ready}"),
+            format!("artifact_contract_declared={artifact_contract_declared}"),
             format!("surface={}", spec.surface.label()),
         ],
         next_action: spec.next_action.to_string(),

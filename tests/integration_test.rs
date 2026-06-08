@@ -986,10 +986,19 @@ fn friday_operator_readiness_rolls_up_live_surfaces() {
     );
     assert!(report.items.iter().any(|item| {
         item.id == "desktop-host"
+            && item.title == "Desktop voice entrypoint files"
             && item
                 .evidence
                 .iter()
                 .any(|evidence| evidence.contains("src/bin/flow-dictate.rs=present"))
+            && item
+                .evidence
+                .iter()
+                .any(|evidence| evidence == "live_zed_microphone=unclaimed")
+            && item
+                .evidence
+                .iter()
+                .any(|evidence| evidence == "kokoro_audible_playback=unclaimed")
     }));
     assert!(report.items.iter().all(|item| item.local_only));
 }
@@ -998,14 +1007,20 @@ fn friday_operator_readiness_rolls_up_live_surfaces() {
 fn friday_route_visuals_cover_most_used_routes() {
     let report = friday_route_visual_report();
 
-    assert_eq!(report.score_out_of_100, 100);
+    assert_eq!(report.score_out_of_100, 50);
     assert_eq!(report.target_count, 10);
+    assert_eq!(report.passed_count, 0);
+    assert_eq!(report.warning_count, 10);
     assert_eq!(report.blocking_count, 0);
     assert!(report.targets.iter().all(|target| {
-        target.status == FridayRouteVisualStatus::Passed
+        target.status == FridayRouteVisualStatus::Warning
             && target.screenshot_path.ends_with(".png")
             && target.metadata_path.ends_with(".json")
             && target.capture_command.contains("agent-browser screenshot")
+            && target
+                .evidence
+                .iter()
+                .any(|evidence| evidence == "screenshot_present=false")
     }));
     for route in ["/ask", "/search", "/research", "/voice", "/multimodal"] {
         assert!(report.targets.iter().any(|target| target.route == route));
@@ -1023,10 +1038,10 @@ fn friday_route_visuals_cover_most_used_routes() {
 fn friday_execution_handoffs_bind_ui_actions_to_local_commands() {
     let report = friday_execution_handoff_report();
 
-    assert_eq!(report.score_out_of_100, 92);
+    assert_eq!(report.score_out_of_100, 83);
     assert_eq!(report.handoff_count, 6);
-    assert_eq!(report.passed_count, 5);
-    assert_eq!(report.warning_count, 1);
+    assert_eq!(report.passed_count, 4);
+    assert_eq!(report.warning_count, 2);
     assert_eq!(report.blocking_count, 0);
     assert!(report.handoffs.iter().all(|handoff| {
         handoff.status != FridayExecutionHandoffStatus::Failed
@@ -1045,8 +1060,21 @@ fn friday_execution_handoffs_bind_ui_actions_to_local_commands() {
                 .iter()
                 .any(|evidence| evidence == "command_bound=false")
             && handoff
+                .evidence
+                .iter()
+                .any(|evidence| evidence == "artifact_contract_declared=true")
+            && handoff
                 .permission_scopes
                 .contains(&"recorded-audio-file".to_string())
+    }));
+    assert!(report.handoffs.iter().any(|handoff| {
+        handoff.id == "readiness-command"
+            && handoff.status == FridayExecutionHandoffStatus::Warning
+            && !handoff.requires_user_gesture
+            && handoff
+                .evidence
+                .iter()
+                .any(|evidence| evidence == "command_bound=false")
     }));
     assert!(report.handoffs.iter().any(|handoff| {
         handoff.id == "research-report"

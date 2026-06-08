@@ -7,12 +7,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::{
-    FridayExecutionHandoffReport, FridayLiveUiRouteBindingReport, FridayOperatorReadinessReport,
-    FridayOperatorReadinessStatus, FridayRouteVisualReport, FridayRouteVisualTarget,
     friday_execution_handoff_report, friday_live_ui_route_binding_report,
-    friday_operator_readiness_report, friday_route_visual_report,
+    friday_operator_readiness_report, friday_route_visual_report, FridayExecutionHandoffReport,
+    FridayLiveUiRouteBindingReport, FridayOperatorReadinessReport, FridayOperatorReadinessStatus,
+    FridayRouteVisualReport, FridayRouteVisualTarget,
 };
-use crate::competitive::{CompletionSet, active_completion_set};
+use crate::competitive::{active_completion_set, CompletionSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -366,7 +366,7 @@ pub fn export_friday_dashboard_bundle(
         score_out_of_100: completion.current_score_out_of_100,
         export_dir: path_string(&export_dir),
         summary: format!(
-            "Friday dashboard export ready at {} / {} with {} readiness warning(s) and {} blocking issue(s).",
+            "Friday dashboard export records completion at {} / {}; readiness has {} warning(s) and {} blocking issue(s).",
             completion.current_score_out_of_100,
             completion.target_score_out_of_100,
             readiness.warning_count,

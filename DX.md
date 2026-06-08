@@ -23,7 +23,7 @@ For the launch sprint, Flow workers should focus on token/RLM/serializer receipt
 
 # June 6 DX/Zed Flow Dictation Handoff
 
-`G:\Dx\flow` is now a copied Flow repo for the DX/Zed voice integration, not a junction-only placeholder. The focused dictation host is `src/bin/flow-dictate.rs`, built through `tools\flow-dictation-host\Cargo.toml`, and Zed's Agent composer calls it with `flow-dictate --file <wav> --model <key>`.
+`G:\Dx\flow` is now a copied Flow repo for the DX/Zed voice integration, not a junction-only placeholder. The focused dictation host is `src/bin/flow-dictate.rs`, built through `tools\flow-dictation-host\Cargo.toml`, and the handoff contract expects Zed's Agent composer to call it with `flow-dictate --file <wav> --model <key>`.
 
 - Default STT model: Parakeet TDT 0.6B v3 INT8 at `models\stt\parakeet-tdt-0.6b-v3-int8`.
 - Opt-in STT models: Nemotron Speech Streaming EN 0.6B INT8 through `--model nemotron-speech-streaming-en-0.6b-int8`, and Whisper Tiny GGML through `--model whisper-tiny-ggml`.

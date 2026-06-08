@@ -4,8 +4,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    FridayUiIntegrationStatus, FridayUiVisualViewport, FridayWorkspaceArea,
-    default_friday_ui_integration_plan,
+    default_friday_ui_integration_plan, FridayUiIntegrationStatus, FridayUiVisualViewport,
+    FridayWorkspaceArea,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -176,7 +176,7 @@ fn visual_target(
         })
         .unwrap_or(false);
     let paths_ready = screenshot_path.ends_with(".png") && metadata_path.ends_with(".json");
-    let status = if route_ready && source_ready && paths_ready {
+    let status = if route_ready && source_ready && paths_ready && screenshot_present {
         FridayRouteVisualStatus::Passed
     } else if source_ready && paths_ready {
         FridayRouteVisualStatus::Warning

@@ -4,6 +4,8 @@
 
 Status: source-aligned, runtime proofs partial
 
+This section supersedes older completed-set language for current Zed STT/TTS proof claims: live Zed microphone capture, governed Nemotron smoke proof, and audible Kokoro playback remain unclaimed until explicitly rerun.
+
 - [x] Keep `flow-dictate` as the focused STT host for Zed's Agent composer.
 - [x] Document Parakeet as the default STT model and Nemotron / Whisper Tiny GGML as explicit opt-in models.
 - [x] Document Whisper binary, model, and language flag/env aliases used by Zed and the focused host.
