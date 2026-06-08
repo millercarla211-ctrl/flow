@@ -198,7 +198,7 @@ fn tts_check() -> FridayLocalExecutionCheck {
         FridayWorkspaceArea::Voice,
         FridayLocalCheckKind::ModelArtifacts,
         "Default TTS artifact readiness",
-        "flow --speak <text>",
+        "flow-tts --text <text> --output <wav-path>",
         if ready {
             FridayLocalCheckStatus::Passed
         } else {

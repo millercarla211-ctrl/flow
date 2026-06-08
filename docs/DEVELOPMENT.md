@@ -54,8 +54,8 @@ cargo run -- --transcribe audio.mp3
 # Full pipeline (STT + LLM)
 cargo run -- --wispr audio.mp3
 
-# Text-to-speech
-cargo run -- --speak "Hello world"
+# Text-to-speech file output
+cargo run --bin flow-tts -- --text "Hello world" --output tmp/speech.wav
 ```
 
 ## Code Style
