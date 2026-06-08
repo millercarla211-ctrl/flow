@@ -153,6 +153,10 @@ enum DictationSttBackend {
 
 fn main() -> Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
+    if is_help_request(&args) {
+        print_usage();
+        return Ok(());
+    }
     if matches!(args.get(1).map(String::as_str), Some("--devices")) {
         let host = cpal::default_host();
         let _ = select_input_device(&host)?;
@@ -407,6 +411,33 @@ fn main() -> Result<()> {
 
         std::thread::sleep(Duration::from_millis(80));
     }
+}
+
+fn is_help_request(args: &[String]) -> bool {
+    matches!(
+        args.get(1).map(String::as_str),
+        Some("--help") | Some("-h") | Some("help")
+    )
+}
+
+fn print_usage() {
+    println!("Usage: flow-dictate [command] [options]");
+    println!();
+    println!("Commands:");
+    println!("  --devices                         List available input devices");
+    println!("  --meter                           Show the live input level meter");
+    println!("  --file <wav-path>                 Transcribe an existing WAV file");
+    println!("  --capture [seconds] [wav-path]    Record a bounded microphone sample");
+    println!("  --capture-stt [seconds] [wav]     Record and transcribe a bounded sample");
+    println!("  --paste-test [text]               Paste a short text into the focused input");
+    println!();
+    println!("Options:");
+    println!(
+        "  --model <key>                     parakeet-tdt-0.6b-v3-int8, whisper-tiny-ggml, or nemotron-speech-streaming-en-0.6b-int8"
+    );
+    println!("  --whisper-bin <path>              Override whisper.cpp executable");
+    println!("  --whisper-model <path>            Override Whisper model file");
+    println!("  --whisper-language <code>         Whisper language code, default en");
 }
 
 fn run_audio_meter() -> Result<()> {
@@ -1649,5 +1680,20 @@ mod tests {
         assert_eq!(prepared.noise_floor, 0.0);
         assert_eq!(prepared.gain, 1.0);
         assert_eq!(prepared.final_rms, 0.0);
+    }
+
+    #[test]
+    fn recognizes_help_requests_without_starting_dictation() {
+        for help_arg in ["--help", "-h", "help"] {
+            assert!(is_help_request(&[
+                "flow-dictate".to_string(),
+                help_arg.to_string()
+            ]));
+        }
+
+        assert!(!is_help_request(&[
+            "flow-dictate".to_string(),
+            "--devices".to_string()
+        ]));
     }
 }

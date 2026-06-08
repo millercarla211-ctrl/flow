@@ -15,6 +15,9 @@ const OCR_MODEL_KEY: &str = "glm-ocr-q4km";
 const VLM_MODEL_KEY: &str = "gemma4-e4b-frontend-q4km";
 const VLM_MODEL_PATH: &str = "models/llm/gemma-4-E4B-it.Q4_K_M.gguf";
 const VLM_MMPROJ_PATH: &str = "models/llm/gemma-4-E4B-it.BF16-mmproj.gguf";
+const KOKORO_MODEL_FILE: &str = "models/tts/kokoro-v1.0.int8.onnx";
+const KOKORO_VOICES_FILE: &str = "models/tts/voices-v1.0.bin";
+const KOKORO_CONFIG_FILE: &str = "models/tts/config.json";
 const DEFAULT_VLM_PROMPT: &str =
     "Describe the screenshot, visible text, primary UI regions, and likely user intent.";
 
@@ -811,12 +814,19 @@ fn tts_route() -> FridayMultimodalModelRoute {
         purpose: "text-to-speech".to_string(),
         local_only: true,
         resident: false,
-        command: "flow --speak <text>".to_string(),
-        files: vec![FridayMultimodalModelFile {
-            path: "models/tts/kokoro.onnx".to_string(),
-            purpose: "tts model".to_string(),
-            present: Path::new("models/tts/kokoro.onnx").exists(),
-        }],
+        command: "flow-tts --text <text> --output <wav-path>".to_string(),
+        files: [
+            (KOKORO_MODEL_FILE, "tts model"),
+            (KOKORO_VOICES_FILE, "tts voices"),
+            (KOKORO_CONFIG_FILE, "tts config"),
+        ]
+        .into_iter()
+        .map(|(path, purpose)| FridayMultimodalModelFile {
+            path: path.to_string(),
+            purpose: purpose.to_string(),
+            present: Path::new(path).exists(),
+        })
+        .collect(),
     }
 }
 
