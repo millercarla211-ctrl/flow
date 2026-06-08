@@ -794,16 +794,15 @@ fn vlm_route() -> FridayMultimodalModelRoute {
 
 fn audio_route() -> FridayMultimodalModelRoute {
     FridayMultimodalModelRoute {
-        model_key: "parakeet-unified-en-0.6b-int8".to_string(),
+        model_key: "parakeet-tdt-0.6b-v3-int8".to_string(),
         purpose: "speech-to-text".to_string(),
         local_only: true,
         resident: false,
-        command: "flow --dictate".to_string(),
+        command: "flow-dictate --file <wav-path> --model parakeet-tdt-0.6b-v3-int8".to_string(),
         files: vec![FridayMultimodalModelFile {
-            path: "models/stt/parakeet-unified-en-0.6b-int8/encoder.int8.onnx".to_string(),
+            path: "models/stt/parakeet-tdt-0.6b-v3-int8/encoder.int8.onnx".to_string(),
             purpose: "stt encoder".to_string(),
-            present: Path::new("models/stt/parakeet-unified-en-0.6b-int8/encoder.int8.onnx")
-                .exists(),
+            present: Path::new("models/stt/parakeet-tdt-0.6b-v3-int8/encoder.int8.onnx").exists(),
         }],
     }
 }

@@ -173,7 +173,7 @@ fn stt_check() -> FridayLocalExecutionCheck {
         FridayWorkspaceArea::Voice,
         FridayLocalCheckKind::ModelArtifacts,
         "Default STT artifact readiness",
-        "flow --transcribe <short-wav>",
+        "flow-dictate --file <wav-path> --model <model-key>",
         status,
         evidence,
         next_action,

@@ -48,8 +48,8 @@ cargo run --example wispr_flow
 ## CLI Usage
 
 ```bash
-# Transcribe audio
-cargo run -- --transcribe audio.mp3
+# Speech-to-text file input
+cargo run --bin flow-dictate -- --file tmp/input.wav --model parakeet-tdt-0.6b-v3-int8
 
 # Full pipeline (STT + LLM)
 cargo run -- --wispr audio.mp3
