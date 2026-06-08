@@ -256,13 +256,7 @@ fn handoff_from_spec(
         .map(|route| route.route == spec.area.route() && !route.primary_command.is_empty())
         .unwrap_or(false);
     let command_bound = route
-        .map(|route| {
-            spec.command.contains(&route.primary_command)
-                || route
-                    .primary_command
-                    .contains(spec.command.split_whitespace().next().unwrap_or(""))
-                || !route.primary_command.trim().is_empty()
-        })
+        .map(|route| commands_share_family(spec.command, &route.primary_command))
         .unwrap_or(false);
     let source_ready = file_ready(spec.source_file);
     let local_only = true;
@@ -310,6 +304,27 @@ fn handoff_from_spec(
         ],
         next_action: spec.next_action.to_string(),
     }
+}
+
+fn commands_share_family(expected: &str, actual: &str) -> bool {
+    let expected_family = command_family(expected);
+    let actual_family = command_family(actual);
+
+    !expected_family.is_empty() && expected_family == actual_family
+}
+
+fn command_family(command: &str) -> String {
+    command
+        .split_whitespace()
+        .filter(|part| {
+            !(part.starts_with('<')
+                || part.ends_with('>')
+                || part.starts_with('[')
+                || part.ends_with(']'))
+        })
+        .take(2)
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn file_ready(path: &str) -> bool {

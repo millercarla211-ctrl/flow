@@ -1023,11 +1023,13 @@ fn friday_route_visuals_cover_most_used_routes() {
 fn friday_execution_handoffs_bind_ui_actions_to_local_commands() {
     let report = friday_execution_handoff_report();
 
-    assert_eq!(report.score_out_of_100, 100);
+    assert_eq!(report.score_out_of_100, 92);
     assert_eq!(report.handoff_count, 6);
+    assert_eq!(report.passed_count, 5);
+    assert_eq!(report.warning_count, 1);
     assert_eq!(report.blocking_count, 0);
     assert!(report.handoffs.iter().all(|handoff| {
-        handoff.status == FridayExecutionHandoffStatus::Passed
+        handoff.status != FridayExecutionHandoffStatus::Failed
             && handoff.local_only
             && !handoff.permission_scopes.is_empty()
             && !handoff.recovery_command.trim().is_empty()
@@ -1035,11 +1037,16 @@ fn friday_execution_handoffs_bind_ui_actions_to_local_commands() {
     }));
     assert!(report.handoffs.iter().any(|handoff| {
         handoff.id == "voice-dictation"
-            && handoff.command == "flow --dictate"
+            && handoff.status == FridayExecutionHandoffStatus::Warning
+            && handoff.command == "flow-dictate --file <wav-path> --model parakeet-tdt-0.6b-v3-int8"
             && handoff.requires_user_gesture
             && handoff
+                .evidence
+                .iter()
+                .any(|evidence| evidence == "command_bound=false")
+            && handoff
                 .permission_scopes
-                .contains(&"microphone".to_string())
+                .contains(&"recorded-audio-file".to_string())
     }));
     assert!(report.handoffs.iter().any(|handoff| {
         handoff.id == "research-report"

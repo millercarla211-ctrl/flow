@@ -265,7 +265,7 @@ fn desktop_host_item() -> FridayOperatorReadinessItem {
         status,
         percentage(present, files.len()),
         true,
-        "flow --dictate",
+        "flow-dictate --file <wav-path> --model <model-key>",
         files
             .iter()
             .map(|path| format!("{path}={}", present_label(Path::new(path).exists())))
