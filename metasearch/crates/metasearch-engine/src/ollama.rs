@@ -13,8 +13,8 @@ use metasearch_core::{
     result::SearchResult,
 };
 use reqwest::Client;
-use tracing::info;
 use smallvec::smallvec;
+use tracing::info;
 
 pub struct Ollama {
     metadata: EngineMetadata,
@@ -89,11 +89,7 @@ impl SearchEngine for Ollama {
             }
         }
 
-        info!(
-            engine = "ollama",
-            count = results.len(),
-            "Search complete"
-        );
+        info!(engine = "ollama", count = results.len(), "Search complete");
         Ok(results)
     }
 }

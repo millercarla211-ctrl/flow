@@ -88,7 +88,9 @@ impl SearchEngine for PublicDomainImageArchive {
             }
 
             let img_el = article.select(&img_sel).next();
-            let thumbnail = img_el.and_then(|el| el.value().attr("src")).map(|s| s.to_string());
+            let thumbnail = img_el
+                .and_then(|el| el.value().attr("src"))
+                .map(|s| s.to_string());
             let title = img_el
                 .and_then(|el| el.value().attr("alt"))
                 .or_else(|| link_el.value().attr("title"))

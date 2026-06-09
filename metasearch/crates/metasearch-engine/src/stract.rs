@@ -79,8 +79,8 @@ impl SearchEngine for Stract {
             "div.grid.w-full.grid-cols-1.space-y-10.place-self-start > div > div.flex.min-w-0.grow.flex-col"
         ).unwrap();
         let title_sel = scraper::Selector::parse("a[title]").unwrap();
-        let link_sel  = scraper::Selector::parse("a[href]").unwrap();
-        let desc_sel  = scraper::Selector::parse("#snippet-text").unwrap();
+        let link_sel = scraper::Selector::parse("a[href]").unwrap();
+        let desc_sel = scraper::Selector::parse("#snippet-text").unwrap();
 
         for (i, element) in document.select(&result_sel).enumerate() {
             let title = element

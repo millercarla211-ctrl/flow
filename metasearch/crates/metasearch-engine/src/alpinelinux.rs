@@ -15,8 +15,8 @@ use metasearch_core::{
 };
 use reqwest::Client;
 use scraper::{Html, Selector};
-use tracing::info;
 use smallvec::smallvec;
+use tracing::info;
 
 pub struct AlpineLinux {
     metadata: EngineMetadata,

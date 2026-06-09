@@ -130,14 +130,10 @@ impl SearchEngine for Seznam {
             let broad_sel = Selector::parse("div.Result")
                 .or_else(|_| Selector::parse("[class*='Result']"))
                 .unwrap_or_else(|_| Selector::parse("div").expect("div selector should parse"));
-            let link_sel =
-                Selector::parse("h3 a, a[href]").unwrap_or_else(|_| {
-                    Selector::parse("a").expect("basic selector should parse")
-                });
+            let link_sel = Selector::parse("h3 a, a[href]")
+                .unwrap_or_else(|_| Selector::parse("a").expect("basic selector should parse"));
             let desc_sel = Selector::parse("p, .description, [class*='desc'], span")
-                .unwrap_or_else(|_| {
-                    Selector::parse("span").expect("span selector should parse")
-                });
+                .unwrap_or_else(|_| Selector::parse("span").expect("span selector should parse"));
 
             for (i, container) in document.select(&broad_sel).enumerate() {
                 let link = match container.select(&link_sel).next() {

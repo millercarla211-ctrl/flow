@@ -69,11 +69,10 @@ impl SearchEngine for AdobeStock {
             return Ok(Vec::new());
         }
 
-        let json: serde_json::Value = serde_json::from_str(&text)
-            .map_err(|_| {
-                // Don't fail hard on parse errors, just return empty
-                MetasearchError::ParseError("Adobe Stock returned non-JSON response".to_string())
-            })?;
+        let json: serde_json::Value = serde_json::from_str(&text).map_err(|_| {
+            // Don't fail hard on parse errors, just return empty
+            MetasearchError::ParseError("Adobe Stock returned non-JSON response".to_string())
+        })?;
 
         let mut results = Vec::new();
 

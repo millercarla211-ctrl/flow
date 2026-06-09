@@ -17,8 +17,8 @@ use metasearch_core::{
 };
 use regex::Regex;
 use reqwest::Client;
-use tracing::info;
 use smallvec::smallvec;
+use tracing::info;
 
 pub struct Pubmed {
     metadata: EngineMetadata,
@@ -222,11 +222,7 @@ impl SearchEngine for Pubmed {
             results.push(r);
         }
 
-        info!(
-            engine = "pubmed",
-            count = results.len(),
-            "Search complete"
-        );
+        info!(engine = "pubmed", count = results.len(), "Search complete");
         Ok(results)
     }
 }

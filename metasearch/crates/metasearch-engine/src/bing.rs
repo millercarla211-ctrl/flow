@@ -6,6 +6,7 @@
 //! Features: Paging, SafeSearch, Time Range
 
 use async_trait::async_trait;
+use base64::{Engine as _, engine::general_purpose};
 use metasearch_core::{
     category::SearchCategory,
     engine::{EngineMetadata, SearchEngine},
@@ -15,9 +16,8 @@ use metasearch_core::{
 };
 use reqwest::Client;
 use scraper::{Html, Selector};
-use tracing::info;
 use smallvec::smallvec;
-use base64::{Engine as _, engine::general_purpose};
+use tracing::info;
 
 pub struct Bing {
     metadata: EngineMetadata,
@@ -79,7 +79,7 @@ impl SearchEngine for Bing {
         let mut url = format!(
             "https://www.bing.com/search?q={}&pq={}&first={}&setlang=en&setmkt=en-US",
             encoded_query,
-            encoded_query,  // pq parameter needed for correct pagination
+            encoded_query, // pq parameter needed for correct pagination
             offset
         );
 
@@ -95,7 +95,7 @@ impl SearchEngine for Bing {
         }
 
         let lang = query.language.as_deref().unwrap_or("en");
-        let region = "US";  // Could be made configurable
+        let region = "US"; // Could be made configurable
         let safesearch = Self::safesearch_cookie(query.safe_search);
 
         let resp = self
@@ -125,7 +125,8 @@ impl SearchEngine for Bing {
         // Bing organic results are in <li class="b_algo">
         let result_selector = Selector::parse("li.b_algo").unwrap();
         let title_selector = Selector::parse("h2 a").unwrap();
-        let snippet_selector = Selector::parse("p, .b_caption p, .b_lineclamp2, .b_lineclamp4").unwrap();
+        let snippet_selector =
+            Selector::parse("p, .b_caption p, .b_lineclamp2, .b_lineclamp4").unwrap();
 
         let mut results = Vec::new();
 

@@ -13,8 +13,8 @@ use metasearch_core::{
     result::SearchResult,
 };
 use reqwest::Client;
-use url::Url;
 use smallvec::smallvec;
+use url::Url;
 
 pub struct Unsplash {
     metadata: EngineMetadata,

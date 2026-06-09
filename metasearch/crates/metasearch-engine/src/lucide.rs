@@ -11,8 +11,8 @@ use metasearch_core::{
     result::SearchResult,
 };
 use reqwest::Client;
-use std::collections::HashMap;
 use smallvec::smallvec;
+use std::collections::HashMap;
 
 pub struct Lucide {
     metadata: EngineMetadata,

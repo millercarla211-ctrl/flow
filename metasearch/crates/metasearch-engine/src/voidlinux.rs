@@ -87,12 +87,7 @@ impl SearchEngine for VoidLinux {
                     urlencoding::encode(&name)
                 );
                 let snippet = format!("[{}] {}", repo, pkg.short_desc.unwrap_or_default());
-                let mut result = SearchResult::new(
-                    title,
-                    result_url,
-                    snippet,
-                    "voidlinux",
-                );
+                let mut result = SearchResult::new(title, result_url, snippet, "voidlinux");
                 result.engine_rank = (i + 1) as u32;
                 Some(result)
             })

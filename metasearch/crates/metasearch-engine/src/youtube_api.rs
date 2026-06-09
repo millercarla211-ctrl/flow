@@ -13,8 +13,8 @@ use metasearch_core::{
     result::SearchResult,
 };
 use reqwest::Client;
-use tracing::info;
 use smallvec::smallvec;
+use tracing::info;
 
 pub struct YoutubeApi {
     metadata: EngineMetadata,
@@ -51,9 +51,8 @@ impl SearchEngine for YoutubeApi {
         if key.is_empty() {
             return Err(MetasearchError::EngineError {
                 engine: "youtube_api".to_string(),
-                message:
-                    "No API key configured. Get one at https://console.developers.google.com/"
-                        .to_string(),
+                message: "No API key configured. Get one at https://console.developers.google.com/"
+                    .to_string(),
             });
         }
 

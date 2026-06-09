@@ -72,16 +72,12 @@ impl SearchEngine for SogouWechat {
 
         let document = Html::parse_document(&body);
 
-        let li_sel =
-            Selector::parse("li[id*='sogou_vr_']").map_err(|e| {
-                MetasearchError::ParseError(format!("Selector parse error: {:?}", e))
-            })?;
-        let title_sel = Selector::parse("h3 a").map_err(|e| {
-            MetasearchError::ParseError(format!("Selector parse error: {:?}", e))
-        })?;
-        let content_sel = Selector::parse("p.txt-info").map_err(|e| {
-            MetasearchError::ParseError(format!("Selector parse error: {:?}", e))
-        })?;
+        let li_sel = Selector::parse("li[id*='sogou_vr_']")
+            .map_err(|e| MetasearchError::ParseError(format!("Selector parse error: {:?}", e)))?;
+        let title_sel = Selector::parse("h3 a")
+            .map_err(|e| MetasearchError::ParseError(format!("Selector parse error: {:?}", e)))?;
+        let content_sel = Selector::parse("p.txt-info")
+            .map_err(|e| MetasearchError::ParseError(format!("Selector parse error: {:?}", e)))?;
 
         let mut results = Vec::new();
 

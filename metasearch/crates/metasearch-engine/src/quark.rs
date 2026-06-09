@@ -16,8 +16,8 @@ use metasearch_core::{
 use regex::Regex;
 use reqwest::Client;
 use serde_json::Value;
-use tracing::{info, warn};
 use smallvec::smallvec;
+use tracing::{info, warn};
 
 pub struct Quark {
     metadata: EngineMetadata,

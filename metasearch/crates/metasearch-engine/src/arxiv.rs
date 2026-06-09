@@ -16,8 +16,8 @@ use metasearch_core::{
     result::SearchResult,
 };
 use reqwest::Client;
-use tracing::info;
 use smallvec::smallvec;
+use tracing::info;
 
 pub struct Arxiv {
     metadata: EngineMetadata,

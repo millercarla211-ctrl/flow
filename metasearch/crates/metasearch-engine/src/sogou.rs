@@ -16,8 +16,8 @@ use metasearch_core::{
 use regex::Regex;
 use reqwest::Client;
 use scraper::{Html, Selector};
-use tracing::{info, warn};
 use smallvec::smallvec;
+use tracing::{info, warn};
 
 pub struct Sogou {
     metadata: EngineMetadata,

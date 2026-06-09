@@ -1,21 +1,21 @@
-//! SourceHut — search projects on sr.ht.
+//! SourceHut project search.
 //!
-//! Scrapes HTML search results from sr.ht/projects.
-//! No authentication required.
-//!
-//! Reference: <https://sr.ht>
+//! This adapter parses SourceHut HTML and is disabled by default until a
+//! documented no-key project search API is available.
 
 use async_trait::async_trait;
 use metasearch_core::{
     category::SearchCategory,
     engine::{EngineMetadata, SearchEngine},
-    error::Result,
+    error::{MetasearchError, Result},
     query::SearchQuery,
     result::SearchResult,
 };
 use reqwest::Client;
 use scraper::{Html, Selector};
 use smallvec::smallvec;
+
+const USER_AGENT: &str = "metasearch/0.1 (+https://github.com/najmus-sakib-hossain/metasearch)";
 
 pub struct Sourcehut {
     metadata: EngineMetadata,
@@ -30,13 +30,65 @@ impl Sourcehut {
                 display_name: "SourceHut".to_string().into(),
                 homepage: "https://sr.ht".to_string().into(),
                 categories: smallvec![SearchCategory::IT],
-                enabled: true,
+                enabled: false,
                 timeout_ms: 8000,
                 weight: 0.6,
             },
             client,
         }
     }
+}
+
+pub fn parse_sourcehut_results(body: &str) -> Result<Vec<SearchResult>> {
+    let document = Html::parse_document(body);
+    let event_sel = Selector::parse("div.event-list div.event")
+        .map_err(|e| MetasearchError::ParseError(e.to_string()))?;
+    let link_sel =
+        Selector::parse("h4 a").map_err(|e| MetasearchError::ParseError(e.to_string()))?;
+    let desc_sel = Selector::parse("p").map_err(|e| MetasearchError::ParseError(e.to_string()))?;
+
+    let mut results = Vec::new();
+
+    for event in document.select(&event_sel) {
+        let links: Vec<_> = event.select(&link_sel).collect();
+        let project_link = if links.len() >= 2 {
+            links[1]
+        } else if !links.is_empty() {
+            links[0]
+        } else {
+            continue;
+        };
+
+        let href = project_link.value().attr("href").unwrap_or_default().trim();
+        if href.is_empty() {
+            continue;
+        }
+
+        let title = project_link.text().collect::<String>().trim().to_string();
+        if title.is_empty() {
+            continue;
+        }
+
+        let content = event
+            .select(&desc_sel)
+            .next()
+            .map(|el| el.text().collect::<String>())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+
+        let mut result = SearchResult::new(
+            title,
+            format!("https://sr.ht{href}"),
+            content,
+            "sourcehut".to_string(),
+        );
+        result.engine_rank = (results.len() + 1) as u32;
+        result.category = SearchCategory::IT.to_string();
+        results.push(result);
+    }
+
+    Ok(results)
 }
 
 #[async_trait]
@@ -52,78 +104,20 @@ impl SearchEngine for Sourcehut {
             query.page,
         );
 
-        let resp = match self
+        let body = self
             .client
             .get(&url)
-            .timeout(std::time::Duration::from_secs(7))
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0")
+            .timeout(std::time::Duration::from_millis(self.metadata.timeout_ms))
+            .header("User-Agent", USER_AGENT)
             .send()
             .await
-        {
-            Ok(r) => r,
-            Err(_) => return Ok(Vec::new()),
-        };
+            .map_err(|e| MetasearchError::HttpError(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| MetasearchError::HttpError(e.to_string()))?
+            .text()
+            .await
+            .map_err(|e| MetasearchError::ParseError(e.to_string()))?;
 
-        if !resp.status().is_success() {
-            return Ok(Vec::new());
-        }
-
-        let body = match resp.text().await {
-            Ok(b) => b,
-            Err(_) => return Ok(Vec::new()),
-        };
-
-        let document = Html::parse_document(&body);
-        let event_sel = Selector::parse("div.event-list div.event").unwrap();
-        let h4_sel = Selector::parse("h4").unwrap();
-        let link_sel = Selector::parse("h4 a").unwrap();
-        let desc_sel = Selector::parse("p").unwrap();
-
-        let mut results = Vec::new();
-
-        for (rank, event) in document.select(&event_sel).enumerate() {
-            let links: Vec<_> = event.select(&link_sel).collect();
-            let project_link = if links.len() >= 2 {
-                links[1]
-            } else if !links.is_empty() {
-                links[0]
-            } else {
-                continue;
-            };
-
-            let href = project_link.value().attr("href").unwrap_or_default();
-            if href.is_empty() {
-                continue;
-            }
-
-            let page_url = format!("https://sr.ht{}", href);
-
-            let title = event
-                .select(&h4_sel)
-                .next()
-                .map(|el| el.text().collect::<String>())
-                .unwrap_or_default()
-                .trim()
-                .to_string();
-
-            let content = event
-                .select(&desc_sel)
-                .next()
-                .map(|el| el.text().collect::<String>())
-                .unwrap_or_default()
-                .trim()
-                .to_string();
-
-            if title.is_empty() {
-                continue;
-            }
-
-            let mut result =
-                SearchResult::new(title, page_url, content, self.metadata.name.clone());
-            result.engine_rank = (rank + 1) as u32;
-            results.push(result);
-        }
-
-        Ok(results)
+        parse_sourcehut_results(&body)
     }
 }

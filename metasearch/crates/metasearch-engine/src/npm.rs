@@ -1,5 +1,4 @@
-//! npm engine — search JavaScript packages via npms.io API.
-//! Translated from SearXNG `searx/engines/npm.py`.
+//! npm engine - search JavaScript packages via the official registry API.
 
 use async_trait::async_trait;
 use metasearch_core::{
@@ -10,9 +9,12 @@ use metasearch_core::{
     result::SearchResult,
 };
 use reqwest::Client;
+use serde_json::Value;
 use smallvec::smallvec;
+use std::time::Duration;
 
 const PAGE_SIZE: u32 = 25;
+const USER_AGENT: &str = "metasearch/0.1 (+https://github.com/najmus-sakib-hossain/metasearch)";
 
 pub struct Npm {
     metadata: EngineMetadata,
@@ -47,7 +49,7 @@ impl SearchEngine for Npm {
         let from = (page - 1) * PAGE_SIZE;
 
         let url = format!(
-            "https://api.npms.io/v2/search?q={}&from={}&size={}",
+            "https://registry.npmjs.org/-/v1/search?text={}&from={}&size={}",
             urlencoding::encode(&query.query),
             from,
             PAGE_SIZE,
@@ -56,40 +58,75 @@ impl SearchEngine for Npm {
         let resp = self
             .client
             .get(&url)
+            .timeout(Duration::from_millis(self.metadata.timeout_ms))
+            .header("User-Agent", USER_AGENT)
             .send()
             .await
-            .map_err(|e| MetasearchError::HttpError(e.to_string()))?;
+            .and_then(|resp| resp.error_for_status())
+            .map_err(|e| MetasearchError::HttpError(format!("npm registry search: {e}")))?;
 
-        let data: serde_json::Value = resp
-            .json()
+        let body = resp
+            .text()
             .await
-            .map_err(|e| MetasearchError::ParseError(e.to_string()))?;
+            .map_err(|e| MetasearchError::HttpError(format!("npm response body: {e}")))?;
 
-        let mut results = Vec::new();
+        parse_npm_registry_results(&body)
+    }
+}
 
-        if let Some(entries) = data["results"].as_array() {
-            for (i, entry) in entries.iter().enumerate() {
-                let package = &entry["package"];
-                let name = package["name"].as_str().unwrap_or_default();
-                let description = package["description"].as_str().unwrap_or("");
-                let version = package["version"].as_str().unwrap_or("");
-                let npm_url = package["links"]["npm"].as_str().unwrap_or_default();
-                let author = package["author"]["name"].as_str().unwrap_or("");
+pub fn parse_npm_registry_results(body: &str) -> Result<Vec<SearchResult>, MetasearchError> {
+    let data: Value = serde_json::from_str(body)?;
+    let entries = data["objects"].as_array().ok_or_else(|| {
+        MetasearchError::ParseError("npm registry response missing objects".into())
+    })?;
 
-                let snippet = format!("v{} — {} — by {}", version, description, author,);
+    let mut results = Vec::new();
 
-                let mut result = SearchResult::new(
-                    name.to_string(),
-                    npm_url.to_string(),
-                    snippet,
-                    "npm".to_string(),
-                );
-                result.engine_rank = (i + 1) as u32;
-                result.category = SearchCategory::IT.to_string();
-                results.push(result);
-            }
+    for entry in entries {
+        let package = &entry["package"];
+        let name = package["name"].as_str().unwrap_or_default().trim();
+        if name.is_empty() {
+            continue;
         }
 
-        Ok(results)
+        let npm_url = package["links"]["npm"]
+            .as_str()
+            .filter(|url| !url.trim().is_empty())
+            .map(str::to_owned)
+            .unwrap_or_else(|| format!("https://www.npmjs.com/package/{name}"));
+
+        let version = package["version"].as_str().unwrap_or_default().trim();
+        let description = package["description"].as_str().unwrap_or_default().trim();
+        let publisher = package["publisher"]["username"]
+            .as_str()
+            .or_else(|| package["author"]["name"].as_str())
+            .unwrap_or_default()
+            .trim();
+
+        let mut snippet_parts = Vec::new();
+        if !version.is_empty() {
+            snippet_parts.push(format!("v{version}"));
+        }
+        if !description.is_empty() {
+            snippet_parts.push(description.to_string());
+        }
+        if !publisher.is_empty() {
+            snippet_parts.push(format!("by {publisher}"));
+        }
+
+        let mut result = SearchResult::new(
+            name.to_string(),
+            npm_url,
+            snippet_parts.join(" - "),
+            "npm".to_string(),
+        );
+        result.engine_rank = (results.len() + 1) as u32;
+        result.category = SearchCategory::IT.to_string();
+        if let Some(score) = entry["score"]["final"].as_f64() {
+            result.score = score;
+        }
+        results.push(result);
     }
+
+    Ok(results)
 }

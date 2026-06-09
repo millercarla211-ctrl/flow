@@ -4,80 +4,84 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use metasearch_core::category::SearchCategory;
-use metasearch_core::engine::{EngineMetadata, SearchEngine};
+use metasearch_core::engine::{
+    EngineAccessModel, EngineAdapterMetadata, EngineCatalogEntry, EngineCatalogSummary,
+    EngineConfigRequirement, EngineImplementation, EngineMetadata, SearchEngine,
+};
 use reqwest::Client;
 use rustc_hash::FxHashSet;
 
 use crate::{
     acfun::AcFun, adobe_stock::AdobeStock, ads::Ads, ahmia::Ahmia, alpinelinux::AlpineLinux,
     annas_archive::AnnasArchive, ansa::Ansa, apkmirror::ApkMirror, apple_app_store::AppleAppStore,
-    apple_maps::AppleMaps, archlinux::ArchLinux, artic::Artic, artstation::ArtStation,
-    arxiv::Arxiv, ask::Ask, baidu::Baidu, bandcamp::Bandcamp, base_search::BaseSearch,
-    bilibili::Bilibili, bing::Bing, bing_images::BingImages, bing_news::BingNews,
-    bing_videos::BingVideos, bitchute::BitChute, bpb::Bpb, brave::Brave, braveapi::BraveApi,
-    bt4g::Bt4g, btdigg::Btdigg, cachy_os::CachyOs, ccc_media::CccMedia, chefkoch::Chefkoch,
-    chinaso::Chinaso, core_engine::CoreEngine, crates_io::CratesIo, crossref::Crossref,
-    currency_convert::CurrencyConvert, dailymotion::Dailymotion, deepl::DeepL, deezer::Deezer,
-    destatis::Destatis, deviantart::DeviantArt, devicons::Devicons, dictzone::DictZone,
-    digbt::Digbt, discourse::Discourse, docker_hub::DockerHub, doku::Doku, duckduckgo::DuckDuckGo,
+    apple_maps::AppleMaps, archlinux::ArchLinux, artic::Artic, artifact_hub::ArtifactHub,
+    artstation::ArtStation, arxiv::Arxiv, ask::Ask, baidu::Baidu, bandcamp::Bandcamp,
+    base_search::BaseSearch, bilibili::Bilibili, bing::Bing, bing_images::BingImages,
+    bing_news::BingNews, bing_videos::BingVideos, bitchute::BitChute, bpb::Bpb, brave::Brave,
+    braveapi::BraveApi, bt4g::Bt4g, btdigg::Btdigg, cachy_os::CachyOs, ccc_media::CccMedia,
+    chefkoch::Chefkoch, chinaso::Chinaso, core_engine::CoreEngine, crates_io::CratesIo,
+    crossref::Crossref, currency_convert::CurrencyConvert, dailymotion::Dailymotion,
+    datacite::DataCite, dbpedia::Dbpedia, deepl::DeepL, deezer::Deezer, destatis::Destatis,
+    deviantart::DeviantArt, devicons::Devicons, dictzone::DictZone, digbt::Digbt,
+    discourse::Discourse, docker_hub::DockerHub, doku::Doku, duckduckgo::DuckDuckGo,
     duckduckgo_definitions::DuckDuckGoDefinitions, duckduckgo_weather::DuckDuckGoWeather,
     duden::Duden, ebay::Ebay, elasticsearch_engine::ElasticsearchEngine, emojipedia::Emojipedia,
-    fdroid::Fdroid, findthatmeme::FindThatMeme, flickr::Flickr, flickr_noapi::FlickrNoapi,
-    freesound::Freesound, frinkiac::Frinkiac, fyyd::Fyyd, geizhals::Geizhals, genius::Genius,
-    gitea::Gitea, github_engine::GitHub, gitlab::GitLab, goodreads::Goodreads, google::Google,
-    google_images::GoogleImages, google_news::GoogleNews, google_play::GooglePlay,
-    google_scholar::GoogleScholar, google_videos::GoogleVideos, grokipedia::Grokipedia,
-    hackernews::HackerNews, hex::Hex, huggingface::HuggingFace, il_post::IlPost, imdb::Imdb,
-    imgur::Imgur, ina::Ina, invidious::Invidious, ipernity::Ipernity, iqiyi::Iqiyi, jisho::Jisho,
-    kickass::Kickass, leet_x::LeetX, lemmy::Lemmy, lib_rs::LibRs, libretranslate::LibreTranslate,
-    lingva::Lingva, livespace::LiveSpace, loc::Loc, lucide::Lucide, marginalia::Marginalia,
-    mastodon::Mastodon, material_icons::MaterialIcons, mediathekviewweb::MediathekViewWeb,
-    mediawiki_engine::MediaWikiEngine, meilisearch_engine::MeilisearchEngine, metacpan::MetaCpan,
-    mixcloud::Mixcloud, mojeek::Mojeek, moviepilot::Moviepilot, mwmbl::Mwmbl, naver::Naver,
-    nine_gag::NineGag, npm::Npm, nyaa::Nyaa, odysee::Odysee, openalex::OpenAlex,
+    europe_pmc::EuropePmc, fdroid::Fdroid, findthatmeme::FindThatMeme, flickr::Flickr,
+    flickr_noapi::FlickrNoapi, freesound::Freesound, frinkiac::Frinkiac, fyyd::Fyyd,
+    geizhals::Geizhals, genius::Genius, gitea::Gitea, github_engine::GitHub, gitlab::GitLab,
+    goodreads::Goodreads, google::Google, google_images::GoogleImages, google_news::GoogleNews,
+    google_play::GooglePlay, google_scholar::GoogleScholar, google_videos::GoogleVideos,
+    grokipedia::Grokipedia, hackernews::HackerNews, hex::Hex, huggingface::HuggingFace,
+    il_post::IlPost, imdb::Imdb, imgur::Imgur, ina::Ina, invidious::Invidious, ipernity::Ipernity,
+    iqiyi::Iqiyi, jisho::Jisho, kickass::Kickass, leet_x::LeetX, lemmy::Lemmy, lib_rs::LibRs,
+    libretranslate::LibreTranslate, lingva::Lingva, livespace::LiveSpace, loc::Loc, lucide::Lucide,
+    marginalia::Marginalia, mastodon::Mastodon, material_icons::MaterialIcons,
+    maven_central::MavenCentral, mediathekviewweb::MediathekViewWeb,
+    mediawiki_engine::MediaWikiEngine, meilisearch_engine::MeilisearchEngine,
+    met_museum::MetMuseum, metacpan::MetaCpan, mixcloud::Mixcloud, mojeek::Mojeek,
+    moviepilot::Moviepilot, mwmbl::Mwmbl, naver::Naver, nine_gag::NineGag, npm::Npm, nuget::Nuget,
+    nyaa::Nyaa, odysee::Odysee, open_food_facts::OpenFoodFacts, openalex::OpenAlex,
     openlibrary::OpenLibrary, openstreetmap::OpenStreetMap, openverse::Openverse,
-    peertube::PeerTube, photon::Photon, pinterest::Pinterest, piped::Piped, piratebay::PirateBay,
-    pkg_go_dev::PkgGoDev, podcastindex::PodcastIndex, pypi::PyPI, quark::Quark, qwant::Qwant,
-    radio_browser::RadioBrowser, recoll_engine::RecollEngine, reddit::Reddit,
-    rightdao::RightDao,
-    rottentomatoes::RottenTomatoes, rumble::Rumble, searchcode::Searchcode,
-    semantic_scholar::SemanticScholar, sepiasearch::SepiaSearch, sogou::Sogou,
+    packagist::Packagist, peertube::PeerTube, photon::Photon, pinterest::Pinterest, piped::Piped,
+    piratebay::PirateBay, pkg_go_dev::PkgGoDev, podcastindex::PodcastIndex, pypi::PyPI,
+    quark::Quark, qwant::Qwant, radio_browser::RadioBrowser, recoll_engine::RecollEngine,
+    reddit::Reddit, rightdao::RightDao, rottentomatoes::RottenTomatoes, rubygems::RubyGems,
+    rumble::Rumble, semantic_scholar::SemanticScholar, sepiasearch::SepiaSearch, sogou::Sogou,
     solidtorrents::SolidTorrents, soundcloud::SoundCloud, sourcehut::Sourcehut, spotify::Spotify,
     springer::Springer, stackexchange::StackExchange, stract::Stract, svgrepo::SvgRepo,
     tagesschau::Tagesschau, three_sixty_search_videos::ThreeSixtySearchVideos, tineye::TinEye,
     tokyotoshokan::TokyoToshokan, tootfinder::Tootfinder, unsplash::Unsplash, vimeo::Vimeo,
     voidlinux::VoidLinux, wallhaven::Wallhaven, wikicommons::WikiCommons, wikipedia::Wikipedia,
-    wordnik::Wordnik, yahoo::Yahoo, yandex::Yandex, yep::Yep, youtube::YouTube,
+    wordnik::Wordnik, yahoo::Yahoo, yandex::Yandex, yep::Yep, youtube::YouTube, zenodo::Zenodo,
 };
+use crate::{azure::Azure, cloudflareai::CloudflareAi, ollama::Ollama};
 use crate::{
-    microsoft_learn::MicrosoftLearn, mrs::Mrs, nvd::Nvd, openclipart::Openclipart,
-    pdbe::Pdbe, repology::Repology, reuters::Reuters, scanr_structures::ScanrStructures,
-    searchcode_code::SearchcodeCode, selfhst::Selfhst, senscritique::SensCritique,
-    sogou_images::SogouImages, sogou_videos::SogouVideos, sogou_wechat::SogouWechat,
-    steam::SteamStore, uxwing::Uxwing, www1x::Www1x, yahoo_news::YahooNews,
-};
-use crate::{
-    astrophysics_data_system::AstrophysicsDataSystem, presearch::Presearch,
-    wolframalpha_api::WolframAlphaApi, wolframalpha_noapi::WolframAlphaNoapi,
-    youtube_api::YoutubeApi, youtube_noapi::YoutubeNoapi,
-};
-use crate::{
-    github_code::GithubCode, niconico::Niconico, pixabay::Pixabay, pubmed::Pubmed,
-    yandex_music::YandexMusic, zlibrary::Zlibrary,
-};
-use crate::{
-    mozhi::Mozhi, open_meteo::OpenMeteo, seznam::Seznam, startpage::Startpage,
-    translated::Translated, wttr::Wttr,
+    doaj::Doaj, internet_archive::InternetArchive, mozhi::Mozhi, open_meteo::OpenMeteo,
+    seznam::Seznam, startpage::Startpage, translated::Translated, wttr::Wttr,
 };
 use crate::{
     duckduckgo_extra::DuckDuckGoExtra, pexels::Pexels, pixiv::Pixiv,
     three_sixty_search::ThreeSixtySearch, torznab::Torznab, yacy::Yacy,
 };
 use crate::{
+    github_code::GithubCode, niconico::Niconico, pixabay::Pixabay, pubchem::PubChem,
+    pubmed::Pubmed, yandex_music::YandexMusic, zlibrary::Zlibrary,
+};
+use crate::{
+    microsoft_learn::MicrosoftLearn, mrs::Mrs, nvd::Nvd, openclipart::Openclipart, pdbe::Pdbe,
+    repology::Repology, reuters::Reuters, scanr_structures::ScanrStructures,
+    searchcode_code::SearchcodeCode, selfhst::Selfhst, senscritique::SensCritique,
+    sogou_images::SogouImages, sogou_videos::SogouVideos, sogou_wechat::SogouWechat,
+    steam::SteamStore, uxwing::Uxwing, www1x::Www1x, yahoo_news::YahooNews,
+};
+use crate::{
     opensemantic::OpenSemantic, public_domain_image_archive::PublicDomainImageArchive,
     searx_engine::SearxEngine, solr::Solr, tubearchivist::TubeArchivist, wikidata::Wikidata,
 };
-use crate::{azure::Azure, cloudflareai::CloudflareAi, ollama::Ollama};
+use crate::{
+    presearch::Presearch, wolframalpha_api::WolframAlphaApi, wolframalpha_noapi::WolframAlphaNoapi,
+    youtube_api::YoutubeApi, youtube_noapi::YoutubeNoapi,
+};
 
 /// Central registry of all search engines.
 pub struct EngineRegistry {
@@ -91,7 +95,7 @@ impl EngineRegistry {
         }
     }
 
-    /// Create a registry pre-loaded with all built-in engines (209 total).
+    /// Create a registry pre-loaded with all built-in engines.
     pub fn with_defaults(client: Client) -> Self {
         let mut registry = Self::new();
         // Note: reqwest::Client is already Arc-backed internally — no need to wrap
@@ -120,7 +124,12 @@ impl EngineRegistry {
         registry.register(Arc::new(DockerHub::new(client.clone())));
         registry.register(Arc::new(Npm::new(client.clone())));
         registry.register(Arc::new(CratesIo::new(client.clone())));
+        registry.register(Arc::new(MavenCentral::new(client.clone())));
+        registry.register(Arc::new(Nuget::new(client.clone())));
+        registry.register(Arc::new(ArtifactHub::new(client.clone())));
         registry.register(Arc::new(PyPI::new(client.clone())));
+        registry.register(Arc::new(RubyGems::new(client.clone())));
+        registry.register(Arc::new(Packagist::new(client.clone())));
         registry.register(Arc::new(Reddit::new(client.clone())));
         registry.register(Arc::new(Dailymotion::new(client.clone())));
         registry.register(Arc::new(Deezer::new(client.clone())));
@@ -229,14 +238,15 @@ impl EngineRegistry {
         // ── Batch 14: More SearXNG translations ───────────
         registry.register(Arc::new(Moviepilot::new(client.clone())));
         registry.register(Arc::new(OpenLibrary::new(client.clone())));
+        registry.register(Arc::new(InternetArchive::new(client.clone())));
         registry.register(Arc::new(SolidTorrents::new(client.clone())));
         registry.register(Arc::new(RottenTomatoes::new(client.clone())));
         registry.register(Arc::new(SepiaSearch::new(client.clone())));
 
         // ── Batch 15: More SearXNG translations ───────────
         registry.register(Arc::new(Openverse::new(client.clone())));
+        registry.register(Arc::new(Doaj::new(client.clone())));
         registry.register(Arc::new(Tootfinder::new(client.clone())));
-        registry.register(Arc::new(Searchcode::new(client.clone())));
         registry.register(Arc::new(TokyoToshokan::new(client.clone())));
 
         // ── Batch 16: Wired orphans + new engines ─────────
@@ -262,6 +272,9 @@ impl EngineRegistry {
         // ── Batch 19: Wired orphans ───────────────────────
         registry.register(Arc::new(PirateBay::new(client.clone())));
         registry.register(Arc::new(OpenAlex::new(client.clone())));
+        registry.register(Arc::new(EuropePmc::new(client.clone())));
+        registry.register(Arc::new(DataCite::new(client.clone())));
+        registry.register(Arc::new(Zenodo::new(client.clone())));
         registry.register(Arc::new(RightDao::new(client.clone())));
 
         // ── Batch 20: More SearXNG translations ───────────
@@ -325,6 +338,9 @@ impl EngineRegistry {
         registry.register(Arc::new(SteamStore::new(client.clone())));
         registry.register(Arc::new(Nvd::new(client.clone())));
         registry.register(Arc::new(MicrosoftLearn::new(client.clone())));
+        registry.register(Arc::new(Dbpedia::new(client.clone())));
+        registry.register(Arc::new(OpenFoodFacts::new(client.clone())));
+        registry.register(Arc::new(MetMuseum::new(client.clone())));
         registry.register(Arc::new(SearchcodeCode::new(client.clone())));
         registry.register(Arc::new(Repology::new(client.clone())));
         registry.register(Arc::new(Selfhst::new(client.clone())));
@@ -345,18 +361,18 @@ impl EngineRegistry {
         registry.register(Arc::new(Uxwing::new(client.clone())));
         registry.register(Arc::new(Www1x::new(client.clone())));
 
-        // ── Batch 29: YouTube/Wolfram variants, ADS, Presearch ──
+        // ── Batch 29: YouTube/Wolfram variants and Presearch ──
         registry.register(Arc::new(YoutubeApi::new(client.clone(), None)));
         registry.register(Arc::new(YoutubeNoapi::new(client.clone())));
         registry.register(Arc::new(WolframAlphaApi::new(client.clone(), None)));
         registry.register(Arc::new(WolframAlphaNoapi::new(client.clone())));
-        registry.register(Arc::new(AstrophysicsDataSystem::new(client.clone(), None)));
         registry.register(Arc::new(Presearch::new(client.clone())));
 
         // ── Batch 27: Yandex Music, Pixabay, Niconico, PubMed, GitHub Code, Z-Library ──
         registry.register(Arc::new(YandexMusic::new(client.clone())));
         registry.register(Arc::new(Pixabay::new(client.clone())));
         registry.register(Arc::new(Niconico::new(client.clone())));
+        registry.register(Arc::new(PubChem::new(client.clone())));
         registry.register(Arc::new(Pubmed::new(client.clone())));
         registry.register(Arc::new(GithubCode::new(client.clone(), None)));
         registry.register(Arc::new(Zlibrary::new(client.clone())));
@@ -387,7 +403,12 @@ impl EngineRegistry {
 
         // ── Batch 32: AI/Cloud: Ollama, Cloudflare AI, Azure Search ──
         registry.register(Arc::new(Ollama::new(client.clone(), "", None)));
-        registry.register(Arc::new(CloudflareAi::new(client.clone(), None, None, None)));
+        registry.register(Arc::new(CloudflareAi::new(
+            client.clone(),
+            None,
+            None,
+            None,
+        )));
         registry.register(Arc::new(Azure::new(client.clone(), "", None, None)));
 
         registry
@@ -396,12 +417,20 @@ impl EngineRegistry {
     /// Register a new engine.
     pub fn register(&mut self, engine: Arc<dyn SearchEngine>) {
         let name = engine.metadata().name.into_owned();
-        self.engines.insert(name, engine);
+        if self.engines.insert(name.clone(), engine).is_some() {
+            tracing::warn!(
+                engine = %name,
+                "Engine registration replaced an existing adapter with the same id"
+            );
+        }
     }
 
     /// Get an engine by name.
     pub fn get(&self, name: &str) -> Option<Arc<dyn SearchEngine>> {
-        self.engines.get(name).map(|r| Arc::clone(&r))
+        self.engines
+            .get(name)
+            .or_else(|| self.engines.get(engine_alias(name)))
+            .map(|r| Arc::clone(&r))
     }
 
     /// Get all enabled engines for a given category.
@@ -444,15 +473,384 @@ impl EngineRegistry {
 
     /// List all registered engine metadata.
     pub fn engine_catalog(&self) -> Vec<EngineMetadata> {
-        let mut catalog: Vec<EngineMetadata> =
-            self.engines.iter().map(|entry| entry.value().metadata()).collect();
+        let mut catalog: Vec<EngineMetadata> = self
+            .engines
+            .iter()
+            .map(|entry| entry.value().metadata())
+            .collect();
         catalog.sort_by(|left, right| left.name.cmp(&right.name));
         catalog
+    }
+
+    /// List all registered engine metadata plus access/config semantics.
+    pub fn adapter_catalog(&self) -> Vec<EngineCatalogEntry> {
+        let mut catalog: Vec<EngineCatalogEntry> = self
+            .engine_catalog()
+            .into_iter()
+            .map(|metadata| {
+                let adapter = adapter_metadata_for(&metadata);
+                EngineCatalogEntry { metadata, adapter }
+            })
+            .collect();
+        catalog.sort_by(|left, right| left.metadata.name.cmp(&right.metadata.name));
+        catalog
+    }
+
+    /// Summarize registered adapters without implying live upstream health.
+    pub fn catalog_summary(&self) -> EngineCatalogSummary {
+        EngineCatalogSummary::from_entries(&self.adapter_catalog())
     }
 
     /// Number of registered engines.
     pub fn count(&self) -> usize {
         self.engines.len()
+    }
+}
+
+fn adapter_metadata_for(metadata: &EngineMetadata) -> EngineAdapterMetadata {
+    let name = metadata.name.as_ref();
+
+    match name {
+        "doaj" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://doaj.org/docs/faq/",
+        ),
+        "internet_archive" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://archive.org/advancedsearch.php",
+        ),
+        "packagist" => EngineAdapterMetadata::no_key_open(
+            EngineImplementation::JsonApi,
+            "https://packagist.org/apidoc",
+        ),
+        "rubygems" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://guides.rubygems.org/rubygems-org-api/",
+        ),
+        "maven_central" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://central.sonatype.org/search/rest-api-guide/",
+        ),
+        "nuget" => EngineAdapterMetadata::no_key_open(
+            EngineImplementation::JsonApi,
+            "https://learn.microsoft.com/en-us/nuget/api/search-query-service-resource",
+        ),
+        "europe_pmc" => EngineAdapterMetadata::no_key_open(
+            EngineImplementation::JsonApi,
+            "https://dev.europepmc.org/RestfulWebService",
+        ),
+        "dbpedia" => EngineAdapterMetadata::no_key_open(
+            EngineImplementation::JsonApi,
+            "https://www.dbpedia.org/resources/lookup/",
+        ),
+        "open_food_facts" => EngineAdapterMetadata {
+            enabled_by_default: false,
+            configured: true,
+            access_model: EngineAccessModel::NoKeyRateLimited,
+            implementation: EngineImplementation::JsonApi,
+            config_requirements: Vec::new(),
+            docs_url: Some("https://openfoodfacts.github.io/openfoodfacts-server/api/".into()),
+            skip_reason: Some("disabled by default until live reliability is verified".into()),
+            notes: Some(
+                "Official API is documented, but recent live probes returned upstream errors"
+                    .into(),
+            ),
+        },
+        "met_museum" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://metmuseum.github.io/",
+        ),
+        "datacite" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://support.datacite.org/docs/api",
+        ),
+        "zenodo" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://developers.zenodo.org/",
+        ),
+        "artifact_hub" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://artifacthub.github.io/hub/api/",
+        ),
+        "nvd" => EngineAdapterMetadata {
+            enabled_by_default: metadata.enabled,
+            configured: true,
+            access_model: EngineAccessModel::OptionalApiKey,
+            implementation: EngineImplementation::JsonApi,
+            config_requirements: Vec::new(),
+            docs_url: Some("https://nvd.nist.gov/developers/vulnerabilities".into()),
+            skip_reason: None,
+            notes: Some(
+                "Official CVE API 2.0; unauthenticated access is public but tightly rate-limited"
+                    .into(),
+            ),
+        },
+        "pubchem" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest",
+        ),
+        "wikipedia" | "wikidata" | "wikicommons" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://www.mediawiki.org/wiki/API:Main_page",
+        ),
+        "loc" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://www.loc.gov/apis/json-and-yaml/working-within-limits/",
+        ),
+        "openlibrary" => EngineAdapterMetadata::no_key_open(
+            EngineImplementation::JsonApi,
+            "https://openlibrary.org/dev/docs/api/search",
+        ),
+        "openverse" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://api.openverse.org/v1/",
+        ),
+        "openalex" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication",
+        ),
+        "arxiv" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::XmlApi,
+            "https://info.arxiv.org/help/api/tou.html",
+        ),
+        "crossref" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://www.crossref.org/documentation/retrieve-metadata/rest-api/tips-for-using-the-crossref-rest-api/",
+        ),
+        "pubmed" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::XmlApi,
+            "https://www.ncbi.nlm.nih.gov/books/NBK25497/",
+        ),
+        "hackernews" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://hn.algolia.com/api",
+        ),
+        "stackexchange" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://api.stackexchange.com/docs",
+        ),
+        "semantic_scholar" => EngineAdapterMetadata {
+            enabled_by_default: metadata.enabled,
+            configured: true,
+            access_model: EngineAccessModel::OptionalApiKey,
+            implementation: EngineImplementation::JsonApi,
+            config_requirements: Vec::new(),
+            docs_url: Some("https://api.semanticscholar.org/api-docs/".into()),
+            skip_reason: None,
+            notes: Some(
+                "Official Academic Graph API; unauthenticated access is public but rate-limited"
+                    .into(),
+            ),
+        },
+        "crates_io" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://crates.io/data-access",
+        ),
+        "npm" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://github.com/npm/registry/blob/main/docs/REGISTRY-API.md",
+        ),
+        "searchcode_code" => EngineAdapterMetadata {
+            enabled_by_default: false,
+            configured: true,
+            access_model: EngineAccessModel::NotAcceptable,
+            implementation: EngineImplementation::JsonApi,
+            config_requirements: Vec::new(),
+            docs_url: Some("https://searchcode.com/openapi.json".into()),
+            skip_reason: Some(
+                "disabled because the legacy global Searchcode API is not a verified production provider"
+                    .into(),
+            ),
+            notes: Some(
+                "Current Searchcode access is repo-scoped; add a configured adapter before enabling"
+                    .into(),
+            ),
+        },
+        "github" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://docs.github.com/en/rest/search/search",
+        ),
+        "github_code" => config_metadata(
+            metadata,
+            EngineAccessModel::RequiresApiKey,
+            EngineImplementation::JsonApi,
+            vec![EngineConfigRequirement::Token],
+            "https://docs.github.com/en/rest/search/search#search-code",
+            "missing GitHub API token",
+        ),
+        "gitlab" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::JsonApi,
+            "https://docs.gitlab.com/api/projects/#list-all-projects",
+        ),
+        "braveapi"
+        | "core"
+        | "springer"
+        | "ads"
+        | "marginalia"
+        | "freesound"
+        | "youtube_api"
+        | "wolframalpha_api"
+        | "astrophysics_data_system"
+        | "pexels" => config_metadata(
+            metadata,
+            EngineAccessModel::RequiresApiKey,
+            EngineImplementation::JsonApi,
+            vec![EngineConfigRequirement::ApiKey],
+            metadata.homepage.clone(),
+            "missing API key",
+        ),
+        "deepl" => config_metadata(
+            metadata,
+            EngineAccessModel::RequiresApiKey,
+            EngineImplementation::JsonApi,
+            vec![EngineConfigRequirement::ApiKey],
+            "https://developers.deepl.com/docs",
+            "missing DeepL API key",
+        ),
+        "spotify" => config_metadata(
+            metadata,
+            EngineAccessModel::RequiresApiKey,
+            EngineImplementation::JsonApi,
+            vec![EngineConfigRequirement::ClientCredentials],
+            "https://developer.spotify.com/documentation/web-api",
+            "missing client credentials",
+        ),
+        "Elasticsearch" | "MeiliSearch" => config_metadata(
+            metadata,
+            EngineAccessModel::SelfHostedInstance,
+            EngineImplementation::JsonApi,
+            vec![
+                EngineConfigRequirement::BaseUrl,
+                EngineConfigRequirement::IndexName,
+            ],
+            metadata.homepage.clone(),
+            "missing base URL or index name",
+        ),
+        "tubearchivist" => config_metadata(
+            metadata,
+            EngineAccessModel::SelfHostedInstance,
+            EngineImplementation::JsonApi,
+            vec![
+                EngineConfigRequirement::BaseUrl,
+                EngineConfigRequirement::Token,
+            ],
+            metadata.homepage.clone(),
+            "missing base URL or token",
+        ),
+        "discourse" | "Invidious" | "piped" | "mediawiki" | "dokuwiki" | "recoll"
+        | "libretranslate" | "lingva" | "mrs" | "mozhi" | "yacy" | "torznab" | "solr"
+        | "opensemantic" | "searx_engine" => config_metadata(
+            metadata,
+            EngineAccessModel::SelfHostedInstance,
+            EngineImplementation::JsonApi,
+            vec![EngineConfigRequirement::BaseUrl],
+            metadata.homepage.clone(),
+            "missing base URL",
+        ),
+        "ollama" => config_metadata(
+            metadata,
+            EngineAccessModel::LocalConfigured,
+            EngineImplementation::AiCompletion,
+            vec![
+                EngineConfigRequirement::BaseUrl,
+                EngineConfigRequirement::Model,
+            ],
+            "https://github.com/ollama/ollama/blob/main/docs/api.md",
+            "missing Ollama base URL or model",
+        ),
+        "azure" => config_metadata(
+            metadata,
+            EngineAccessModel::LocalConfigured,
+            EngineImplementation::JsonApi,
+            vec![
+                EngineConfigRequirement::BaseUrl,
+                EngineConfigRequirement::ApiKey,
+                EngineConfigRequirement::IndexName,
+            ],
+            metadata.homepage.clone(),
+            "missing Azure Search base URL, API key, or index name",
+        ),
+        "cloudflareai" => config_metadata(
+            metadata,
+            EngineAccessModel::RequiresApiKey,
+            EngineImplementation::AiCompletion,
+            vec![
+                EngineConfigRequirement::ApiKey,
+                EngineConfigRequirement::Token,
+                EngineConfigRequirement::Model,
+            ],
+            metadata.homepage.clone(),
+            "missing Cloudflare account id or API token",
+        ),
+        "sourcehut" => EngineAdapterMetadata::html_scraper_brittle("https://docs.sourcehut.org/"),
+        "pypi" => EngineAdapterMetadata::html_scraper_brittle(
+            "https://warehouse.pypa.io/api-reference/xml-rpc.html",
+        ),
+        "Google News" | "google_news" => EngineAdapterMetadata::no_key_rate_limited(
+            EngineImplementation::RssFeed,
+            "https://news.google.com/rss/search",
+        ),
+        "google"
+        | "google_images"
+        | "google_scholar"
+        | "google_videos"
+        | "Google Videos"
+        | "bing"
+        | "bing_images"
+        | "bing_news"
+        | "bing_videos"
+        | "brave"
+        | "duckduckgo"
+        | "startpage"
+        | "mojeek"
+        | "stract"
+        | "yep"
+        | "public_domain_image_archive" => EngineAdapterMetadata {
+            enabled_by_default: metadata.enabled,
+            configured: true,
+            access_model: EngineAccessModel::HtmlScraperBrittle,
+            implementation: EngineImplementation::HtmlScraper,
+            config_requirements: Vec::new(),
+            docs_url: None,
+            skip_reason: None,
+            notes: Some(
+                "HTML/page-shape adapter; upstream layout changes can break parsing".into(),
+            ),
+        },
+        _ => EngineAdapterMetadata::from_metadata(metadata),
+    }
+}
+
+fn engine_alias(name: &str) -> &str {
+    match name {
+        "OpenAlex" => "openalex",
+        "Openverse" => "openverse",
+        "astrophysics_data_system" => "ads",
+        "google_news" => "Google News",
+        "google_videos" => "Google Videos",
+        "Searchcode" | "searchcode" => "searchcode_code",
+        _ => name,
+    }
+}
+
+fn config_metadata(
+    metadata: &EngineMetadata,
+    access_model: EngineAccessModel,
+    implementation: EngineImplementation,
+    config_requirements: Vec<EngineConfigRequirement>,
+    docs_url: impl Into<std::borrow::Cow<'static, str>>,
+    skip_reason: impl Into<std::borrow::Cow<'static, str>>,
+) -> EngineAdapterMetadata {
+    let configured = metadata.enabled;
+    EngineAdapterMetadata {
+        enabled_by_default: false,
+        configured,
+        access_model,
+        implementation,
+        config_requirements,
+        docs_url: Some(docs_url.into()),
+        skip_reason: (!configured).then(|| skip_reason.into()),
+        notes: None,
     }
 }
 

@@ -70,7 +70,10 @@ impl SearchEngine for Tagesschau {
             .get(&url)
             .timeout(std::time::Duration::from_secs(6))
             .header("Accept", "application/json")
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0")
+            .header(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
+            )
             .send()
             .await
         {
@@ -98,12 +101,7 @@ impl SearchEngine for Tagesschau {
                 // Build URL from sophoraId: https://www.tagesschau.de/{sophoraId}.html
                 let result_url = format!("https://www.tagesschau.de/{}.html", sophora_id);
                 let snippet = item.date.unwrap_or_default();
-                let mut result = SearchResult::new(
-                    title,
-                    result_url,
-                    snippet,
-                    "tagesschau",
-                );
+                let mut result = SearchResult::new(title, result_url, snippet, "tagesschau");
                 result.engine_rank = (i + 1) as u32;
                 Some(result)
             })

@@ -15,8 +15,8 @@ use metasearch_core::{
 };
 use reqwest::Client;
 use serde::Deserialize;
-use tracing::{info, warn};
 use smallvec::smallvec;
+use tracing::{info, warn};
 
 pub struct Baidu {
     metadata: EngineMetadata,

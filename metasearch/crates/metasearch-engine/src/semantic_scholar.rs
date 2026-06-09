@@ -1,33 +1,32 @@
-//! Semantic Scholar engine — search academic papers via POST API.
-//! Translated from SearXNG `searx/engines/semantic_scholar.py`.
-//!
-//! Uses `semanticscholar.org/api/1/search` (POST with JSON body).
-//! Returns papers with titles, abstracts, authors, citation counts,
-//! DOIs, and links to PDFs.
+//! Semantic Scholar search via the official Academic Graph API.
 
 use async_trait::async_trait;
 use metasearch_core::{
     category::SearchCategory,
     engine::{EngineMetadata, SearchEngine},
-    error::Result,
+    error::{MetasearchError, Result},
     query::SearchQuery,
     result::SearchResult,
 };
 use reqwest::Client;
+use serde::Deserialize;
 use smallvec::smallvec;
 
-static HTML_TAG_RE: std::sync::LazyLock<regex::Regex> =
-    std::sync::LazyLock::new(|| regex::Regex::new(r"<[^>]+>").unwrap());
-const SEARCH_URL: &str = "https://www.semanticscholar.org/api/1/search";
-const BASE_URL: &str = "https://www.semanticscholar.org";
+const SEARCH_URL: &str = "https://api.semanticscholar.org/graph/v1/paper/search";
+const USER_AGENT: &str = "metasearch/0.1 (+https://github.com/najmus-sakib-hossain/metasearch)";
 
 pub struct SemanticScholar {
     metadata: EngineMetadata,
     client: Client,
+    api_key: Option<String>,
 }
 
 impl SemanticScholar {
     pub fn new(client: Client) -> Self {
+        Self::with_api_key(client, None)
+    }
+
+    pub fn with_api_key(client: Client, api_key: Option<String>) -> Self {
         Self {
             metadata: EngineMetadata {
                 name: "semantic_scholar".to_string().into(),
@@ -35,12 +34,142 @@ impl SemanticScholar {
                 homepage: "https://www.semanticscholar.org".to_string().into(),
                 categories: smallvec![SearchCategory::Science],
                 enabled: true,
-                timeout_ms: 5000,
+                timeout_ms: 7000,
                 weight: 1.2,
             },
             client,
+            api_key: api_key.and_then(|key| {
+                let trimmed = key.trim().to_string();
+                (!trimmed.is_empty()).then_some(trimmed)
+            }),
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct SemanticScholarResponse {
+    #[serde(default)]
+    data: Vec<SemanticScholarPaper>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SemanticScholarPaper {
+    paper_id: Option<String>,
+    title: Option<String>,
+    url: Option<String>,
+    #[serde(rename = "abstract")]
+    abstract_text: Option<String>,
+    year: Option<u32>,
+    venue: Option<String>,
+    citation_count: Option<u64>,
+    #[serde(default)]
+    authors: Vec<SemanticScholarAuthor>,
+    external_ids: Option<SemanticScholarExternalIds>,
+    open_access_pdf: Option<SemanticScholarPdf>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SemanticScholarAuthor {
+    name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SemanticScholarExternalIds {
+    #[serde(rename = "DOI")]
+    doi: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SemanticScholarPdf {
+    url: Option<String>,
+}
+
+pub fn parse_semantic_scholar_results(body: &str) -> Result<Vec<SearchResult>> {
+    let response: SemanticScholarResponse = serde_json::from_str(body)?;
+    let mut results = Vec::new();
+
+    for paper in response.data {
+        let title = paper.title.unwrap_or_default().trim().to_string();
+        if title.is_empty() {
+            continue;
+        }
+
+        let fallback_url = paper
+            .paper_id
+            .as_deref()
+            .map(|paper_id| format!("https://www.semanticscholar.org/paper/{paper_id}"));
+        let url = paper
+            .url
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                paper
+                    .open_access_pdf
+                    .and_then(|pdf| pdf.url)
+                    .filter(|value| !value.trim().is_empty())
+            })
+            .or(fallback_url)
+            .unwrap_or_else(|| "https://www.semanticscholar.org".to_string());
+
+        let authors: Vec<String> = paper
+            .authors
+            .into_iter()
+            .filter_map(|author| {
+                let name = author.name?.trim().to_string();
+                (!name.is_empty()).then_some(name)
+            })
+            .collect();
+
+        let mut snippet_parts = Vec::new();
+        if !authors.is_empty() {
+            let author_text = if authors.len() > 3 {
+                format!("{} et al.", authors[..3].join(", "))
+            } else {
+                authors.join(", ")
+            };
+            snippet_parts.push(author_text);
+        }
+        if let Some(year) = paper.year {
+            snippet_parts.push(year.to_string());
+        }
+        if let Some(venue) = paper.venue.filter(|value| !value.trim().is_empty()) {
+            snippet_parts.push(venue);
+        }
+        if let Some(citations) = paper.citation_count {
+            snippet_parts.push(format!("{citations} citations"));
+        }
+        if let Some(doi) = paper
+            .external_ids
+            .and_then(|ids| ids.doi)
+            .filter(|value| !value.trim().is_empty())
+        {
+            snippet_parts.push(format!("DOI: {}", doi.trim()));
+        }
+        if let Some(abstract_text) = paper
+            .abstract_text
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+        {
+            let snippet = if abstract_text.len() > 250 {
+                format!("{}...", &abstract_text[..250])
+            } else {
+                abstract_text
+            };
+            snippet_parts.push(snippet);
+        }
+
+        let mut result = SearchResult::new(
+            title,
+            url,
+            snippet_parts.join(" | "),
+            "semantic_scholar".to_string(),
+        );
+        result.engine_rank = (results.len() + 1) as u32;
+        result.category = SearchCategory::Science.to_string();
+        results.push(result);
+    }
+
+    Ok(results)
 }
 
 #[async_trait]
@@ -50,164 +179,36 @@ impl SearchEngine for SemanticScholar {
     }
 
     async fn search(&self, query: &SearchQuery) -> Result<Vec<SearchResult>> {
-        let page = query.page;
+        let offset = query.page.saturating_sub(1) * 10;
+        let fields =
+            "title,url,abstract,year,venue,citationCount,authors,externalIds,openAccessPdf";
 
-        // Build the POST JSON body — mirrors the Python implementation
-        let body = serde_json::json!({
-            "queryString": query.query,
-            "page": page,
-            "pageSize": 10,
-            "sort": "relevance",
-            "getQuerySuggestions": false,
-            "authors": [],
-            "coAuthors": [],
-            "venues": [],
-            "performTitleMatch": true,
-        });
-
-        let resp = match self
+        let mut request = self
             .client
-            .post(SEARCH_URL)
-            .timeout(std::time::Duration::from_secs(7))
-            .header("Content-Type", "application/json")
-            .header("X-S2-Client", "webapp-browser")
-            .header(
-                "User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            )
-            .json(&body)
+            .get(SEARCH_URL)
+            .timeout(std::time::Duration::from_millis(self.metadata.timeout_ms))
+            .header("User-Agent", USER_AGENT)
+            .query(&[
+                ("query", query.query.as_str()),
+                ("limit", "10"),
+                ("offset", &offset.to_string()),
+                ("fields", fields),
+            ]);
+
+        if let Some(api_key) = &self.api_key {
+            request = request.header("x-api-key", api_key);
+        }
+
+        let body = request
             .send()
             .await
-        {
-            Ok(r) => r,
-            Err(_) => return Ok(Vec::new()),
-        };
+            .map_err(|e| MetasearchError::HttpError(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| MetasearchError::HttpError(e.to_string()))?
+            .text()
+            .await
+            .map_err(|e| MetasearchError::ParseError(e.to_string()))?;
 
-        if !resp.status().is_success() {
-            return Ok(Vec::new());
-        }
-
-        let data: serde_json::Value = match resp.json().await {
-            Ok(v) => v,
-            Err(_) => return Ok(Vec::new()),
-        };
-
-        let mut results = Vec::new();
-
-        if let Some(items) = data["results"].as_array() {
-            for (i, item) in items.iter().enumerate() {
-                let title = item["title"]["text"].as_str().unwrap_or_default();
-                if title.is_empty() {
-                    continue;
-                }
-
-                // URL priority: primaryPaperLink -> links[0] -> alternatePaperLinks[0] -> fallback
-                let url = item["primaryPaperLink"]["url"]
-                    .as_str()
-                    .or_else(|| {
-                        item["links"]
-                            .as_array()
-                            .and_then(|links| links.first())
-                            .and_then(|l| l.as_str())
-                    })
-                    .or_else(|| {
-                        item["alternatePaperLinks"]
-                            .as_array()
-                            .and_then(|links| links.first())
-                            .and_then(|l| l["url"].as_str())
-                    })
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| {
-                        let paper_id = item["id"].as_str().unwrap_or("");
-                        format!("{}/paper/{}", BASE_URL, paper_id)
-                    });
-
-                // Abstract
-                let abstract_text = item["paperAbstract"]["text"].as_str().unwrap_or("");
-                // Strip any residual HTML tags from the abstract
-                let clean_abstract = HTML_TAG_RE.replace_all(abstract_text, "").to_string();
-
-                // Authors (array of [[{"name": "..."}]])
-                let authors: Vec<String> = item["authors"]
-                    .as_array()
-                    .unwrap_or(&Vec::new())
-                    .iter()
-                    .filter_map(|author_group| {
-                        // Each author entry is an array like [{"name": "John Doe"}]
-                        author_group
-                            .as_array()
-                            .and_then(|arr| arr.first())
-                            .and_then(|a| a["name"].as_str())
-                            .map(|s| s.to_string())
-                    })
-                    .collect();
-
-                // Citation stats
-                let citations = item["citationStats"]["numCitations"].as_u64();
-
-                // DOI
-                let doi = item["doiInfo"]["doi"].as_str().unwrap_or("");
-
-                // Journal / venue
-                let venue = item["venue"]["text"]
-                    .as_str()
-                    .or_else(|| item["journal"]["name"].as_str())
-                    .unwrap_or("");
-
-                // Fields of study (tags)
-                let fields: Vec<String> = item["fieldsOfStudy"]
-                    .as_array()
-                    .unwrap_or(&Vec::new())
-                    .iter()
-                    .filter_map(|f| f.as_str().map(|s| s.to_string()))
-                    .collect();
-
-                // Build snippet
-                let mut snippet_parts = Vec::new();
-                if !authors.is_empty() {
-                    let author_str = if authors.len() > 3 {
-                        format!("{} et al.", authors[..3].join(", "))
-                    } else {
-                        authors.join(", ")
-                    };
-                    snippet_parts.push(author_str);
-                }
-                if !venue.is_empty() {
-                    snippet_parts.push(venue.to_string());
-                }
-                if let Some(c) = citations {
-                    snippet_parts.push(format!("{} citations", c));
-                }
-                if !doi.is_empty() {
-                    snippet_parts.push(format!("DOI: {}", doi));
-                }
-                if !fields.is_empty() {
-                    snippet_parts.push(fields.join(", "));
-                }
-                if !clean_abstract.is_empty() {
-                    // Truncate abstract to ~250 chars for the snippet
-                    let truncated = if clean_abstract.len() > 250 {
-                        format!("{}…", &clean_abstract[..250])
-                    } else {
-                        clean_abstract
-                    };
-                    snippet_parts.push(truncated);
-                }
-
-                let snippet = snippet_parts.join(" | ");
-
-                let mut sr = SearchResult::new(
-                    title.to_string(),
-                    url,
-                    snippet,
-                    "semantic_scholar".to_string(),
-                );
-                sr.engine_rank = (i + 1) as u32;
-                sr.category = SearchCategory::Science.to_string();
-                results.push(sr);
-            }
-        }
-
-        Ok(results)
+        parse_semantic_scholar_results(&body)
     }
 }

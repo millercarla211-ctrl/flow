@@ -102,17 +102,14 @@ impl SearchEngine for Translated {
                     continue;
                 }
 
-                let source_lang = m
-                    .get("source")
-                    .and_then(|s| s.as_str())
-                    .unwrap_or("auto");
-                let target_lang = m
-                    .get("target")
-                    .and_then(|t| t.as_str())
-                    .unwrap_or("en");
+                let source_lang = m.get("source").and_then(|s| s.as_str()).unwrap_or("auto");
+                let target_lang = m.get("target").and_then(|t| t.as_str()).unwrap_or("en");
 
                 let content = if !segment.is_empty() {
-                    format!("{} → {} ({} → {})", segment, translation, source_lang, target_lang)
+                    format!(
+                        "{} → {} ({} → {})",
+                        segment, translation, source_lang, target_lang
+                    )
                 } else {
                     translation.to_string()
                 };

@@ -100,12 +100,7 @@ impl SearchEngine for PodcastIndex {
                     }
                 }
                 let thumbnail_url = feed.image.filter(|u| !u.is_empty());
-                let mut result = SearchResult::new(
-                    title,
-                    result_url,
-                    snippet,
-                    "podcastindex",
-                );
+                let mut result = SearchResult::new(title, result_url, snippet, "podcastindex");
                 result.engine_rank = (i + 1) as u32;
                 result.thumbnail = thumbnail_url;
                 Some(result)

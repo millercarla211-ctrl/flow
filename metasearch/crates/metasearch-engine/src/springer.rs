@@ -14,8 +14,8 @@ use metasearch_core::{
 };
 use reqwest::Client;
 use serde::Deserialize;
-use tracing::info;
 use smallvec::smallvec;
+use tracing::info;
 
 pub struct Springer {
     metadata: EngineMetadata,
@@ -25,13 +25,14 @@ pub struct Springer {
 
 impl Springer {
     pub fn new(client: Client, api_key: Option<String>) -> Self {
+        let enabled = api_key.as_ref().is_some_and(|key| !key.trim().is_empty());
         Self {
             metadata: EngineMetadata {
                 name: "springer".to_string().into(),
                 display_name: "Springer Nature".to_string().into(),
                 homepage: "https://www.springernature.com/".to_string().into(),
                 categories: smallvec![SearchCategory::General],
-                enabled: true,
+                enabled,
                 timeout_ms: 8000,
                 weight: 1.0,
             },

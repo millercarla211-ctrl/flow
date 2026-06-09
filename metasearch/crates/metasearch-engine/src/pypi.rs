@@ -26,7 +26,7 @@ impl PyPI {
                 display_name: "PyPI".to_string().into(),
                 homepage: "https://pypi.org".to_string().into(),
                 categories: smallvec![SearchCategory::IT],
-                enabled: true,
+                enabled: false,
                 timeout_ms: 5000,
                 weight: 1.0,
             },

@@ -65,10 +65,7 @@ impl SearchEngine for Crossref {
             return Ok(Vec::new());
         }
 
-        let data: serde_json::Value = match resp
-            .json()
-            .await
-        {
+        let data: serde_json::Value = match resp.json().await {
             Ok(v) => v,
             Err(_) => return Ok(Vec::new()),
         };

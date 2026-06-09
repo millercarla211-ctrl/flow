@@ -103,10 +103,7 @@ impl SearchEngine for Repology {
             // Fall back to first version if no "newest" found
             if version.is_empty() {
                 if let Some(first) = repos_arr.first() {
-                    version = first["version"]
-                        .as_str()
-                        .unwrap_or("unknown")
-                        .to_string();
+                    version = first["version"].as_str().unwrap_or("unknown").to_string();
                 }
             }
 
@@ -128,12 +125,8 @@ impl SearchEngine for Repology {
                 format!("v{} — {}{}", version, repos_display.join(", "), suffix)
             };
 
-            let mut result = SearchResult::new(
-                pkg_name.clone(),
-                pkg_url,
-                content,
-                "repology".to_string(),
-            );
+            let mut result =
+                SearchResult::new(pkg_name.clone(), pkg_url, content, "repology".to_string());
             result.engine_rank = (i + 1) as u32;
             result.category = SearchCategory::IT.to_string();
             results.push(result);

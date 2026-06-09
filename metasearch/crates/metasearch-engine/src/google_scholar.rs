@@ -14,8 +14,8 @@ use metasearch_core::{
 };
 use reqwest::Client;
 use scraper::{Html, Selector};
-use tracing::info;
 use smallvec::smallvec;
+use tracing::info;
 
 pub struct GoogleScholar {
     metadata: EngineMetadata,
@@ -81,9 +81,9 @@ impl SearchEngine for GoogleScholar {
 
         // metasearch2 selectors
         let result_sel = Selector::parse("div.gs_r").unwrap();
-        let title_sel  = Selector::parse("h3").unwrap();
-        let link_sel   = Selector::parse("h3 > a[href]").unwrap();
-        let desc_sel   = Selector::parse("div.gs_rs").unwrap();
+        let title_sel = Selector::parse("h3").unwrap();
+        let link_sel = Selector::parse("h3 > a[href]").unwrap();
+        let desc_sel = Selector::parse("div.gs_rs").unwrap();
 
         for (i, element) in document.select(&result_sel).enumerate() {
             let title = element
@@ -115,7 +115,11 @@ impl SearchEngine for GoogleScholar {
             results.push(r);
         }
 
-        info!(engine = "google_scholar", count = results.len(), "Search complete");
+        info!(
+            engine = "google_scholar",
+            count = results.len(),
+            "Search complete"
+        );
         Ok(results)
     }
 }

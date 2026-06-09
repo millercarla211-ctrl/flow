@@ -13,8 +13,8 @@ use metasearch_core::{
 };
 use reqwest::Client;
 use serde::Deserialize;
-use tracing::info;
 use smallvec::smallvec;
+use tracing::info;
 
 pub struct DuckDuckGoDefinitions {
     metadata: EngineMetadata,

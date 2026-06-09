@@ -298,6 +298,8 @@ pub mod tineye;
 pub mod wordnik;
 
 // Batch 24 (new engines)
+pub mod maven_central;
+pub mod met_museum;
 pub mod microsoft_learn;
 pub mod nvd;
 pub mod repology;
@@ -324,13 +326,16 @@ pub mod yahoo_news;
 // Batch 27 (Yandex Music, Pixabay, Niconico, PubMed, GitHub Code, Z-Library)
 pub mod github_code;
 pub mod niconico;
+pub mod nuget;
 pub mod pixabay;
+pub mod pubchem;
 pub mod pubmed;
 pub mod yandex_music;
 pub mod zlibrary;
 
 // Batch 28 (Translation, weather, search engines)
 pub mod mozhi;
+pub mod open_food_facts;
 pub mod open_meteo;
 pub mod seznam;
 pub mod startpage;
@@ -346,12 +351,21 @@ pub mod youtube_api;
 pub mod youtube_noapi;
 
 // Batch 30 (Pexels, Pixiv, DDG Extra, 360 Search, YaCy, Torznab)
+pub mod artifact_hub;
+pub mod datacite;
+pub mod dbpedia;
+pub mod doaj;
 pub mod duckduckgo_extra;
+pub mod europe_pmc;
+pub mod internet_archive;
+pub mod packagist;
 pub mod pexels;
 pub mod pixiv;
+pub mod rubygems;
 pub mod three_sixty_search;
 pub mod torznab;
 pub mod yacy;
+pub mod zenodo;
 
 // Batch 31 (Self-hosted, Wikidata, PDIA, SearXNG federation)
 pub mod opensemantic;

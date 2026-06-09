@@ -113,7 +113,11 @@ impl SearchEngine for RightDao {
             results.push(r);
         }
 
-        info!(engine = "rightdao", count = results.len(), "Search complete");
+        info!(
+            engine = "rightdao",
+            count = results.len(),
+            "Search complete"
+        );
         Ok(results)
     }
 }

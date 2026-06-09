@@ -10,10 +10,15 @@ use axum::{
     routing::get,
 };
 use metasearch_core::category::SearchCategory;
+use metasearch_core::engine::{EngineCatalogEntry, EngineCatalogSummary};
 use metasearch_core::query::SearchQuery;
 use serde::Deserialize;
 
 use crate::cache::SearchCache;
+use crate::health::{
+    ProviderProbeSummary, provider_config_ready, provider_pool_status,
+    provider_probe_recently_proven,
+};
 use crate::input;
 use crate::state::AppState;
 
@@ -50,7 +55,7 @@ async fn api_search(
             })),
         )
             .into_response();
-    }
+    };
 
     if let Some(format) = params.format.as_deref() {
         if !matches!(format, "json" | "JSON") {
@@ -125,30 +130,63 @@ async fn api_search(
 }
 
 async fn api_engines(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    let catalog = state.engine_registry.engine_catalog();
+    let catalog = state.engine_registry.adapter_catalog();
+    let summary = EngineCatalogSummary::from_entries(&catalog);
     let default_timeout_ms = state.settings.search.request_timeout_ms;
 
     let engines: Vec<serde_json::Value> = catalog
         .into_iter()
-        .map(|metadata| {
-            let health = state
-                .health
-                .snapshot(metadata.name.as_ref(), default_timeout_ms);
+        .map(|entry| {
+            let metadata = entry.metadata;
+            let adapter = entry.adapter;
+            let name = metadata.name.clone();
+            let health = state.health.snapshot(name.as_ref(), default_timeout_ms);
+            let engine_status = engine_status(
+                metadata.enabled,
+                adapter.configured,
+                health.as_ref().is_some_and(|snapshot| snapshot.healthy),
+                health
+                    .as_ref()
+                    .is_some_and(|snapshot| snapshot.recently_healthy),
+                health.is_some(),
+            );
+            let health_json = match health {
+                Some(snapshot) => serde_json::json!(snapshot),
+                None => serde_json::json!({
+                    "name": name.clone(),
+                    "probed": false,
+                    "healthy": null,
+                    "recently_healthy": false,
+                }),
+            };
             serde_json::json!({
-                "name": metadata.name,
+                "name": name,
                 "display_name": metadata.display_name,
                 "homepage": metadata.homepage,
                 "categories": metadata.categories,
                 "enabled": metadata.enabled,
+                "registered": true,
+                "enabled_by_default": adapter.enabled_by_default,
+                "configured": adapter.configured,
+                "effective_enabled": metadata.enabled && adapter.configured,
+                "status": engine_status,
+                "access_model": adapter.access_model,
+                "implementation": adapter.implementation,
+                "config_requirements": adapter.config_requirements,
+                "docs_url": adapter.docs_url,
+                "skip_reason": adapter.skip_reason,
+                "notes": adapter.notes,
                 "timeout_ms": metadata.timeout_ms,
                 "weight": metadata.weight,
-                "health": health,
+                "health": health_json,
             })
         })
         .collect();
 
     Json(serde_json::json!({
-        "count": engines.len(),
+        "count": summary.registered,
+        "provider_summary": summary,
+        "probe_window_secs": crate::health::RECENT_HEALTH_WINDOW.as_secs(),
         "engines": engines
     }))
 }
@@ -192,52 +230,243 @@ async fn api_status(State(state): State<Arc<AppState>>) -> Json<serde_json::Valu
     let health_snapshots = state
         .health
         .snapshots(state.settings.search.request_timeout_ms);
+    let catalog = state.engine_registry.adapter_catalog();
+    let provider_summary = EngineCatalogSummary::from_entries(&catalog);
+    let provider_probe_summary = ProviderProbeSummary::from_catalog(
+        &catalog,
+        &state.health,
+        state.settings.search.request_timeout_ms,
+    );
+    let provider_status = provider_pool_status(
+        &provider_summary,
+        &provider_probe_summary,
+        state.settings.search.max_concurrent_engines,
+    );
+    let provider_config_ready = provider_config_ready(provider_status);
+    let provider_probe_proven = provider_probe_recently_proven(&provider_probe_summary);
+    let skipped_engines = skipped_engines(&catalog);
+    let raw_health_counts = serde_json::json!({
+        "tracked": state.health.tracked_engine_count(),
+        "recently_healthy": state.health.recently_healthy_engine_count(),
+        "unhealthy": unhealthy.len(),
+    });
 
-    let status = if state.engine_registry.count() == 0 {
+    let service_status = if state.engine_registry.count() == 0 {
         "error"
     } else if !unhealthy.is_empty() || !config_warnings.is_empty() {
         "degraded"
     } else {
         "ok"
     };
+    let status = status_with_provider_evidence(
+        service_status,
+        provider_status,
+        provider_config_ready,
+        provider_probe_proven,
+    );
+
+    let runtime = serde_json::json!({
+        "safe_search": state.settings.search.safe_search,
+        "default_language": state.settings.search.default_language,
+        "max_page": state.settings.search.max_page,
+        "request_timeout_ms": state.settings.search.request_timeout_ms,
+        "max_concurrent_engines": state.settings.search.max_concurrent_engines,
+        "max_query_chars": crate::input::MAX_QUERY_CHARS,
+        "max_autocomplete_query_chars": crate::input::MAX_AUTOCOMPLETE_QUERY_CHARS,
+        "max_engine_count": crate::input::MAX_ENGINE_COUNT,
+        "max_category_count": crate::input::MAX_CATEGORY_COUNT,
+        "remote_autocomplete_enabled": state.settings.search.remote_autocomplete_enabled,
+        "cache_enabled": state.settings.cache.enabled,
+        "cache_ttl_secs": state.settings.cache.ttl_secs,
+        "cache_max_entries": state.settings.cache.max_entries,
+        "rate_limit_enabled": state.settings.rate_limit.enabled,
+        "requests_per_second": state.settings.rate_limit.requests_per_second,
+        "burst_size": state.settings.rate_limit.burst_size,
+        "bot_detection_enabled": state.settings.bot_detection.enabled,
+        "security_headers_enabled": state.settings.server.security_headers_enabled,
+        "permissive_cors": state.settings.server.permissive_cors,
+        "allowed_origins": state.settings.server.allowed_origins,
+        "trust_forwarded_headers": state.settings.server.trust_forwarded_headers,
+        "base_url": state.settings.server.normalized_base_url(),
+        "templates_dir": &state.template_dir,
+        "static_dir": &state.static_dir,
+    });
 
     Json(serde_json::json!({
         "status": status,
+        "service_status": service_status,
+        "provider_status": provider_status,
+        "provider_config_ready": provider_config_ready,
+        "provider_probe_recently_proven": provider_probe_proven,
         "version": env!("CARGO_PKG_VERSION"),
         "engine_count": state.engine_registry.count(),
-        "tracked_engines": state.health.tracked_engine_count(),
-        "unhealthy_engine_count": unhealthy.len(),
+        "provider_summary": provider_summary,
+        "provider_probe_summary": provider_probe_summary.clone(),
+        "recently_healthy_engine_count": provider_probe_summary.recently_healthy,
+        "skipped_engines": skipped_engines,
+        "probe_window_secs": crate::health::RECENT_HEALTH_WINDOW.as_secs(),
+        "tracked_engines": provider_probe_summary.tracked,
+        "unhealthy_engine_count": provider_probe_summary.unhealthy,
         "unhealthy_engines": unhealthy,
+        "raw_health_counts": raw_health_counts,
         "asset_warning_count": asset_warnings.len(),
         "asset_warnings": asset_warnings,
         "warning_count": config_warnings.len(),
         "warnings": config_warnings,
         "engine_health": health_snapshots,
-        "runtime": {
-            "safe_search": state.settings.search.safe_search,
-            "default_language": state.settings.search.default_language,
-            "max_page": state.settings.search.max_page,
-            "request_timeout_ms": state.settings.search.request_timeout_ms,
-            "max_concurrent_engines": state.settings.search.max_concurrent_engines,
-            "max_query_chars": crate::input::MAX_QUERY_CHARS,
-            "max_autocomplete_query_chars": crate::input::MAX_AUTOCOMPLETE_QUERY_CHARS,
-            "max_engine_count": crate::input::MAX_ENGINE_COUNT,
-            "max_category_count": crate::input::MAX_CATEGORY_COUNT,
-            "remote_autocomplete_enabled": state.settings.search.remote_autocomplete_enabled,
-            "cache_enabled": state.settings.cache.enabled,
-            "cache_ttl_secs": state.settings.cache.ttl_secs,
-            "cache_max_entries": state.settings.cache.max_entries,
-            "rate_limit_enabled": state.settings.rate_limit.enabled,
-            "requests_per_second": state.settings.rate_limit.requests_per_second,
-            "burst_size": state.settings.rate_limit.burst_size,
-            "bot_detection_enabled": state.settings.bot_detection.enabled,
-            "security_headers_enabled": state.settings.server.security_headers_enabled,
-            "permissive_cors": state.settings.server.permissive_cors,
-            "allowed_origins": state.settings.server.allowed_origins,
-            "trust_forwarded_headers": state.settings.server.trust_forwarded_headers,
-            "base_url": state.settings.server.normalized_base_url(),
-            "templates_dir": &state.template_dir,
-            "static_dir": &state.static_dir,
-        }
+        "runtime": runtime
     }))
+}
+
+fn engine_status(
+    enabled: bool,
+    configured: bool,
+    healthy: bool,
+    recently_healthy: bool,
+    probed: bool,
+) -> &'static str {
+    if !configured {
+        "skipped_unconfigured"
+    } else if !enabled {
+        "disabled"
+    } else if probed && !healthy {
+        "unhealthy"
+    } else if recently_healthy {
+        "recently_healthy"
+    } else if probed && healthy {
+        "probed"
+    } else {
+        "cold"
+    }
+}
+
+fn skipped_engines(catalog: &[EngineCatalogEntry]) -> Vec<serde_json::Value> {
+    catalog
+        .iter()
+        .filter(|entry| !entry.metadata.enabled || !entry.adapter.configured)
+        .map(|entry| {
+            serde_json::json!({
+                "name": entry.metadata.name.clone(),
+                "display_name": entry.metadata.display_name.clone(),
+                "enabled": entry.metadata.enabled,
+                "registered": true,
+                "enabled_by_default": entry.adapter.enabled_by_default,
+                "configured": entry.adapter.configured,
+                "effective_enabled": entry.metadata.enabled && entry.adapter.configured,
+                "status": engine_status(
+                    entry.metadata.enabled,
+                    entry.adapter.configured,
+                    false,
+                    false,
+                    false,
+                ),
+                "requires": entry.adapter.config_requirements.clone(),
+                "access_model": entry.adapter.access_model,
+                "reason": entry.adapter.skip_reason.clone(),
+            })
+        })
+        .collect()
+}
+
+fn status_with_provider_evidence(
+    service_status: &'static str,
+    provider_status: &'static str,
+    provider_config_ready: bool,
+    provider_probe_recently_proven: bool,
+) -> &'static str {
+    if service_status == "error" || !provider_config_ready || provider_status == "unavailable" {
+        "error"
+    } else if service_status == "degraded" || !provider_probe_recently_proven {
+        "degraded"
+    } else {
+        service_status
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{engine_status, skipped_engines, status_with_provider_evidence};
+    use metasearch_core::{
+        category::SearchCategory,
+        engine::{
+            EngineAccessModel, EngineAdapterMetadata, EngineCatalogEntry, EngineConfigRequirement,
+            EngineImplementation, EngineMetadata,
+        },
+    };
+    use smallvec::smallvec;
+
+    #[test]
+    fn engine_status_keeps_unhealthy_authoritative_over_recent_success() {
+        let status = engine_status(true, true, false, true, true);
+        assert_eq!(status, "unhealthy");
+    }
+
+    #[test]
+    fn engine_status_distinguishes_disabled_from_unconfigured() {
+        assert_eq!(engine_status(false, true, false, false, false), "disabled");
+        assert_eq!(
+            engine_status(false, false, false, false, false),
+            "skipped_unconfigured"
+        );
+    }
+
+    #[test]
+    fn skipped_engines_explain_default_configured_and_effective_state() {
+        let skipped = skipped_engines(&[
+            catalog_entry("disabled", false, true),
+            catalog_entry("needs_base_url", true, false),
+        ]);
+
+        assert_eq!(skipped.len(), 2);
+        assert_eq!(skipped[0]["name"], "disabled");
+        assert_eq!(skipped[0]["enabled_by_default"], false);
+        assert_eq!(skipped[0]["configured"], true);
+        assert_eq!(skipped[0]["effective_enabled"], false);
+        assert_eq!(skipped[0]["status"], "disabled");
+        assert_eq!(skipped[1]["name"], "needs_base_url");
+        assert_eq!(skipped[1]["enabled_by_default"], true);
+        assert_eq!(skipped[1]["configured"], false);
+        assert_eq!(skipped[1]["effective_enabled"], false);
+        assert_eq!(skipped[1]["status"], "skipped_unconfigured");
+    }
+
+    #[test]
+    fn status_with_provider_evidence_degrades_when_provider_proof_is_cold() {
+        assert_eq!(
+            status_with_provider_evidence("ok", "cold", true, false),
+            "degraded"
+        );
+        assert_eq!(
+            status_with_provider_evidence("ok", "healthy", true, true),
+            "ok"
+        );
+        assert_eq!(
+            status_with_provider_evidence("ok", "unavailable", false, false),
+            "error"
+        );
+    }
+
+    fn catalog_entry(name: &'static str, enabled: bool, configured: bool) -> EngineCatalogEntry {
+        EngineCatalogEntry {
+            metadata: EngineMetadata {
+                name: name.into(),
+                display_name: name.into(),
+                homepage: "https://example.com".into(),
+                categories: smallvec![SearchCategory::General],
+                enabled,
+                timeout_ms: 1000,
+                weight: 1.0,
+            },
+            adapter: EngineAdapterMetadata {
+                enabled_by_default: enabled,
+                configured,
+                access_model: EngineAccessModel::SelfHostedInstance,
+                implementation: EngineImplementation::JsonApi,
+                config_requirements: vec![EngineConfigRequirement::BaseUrl],
+                docs_url: Some("https://example.com/docs".into()),
+                skip_reason: Some("missing base URL".into()),
+                notes: None,
+            },
+        }
+    }
 }

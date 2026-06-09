@@ -4,12 +4,15 @@ use async_trait::async_trait;
 use metasearch_core::{
     category::SearchCategory,
     engine::{EngineMetadata, SearchEngine},
-    error::Result,
+    error::{MetasearchError, Result},
     query::SearchQuery,
     result::SearchResult,
 };
 use reqwest::Client;
 use smallvec::smallvec;
+use std::time::Duration;
+
+const USER_AGENT: &str = "metasearch/0.1 (+https://github.com/najmus-sakib-hossain/metasearch)";
 
 pub struct SearchcodeCode {
     metadata: EngineMetadata,
@@ -24,7 +27,7 @@ impl SearchcodeCode {
                 display_name: "Searchcode".to_string().into(),
                 homepage: "https://searchcode.com".to_string().into(),
                 categories: smallvec![SearchCategory::IT],
-                enabled: true,
+                enabled: false,
                 timeout_ms: 5000,
                 weight: 1.0,
             },
@@ -48,42 +51,45 @@ impl SearchEngine for SearchcodeCode {
         let resp = match self
             .client
             .get(&url)
-            .timeout(std::time::Duration::from_secs(7))
+            .timeout(Duration::from_millis(self.metadata.timeout_ms))
+            .header("User-Agent", USER_AGENT)
             .send()
             .await
         {
             Ok(r) => r,
-            Err(_) => return Ok(Vec::new()),
+            Err(e) => return Err(MetasearchError::HttpError(format!("Searchcode: {e}"))),
         };
 
-        if !resp.status().is_success() {
-            return Ok(Vec::new());
-        }
+        let resp = resp
+            .error_for_status()
+            .map_err(|e| MetasearchError::HttpError(format!("Searchcode status: {e}")))?;
 
         let text = match resp.text().await {
             Ok(t) => t,
-            Err(_) => return Ok(Vec::new()),
+            Err(e) => return Err(MetasearchError::HttpError(format!("Searchcode body: {e}"))),
         };
 
         if text.trim_start().starts_with('<') {
-            return Ok(Vec::new());
+            return Err(MetasearchError::ParseError(
+                "Searchcode returned HTML instead of JSON".into(),
+            ));
         }
 
         let data: serde_json::Value = match serde_json::from_str(&text) {
             Ok(v) => v,
-            Err(_) => return Ok(Vec::new()),
+            Err(e) => return Err(MetasearchError::ParseError(e.to_string())),
         };
 
         let mut results = Vec::new();
 
         if let Some(items) = data["results"].as_array() {
-            for (i, item) in items.iter().enumerate() {
+            for item in items {
                 let item_url = item["url"].as_str().unwrap_or_default();
                 let name = item["name"].as_str().unwrap_or_default();
                 let filename = item["filename"].as_str().unwrap_or("");
                 let repo = item["repo"].as_str().unwrap_or("");
 
-                if item_url.is_empty() {
+                if item_url.is_empty() || (name.is_empty() && filename.is_empty()) {
                     continue;
                 }
 
@@ -99,7 +105,7 @@ impl SearchEngine for SearchcodeCode {
                     repo.to_string(),
                     "searchcode_code".to_string(),
                 );
-                result.engine_rank = (i + 1) as u32;
+                result.engine_rank = (results.len() + 1) as u32;
                 result.category = SearchCategory::IT.to_string();
                 results.push(result);
             }

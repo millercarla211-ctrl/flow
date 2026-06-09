@@ -101,14 +101,11 @@ impl SearchEngine for Startpage {
 
         // Updated selectors for current Startpage HTML structure
         // Result containers use class "result css-..."
-        let result_sel = Selector::parse(".result")
-            .expect("selector should parse");
-        let title_sel = Selector::parse(".wgl-title, h2, h3")
-            .expect("selector should parse");
-        let link_sel = Selector::parse("a[href]")
-            .expect("link selector should parse");
-        let desc_sel = Selector::parse(".result-snippet, p.description, p")
-            .expect("selector should parse");
+        let result_sel = Selector::parse(".result").expect("selector should parse");
+        let title_sel = Selector::parse(".wgl-title, h2, h3").expect("selector should parse");
+        let link_sel = Selector::parse("a[href]").expect("link selector should parse");
+        let desc_sel =
+            Selector::parse(".result-snippet, p.description, p").expect("selector should parse");
 
         for (i, container) in document.select(&result_sel).enumerate() {
             // Extract title

@@ -48,7 +48,9 @@ impl SearchEngine for Yacy {
 
     async fn search(&self, query: &SearchQuery) -> Result<Vec<SearchResult>, MetasearchError> {
         if self.base_url.is_empty() {
-            return Ok(Vec::new());
+            return Err(MetasearchError::ConfigError(
+                "yacy requires a trusted YaCy base URL".to_string(),
+            ));
         }
 
         let start_record = (query.page.saturating_sub(1)) * 10;
@@ -62,8 +64,11 @@ impl SearchEngine for Yacy {
         let resp = self
             .client
             .get(&url)
+            .timeout(std::time::Duration::from_millis(self.metadata.timeout_ms))
             .send()
             .await
+            .map_err(|e| MetasearchError::HttpError(e.to_string()))?
+            .error_for_status()
             .map_err(|e| MetasearchError::HttpError(e.to_string()))?;
 
         let json: serde_json::Value = resp

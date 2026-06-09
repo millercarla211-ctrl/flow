@@ -96,9 +96,9 @@ fn reconstruct_abstract(inverted_index: &serde_json::Value) -> String {
 impl SearchEngine for OpenAlex {
     fn metadata(&self) -> EngineMetadata {
         EngineMetadata {
-            name: "OpenAlex".to_string().into(),
+            name: "openalex".to_string().into(),
             display_name: "OpenAlex".to_string().into(),
-            homepage: "https://OpenAlex.com".to_string().into(),
+            homepage: "https://openalex.org".to_string().into(),
             categories: smallvec![SearchCategory::Science],
             enabled: true,
             timeout_ms: 5000,
@@ -113,8 +113,18 @@ impl SearchEngine for OpenAlex {
             query.page
         );
 
-        let resp = self.client.get(&url).send().await.map_err(|e| MetasearchError::Engine(e.to_string()))?;
-        let data: ApiResponse = resp.json().await.map_err(|e| MetasearchError::Engine(e.to_string()))?;
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| MetasearchError::Engine(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| MetasearchError::HttpError(e.to_string()))?;
+        let data: ApiResponse = resp
+            .json()
+            .await
+            .map_err(|e| MetasearchError::Engine(e.to_string()))?;
 
         let results = data
             .results
@@ -186,12 +196,7 @@ impl SearchEngine for OpenAlex {
                     content.push_str(&abstract_text);
                 }
 
-                let mut result = SearchResult::new(
-                    title,
-                    result_url,
-                    content,
-                    "openalex",
-                );
+                let mut result = SearchResult::new(title, result_url, content, "openalex");
                 result.engine_rank = (i + 1) as u32;
                 Some(result)
             })
@@ -200,4 +205,3 @@ impl SearchEngine for OpenAlex {
         Ok(results)
     }
 }
-

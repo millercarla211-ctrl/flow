@@ -66,9 +66,9 @@ Rust metasearch workspace with a reusable core crate, a large engine registry, a
 - The browser UI now uses local recent-query autocomplete and self-hosted icon rendering, so it no longer depends on passive third-party assets for normal operation.
 - Dynamic HTML and JSON responses now default to `Cache-Control: no-store`, while static assets and the OpenSearch descriptor get bounded cache headers.
 - Search, autocomplete, API, and operator responses now emit `X-Robots-Tag: noindex, nofollow, noarchive`, and the app serves an explicit `robots.txt`.
-- `/health` now reports engine counts and unhealthy-engine state instead of a bare `"ok"`, and returns `503` when the service is fundamentally misconfigured.
-- `/livez` and `/readyz` now provide explicit liveness and readiness probes, and the container healthchecks use `/readyz`.
-- `/api/v1/status` now exposes operator-facing runtime warnings, engine health snapshots, and the effective deployment posture in one place.
+- `/health` now reports engine counts, provider-summary counts, and unhealthy-engine state instead of a bare `"ok"`, and returns `503` when the service is fundamentally misconfigured.
+- `/livez` and `/readyz` now provide explicit liveness and readiness probes, and readiness reports usable search capacity without pretending every adapter has been live-probed.
+- `/api/v1/status` now exposes operator-facing runtime warnings, provider status, skipped adapters, engine health snapshots, and the effective deployment posture in one place.
 - `/status` now provides the same operator view in HTML for browser-based deployments and manual handoff checks, including asset-integrity visibility for the configured template/static roots.
 - Server startup now logs runtime warnings and shuts down gracefully on termination signals.
 - Server startup now validates the effective template/static asset roots before binding the HTTP port.
@@ -180,11 +180,16 @@ See [INTEGRATION_GUIDE.md](F:/flow/metasearch/INTEGRATION_GUIDE.md) for the inte
 - If you need browser access from another host, prefer `allowed_origins = [...]` over `permissive_cors = true`.
 - Remote autocomplete is disabled by default and the browser UI does not require it; when left disabled, autocomplete stays local to the browser's recent-query storage.
 - Treat the built-in engine count as adapter coverage, not a guarantee that every upstream site is always reachable or stable.
+- Use `metasearch probe --allow-network --engines wikipedia,rubygems --query "rust programming"` for a small live provider check. Do not run all-adapter probes as a routine healthcheck.
+- Documented JSON/open-data adapters include Maven Central, NuGet, Europe PMC, DBpedia, Open Food Facts, and The Met; their docs references live in [docs/PROVIDER_ACCESS_MODELS.md](G:/Dx/metasearch/docs/PROVIDER_ACCESS_MODELS.md).
+- Source-hardened API/community adapters include Semantic Scholar, Hacker News, GitLab, Stack Exchange, and npm registry search. SourceHut, PyPI broad search, and legacy Searchcode remain registered but disabled by default because they are not live-proven production providers.
+- Provider pool status uses `partially_healthy` when only some effective adapters have recent successful probes.
 
 ## Project docs
 
-- [INTEGRATION_GUIDE.md](F:/flow/metasearch/INTEGRATION_GUIDE.md)
-- [TODO.md](F:/flow/metasearch/TODO.md)
-- [CHANGELOG.md](F:/flow/metasearch/CHANGELOG.md)
-- [docs/PRODUCTION_READY.md](F:/flow/metasearch/docs/PRODUCTION_READY.md)
-- [docs/METASEARCH_STATUS.md](F:/flow/metasearch/docs/METASEARCH_STATUS.md)
+- [INTEGRATION_GUIDE.md](G:/Dx/metasearch/INTEGRATION_GUIDE.md)
+- [TODO.md](G:/Dx/metasearch/TODO.md)
+- [CHANGELOG.md](G:/Dx/metasearch/CHANGELOG.md)
+- [docs/PRODUCTION_READY.md](G:/Dx/metasearch/docs/PRODUCTION_READY.md)
+- [docs/METASEARCH_STATUS.md](G:/Dx/metasearch/docs/METASEARCH_STATUS.md)
+- [docs/PROVIDER_ACCESS_MODELS.md](G:/Dx/metasearch/docs/PROVIDER_ACCESS_MODELS.md)

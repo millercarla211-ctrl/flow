@@ -14,8 +14,8 @@ use metasearch_core::{
 };
 use reqwest::Client;
 use serde::Deserialize;
-use tracing::info;
 use smallvec::smallvec;
+use tracing::info;
 
 pub struct Ads {
     metadata: EngineMetadata,
@@ -25,13 +25,14 @@ pub struct Ads {
 
 impl Ads {
     pub fn new(client: Client, api_key: Option<String>) -> Self {
+        let enabled = api_key.as_ref().is_some_and(|key| !key.trim().is_empty());
         Self {
             metadata: EngineMetadata {
-                name: "astrophysics_data_system".to_string().into(),
+                name: "ads".to_string().into(),
                 display_name: "NASA ADS".to_string().into(),
                 homepage: "https://ui.adsabs.harvard.edu/".to_string().into(),
-                categories: smallvec![SearchCategory::General],
-                enabled: true,
+                categories: smallvec![SearchCategory::Science],
+                enabled,
                 timeout_ms: 8000,
                 weight: 1.0,
             },
@@ -81,7 +82,7 @@ impl SearchEngine for Ads {
         let key = self.api_key.as_deref().unwrap_or("");
         if key.is_empty() {
             return Err(MetasearchError::EngineError {
-                engine: "astrophysics_data_system".to_string(),
+                engine: "ads".to_string(),
                 message: "No API key configured. Get one at https://ui.adsabs.harvard.edu/help/api"
                     .to_string(),
             });
@@ -113,7 +114,7 @@ impl SearchEngine for Ads {
 
         if let Some(err) = data.error {
             return Err(MetasearchError::EngineError {
-                engine: "astrophysics_data_system".to_string(),
+                engine: "ads".to_string(),
                 message: err
                     .msg
                     .unwrap_or_else(|| "Unknown ADS API error".to_string()),
@@ -144,10 +145,9 @@ impl SearchEngine for Ads {
                         content
                     };
 
-                    let mut r =
-                        SearchResult::new(&title, &result_url, snippet, "astrophysics_data_system");
+                    let mut r = SearchResult::new(&title, &result_url, snippet, "ads");
                     r.engine_rank = (i + 1) as u32;
-                    r.category = SearchCategory::General.to_string();
+                    r.category = SearchCategory::Science.to_string();
 
                     // Parse date — ADS returns ISO format
                     if let Some(date_str) = &doc.date {
@@ -171,11 +171,7 @@ impl SearchEngine for Ads {
             }
         }
 
-        info!(
-            engine = "astrophysics_data_system",
-            count = results.len(),
-            "Search complete"
-        );
+        info!(engine = "ads", count = results.len(), "Search complete");
         Ok(results)
     }
 }

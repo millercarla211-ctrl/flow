@@ -49,7 +49,9 @@ impl SearchEngine for SearxEngine {
 
     async fn search(&self, query: &SearchQuery) -> Result<Vec<SearchResult>, MetasearchError> {
         if self.base_url.is_empty() {
-            return Ok(Vec::new());
+            return Err(MetasearchError::ConfigError(
+                "searx_engine requires a trusted SearXNG base URL".to_string(),
+            ));
         }
 
         let url = format!(
@@ -62,8 +64,11 @@ impl SearchEngine for SearxEngine {
         let resp = self
             .client
             .get(&url)
+            .timeout(std::time::Duration::from_millis(self.metadata.timeout_ms))
             .send()
             .await
+            .map_err(|e| MetasearchError::HttpError(e.to_string()))?
+            .error_for_status()
             .map_err(|e| MetasearchError::HttpError(e.to_string()))?;
 
         let json: serde_json::Value = resp

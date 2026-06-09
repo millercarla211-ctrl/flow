@@ -121,12 +121,8 @@ impl SearchEngine for Mozhi {
                     word.to_string()
                 };
 
-                let mut r = SearchResult::new(
-                    &title,
-                    format!("{}/", self.base_url),
-                    &content,
-                    "mozhi",
-                );
+                let mut r =
+                    SearchResult::new(&title, format!("{}/", self.base_url), &content, "mozhi");
                 r.engine_rank = (i + 2) as u32;
                 r.category = SearchCategory::General.to_string();
                 results.push(r);

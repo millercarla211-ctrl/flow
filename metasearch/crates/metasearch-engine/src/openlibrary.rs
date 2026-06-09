@@ -18,6 +18,7 @@ use metasearch_core::{
 const SEARCH_API: &str = "https://openlibrary.org/search.json";
 const BASE_URL: &str = "https://openlibrary.org";
 const RESULTS_PER_PAGE: u32 = 10;
+const USER_AGENT: &str = "metasearch/0.1 (+https://github.com/najmus-sakib-hossain/metasearch)";
 
 pub struct OpenLibrary {
     client: Client,
@@ -51,8 +52,8 @@ impl SearchEngine for OpenLibrary {
     fn metadata(&self) -> EngineMetadata {
         EngineMetadata {
             name: "openlibrary".to_string().into(),
-            display_name: "openlibrary".to_string().into(),
-            homepage: "https://openlibrary.com".to_string().into(),
+            display_name: "Open Library".to_string().into(),
+            homepage: "https://openlibrary.org".to_string().into(),
             categories: smallvec![SearchCategory::General],
             enabled: true,
             timeout_ms: 5000,
@@ -69,15 +70,22 @@ impl SearchEngine for OpenLibrary {
             RESULTS_PER_PAGE
         );
 
-        let resp =
-            self.client.get(&url).send().await.map_err(|e| {
-                MetasearchError::Engine(format!("OpenLibrary request failed: {}", e))
-            })?;
+        let metadata = self.metadata();
+        let resp = self
+            .client
+            .get(&url)
+            .timeout(std::time::Duration::from_millis(metadata.timeout_ms))
+            .header("User-Agent", USER_AGENT)
+            .send()
+            .await
+            .map_err(|e| MetasearchError::HttpError(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| MetasearchError::HttpError(e.to_string()))?;
 
         let data: OpenLibraryResponse = resp
             .json()
             .await
-            .map_err(|e| MetasearchError::Engine(format!("OpenLibrary parse failed: {}", e)))?;
+            .map_err(|e| MetasearchError::ParseError(e.to_string()))?;
 
         let results = data
             .docs

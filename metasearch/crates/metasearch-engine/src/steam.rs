@@ -99,12 +99,8 @@ impl SearchEngine for SteamStore {
 
                 let content = content_parts.join(" — ");
 
-                let mut result = SearchResult::new(
-                    name.to_string(),
-                    item_url,
-                    content,
-                    "steam".to_string(),
-                );
+                let mut result =
+                    SearchResult::new(name.to_string(), item_url, content, "steam".to_string());
                 result.engine_rank = (i + 1) as u32;
                 result.category = SearchCategory::General.to_string();
                 if let Some(thumb) = tiny_image {

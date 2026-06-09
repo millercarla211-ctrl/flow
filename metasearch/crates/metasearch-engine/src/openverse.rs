@@ -45,9 +45,9 @@ struct ApiResult {
 impl SearchEngine for Openverse {
     fn metadata(&self) -> EngineMetadata {
         EngineMetadata {
-            name: "Openverse".to_string().into(),
+            name: "openverse".to_string().into(),
             display_name: "Openverse".to_string().into(),
-            homepage: "https://Openverse.com".to_string().into(),
+            homepage: "https://openverse.org".to_string().into(),
             categories: smallvec![SearchCategory::Images],
             enabled: true,
             timeout_ms: 5000,
@@ -62,8 +62,18 @@ impl SearchEngine for Openverse {
             query.page
         );
 
-        let resp = self.client.get(&url).send().await.map_err(|e| MetasearchError::Engine(e.to_string()))?;
-        let data: ApiResponse = resp.json().await.map_err(|e| MetasearchError::Engine(e.to_string()))?;
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| MetasearchError::Engine(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| MetasearchError::HttpError(e.to_string()))?;
+        let data: ApiResponse = resp
+            .json()
+            .await
+            .map_err(|e| MetasearchError::Engine(e.to_string()))?;
 
         let results = data
             .results
@@ -77,12 +87,7 @@ impl SearchEngine for Openverse {
                     Some(c) => format!("By {} — Creative Commons", c),
                     None => "Creative Commons licensed image".to_string(),
                 };
-                let mut result = SearchResult::new(
-                    title,
-                    url,
-                    content,
-                    "openverse",
-                );
+                let mut result = SearchResult::new(title, url, content, "openverse");
                 result.engine_rank = (i + 1) as u32;
                 result.thumbnail = Some(img_src);
                 Some(result)
@@ -92,4 +97,3 @@ impl SearchEngine for Openverse {
         Ok(results)
     }
 }
-
