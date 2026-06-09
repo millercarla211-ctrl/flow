@@ -1,3 +1,6 @@
+# DX GitHub Actions temporarily disabled.
+# Controlled deactivation requested by essencefromexistence to preserve limited GitHub Actions minutes.
+# Keep this workflow disabled until essencefromexistence explicitly re-enables GitHub Actions for this repository.
 name: RLM CI
 
 on:
