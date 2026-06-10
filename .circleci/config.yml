@@ -1,0 +1,73 @@
+version: 2.1
+
+commands:
+  prepare_unix_workspace:
+    steps:
+      - run:
+          name: Checkout sibling Cargo dependencies
+          command: |
+            set -euo pipefail
+            fallback_branch="dev"
+            default_owner="millercarla211-ctrl"
+
+            clone_dx_dependency() {
+              name="$1"
+              repository="$2"
+              target="../${name}"
+              if [ -d "${target}/.git" ]; then
+                echo "Dependency ${name} already exists at ${target}"
+                return 0
+              fi
+              branch="${CIRCLE_BRANCH:-$fallback_branch}"
+              owner="${DX_GITHUB_OWNER:-$default_owner}"
+              url="https://github.com/${owner}/${repository}.git"
+              clone_dependency() {
+                selected_branch="$1"
+                if [ -n "${DX_GITHUB_TOKEN:-}" ]; then
+                  git -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer ${DX_GITHUB_TOKEN}" clone --depth 1 --branch "${selected_branch}" "${url}" "${target}"
+                else
+                  git clone --depth 1 --branch "${selected_branch}" "${url}" "${target}"
+                fi
+              }
+              clone_dependency "${branch}" || clone_dependency "${fallback_branch}" || {
+                echo "Failed to clone dependency ${name} from ${owner}/${repository}. Private sibling dependencies require a scoped read token or an SSH key strategy." >&2
+                return 1
+              }
+            }
+
+            echo "No sibling Cargo dependencies are required."
+
+jobs:
+  linux-check:
+    docker:
+      - image: cimg/rust:1.94.0
+    resource_class: small
+    steps:
+      - checkout
+      - prepare_unix_workspace
+      - restore_cache:
+          keys:
+            - flow-cargo-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - flow-cargo-{{ arch }}-
+      - run:
+          name: Cargo metadata
+          command: cargo metadata --locked --no-deps --format-version 1
+      - run:
+          name: Cargo check
+          command: |
+            cargo check --locked --lib --bin flow
+      - save_cache:
+          key: flow-cargo-{{ arch }}-{{ checksum "Cargo.lock" }}
+          paths:
+            - ~/.cargo/registry
+            - ~/.cargo/git
+
+workflows:
+  validate:
+    jobs:
+      - linux-check:
+          filters:
+            branches:
+              only:
+                - main
+                - dev
