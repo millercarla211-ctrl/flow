@@ -37,7 +37,8 @@ commands:
             esac
             EOF
                   chmod 700 "${askpass}"
-                  GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "${selected_branch}" "${url}" "${target}"
+                  auth_url="https://x-access-token@github.com/${owner}/${repository}.git"
+                  GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "${selected_branch}" "${auth_url}" "${target}"
                   status="$?"
                   rm -f "${askpass}"
                   return "${status}"
