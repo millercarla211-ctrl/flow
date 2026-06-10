@@ -25,6 +25,8 @@ commands:
                 selected_branch="$1"
                 if [ -n "${DX_GITHUB_TOKEN:-}" ]; then
                   echo "Using configured GitHub token for private dependency ${owner}/${repository}."
+                  echo "DX_GITHUB_TOKEN length: ${#DX_GITHUB_TOKEN}"
+                  export DX_GITHUB_TOKEN
                   askpass="$(mktemp)"
                   cat > "${askpass}" \<<'EOF'
             #!/usr/bin/env sh
