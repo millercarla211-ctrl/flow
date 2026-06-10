@@ -62,6 +62,11 @@ jobs:
     steps:
       - checkout
       - prepare_unix_workspace
+      - run:
+          name: Install Linux system dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends libasound2-dev
       - restore_cache:
           keys:
             - flow-cargo-{{ arch }}-{{ checksum "Cargo.lock" }}
