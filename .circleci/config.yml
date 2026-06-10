@@ -24,9 +24,23 @@ commands:
               clone_dependency() {
                 selected_branch="$1"
                 if [ -n "${DX_GITHUB_TOKEN:-}" ]; then
-                  auth_header="$(printf "x-access-token:%s" "${DX_GITHUB_TOKEN}" | base64 | tr -d "\n")"
-                  git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth_header}" clone --depth 1 --branch "${selected_branch}" "${url}" "${target}"
+                  echo "Using configured GitHub token for private dependency ${owner}/${repository}."
+                  askpass="$(mktemp)"
+                  cat > "${askpass}" \<<'EOF'
+            #!/usr/bin/env sh
+            case "$1" in
+              *Username*) printf "%s\n" "x-access-token" ;;
+              *Password*) printf "%s\n" "${DX_GITHUB_TOKEN}" ;;
+              *) printf "\n" ;;
+            esac
+            EOF
+                  chmod 700 "${askpass}"
+                  GIT_ASKPASS="${askpass}" GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "${selected_branch}" "${url}" "${target}"
+                  status="$?"
+                  rm -f "${askpass}"
+                  return "${status}"
                 else
+                  echo "DX_GITHUB_TOKEN is not configured; trying unauthenticated dependency clone."
                   git clone --depth 1 --branch "${selected_branch}" "${url}" "${target}"
                 fi
               }
